@@ -648,8 +648,19 @@ async function executeTask(
             });
           },
         );
-        // Truncate responseText to prevent SQLite "string or blob too big" errors
-        // Pi transcripts can be 400MB+ which exceeds SQLite limits
+        /**
+         * Truncate responseText to prevent SQLite "string or blob too big" errors.
+         *
+         * Problem: Pi and other agents can generate session transcripts of 400MB+,
+         * containing full thinking processes, intermediate code, and protocol messages.
+         * SQLite has default limits of ~1GB per string/blob. Multiple large responses
+         * accumulate and eventually cause UPDATE operations to fail.
+         *
+         * Solution: Keep only the last 100KB of response (usually contains the
+         * final result). Full output is still streamed to logs via NodeOutput events.
+         *
+         * See: https://www.sqlite.org/limits.html (Maximum Length Of A String Or BLOB)
+         */
         const MAX_RESPONSE_SIZE = 100_000; // 100KB max per response
         const rawResponseText = (result as any).text ?? null;
         responseText = rawResponseText && rawResponseText.length > MAX_RESPONSE_SIZE
@@ -1022,7 +1033,18 @@ async function executeTask(
       timestampMs: nowMs(),
     });
   } catch (err) {
-    // Truncate errorJson to prevent SQLite size errors (err may contain large stack traces)
+    /**
+     * Truncate errorJson to prevent SQLite size errors.
+     *
+     * Error objects can contain massive stack traces, especially when:
+     * - Agent tools fail repeatedly
+     * - Network errors include full request/response bodies
+     * - Nested errors aggregate parent stack traces
+     *
+     * We keep the first 100KB which typically contains the error message
+     * and start of the relevant stack trace. The full error is still
+     * available in the logs streamed via NodeOutput events.
+     */
     let errorJson = JSON.stringify(errorToJson(err));
     if (errorJson.length > MAX_RESPONSE_SIZE) {
       errorJson = errorJson.slice(0, MAX_RESPONSE_SIZE) + `...[TRUNCATED: was ${errorJson.length} chars]`;

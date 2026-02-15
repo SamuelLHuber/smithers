@@ -248,6 +248,25 @@ Crash at any point → resume from last persisted step.
 
 ---
 
+## Storage Limits & Truncation
+
+Smithers stores agent responses in SQLite. To prevent "string or blob too big" errors when agents generate large outputs (e.g., Pi transcripts can reach 400MB+), the following fields are automatically truncated:
+
+| Field | Max Size | Behavior |
+|-------|----------|----------|
+| `responseText` | 100KB | Keeps last 100KB (usually contains final result) |
+| `errorJson` | 100KB | Keeps first 100KB (error message + start of stack) |
+
+When truncation occurs, a `[TRUNCATED: was X chars]` marker is appended. Full output is still streamed to logs via `NodeOutput` events.
+
+### Why This Matters
+
+SQLite has default limits of ~1GB per string/blob. When using agents like Pi that output session transcripts with full thinking process, multiple 400MB+ responses quickly exceed this limit, causing UPDATE operations to fail. The truncation ensures workflows complete successfully while preserving the most relevant output.
+
+To adjust limits, modify `MAX_RESPONSE_SIZE` in `src/engine/index.ts`.
+
+---
+
 ## When to Use Smithers
 
 * Multi-step AI workflows
