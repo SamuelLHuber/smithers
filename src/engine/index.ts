@@ -1022,10 +1022,15 @@ async function executeTask(
       timestampMs: nowMs(),
     });
   } catch (err) {
+    // Truncate errorJson to prevent SQLite size errors (err may contain large stack traces)
+    let errorJson = JSON.stringify(errorToJson(err));
+    if (errorJson.length > MAX_RESPONSE_SIZE) {
+      errorJson = errorJson.slice(0, MAX_RESPONSE_SIZE) + `...[TRUNCATED: was ${errorJson.length} chars]`;
+    }
     await adapter.updateAttempt(runId, desc.nodeId, desc.iteration, attemptNo, {
       state: "failed",
       finishedAtMs: nowMs(),
-      errorJson: JSON.stringify(errorToJson(err)),
+      errorJson,
       responseText,
     });
     await adapter.insertNode({
