@@ -648,7 +648,13 @@ async function executeTask(
             });
           },
         );
-        responseText = (result as any).text ?? null;
+        // Truncate responseText to prevent SQLite "string or blob too big" errors
+        // Pi transcripts can be 400MB+ which exceeds SQLite limits
+        const MAX_RESPONSE_SIZE = 100_000; // 100KB max per response
+        const rawResponseText = (result as any).text ?? null;
+        responseText = rawResponseText && rawResponseText.length > MAX_RESPONSE_SIZE
+          ? rawResponseText.slice(-MAX_RESPONSE_SIZE) + `\n[TRUNCATED: was ${rawResponseText.length} chars]`
+          : rawResponseText;
         let output: any;
 
         // Try structured output first (wrapping in try/catch since getters may throw)
