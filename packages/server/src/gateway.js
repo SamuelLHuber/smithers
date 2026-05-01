@@ -648,6 +648,7 @@ export function statusForRpcError(code) {
             return 404;
         case "AttemptNotFinished":
         case "Busy":
+        case "AlreadyDecided":
             return 409;
         case "DiffTooLarge":
         case "PayloadTooLarge":
@@ -3557,6 +3558,14 @@ export class Gateway {
                     return responseError(frame.id, "NOT_FOUND", `Run not found: ${runId}`);
                 }
                 const approval = await resolved.adapter.getApproval(runId, nodeId, iteration);
+                if (approval && approval.status !== "requested") {
+                    return responseError(frame.id, "AlreadyDecided", `Approval for ${nodeId} has already been decided`, {
+                        runId,
+                        nodeId,
+                        iteration,
+                        status: approval.status,
+                    });
+                }
                 const request = parseApprovalRequest(parseJson(typeof approval?.requestJson === "string" ? approval.requestJson : null), nodeId);
                 if (request.allowedUsers.length > 0 &&
                     (!connection.userId || !request.allowedUsers.includes(connection.userId))) {

@@ -574,6 +574,18 @@ describe("Gateway", () => {
             },
         });
         expect(decided.ok).toBe(true);
+        const duplicate = await approver.request("approvals.decide", {
+            runId,
+            nodeId: "pick-plan",
+            iteration: 0,
+            approved: true,
+            decision: {
+                selected: "balanced",
+                notes: "best fit",
+            },
+        });
+        expect(duplicate.ok).toBe(false);
+        expect(duplicate.error.code).toBe("AlreadyDecided");
         const completed = await operator.waitFor((message) => message.type === "event" &&
             message.event === "run.completed" &&
             message.payload.runId === runId);
