@@ -11,15 +11,84 @@ importers:
 
   .:
     devDependencies:
+      '@effect/cluster':
+        specifier: ^0.58.0
+        version: 0.58.0(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/sql@0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/workflow@0.18.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(effect@3.21.1))(effect@3.21.1)
+      '@effect/experimental':
+        specifier: ^0.60.0
+        version: 0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1)
+      '@effect/rpc':
+        specifier: ^0.75.0
+        version: 0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1)
+      '@effect/sql':
+        specifier: ^0.51.0
+        version: 0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1)
+      '@effect/workflow':
+        specifier: ^0.18.0
+        version: 0.18.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(effect@3.21.1)
       '@mdx-js/esbuild':
         specifier: ^3.1.1
         version: 3.1.1(esbuild@0.27.7)
+      '@smithers-orchestrator/agents':
+        specifier: workspace:*
+        version: link:packages/agents
+      '@smithers-orchestrator/cli':
+        specifier: workspace:*
+        version: link:apps/cli
       '@smithers-orchestrator/components':
         specifier: workspace:*
         version: link:packages/components
+      '@smithers-orchestrator/db':
+        specifier: workspace:*
+        version: link:packages/db
+      '@smithers-orchestrator/devtools':
+        specifier: workspace:*
+        version: link:packages/devtools
+      '@smithers-orchestrator/driver':
+        specifier: workspace:*
+        version: link:packages/driver
       '@smithers-orchestrator/engine':
         specifier: workspace:*
         version: link:packages/engine
+      '@smithers-orchestrator/errors':
+        specifier: workspace:*
+        version: link:packages/errors
+      '@smithers-orchestrator/graph':
+        specifier: workspace:*
+        version: link:packages/graph
+      '@smithers-orchestrator/memory':
+        specifier: workspace:*
+        version: link:packages/memory
+      '@smithers-orchestrator/observability':
+        specifier: workspace:*
+        version: link:apps/observability
+      '@smithers-orchestrator/openapi':
+        specifier: workspace:*
+        version: link:packages/openapi
+      '@smithers-orchestrator/protocol':
+        specifier: workspace:*
+        version: link:packages/protocol
+      '@smithers-orchestrator/react-reconciler':
+        specifier: workspace:*
+        version: link:packages/react-reconciler
+      '@smithers-orchestrator/sandbox':
+        specifier: workspace:*
+        version: link:packages/sandbox
+      '@smithers-orchestrator/scheduler':
+        specifier: workspace:*
+        version: link:packages/scheduler
+      '@smithers-orchestrator/scorers':
+        specifier: workspace:*
+        version: link:packages/scorers
+      '@smithers-orchestrator/server':
+        specifier: workspace:*
+        version: link:packages/server
+      '@smithers-orchestrator/time-travel':
+        specifier: workspace:*
+        version: link:packages/time-travel
+      '@smithers-orchestrator/vcs':
+        specifier: workspace:*
+        version: link:packages/vcs
       '@tanstack/react-query':
         specifier: ^5.99.1
         version: 5.99.1(react@19.2.5)
@@ -47,6 +116,15 @@ importers:
       bun-types:
         specifier: ^1.3.12
         version: 1.3.13
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(better-sqlite3@11.10.0)(bun-types@1.3.13)
+      effect:
+        specifier: 3.21.1
+        version: 3.21.1
       oxlint:
         specifier: ^1.60.0
         version: 1.60.0
@@ -68,6 +146,9 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      yaml:
+        specifier: ^2.8.1
+        version: 2.8.3
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -208,6 +289,24 @@ importers:
       '@effect/platform-bun':
         specifier: ^0.89.0
         version: 0.89.0(@effect/cluster@0.58.0(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/sql@0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/workflow@0.18.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/sql@0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(effect@3.21.1)
+      '@smithers-orchestrator/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
+      '@smithers-orchestrator/driver':
+        specifier: workspace:*
+        version: link:../../packages/driver
+      '@smithers-orchestrator/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
+      '@smithers-orchestrator/openapi':
+        specifier: workspace:*
+        version: link:../../packages/openapi
+      '@smithers-orchestrator/scorers':
+        specifier: workspace:*
+        version: link:../../packages/scorers
+      '@smithers-orchestrator/time-travel':
+        specifier: workspace:*
+        version: link:../../packages/time-travel
       effect:
         specifier: 3.21.1
         version: 3.21.1
@@ -387,12 +486,18 @@ importers:
       '@smithers-orchestrator/graph':
         specifier: workspace:*
         version: link:../graph
+      '@smithers-orchestrator/memory':
+        specifier: workspace:*
+        version: link:../memory
       '@smithers-orchestrator/observability':
         specifier: workspace:*
         version: link:../../apps/observability
       '@smithers-orchestrator/scheduler':
         specifier: workspace:*
         version: link:../scheduler
+      '@smithers-orchestrator/scorers':
+        specifier: workspace:*
+        version: link:../scorers
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(better-sqlite3@11.10.0)(bun-types@1.3.13)
@@ -568,6 +673,9 @@ importers:
 
   packages/graph:
     dependencies:
+      '@smithers-orchestrator/agents':
+        specifier: workspace:*
+        version: link:../agents
       '@smithers-orchestrator/errors':
         specifier: workspace:*
         version: link:../errors
@@ -760,12 +868,18 @@ importers:
       '@effect/rpc':
         specifier: ^0.75.0
         version: 0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1)
+      '@smithers-orchestrator/components':
+        specifier: workspace:*
+        version: link:../components
       '@smithers-orchestrator/db':
         specifier: workspace:*
         version: link:../db
       '@smithers-orchestrator/driver':
         specifier: workspace:*
         version: link:../driver
+      '@smithers-orchestrator/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@smithers-orchestrator/errors':
         specifier: workspace:*
         version: link:../errors
@@ -920,9 +1034,18 @@ importers:
 
   packages/smithers:
     dependencies:
+      '@mariozechner/pi-tui':
+        specifier: ^0.70.2
+        version: 0.70.2
       '@mdx-js/esbuild':
         specifier: ^3.1.1
         version: 3.1.1(esbuild@0.27.7)
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@4.3.6)
+      '@sinclair/typebox':
+        specifier: ^0.34.49
+        version: 0.34.49
       '@smithers-orchestrator/agents':
         specifier: workspace:*
         version: link:../agents
