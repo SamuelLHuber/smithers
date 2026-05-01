@@ -335,6 +335,13 @@ describe("streamDevTools RPC", () => {
     });
     expect(seqFuture.ok).toBe(false);
     expect(seqFuture.error.code).toBe("SeqOutOfRange");
+    const seqConflict = await client.request("streamDevTools", {
+      runId: "run-stream-2",
+      fromSeq: 1,
+      afterSeq: 0,
+    });
+    expect(seqConflict.ok).toBe(false);
+    expect(seqConflict.error.code).toBe("SeqOutOfRange");
     await client.close();
   });
 

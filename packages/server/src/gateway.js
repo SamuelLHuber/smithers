@@ -3230,6 +3230,12 @@ export class Gateway {
                     this.recordDevToolsSubscribeAttempt("error");
                     return responseError(frame.id, "InvalidRunId", "runId is required");
                 }
+                if (typeof params.fromSeq === "number" &&
+                    typeof params.afterSeq === "number" &&
+                    params.fromSeq !== params.afterSeq) {
+                    this.recordDevToolsSubscribeAttempt("error");
+                    return responseError(frame.id, "SeqOutOfRange", "fromSeq and afterSeq must match when both are provided");
+                }
                 const fromSeq = typeof params.fromSeq === "number" ? params.fromSeq : params.afterSeq;
                 const streamId = randomUUID();
                 try {
