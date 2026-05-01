@@ -1,1 +1,3 @@
-export type { OutputSnapshot } from "@smithers-orchestrator/driver/OutputSnapshot";
+import type { OutputSnapshot as DriverOutputSnapshot } from "@smithers-orchestrator/driver/OutputSnapshot";
+
+export type OutputSnapshot = DriverOutputSnapshot;
