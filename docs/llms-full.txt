@@ -61,6 +61,7 @@ export default smithers((ctx) => (
   </Workflow>
 ));
 ```
+
 Run it:
 
 ```bash
@@ -1552,63 +1553,6 @@ export default smithers((ctx) => {
 
 ---
 
-## <LoopUntilScored>
-
-> Re-run children until the latest output's score crosses a threshold, or maxIterations is hit.
-
-```ts
-import { LoopUntilScored } from "smithers-orchestrator/components/LoopUntilScored";
-
-type LoopUntilScoredProps = {
-  idPrefix: string;
-  /** Latest score read by the caller from ctx. number → ready; null/undefined → pending. */
-  currentScore: number | null | undefined;
-  threshold: number;
-  maxIterations?: number;            // default 5
-  onMaxReached?: "fail" | "return-last"; // default "return-last"
-  onPending?: "continue" | "stop";   // default "continue"
-  children?: ReactNode;
-};
-```
-
-```tsx
-import { LoopUntilScored } from "smithers-orchestrator/components/LoopUntilScored";
-import { stakesToThreshold } from "smithers-orchestrator/components/extract-prompt";
-
-export default smithers((ctx) => {
-  const draft = ctx.outputMaybe(outputs.draft, { nodeId: "extract:draft" });
-  return (
-    <Workflow name="extract">
-      <LoopUntilScored
-        idPrefix="extract"
-        currentScore={draft?.score ?? null}
-        threshold={stakesToThreshold("high")}
-        maxIterations={10}
-      >
-        <Task id="extract:draft" output={outputs.draft} agent={agent}>
-          {/* prompt instructs the agent to self-score in its output */}
-        </Task>
-      </LoopUntilScored>
-    </Workflow>
-  );
-});
-```
-
-## Notes
-
-- The score is read from the **task's output** (the agent self-scores). This makes
-  gating synchronous with task completion — no engine change required.
-- For independent verification, attach an async LLM-judge scorer via the
-  `<Task scorers={...}>` prop. That score lands in `_smithers_scorers` for
-  telemetry and is **not** consulted for gating.
-- `currentScore = null | undefined` means "pending or missing." Default behavior
-  is `onPending: "continue"` — the loop runs another iteration and the next
-  task's output should populate the score.
-- `<LoopUntilScored>` is a thin wrapper around `<Loop>`. Caller resolves the
-  score from `ctx`; the component only computes `until` and forwards.
-
----
-
 ## <Approval>
 
 > Durable human approval; persists ApprovalDecision, selection, or ranking.
@@ -2547,119 +2491,6 @@ export default smithers(() => (
 
 - `score` drives convergence against `targetScore`.
 - A function `evaluator` renders as a compute task rather than an agent task.
-
----
-
-## <ExtractPrompt>
-
-> Resolve a workflow's prompt from a provided string, a cached entry, or an interactive Socratic extraction loop.
-
-```ts
-import { ExtractPrompt } from "smithers-orchestrator/components/extract-prompt";
-
-type ExtractPromptProps = {
-  idPrefix: string;
-  prompt?: string;            // if non-trivial, used directly (passthrough)
-  cached?: CachedPrompt;      // if present, used directly (cache hit)
-  output: OutputTarget;       // where the draft lands (use rctfPromptSchema)
-  agent: AgentLike | AgentLike[];
-  schema?: "rctf" | "prd" | "freeform";  // default "rctf"
-  stakes?: "high" | "low";    // resolves the threshold; default "low"
-  threshold?: number;         // overrides stakes
-  maxTurns?: number;          // default 10
-  currentScore?: number | null;          // caller passes ctx.latest(output)?.score
-  latestDraft?: RctfPromptOutput | null; // caller passes ctx.latest(output)
-  context?: string;
-  scorers?: ScorersMap;       // optional async observability scorers
-  passthroughId?: string;
-};
-```
-
-There is no separate `<ExactPrompt>` component. If you are looking for prompt
-resolution or prompt extraction, use `<ExtractPrompt>`.
-
-```tsx
-import {
-  ExtractPrompt,
-  MarkdownPromptCache,
-  rctfPromptSchema,
-} from "smithers-orchestrator/components/extract-prompt";
-
-const cache = new MarkdownPromptCache();
-
-const { Workflow, smithers, outputs } = createSmithers({
-  input: z.object({
-    prompt: z.string().nullable().default(null),
-    cacheKey: z.string().nullable().default(null),
-    stakes: z.enum(["high", "low"]).default("low"),
-  }),
-  draft: rctfPromptSchema,
-});
-
-export default smithers((ctx) => {
-  const cached = ctx.input.cacheKey ? cache.getSync(ctx.input.cacheKey) : undefined;
-  const latest = ctx.latest("draft", "my-flow:extract:draft") as RctfPromptOutput | null;
-
-  if (latest?.resolved && ctx.input.cacheKey) {
-    cache.setSync(ctx.input.cacheKey, /* ... build CachedPrompt from latest ... */);
-  }
-
-  return (
-    <Workflow name="my-flow">
-      <ExtractPrompt
-        idPrefix="my-flow"
-        prompt={ctx.input.prompt ?? undefined}
-        cached={cached}
-        output={outputs.draft}
-        agent={agents.smart}
-        stakes={ctx.input.stakes}
-        currentScore={latest?.score ?? null}
-        latestDraft={latest}
-      />
-    </Workflow>
-  );
-});
-```
-
-## Three modes
-
-1. **Passthrough** — `prompt` is provided and ≥ 32 chars. Emits a static-output
-   task with `score: 1.0` and `resolved: true`. No agent invoked.
-2. **Cache hit** — caller resolved a `cached` entry by key. Same passthrough behavior,
-   marked `source: "cache"`.
-3. **Extraction** — wraps `<LoopUntilScored>` around the drafter task. The drafter
-   uses the R-C-T-F backbone, picks one Socratic principle per turn, asks the user
-   via `bun .smithers/scripts/ask-user.ts`, self-scores, and sets `resolved: true`
-   when ready.
-
-## Cache I/O is the caller's responsibility
-
-The component is pure — no side effects in JSX. Caller does cache `getSync` /
-`setSync` from inside the smithers `(ctx) =>` function. See the example above.
-
-Drivers shipped:
-- `MarkdownPromptCache` (default): `.smithers/cache/prompts/{slug}.md` with YAML frontmatter
-- `SqlitePromptCache`: opt-in single-table store via `bun:sqlite`
-- `MemoryPromptCache`: for tests
-
-## Stakes
-
-- `high` → threshold 1.0 (every R-C-T-F slot must be strongly filled)
-- `low`  → threshold 0.7
-
-Override via the `threshold` prop. Stakes is for callers who don't want to
-remember exact numbers.
-
-## Override semantics
-
-The human always has the final word. If the agent's score is below threshold
-and the human types "ship it" via the ask-user CLI, the agent sets:
-
-- `resolved: true`
-- `overridden: true`
-- `overrideReason: "<verbatim>"`
-
-This is recorded in the cache so it can be audited later.
 
 ---
 
@@ -4154,6 +3985,8 @@ type ServerOptions = {
   maxBodyBytes?: number;
   rootDir?: string;
   allowNetwork?: boolean;
+  headersTimeout?: number;
+  requestTimeout?: number;
 };
 
 type ServeOptions = {
@@ -4183,6 +4016,9 @@ type GatewayOptions = {
   maxBodyBytes?: number;
   maxPayload?: number;
   maxConnections?: number;
+  eventWindowSize?: number;
+  headersTimeout?: number;
+  requestTimeout?: number;
 };
 
 // =============================================================================
@@ -5364,7 +5200,6 @@ Other patterns:
 - [Debugging](/guides/debugging) -- diagnosing workflow issues.
 
 
-
 ===============================================================================
 
 # Smithers Memory
@@ -5460,7 +5295,6 @@ bunx smithers-orchestrator memory recall "auth bugs" -w workflow.tsx --top-k 10
 This material is now in the opt-in [`/llms-memory.txt`](/llms-memory.txt) fragment.
 
 
-
 ===============================================================================
 
 # Smithers OpenAPI Tools
@@ -5549,7 +5383,6 @@ Each tool call emits an `OpenApiToolCalled` event with `operationId`, `method`, 
 This material is now in the opt-in [`/llms-openapi.txt`](/llms-openapi.txt) fragment.
 
 
-
 ===============================================================================
 
 # Smithers Observability
@@ -5595,10 +5428,12 @@ type ServerOptions = {
   maxBodyBytes?: number;      // default 1_048_576
   rootDir?: string;           // sandbox root for workflow paths and tools
   allowNetwork?: boolean;     // default false; allows network in `bash`
+  headersTimeout?: number;    // default 30_000
+  requestTimeout?: number;    // default 60_000
 };
 ```
 
-`startServer` returns a listening `http.Server`.
+`startServer` returns a listening `http.Server`. `headersTimeout` and `requestTimeout` are applied to that server to bound slow header/body uploads.
 
 ## API Routes (TOON)
 
@@ -5883,6 +5718,8 @@ curl http://localhost:8080/health
 
 `Gateway` is Smithers' headless control plane. Reach for it (instead of [`startServer()`](/integrations/server)) when long-lived clients — bots, dashboards, schedulers — need to authenticate once, stream events over WebSocket, decide [approvals](/concepts/approvals), inject [signals](/runtime/events), and manage cron schedules across many registered workflows.
 
+This page covers the multi-workflow Gateway control plane. The Hono-based surface is [Serve Mode](/integrations/serve), exposed through `createServeApp()` and `smithers up --serve`; it is the single-workflow HTTP app and is separate from the Gateway WebSocket/RPC runtime.
+
 ## Quick start
 
 ```tsx
@@ -5919,39 +5756,57 @@ ws.onopen = () => ws.send(JSON.stringify({
   type: "req",
   id: "c1",
   method: "connect",
-  params: { minProtocol: 1, maxProtocol: 1, auth: { token: "operator-token" } },
+  params: {
+    minProtocol: 1,
+    maxProtocol: 1,
+    client: { name: "docs-example", version: "1.0.0" },
+    auth: { token: "operator-token" },
+  },
 }));
 ```
 
 ## RPC methods (TOON)
 
 ```toon
-rpc[22]{method,params,returns,scopes}:
-  health,-,protocol/features/uptimeMs,read
-  runs.list,limit?/status?,Recent runs,read
-  runs.get,runId,Run row + node summary,read
-  runs.create,workflow/input?/runId?,{runId/workflow},execute
-  runs.cancel,runId,{runId/status:cancelling},execute
-  runs.rerun,runId/newRunId?,{runId/workflow},execute
-  runs.diff,leftRunId/rightRunId,Snapshot diff,read
-  frames.list,runId/limit?/afterFrameNo?,Render frames,read
-  frames.get,runId/frameNo?,One frame (latest if omitted),read
-  attempts.list,runId/nodeId?/iteration?,Attempt rows,read
-  attempts.get,runId/nodeId/iteration/attempt,One attempt,read
-  getDevToolsSnapshot,runId/frameNo?,Versioned DevToolsSnapshot,read
-  streamDevTools,runId/fromSeq?,{streamId/runId/fromSeq} + devtools.event frames,read
-  getNodeOutput,runId/nodeId/iteration,NodeOutputResponse,read
-  jumpToFrame,runId/frameNo/confirm:true,JumpResult (destructive; owner or admin),execute
-  approvals.list,-,Pending approvals + metadata,read
-  approvals.decide,runId/nodeId/approved/iteration?/note?/decision?,{runId/nodeId/iteration/approved},approve
-  signals.send,runId/signalName/data?/correlationId?,Delivery metadata,execute
-  cron.list,-,Cron rows,read
-  cron.add,workflow/pattern/cronId?/enabled?,Created cron row,admin
-  cron.remove,cronId,{cronId/removed:true},admin
-  cron.trigger,cronId or workflow/input?,{runId/workflow},execute
+rpc[17]{method,params,returns,scope,transport}:
+  launchRun,workflow/input?/options.runId?/options.idempotencyKey?,{runId/workflow},run:write,http+websocket
+  resumeRun,runId/options.force?,{runId/status},run:write,http+websocket
+  cancelRun,runId,{runId/status:cancelling},run:write,http+websocket
+  hijackRun,runId/options?,{runId/status:hijack-ready/sessionId},run:admin,http+websocket
+  rewindRun,runId/frameNo/confirm:true,JumpResult,run:admin,http+websocket
+  submitApproval,runId/nodeId/iteration?/decision,{runId/nodeId/iteration/approved},approval:submit,http+websocket
+  submitSignal,runId/correlationKey/payload?/signalName?,Delivery metadata,signal:submit,http+websocket
+  getRun,runId,RunStateView,run:read,http+websocket
+  listRuns,filter.status?/filter.limit?,Run summaries,run:read,http+websocket
+  streamRunEvents,runId/afterSeq?,{streamId/runId/afterSeq/currentSeq},run:read,websocket
+  streamDevTools,runId/afterSeq?,{streamId/runId/afterSeq} + devtools.event frames,observability:read,websocket
+  getNodeOutput,runId/nodeId/iteration?,NodeOutputResponse,run:read,http+websocket
+  getNodeDiff,runId/nodeId/iteration?,Node diff response,run:read,http+websocket
+  cronList,filter.workflow?,Cron rows,cron:read,http+websocket
+  cronCreate,workflow/pattern/cronId?/enabled?,Created cron row,cron:write,http+websocket
+  cronDelete,cronId,{cronId/removed},cron:write,http+websocket
+  cronRun,cronId? or workflow/input?,{runId/workflow},cron:write,http+websocket
 ```
 
-### `jumpToFrame` (destructive rewind)
+`health` remains available as a utility RPC and `GET /health` is available without auth. The legacy method names are still accepted for compatibility (`runs.create`, `runs.get`, `runs.list`, `runs.cancel`, `runs.rerun`, `runs.diff`, `frames.list`, `frames.get`, `attempts.list`, `attempts.get`, `approvals.list`, `approvals.decide`, `signals.send`, `cron.list`, `cron.add`, `cron.remove`, `cron.trigger`, `getDevToolsSnapshot`, `jumpToFrame`, `devtools.jumpToFrame`, `devtools.getNodeOutput`, `devtools.getNodeDiff`), but new clients should use the v1 names above.
+
+### Scopes
+
+```toon
+scopes[8]{scope,allows}:
+  run:read,Read run state/lists/event streams/node output/node diffs
+  run:write,Launch/resume/cancel runs; implies run:read
+  run:admin,Hijack or rewind runs; implies run:write and run:read
+  approval:submit,Submit approval decisions
+  signal:submit,Submit workflow signals
+  cron:read,List cron schedules
+  cron:write,Create/delete/trigger cron schedules; implies cron:read
+  observability:read,Read DevTools and other observability streams
+```
+
+`*` grants every scope. Exact method grants such as `launchRun` also work. Legacy wildcard method grants such as `cron.*` continue to match legacy method names; typed scopes are the contract to use for new integrations. Legacy ranked grants (`read`, `execute`, `approve`, `admin`) are accepted so older tokens keep working.
+
+### `rewindRun` (destructive rewind)
 
 Rewinds a run to a prior frame and makes it resumable from that point.
 This is destructive: it truncates frames, attempts, output rows, and
@@ -5959,14 +5814,16 @@ diff-cache entries beyond the target; reverts JJ sandboxes; marks the
 run `running` again; and emits a `TimeTravelJumped` event so
 `streamDevTools` subscribers rebaseline.
 
-Caller identity is authorized per-request: the connection must be the
-run owner (`userId` matches `ownerId`) **or** have `role: "admin"`. The
-scope requirement is `execute` only — scope alone never grants access.
+Caller identity is authorized per-request: the connection must have
+`run:admin` scope and must also be the run owner (`userId` matches
+`ownerId`) or have `role: "admin"`. Scope alone never grants access.
+The legacy aliases `jumpToFrame` and `devtools.jumpToFrame` route to
+`rewindRun`.
 
 Request:
 
 ```ts
-type JumpToFrameParams = {
+type RewindRunRequest = {
   runId: string;     // /^[a-z0-9_-]{1,64}$/
   frameNo: number;   // 0 <= frameNo <= latestFrameNo
   confirm: true;     // must be literal true
@@ -5987,8 +5844,8 @@ type JumpResult = {
 };
 ```
 
-Also published as a `devtools.event` (after the DB commit) with
-`{ type: "TimeTravelJumped", runId, fromFrameNo, toFrameNo, timestampMs, caller }`.
+Also broadcast after the DB commit as `run.time_travel_jumped` with
+`{ runId, fromFrameNo, toFrameNo, timestampMs, caller }`.
 
 Quota: 10 rewinds per run per caller per hour (default window). Exceeded
 → `RateLimited`.
@@ -6015,6 +5872,8 @@ An in-progress row is inserted before any mutation and updated in place
 on completion; startup recovery flips any leftover `in_progress` rows to
 `partial`.
 
+### Node output
+
 `getNodeOutput` returns the DevTools Output-tab payload for a single task iteration:
 
 ```ts
@@ -6037,36 +5896,35 @@ type OutputSchemaDescriptor = {
 };
 ```
 
-Scopes are ranked `read` < `execute` < `approve` < `admin`; higher levels imply lower ones. Scopes can also be exact method names (`runs.create`) or wildcards (`runs.*`, `*`).
+### Error codes
 
-### DevTools error codes
+Gateway v1 RPC errors use stable code strings and HTTP status mappings:
 
-Every DevTools RPC returns one of these typed error codes.
+```toon
+errors[18]{code,http}:
+  InvalidRequest,400
+  InvalidInput,400
+  Unauthorized,401
+  Forbidden,403
+  RunNotFound,404
+  NodeNotFound,404
+  IterationNotFound,404
+  NodeHasNoOutput,404
+  FrameOutOfRange,400
+  SeqOutOfRange,400
+  Busy,409
+  RateLimited,429
+  PayloadTooLarge,413
+  BackpressureDisconnect,429
+  UnsupportedSandbox,501
+  VcsError,500
+  RewindFailed,500
+  Internal,500
+```
 
-| Code                    | Meaning                                                            | HTTP  |
-| ----------------------- | ------------------------------------------------------------------ | ----- |
-| `InvalidRunId`          | `runId` fails `/^[a-z0-9_-]{1,64}$/`.                              | `400` |
-| `InvalidNodeId`         | `nodeId` fails validator.                                          | `400` |
-| `InvalidIteration`      | `iteration` is not a non-negative integer.                         | `400` |
-| `InvalidDelta`          | `applyDelta` rejected a malformed or mismatched delta.             | `400` |
-| `InvalidFrameNo`        | `frameNo` is not a non-negative i32 integer.                       | `400` |
-| `ConfirmationRequired`  | `jumpToFrame` without `confirm: true`.                             | `400` |
-| `FrameOutOfRange`       | `frameNo` < 0 or > latest.                                         | `400` |
-| `SeqOutOfRange`         | `fromSeq` is in the future relative to current seq.                | `400` |
-| `Unauthorized`          | Auth failed or connection is not subscribed to the requested run.  | `401` |
-| `RunNotFound`           | `runId` does not exist.                                            | `404` |
-| `NodeNotFound`          | `nodeId` does not exist on the run.                                | `404` |
-| `IterationNotFound`     | `iteration` does not exist for the node.                           | `404` |
-| `NodeHasNoOutput`       | The task ran but produced no output row.                           | `404` |
-| `Busy`                  | Another `jumpToFrame` is already running for this run.             | `409` |
-| `PayloadTooLarge`       | Response exceeds the gateway's outbound byte cap.                  | `413` |
-| `BackpressureDisconnect`| Subscriber's outbound queue exceeded 1000 events; stream torn down.| `429` |
-| `RateLimited`           | `jumpToFrame` quota exceeded (default 10/run/caller/hour).         | `429` |
-| `SchemaConversionError` | Internal: output row schema did not convert.                       | `500` |
-| `MalformedOutputRow`    | Internal: stored output row failed to deserialize.                 | `500` |
-| `VcsError`              | `jumpToFrame` failed to revert a sandbox; transaction rolled back. | `500` |
-| `RewindFailed`          | `jumpToFrame` rollback was partial; run marked `needs_attention`.  | `500` |
-| `UnsupportedSandbox`    | `jumpToFrame` could not resolve a rewind pointer for a sandbox.    | `501` |
+Some legacy DevTools aliases still surface older validation names such as
+`InvalidRunId`, `InvalidFrameNo`, or `ConfirmationRequired`. Treat those as
+legacy aliases for the matching v1 validation failure.
 
 ### Versioned wire shapes
 
@@ -6135,9 +5993,9 @@ Three frame types share the same socket:
 - `res`  — `{ type: "res", id, ok, payload?, error? }` from server, correlated by `id`.
 - `event`— `{ type: "event", event, payload?, seq, stateVersion }` server-pushed; `seq` is per connection, `stateVersion` is global.
 
-Handshake: on connect the server immediately pushes `connect.challenge` (`{ nonce, ts }`). The client replies with a `connect` request carrying `minProtocol`, `maxProtocol`, optional `client` metadata, `auth`, and an optional `subscribe: string[]` to filter events by `runId`. The server returns a `hello` payload (`protocol`, `features`, `policy.heartbeatMs`, `auth` with `sessionToken`/`role`/`scopes`/`userId`, `snapshot`).
+Handshake: on connect the server immediately pushes `connect.challenge` (`{ nonce, ts }`). The client replies with a `connect` request carrying `minProtocol`, `maxProtocol`, `client` metadata, `auth`, and an optional `subscribe: string[]` to filter events by `runId`. The server returns a `hello` payload (`protocol`, `features`, `policy.heartbeatMs`, `auth` with `sessionToken`/`role`/`scopes`/`userId`, `snapshot`).
 
-After `connect`, the gateway emits `tick` events every `heartbeatMs`. `runs.create`, `approvals.decide`, `signals.send`, and `cron.trigger` automatically subscribe the connection to the affected `runId`. Streamed event names: `connect.challenge`, `tick`, `node.started`, `node.finished`, `node.failed`, `task.output`, `task.heartbeat`, `approval.requested`, `approval.decided`, `approval.auto_approved`, `run.completed`, `cron.triggered`, `devtools.event`.
+After `connect`, the gateway emits `tick` events every `heartbeatMs`. `launchRun`, `submitApproval`, `submitSignal`, and `cronRun` automatically subscribe the connection to the affected `runId`. Streamed event names: `connect.challenge`, `tick`, `run.event`, `run.heartbeat`, `run.gap_resync`, `run.error`, `node.started`, `node.finished`, `node.failed`, `task.output`, `task.heartbeat`, `approval.requested`, `approval.decided`, `approval.auto_approved`, `run.time_travel_jumped`, `run.completed`, `cron.triggered`, `devtools.event`.
 
 For stateless callers, `POST /rpc` accepts the same body shape (`{ id, method, params }`) and returns the same `ResponseFrame`. Auth headers: `Authorization: Bearer <token>` or `x-smithers-key: <token>` (or trusted-proxy headers in trusted-proxy mode).
 
@@ -6151,6 +6009,11 @@ type GatewayOptions = {
   auth?: GatewayAuthConfig;
   defaults?: { cliAgentTools?: "all" | "explicit-only" };
   maxBodyBytes?: number;             // default 1_048_576 for POST /rpc
+  maxPayload?: number;               // default 1_048_576 for WebSocket frames
+  maxConnections?: number;           // default 1_000
+  eventWindowSize?: number;          // default 10_000 per-run replay frames
+  headersTimeout?: number;           // default 30_000
+  requestTimeout?: number;           // default 60_000
 };
 
 type GatewayAuthConfig =
@@ -6179,7 +6042,9 @@ type GatewayAuthConfig =
     };
 ```
 
-Runs started through the gateway expose `ctx.auth = { triggeredBy, role, scopes, createdAt }`. `<Approval>` may further restrict decisions with `allowedScopes` and `allowedUsers`, which the gateway enforces before recording `approvals.decide`.
+Runs started through the gateway expose `ctx.auth = { triggeredBy, role, scopes, createdAt }`. `<Approval>` may further restrict decisions with `allowedScopes` and `allowedUsers`, which the gateway enforces before accepting `submitApproval`.
+
+`headersTimeout` and `requestTimeout` are applied to the underlying Node HTTP server when `gateway.listen()` starts. Keep both below the corresponding reverse-proxy idle/read timeouts so slow clients are closed by Smithers first.
 
 ## Notes
 
@@ -6898,7 +6763,6 @@ Errors follow the structured envelope. Common codes:
 | `INVALID_INPUT` | Missing required field, failed validation, or ambiguous approval filter |
 | `WORKFLOW_MISSING_DEFAULT` | Workflow file has no default export |
 | `WORKFLOW_NOT_FOUND` | No workflow matches the given ID |
-
 
 
 ===============================================================================
@@ -7782,7 +7646,6 @@ bun run test
 ## Limitations
 
 Chat-provider integration lives in host applications, not this repo.
-
 
 
 ===============================================================================

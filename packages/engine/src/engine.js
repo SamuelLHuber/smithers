@@ -5,7 +5,7 @@ import { SmithersCtx } from "@smithers-orchestrator/driver/SmithersCtx";
 import { loadInput, loadOutputs } from "@smithers-orchestrator/db/snapshot";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
-import { selectOutputRow, validateOutput, validateExistingOutput, getAgentOutputSchema, describeSchemaShape, buildOutputRow, stripAutoColumns, } from "@smithers-orchestrator/db/output";
+import { selectOutputRow, validateOutput, validateExistingOutput, describeSchemaShape, buildOutputRow, stripAutoColumns, } from "@smithers-orchestrator/db/output";
 import { validateInput } from "@smithers-orchestrator/db/input";
 import { schemaSignature } from "@smithers-orchestrator/db/schema-signature";
 import { withSqliteWriteRetry } from "@smithers-orchestrator/db/write-retry";
@@ -23,7 +23,6 @@ import { EventBus } from "./events.js";
 import { getJjPointer, runJj, workspaceAdd } from "@smithers-orchestrator/vcs/jj";
 import { findVcsRoot } from "@smithers-orchestrator/vcs/find-root";
 import * as BunContext from "@effect/platform-bun/BunContext";
-import { z } from "zod";
 import { eq, getTableName } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm/utils";
 import { Chunk, Duration, Effect, Fiber, Metric, Queue, Schedule } from "effect";
@@ -447,16 +446,6 @@ function prependToolResumeWarningMessage(prompt, warningMessage) {
         return prompt;
     }
     return `${warningMessage}\n\n${prompt}`;
-}
-/**
- * @param {HijackCompletion} completion
- * @returns {Error}
- */
-function buildHijackAbortError(completion) {
-    const err = makeAbortError(`Hijack requested for ${completion.engine}`);
-    err.code = "RUN_HIJACKED";
-    err.hijack = completion;
-    return err;
 }
 /**
  * @param {string} cwd
@@ -2792,8 +2781,18 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                 const heartbeatCheckpointUsable = !currentAgentEngine ||
                     !heartbeatCheckpointEngine ||
                     heartbeatCheckpointEngine === currentAgentEngine;
-                const checkpointResumeSession = heartbeatCheckpointUsable &&
-                    typeof heartbeatCheckpoint?.agentResume === "string"
+                // If the most recent failed attempt asked us to drop the resume
+                // session (e.g. kimi crashed mid-stream and reported `kimi -r
+                // <uuid>`; that session is now corrupt and re-resuming it just
+                // reproduces the crash), don't reuse the captured agentResume
+                // from the heartbeat. Forces the agent to start a fresh
+                // session on the next attempt.
+                const lastFailedAttempt = attempts.find((a) => a.state === "failed");
+                const lastFailedMeta = parseAttemptMetaJson(lastFailedAttempt?.metaJson);
+                const discardResumeSession = lastFailedMeta?.discardResumeSession === true;
+                const checkpointResumeSession = !discardResumeSession
+                    && heartbeatCheckpointUsable
+                    && typeof heartbeatCheckpoint?.agentResume === "string"
                     ? heartbeatCheckpoint.agentResume
                     : undefined;
                 const checkpointResumeMessages = heartbeatCheckpointUsable
@@ -3027,37 +3026,40 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                 // Use fallback agent on retry attempts when available
                 let result;
                 try {
-                    result = await Effect.runPromise(withSmithersSpan(smithersSpanNames.agent, Effect.promise(() => {
-                        const agentCall = guidedResumeMessages?.length
-                            ? {
-                                messages: guidedResumeMessages,
-                            }
-                            : {
-                                prompt: effectivePrompt,
-                            };
-                        return effectiveAgent.generate({
-                            options: undefined,
-                            abortSignal: taskSignal,
-                            ...agentCall,
-                            resumeSession,
-                            lastHeartbeat: previousHeartbeat,
-                            rootDir: taskRoot,
-                            maxOutputBytes: toolConfig.maxOutputBytes,
-                            timeout: desc.timeoutMs
-                                ? { totalMs: desc.timeoutMs }
-                                : undefined,
-                            onStdout: (text) => {
-                                recordInternalHeartbeat();
-                                emitOutput(text, "stdout");
-                            },
-                            onStderr: (text) => {
-                                recordInternalHeartbeat();
-                                emitOutput(text, "stderr");
-                            },
-                            onEvent: handleAgentEvent,
-                            onStepFinish: handleSdkStepFinish,
-                            outputSchema: desc.outputSchema,
-                        });
+                    result = await Effect.runPromise(withSmithersSpan(smithersSpanNames.agent, Effect.tryPromise({
+                        try: () => {
+                            const agentCall = guidedResumeMessages?.length
+                                ? {
+                                    messages: guidedResumeMessages,
+                                }
+                                : {
+                                    prompt: effectivePrompt,
+                                };
+                            return effectiveAgent.generate({
+                                options: undefined,
+                                abortSignal: taskSignal,
+                                ...agentCall,
+                                resumeSession,
+                                lastHeartbeat: previousHeartbeat,
+                                rootDir: taskRoot,
+                                maxOutputBytes: toolConfig.maxOutputBytes,
+                                timeout: desc.timeoutMs
+                                    ? { totalMs: desc.timeoutMs }
+                                    : undefined,
+                                onStdout: (text) => {
+                                    recordInternalHeartbeat();
+                                    emitOutput(text, "stdout");
+                                },
+                                onStderr: (text) => {
+                                    recordInternalHeartbeat();
+                                    emitOutput(text, "stderr");
+                                },
+                                onEvent: handleAgentEvent,
+                                onStepFinish: handleSdkStepFinish,
+                                outputSchema: desc.outputSchema,
+                            });
+                        },
+                        catch: (error) => error,
                     }), {
                         ...taskSpanContext,
                         agent: attemptMeta.agentId ??
@@ -3357,8 +3359,6 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     }
                     if (output === undefined) {
                         // Debug: log what we have
-                        const debugSteps = result.steps ?? [];
-                        const stepTexts = debugSteps.map((s, i) => `Step ${i}: ${(s?.text ?? "").slice(0, 200)}`);
                         const finishReason = result.finishReason ?? "unknown";
                         logDebug("agent response did not contain valid JSON output", {
                             runId,
@@ -3385,7 +3385,7 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     try {
                         payload = JSON.parse(output);
                     }
-                    catch (e) {
+                    catch  {
                         throw new SmithersError("INVALID_OUTPUT", `Failed to parse agent output as JSON. Output starts with: "${output.slice(0, 100)}"`);
                     }
                 }
@@ -3747,6 +3747,19 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
             // @ts-ignore
             effectiveError.details.failureRetryable === false) {
             attemptMeta.failureRetryable = false;
+        }
+        // Honour `discardResumeSession: true` from agent-side errors (e.g. kimi
+        // session-loss). The next attempt's resumeSession resolution checks
+        // attemptMeta.discardResumeSession on the most recent failed attempt
+        // and clears the captured agentResume so the agent starts fresh
+        // instead of redundantly trying to resume a corrupt session.
+        if (effectiveError &&
+            typeof effectiveError === "object" &&
+            // @ts-ignore — duck-type on SmithersError shape
+            effectiveError.details &&
+            // @ts-ignore
+            effectiveError.details.discardResumeSession === true) {
+            attemptMeta.discardResumeSession = true;
         }
         if (!heartbeatTimeoutError && (taskSignal.aborted || isAbortError(err))) {
             await waitForHeartbeatWriteDrain();

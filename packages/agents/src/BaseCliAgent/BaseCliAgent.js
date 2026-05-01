@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { Cause, Effect, Exit, Metric } from "effect";
 import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { logDebug, logInfo, logWarning } from "@smithers-orchestrator/observability/logging";
-import { agentDurationMs, agentErrorsTotal, agentInvocationsTotal, agentRetriesTotal, agentTokensTotal, toolOutputTruncatedTotal, } from "@smithers-orchestrator/observability/metrics";
+import { agentDurationMs, agentErrorsTotal, agentInvocationsTotal, agentRetriesTotal, agentTokensTotal, } from "@smithers-orchestrator/observability/metrics";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { launchDiagnostics, enrichReportWithErrorAnalysis, formatDiagnosticSummary } from "../diagnostics/index.js";
 import { extractPrompt } from "./extractPrompt.js";
@@ -16,6 +16,7 @@ import { buildGenerateResult } from "./buildGenerateResult.js";
 import { runCommandEffect } from "./runCommandEffect.js";
 /** @typedef {import("./AgentCliEvent.ts").AgentCliEvent} AgentCliEvent */
 
+/** @typedef {import("./AgentGenerateOptions.ts").AgentGenerateOptions} AgentGenerateOptions */
 /** @typedef {import("./BaseCliAgentOptions.ts").BaseCliAgentOptions} BaseCliAgentOptions */
 /** @typedef {import("./CliOutputInterpreter.ts").CliOutputInterpreter} CliOutputInterpreter */
 /** @typedef {import("./CliUsageInfo.ts").CliUsageInfo} CliUsageInfo */
@@ -38,29 +39,6 @@ import { runCommandEffect } from "./runCommandEffect.js";
  *   totalTokens?: number;
  * }} AgentTokenTotals
  */
-/**
- * Loosely-typed generation options. The AI SDK passes a dynamic shape here
- * (GenerateTextOptions / StreamTextOptions and provider-specific extensions)
- * so we keep this permissive but avoid raw `any`.
- * @typedef {{
- *   prompt?: unknown;
- *   messages?: unknown;
- *   timeout?: unknown;
- *   abortSignal?: AbortSignal;
- *   rootDir?: string;
- *   resumeSession?: string;
- *   maxOutputBytes?: number;
- *   onStdout?: (text: string) => void;
- *   onStderr?: (text: string) => void;
- *   onEvent?: (event: AgentCliEvent) => unknown;
- *   retry?: unknown;
- *   isRetry?: unknown;
- *   retryAttempt?: unknown;
- *   schemaRetry?: unknown;
- *   [key: string]: unknown;
- * }} AgentGenerateOptions
- */
-
 /**
  * @template A
  * @param {Effect.Effect<A, SmithersError, never>} effect
@@ -619,7 +597,7 @@ export class BaseCliAgent {
             const nonRetryablePatterns = [
                 { re: /\bLLM not set\b/i, hint: "the agent's model name is not present in the CLI's configured providers" },
                 { re: /\bLLM not supported\b/i, hint: "the agent's model is not supported by this CLI build" },
-                { re: /\bmodel\s+['\"]?[^'\"\s]+['\"]?\s+not found\b/i, hint: "the requested model is not registered with the CLI" },
+                { re: /\bmodel\s+['"]?[^'"\s]+['"]?\s+not found\b/i, hint: "the requested model is not registered with the CLI" },
                 { re: /\bunknown model\b/i, hint: "the requested model is not registered with the CLI" },
                 { re: /\b401\b[\s\S]{0,200}?(invalid[_\s-]?authentication|unauthorized|invalid[_\s-]?api[_\s-]?key)/i, hint: `the CLI's stored credentials are invalid or expired — re-authenticate (e.g. for kimi run \`kimi login\`)` },
                 { re: /\bAPI\s*Key\b[\s\S]{0,120}?(invalid|expired|may have expired)/i, hint: `the CLI's stored credentials are invalid or expired — re-authenticate (e.g. for kimi run \`kimi login\`)` },
@@ -805,7 +783,29 @@ export class BaseCliAgent {
                             result.stdout.trim() ||
                             `CLI exited with code ${result.exitCode}`;
                         const nonRetryable = classifyNonRetryableAgentError(errorText, commandSpec.command);
-                        return yield* Effect.fail(nonRetryable ?? new SmithersError("AGENT_CLI_ERROR", errorText));
+                        if (nonRetryable) {
+                            return yield* Effect.fail(nonRetryable);
+                        }
+                        // Detect kimi session-loss. Kimi crashes mid-stream and prints
+                        // `To resume this session: kimi -r <uuid>` to stderr (and often
+                        // also to the merged error text after the benign-stderr filter
+                        // strips the bare-line variant). The session itself is corrupt
+                        // — re-running with `--session <same-uuid>` deterministically
+                        // reproduces the same crash. Surface a typed error that tells
+                        // the engine retry path to DROP the broken session id and
+                        // start a fresh one on the next attempt.
+                        const rawStderr = result.stderr ?? "";
+                        const sessionLossMatch = rawStderr.match(/kimi -r ([0-9a-f-]{8,})/i)
+                            || errorText.match(/kimi -r ([0-9a-f-]{8,})/i);
+                        if (commandSpec.command === "kimi" && sessionLossMatch) {
+                            return yield* Effect.fail(new SmithersError("AGENT_SESSION_LOST", `Kimi session ${sessionLossMatch[1]} is broken; CLI exited ${result.exitCode}. Retry will start a fresh session.`, {
+                                failureRetryable: true,
+                                discardResumeSession: true,
+                                command: "kimi",
+                                kimiSessionId: sessionLossMatch[1],
+                            }));
+                        }
+                        return yield* Effect.fail(new SmithersError("AGENT_CLI_ERROR", errorText));
                     }
                 }
                 // Some CLIs may print extra banners to stdout. Allow individual agents

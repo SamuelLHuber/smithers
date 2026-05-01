@@ -46,7 +46,6 @@ const CORE_PAGES = [
   "components/parallel.mdx",
   "components/branch.mdx",
   "components/loop.mdx",
-  "components/loop-until-scored.mdx",
   "components/approval.mdx",
   "components/approval-gate.mdx",
   "components/escalation-chain.mdx",
@@ -65,7 +64,6 @@ const CORE_PAGES = [
   "components/worktree.mdx",
   "components/review-loop.mdx",
   "components/optimizer.mdx",
-  "components/extract-prompt.mdx",
   "components/content-pipeline.mdx",
   "components/drift-detector.mdx",
   "components/scan-fix-verify.mdx",
@@ -176,7 +174,7 @@ function renderManifest(name: string, pages: string[], header: string): string {
   let out = `# ${name}\n\n${header}\n\n---\n\n`;
   for (const p of pages) out += renderPage(p);
   // Trim trailing separator
-  return out.replace(/\n---\n\n$/, "\n");
+  return out.replace(/\n\n---\n\n$/, "\n");
 }
 
 // -----------------------------------------------------------------------------

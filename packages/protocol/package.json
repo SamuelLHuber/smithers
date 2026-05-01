@@ -9,7 +9,14 @@
       "types": "./src/index.d.ts"
     },
     "./errors": {
-      "types": "./src/index.d.ts"
+      "types": "./src/index.d.ts",
+      "import": "./src/errors/index.js",
+      "default": "./src/errors/index.js"
+    },
+    "./errors/index.js": {
+      "types": "./src/index.d.ts",
+      "import": "./src/errors/index.js",
+      "default": "./src/errors/index.js"
     },
     "./*": {
       "types": "./src/index.d.ts",
@@ -22,6 +29,7 @@
   ],
   "scripts": {
     "build": "tsup --dts-only",
+    "test": "bun test tests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

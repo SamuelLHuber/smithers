@@ -2,7 +2,7 @@ import { getTableName, sql } from "drizzle-orm";
 import { Effect, Exit, FiberId, Metric } from "effect";
 import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { getSqlMessageStorage } from "../sql-message-storage.js";
-import { alertsAcknowledgedTotal, alertsFiredTotal, dbQueryDuration, dbTransactionDuration, dbTransactionRetries, dbTransactionRollbacks, } from "@smithers-orchestrator/observability/metrics";
+import { alertsAcknowledgedTotal, alertsFiredTotal, dbQueryDuration, dbTransactionDuration, dbTransactionRollbacks, } from "@smithers-orchestrator/observability/metrics";
 import { assertOptionalStringMaxLength, assertPositiveFiniteNumber, } from "../input-bounds.js";
 import { FRAME_KEYFRAME_INTERVAL, applyFrameDeltaJson, encodeFrameDelta, normalizeFrameEncoding, serializeFrameDelta, } from "../frame-codec.js";
 import { getKeyColumns } from "../output.js";
@@ -64,7 +64,6 @@ import { alertsActive } from "@smithers-orchestrator/observability/metrics";
 
 
 const FRAME_XML_CACHE_MAX = 512;
-const RUN_HEARTBEAT_STALE_MS = 30_000;
 const RAW_QUERY_ALLOWED_PREFIX = /^(?:select|with|explain|values)\b/i;
 const RAW_QUERY_FORBIDDEN_KEYWORDS = /\b(?:drop|delete|insert|update|alter|create|attach|detach|pragma)\b/i;
 const ACTIVE_ALERT_STATUSES = new Set([
@@ -337,6 +336,73 @@ function runnableEffect(effect) {
     }
     return runnable;
 }
+/**
+ * @typedef {{ depth: number; ownerThread: string | null; tail: Promise<unknown> }} SqliteTransactionState
+ */
+/** @type {WeakMap<object, SqliteTransactionState>} */
+// Cross-adapter coordination: one sqlite connection cannot run overlapping BEGIN IMMEDIATE statements.
+const sqliteTransactionStateByClient = (() => {
+    const key = Symbol.for("smithers.sqliteTransactionStateByClient");
+    const registry = /** @type {Record<PropertyKey, unknown>} */ (globalThis);
+    const existing = registry[key];
+    if (existing instanceof WeakMap) {
+        return /** @type {WeakMap<object, SqliteTransactionState>} */ (existing);
+    }
+    const stateByClient = new WeakMap();
+    Object.defineProperty(globalThis, key, {
+        configurable: false,
+        enumerable: false,
+        value: stateByClient,
+    });
+    return stateByClient;
+})();
+/**
+ * @param {unknown} client
+ * @returns {object}
+ */
+function assertSqliteClientKey(client) {
+    if ((typeof client !== "object" && typeof client !== "function") ||
+        client === null) {
+        throw new Error("SmithersDb requires an object sqlite client for transaction coordination.");
+    }
+    return /** @type {object} */ (client);
+}
+/**
+ * @param {unknown} db
+ * @returns {object}
+ */
+function resolveSqliteClientKey(db) {
+    const source = /** @type {{ session?: { client?: unknown }; $client?: unknown }} */ (db);
+    return assertSqliteClientKey(source?.session?.client ?? source?.$client ?? db);
+}
+/**
+ * @param {unknown} client
+ * @returns {SqliteTransactionState}
+ */
+function getSqliteTransactionState(client) {
+    const key = assertSqliteClientKey(client);
+    let state = sqliteTransactionStateByClient.get(key);
+    if (!state) {
+        state = {
+            depth: 0,
+            ownerThread: null,
+            tail: Promise.resolve(),
+        };
+        sqliteTransactionStateByClient.set(key, state);
+    }
+    return state;
+}
+/**
+ * @param {unknown} db
+ * @returns {{ run: (sql: string) => unknown; query: (sql: string) => { run: (...args: unknown[]) => unknown; get: (...args: unknown[]) => Record<string, unknown> | null | undefined; all: () => Array<Record<string, unknown>> }; exec: (sql: string) => unknown; $client?: unknown }}
+ */
+function resolveSqliteTransactionClient(db) {
+    const candidate = /** @type {{ run?: unknown; query?: unknown; exec?: unknown; $client?: unknown }} */ (resolveSqliteClientKey(db));
+    if (typeof candidate.run !== "function") {
+        throw new Error("SmithersDb.withTransaction requires Bun SQLite client transaction primitives.");
+    }
+    return /** @type {{ run: (sql: string) => unknown; query: (sql: string) => { run: (...args: unknown[]) => unknown; get: (...args: unknown[]) => Record<string, unknown> | null | undefined; all: () => Array<Record<string, unknown>> }; exec: (sql: string) => unknown; $client?: unknown }} */ (candidate);
+}
 export class SmithersDb {
     /** @type {BunSQLiteDatabase<Record<string, unknown>>} */
     db;
@@ -433,8 +499,12 @@ export class SmithersDb {
    * @returns {boolean}
    */
     ownsActiveTransaction(currentFiberThread) {
-        return (this.transactionDepth > 0 &&
-            this.transactionOwnerThread === currentFiberThread);
+        const state = getSqliteTransactionState(resolveSqliteClientKey(this.db));
+        this.transactionDepth = state.depth;
+        this.transactionOwnerThread = state.ownerThread;
+        this.transactionTail = state.tail;
+        return (state.depth > 0 &&
+            state.ownerThread === currentFiberThread);
     }
     /**
    * @template A
@@ -508,11 +578,7 @@ export class SmithersDb {
     getSqliteTransactionClient() {
         return Effect.try({
             try: () => {
-                const candidate = this.db.session?.client ?? this.db.$client;
-                if (!candidate || typeof candidate.run !== "function") {
-                    throw new Error("SmithersDb.withTransaction requires Bun SQLite client transaction primitives.");
-                }
-                return candidate;
+                return resolveSqliteTransactionClient(this.db);
             },
             catch: (cause) => toSmithersError(cause, "resolve sqlite transaction client", {
                 code: "DB_WRITE_FAILED",
@@ -526,12 +592,14 @@ export class SmithersDb {
     acquireTransactionTurn() {
         return Effect.tryPromise({
             try: async () => {
+                const state = getSqliteTransactionState(resolveSqliteClientKey(this.db));
                 let release;
                 const gate = new Promise((resolve) => {
                     release = resolve;
                 });
-                const previous = this.transactionTail.catch(() => undefined);
-                this.transactionTail = previous.then(() => gate);
+                const previous = state.tail.catch(() => undefined);
+                state.tail = previous.then(() => gate);
+                this.transactionTail = state.tail;
                 await previous;
                 return release;
             },
@@ -560,6 +628,7 @@ export class SmithersDb {
                 }));
             }
             const releaseTurn = yield* self.acquireTransactionTurn();
+            const transactionState = getSqliteTransactionState(resolveSqliteClientKey(self.db));
             const start = performance.now();
             return yield* Effect.gen(function* () {
                 const client = yield* self.getSqliteTransactionClient();
@@ -586,8 +655,11 @@ export class SmithersDb {
                 yield* Effect.try({
                     try: () => {
                         client.run("BEGIN IMMEDIATE");
-                        self.transactionDepth += 1;
-                        self.transactionOwnerThread = currentFiberThread;
+                        transactionState.depth += 1;
+                        transactionState.ownerThread = currentFiberThread;
+                        self.transactionDepth = transactionState.depth;
+                        self.transactionOwnerThread = transactionState.ownerThread;
+                        self.transactionTail = transactionState.tail;
                     },
                     catch: (cause) => toSmithersError(cause, "begin sqlite transaction", {
                         code: "DB_WRITE_FAILED",
@@ -614,10 +686,13 @@ export class SmithersDb {
                 }
                 return operationExit.value;
             }).pipe(Effect.ensuring(Effect.gen(function* () {
-                self.transactionDepth = Math.max(0, self.transactionDepth - 1);
-                if (self.transactionDepth === 0) {
-                    self.transactionOwnerThread = null;
+                transactionState.depth = Math.max(0, transactionState.depth - 1);
+                if (transactionState.depth === 0) {
+                    transactionState.ownerThread = null;
                 }
+                self.transactionDepth = transactionState.depth;
+                self.transactionOwnerThread = transactionState.ownerThread;
+                self.transactionTail = transactionState.tail;
                 yield* Metric.update(dbTransactionDuration, performance.now() - start);
             }))).pipe(Effect.ensuring(Effect.sync(() => {
                 releaseTurn();
@@ -1577,10 +1652,10 @@ export class SmithersDb {
             if (existing?.seq !== undefined) {
                 return existing.seq;
             }
-            const client = self.db.$client;
-            if (!client ||
-                typeof client.exec !== "function" ||
-                typeof client.query !== "function") {
+            const client = /** @type {{ exec?: unknown; query?: unknown; run?: unknown }} */ (resolveSqliteClientKey(self.db));
+            if (typeof client.exec !== "function" ||
+                typeof client.query !== "function" ||
+                typeof client.run !== "function") {
                 const lastSeq = (yield* self.getLastSignalSeq(row.runId)) ?? -1;
                 const seq = lastSeq + 1;
                 yield* Effect.tryPromise({
@@ -1593,6 +1668,7 @@ export class SmithersDb {
                 });
                 return seq;
             }
+            const releaseTurn = yield* self.acquireTransactionTurn();
             return yield* Effect.try({
                 try: () => {
                     client.run("BEGIN IMMEDIATE");
@@ -1618,7 +1694,9 @@ export class SmithersDb {
                     }
                 },
                 catch: (cause) => toSmithersError(cause, "insert signal transaction"),
-            });
+            }).pipe(Effect.ensuring(Effect.sync(() => {
+                releaseTurn();
+            })));
         }), { label }).pipe(Effect.annotateLogs({
             runId: row.runId,
             signalName: row.signalName,
@@ -1738,10 +1816,10 @@ export class SmithersDb {
             if (existing?.seq !== undefined) {
                 return existing.seq;
             }
-            const client = self.db.$client;
-            if (!client ||
-                typeof client.exec !== "function" ||
-                typeof client.query !== "function") {
+            const client = /** @type {{ exec?: unknown; query?: unknown; run?: unknown }} */ (resolveSqliteClientKey(self.db));
+            if (typeof client.exec !== "function" ||
+                typeof client.query !== "function" ||
+                typeof client.run !== "function") {
                 const lastSeq = (yield* self.getLastEventSeq(row.runId)) ?? -1;
                 const seq = lastSeq + 1;
                 yield* Effect.tryPromise({
@@ -1750,6 +1828,7 @@ export class SmithersDb {
                 });
                 return seq;
             }
+            const releaseTurn = yield* self.acquireTransactionTurn();
             return yield* Effect.try({
                 try: () => {
                     client.run("BEGIN IMMEDIATE");
@@ -1775,7 +1854,9 @@ export class SmithersDb {
                     }
                 },
                 catch: (cause) => toSmithersError(cause, "insert event transaction"),
-            });
+            }).pipe(Effect.ensuring(Effect.sync(() => {
+                releaseTurn();
+            })));
         }), { label }).pipe(Effect.annotateLogs({ dbOperation: label }), Effect.withLogSpan(`db:${label}`)));
     }
     /**

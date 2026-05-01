@@ -4,7 +4,7 @@ description: Resolve a workflow's prompt from a provided string, a cached entry,
 ---
 
 ```ts
-import { ExtractPrompt } from "smithers-orchestrator/components/extract-prompt";
+import { ExtractPrompt } from "smithers-workflows/components/extract-prompt";
 
 type ExtractPromptProps = {
   idPrefix: string;
@@ -24,15 +24,12 @@ type ExtractPromptProps = {
 };
 ```
 
-There is no separate `<ExactPrompt>` component. If you are looking for prompt
-resolution or prompt extraction, use `<ExtractPrompt>`.
-
 ```tsx
 import {
   ExtractPrompt,
   MarkdownPromptCache,
   rctfPromptSchema,
-} from "smithers-orchestrator/components/extract-prompt";
+} from "smithers-workflows/components/extract-prompt";
 
 const cache = new MarkdownPromptCache();
 
