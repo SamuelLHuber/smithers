@@ -12,10 +12,6 @@ This will scaffold a `.smithers/` folder with common simple preconfigured workfl
 
 Use the `smithers` cli to work with smithers.
 
-## Gui/TUI
-
-We also have a macos app and iphone app for working with and monitoring your workflows. There is also a TUI. More information about this in coming days.
-
 ## Install
 
 Requires Bun ≥ 1.3.
@@ -102,6 +98,12 @@ smithers up workflow.tsx --hot
 Edit prompts, config, agent settings, or JSX structure while a run is executing. In-flight tasks finish with their original code; only newly scheduled tasks pick up changes.
 
 Output schema changes and database path changes require a restart.
+
+## Gui/TUI
+
+We also have a macos app and iphone app for working with and monitoring your workflows. There is also a TUI. More information about this in coming days.
+
+<img width="1300" height="760" alt="image" src="https://github.com/user-attachments/assets/ddafcaea-802e-45aa-a1fc-edc80af6e1da" />
 
 ## License
 
