@@ -4,7 +4,7 @@ description: Re-run children until the latest output's score crosses a threshold
 ---
 
 ```ts
-import { LoopUntilScored } from "smithers-workflows/components/LoopUntilScored";
+import { LoopUntilScored } from "smithers-orchestrator/components/LoopUntilScored";
 
 type LoopUntilScoredProps = {
   idPrefix: string;
@@ -19,8 +19,8 @@ type LoopUntilScoredProps = {
 ```
 
 ```tsx
-import { LoopUntilScored } from "smithers-workflows/components/LoopUntilScored";
-import { stakesToThreshold } from "smithers-workflows/components/extract-prompt";
+import { LoopUntilScored } from "smithers-orchestrator/components/LoopUntilScored";
+import { stakesToThreshold } from "smithers-orchestrator/components/extract-prompt";
 
 export default smithers((ctx) => {
   const draft = ctx.outputMaybe(outputs.draft, { nodeId: "extract:draft" });
