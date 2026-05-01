@@ -102,7 +102,7 @@ export function scheduleTasks(plan, states, descriptors, ralphState, retryWait, 
                     state === "failed" ||
                     Boolean(descriptor.waitAsync &&
                         (state === "waiting-approval" || state === "waiting-event"));
-                return { terminal, failed: state === "failed" };
+                return { terminal, failed: state === "failed" && !descriptor.continueOnFail };
             }
             case "sequence":
             case "group": {

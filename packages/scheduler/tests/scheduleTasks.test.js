@@ -371,6 +371,36 @@ describe("scheduleTasks rescheduling after failure (retry wait)", () => {
     const result = scheduleTasks(plan, states, descs, new Map(), new Map(), 0);
     expect(result.runnable.map((r) => r.nodeId)).toEqual(["b"]);
   });
+
+  test("failed task with continueOnFail does not trigger try catch", () => {
+    const plan = {
+      kind: "try-catch-finally",
+      id: "safe-try",
+      tryChildren: [
+        {
+          kind: "parallel",
+          children: [
+            { kind: "task", nodeId: "a" },
+            { kind: "task", nodeId: "b" },
+          ],
+        },
+      ],
+      catchChildren: [{ kind: "task", nodeId: "catch" }],
+      finallyChildren: [],
+    };
+    const states = new Map([
+      [buildStateKey("a", 0), "failed"],
+      [buildStateKey("b", 0), "finished"],
+    ]);
+    const descs = descriptorMap(
+      makeDescriptor("a", { continueOnFail: true }),
+      makeDescriptor("b"),
+      makeDescriptor("catch"),
+    );
+    const result = scheduleTasks(plan, states, descs, new Map(), new Map(), 0);
+    expect(result.runnable.map((r) => r.nodeId)).toEqual([]);
+    expect(result.fatalError).toBeUndefined();
+  });
 });
 
 describe("scheduleTasks waiting-state flags", () => {
