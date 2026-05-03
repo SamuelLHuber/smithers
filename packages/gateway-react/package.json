@@ -20,8 +20,8 @@
     "src/"
   ],
   "scripts": {
-    "build": "tsup --dts-only",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "node ../../node_modules/tsup/dist/cli-default.js --dts-only",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
     "test": "bun test tests"
   },
   "dependencies": {

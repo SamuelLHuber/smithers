@@ -686,9 +686,6 @@ importers:
         specifier: workspace:*
         version: link:../gateway
     devDependencies:
-      '@smithers-orchestrator/server':
-        specifier: workspace:*
-        version: link:../server
       '@types/bun':
         specifier: latest
         version: 1.3.13
