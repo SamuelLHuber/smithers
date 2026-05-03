@@ -536,6 +536,7 @@ describe("Gateway", () => {
         expect(approvals.ok).toBe(true);
         expect(approvals.payload).toEqual([
             expect.objectContaining({
+                workflowKey: "approval",
                 runId,
                 nodeId: "pick-plan",
                 requestTitle: "Pick a plan",
@@ -547,6 +548,17 @@ describe("Gateway", () => {
                     { key: "light", label: "Light" },
                     { key: "balanced", label: "Balanced" },
                 ],
+            }),
+        ]);
+        const stableApprovals = await operator.request("listApprovals", {
+            filter: { workflow: "approval", limit: 1 },
+        });
+        expect(stableApprovals.ok).toBe(true);
+        expect(stableApprovals.payload).toEqual([
+            expect.objectContaining({
+                workflowKey: "approval",
+                runId,
+                nodeId: "pick-plan",
             }),
         ]);
         const { client: blocked } = await connectGateway(port, "blocked-token");
