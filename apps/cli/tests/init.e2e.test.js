@@ -174,7 +174,14 @@ test("smithers init writes the expected workflow-pack layout and it typechecks",
     expect(repo.exists(".smithers/workflows/write-a-prd.tsx")).toBe(true);
     expect(repo.exists(".smithers/workflows/feature-enum.tsx")).toBe(true);
     expect(repo.exists(".smithers/workflows/audit.tsx")).toBe(true);
+    expect(repo.exists(".smithers/workflows/mission.tsx")).toBe(true);
     expect(repo.exists(".smithers/workflows/kanban.tsx")).toBe(true);
+    expect(repo.exists(".smithers/prompts/mission-plan.mdx")).toBe(true);
+    expect(repo.exists(".smithers/prompts/mission-worker.mdx")).toBe(true);
+    expect(repo.exists(".smithers/prompts/mission-integrate.mdx")).toBe(true);
+    expect(repo.exists(".smithers/prompts/mission-validate.mdx")).toBe(true);
+    expect(repo.exists(".smithers/prompts/mission-follow-up.mdx")).toBe(true);
+    expect(repo.exists(".smithers/prompts/mission-final.mdx")).toBe(true);
     expect(repo.exists(".smithers/prompts/ask-user-instructions.mdx")).toBe(true);
     expect(repo.exists(".smithers/components/GrillMe.tsx")).toBe(true);
     expect(repo.exists(".smithers/components/CommandProbe.tsx")).toBe(true);
@@ -184,6 +191,7 @@ test("smithers init writes the expected workflow-pack layout and it typechecks",
     expect(repo.exists(".smithers/tickets/.gitkeep")).toBe(true);
     expect(repo.read(".smithers/workflows/feature-enum.tsx")).toContain("existingFeatures: z.record(z.string(), z.array(z.string())).nullable().default(null)");
     expect(repo.read(".smithers/workflows/audit.tsx")).toContain("features: z.record(z.string(), z.array(z.string())).default({})");
+    expect(repo.read(".smithers/workflows/mission.tsx")).toContain('id="mission:approve-plan"');
     runWorkflowPackTypecheck(repo);
 }, 20_000);
 test("smithers init --agents-only creates only the user-owned agent scaffold", () => {
