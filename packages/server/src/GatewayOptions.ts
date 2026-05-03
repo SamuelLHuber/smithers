@@ -1,11 +1,13 @@
 import type { GatewayAuthConfig } from "./GatewayAuthConfig.js";
 import type { GatewayDefaults } from "./GatewayDefaults.js";
+import type { GatewayUiConfig } from "./GatewayUiConfig.js";
 
 export type GatewayOptions = {
   protocol?: number;
   features?: string[];
   heartbeatMs?: number;
   auth?: GatewayAuthConfig;
+  ui?: GatewayUiConfig;
   defaults?: GatewayDefaults;
   maxBodyBytes?: number;
   maxPayload?: number;

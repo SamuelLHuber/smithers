@@ -22,6 +22,8 @@ describe("Gateway RPC contract", () => {
       "submitSignal",
       "getRun",
       "listRuns",
+      "listWorkflows",
+      "listApprovals",
       "streamRunEvents",
       "streamDevTools",
       "getNodeOutput",

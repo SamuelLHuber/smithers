@@ -7,6 +7,7 @@
 
 import { createServer } from "node:http";
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { resolve } from "node:path";
 import { CronExpressionParser } from "cron-parser";
 import { Effect, Metric } from "effect";
 import { WebSocketServer } from "ws";
@@ -36,11 +37,14 @@ import { writeRewindAuditRow } from "@smithers-orchestrator/time-travel/writeRew
 import { recoverInProgressRewindAudits } from "@smithers-orchestrator/time-travel/recoverInProgressRewindAudits";
 import { GATEWAY_EVENT_WINDOW_DEFAULT, SMITHERS_API_VERSION, getRequiredScopeForGatewayMethod, } from "@smithers-orchestrator/gateway/rpc";
 import { hasGatewayScope } from "@smithers-orchestrator/gateway/auth/scopes";
+import { createGatewayUiApp } from "./gatewayUi/createGatewayUiApp.js";
 /** @typedef {import("./GatewayWebhookRunConfig.js").GatewayWebhookRunConfig} GatewayWebhookRunConfig */
 /** @typedef {import("./GatewayWebhookSignalConfig.js").GatewayWebhookSignalConfig} GatewayWebhookSignalConfig */
 /** @typedef {import("./ConnectRequest.js").ConnectRequest} ConnectRequest */
 /** @typedef {import("./GatewayAuthConfig.js").GatewayAuthConfig} GatewayAuthConfig */
 /** @typedef {import("./GatewayOptions.js").GatewayOptions} GatewayOptions */
+/** @typedef {import("./GatewayRegisterOptions.js").GatewayRegisterOptions} GatewayRegisterOptions */
+/** @typedef {import("./GatewayUiConfig.js").GatewayUiConfig} GatewayUiConfig */
 /** @typedef {import("./GatewayWebhookConfig.js").GatewayWebhookConfig} GatewayWebhookConfig */
 /** @typedef {import("node:http").IncomingMessage} IncomingMessage */
 /** @typedef {import("./RequestFrame.js").RequestFrame} RequestFrame */
@@ -90,6 +94,7 @@ import { hasGatewayScope } from "@smithers-orchestrator/gateway/auth/scopes";
  *   key: string;
  *   schedule?: string;
  *   webhook?: GatewayWebhookConfig;
+ *   ui?: ResolvedGatewayUiConfig | null;
  * }} RegisteredWorkflow
  */
 /**
@@ -99,6 +104,21 @@ import { hasGatewayScope } from "@smithers-orchestrator/gateway/auth/scopes";
  *   workflow: SmithersWorkflow;
  *   adapter: SmithersDb;
  * }} ResolvedRun
+ */
+/**
+ * @typedef {{
+ *   entry: string;
+ *   path: string;
+ *   title?: string;
+ *   props?: Record<string, unknown>;
+ * }} ResolvedGatewayUiConfig
+ */
+/**
+ * @typedef {{
+ *   kind: "gateway" | "workflow";
+ *   workflowKey: string | null;
+ *   config: ResolvedGatewayUiConfig;
+ * }} GatewayUiMount
  */
 
 const DEFAULT_PROTOCOL = 1;
@@ -117,6 +137,115 @@ export const GATEWAY_FRAME_ID_MAX_LENGTH = 128;
 export const GATEWAY_RPC_INPUT_MAX_BYTES = GATEWAY_RPC_MAX_PAYLOAD_BYTES;
 export const GATEWAY_RPC_INPUT_MAX_DEPTH = GATEWAY_RPC_MAX_DEPTH;
 const GATEWAY_METHOD_NAME_PATTERN = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)*$/;
+const GATEWAY_UI_ASSET_PREFIX = "__smithers_ui";
+
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function escapeHtml(value) {
+    return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function safeJsonScript(value) {
+    return JSON.stringify(value).replaceAll("<", "\\u003c");
+}
+
+/**
+ * @param {string | undefined} rawPath
+ * @param {string} fallbackPath
+ * @returns {string}
+ */
+function normalizeUiMountPath(rawPath, fallbackPath) {
+    const candidate = (rawPath && rawPath.trim()) || fallbackPath;
+    const withSlash = candidate.startsWith("/") ? candidate : `/${candidate}`;
+    const withoutTrailing = withSlash.length > 1 ? withSlash.replace(/\/+$/, "") : withSlash;
+    if (!/^\/[A-Za-z0-9/_:.-]*$/.test(withoutTrailing)) {
+        throw new SmithersError("INVALID_INPUT", `Gateway UI path is invalid: ${candidate}`);
+    }
+    return withoutTrailing;
+}
+
+/**
+ * @param {string} mountPath
+ * @param {string} suffix
+ * @returns {string}
+ */
+function joinUiPath(mountPath, suffix) {
+    if (mountPath === "/") {
+        return `/${suffix.replace(/^\/+/, "")}`;
+    }
+    return `${mountPath}/${suffix.replace(/^\/+/, "")}`;
+}
+
+/**
+ * @param {GatewayUiConfig | undefined} ui
+ * @param {string} fallbackPath
+ * @returns {ResolvedGatewayUiConfig | null}
+ */
+function resolveGatewayUiConfig(ui, fallbackPath) {
+    if (!ui) {
+        return null;
+    }
+    if (typeof ui.entry !== "string" || !ui.entry.trim()) {
+        throw new SmithersError("INVALID_INPUT", "Gateway UI config requires a non-empty entry path.");
+    }
+    return {
+        entry: resolve(process.cwd(), ui.entry),
+        path: normalizeUiMountPath(ui.path, fallbackPath),
+        ...(typeof ui.title === "string" ? { title: ui.title } : {}),
+        ...(ui.props && typeof ui.props === "object" && !Array.isArray(ui.props)
+            ? { props: ui.props }
+            : {}),
+    };
+}
+
+/**
+ * @param {import("node:http").IncomingHttpHeaders} headers
+ * @returns {Headers}
+ */
+function nodeHeadersToFetchHeaders(headers) {
+    const out = new Headers();
+    for (const [key, value] of Object.entries(headers)) {
+        if (value === undefined) {
+            continue;
+        }
+        if (Array.isArray(value)) {
+            for (const entry of value) {
+                out.append(key, entry);
+            }
+            continue;
+        }
+        out.set(key, value);
+    }
+    return out;
+}
+
+/**
+ * @param {ServerResponse} res
+ * @param {Response} response
+ * @param {boolean} headOnly
+ */
+async function writeFetchResponse(res, response, headOnly = false) {
+    res.statusCode = response.status;
+    response.headers.forEach((value, key) => {
+        res.setHeader(key, value);
+    });
+    if (headOnly) {
+        res.end();
+        return;
+    }
+    const body = Buffer.from(await response.arrayBuffer());
+    res.end(body);
+}
 /**
  * @template T
  * @param {string | null | undefined} value
@@ -1054,6 +1183,8 @@ export class Gateway {
     headersTimeout;
     requestTimeout;
     auth;
+    ui;
+    uiApp;
     defaults;
     workflows = new Map();
     connections = new Set();
@@ -1066,6 +1197,7 @@ export class Gateway {
     devtoolsSubscriberCounts = new Map();
     /** Flagged subscriber IDs that should force a snapshot on their next emit. */
     devtoolsInvalidateFlags = new Set();
+    uiAssetCache = new Map();
     server = null;
     wsServer = null;
     schedulerTimer = null;
@@ -1097,7 +1229,189 @@ export class Gateway {
             ? DEFAULT_REQUEST_TIMEOUT
             : Math.floor(assertPositiveFiniteInteger("requestTimeout", Number(options.requestTimeout)));
         this.auth = options.auth;
+        this.ui = resolveGatewayUiConfig(options.ui, "/");
+        this.uiApp = createGatewayUiApp({
+            resolveMatch: (pathname) => this.resolveUiMatch(pathname),
+            renderIndex: (match) => this.renderUiIndex(match),
+            renderAsset: (match) => this.renderUiAsset(match),
+        });
         this.defaults = options.defaults;
+    }
+    /**
+   * @returns {GatewayUiMount[]}
+   */
+    getUiMounts() {
+        const mounts = [];
+        if (this.ui) {
+            mounts.push({ kind: "gateway", workflowKey: null, config: this.ui });
+        }
+        for (const [workflowKey, entry] of this.workflows.entries()) {
+            if (entry.ui) {
+                mounts.push({ kind: "workflow", workflowKey, config: entry.ui });
+            }
+        }
+        return mounts.sort((left, right) => right.config.path.length - left.config.path.length);
+    }
+    /**
+   * @param {string} pathname
+   * @returns {GatewayUiMount | null}
+   */
+    findUiMount(pathname) {
+        for (const mount of this.getUiMounts()) {
+            const mountPath = mount.config.path;
+            if (mountPath === "/" || pathname === mountPath || pathname.startsWith(`${mountPath}/`)) {
+                return mount;
+            }
+        }
+        return null;
+    }
+    /**
+   * @param {string} pathname
+   */
+    resolveUiMatch(pathname) {
+        const mount = this.findUiMount(pathname);
+        if (!mount) {
+            return null;
+        }
+        const assetBase = joinUiPath(mount.config.path, `${GATEWAY_UI_ASSET_PREFIX}/`);
+        const assetPath = pathname.startsWith(assetBase)
+            ? pathname.slice(assetBase.length)
+            : null;
+        return {
+            pathname,
+            mountPath: mount.config.path,
+            assetPath,
+            config: mount,
+        };
+    }
+    /**
+   * @param {GatewayUiMount} mount
+   */
+    uiBootConfig(mount) {
+        return {
+            apiVersion: SMITHERS_API_VERSION,
+            kind: mount.kind,
+            workflowKey: mount.workflowKey,
+            mountPath: mount.config.path,
+            rpcPath: "/v1/rpc",
+            wsPath: "/",
+            assetBasePath: joinUiPath(mount.config.path, `${GATEWAY_UI_ASSET_PREFIX}/`),
+            props: mount.config.props ?? {},
+        };
+    }
+    /**
+   * @param {{ config: GatewayUiMount }} match
+   */
+    renderUiIndex(match) {
+        const mount = match.config;
+        const title = mount.config.title ?? (mount.workflowKey ? `${mount.workflowKey} | Smithers` : "Smithers");
+        const boot = this.uiBootConfig(mount);
+        const assetSrc = joinUiPath(mount.config.path, `${GATEWAY_UI_ASSET_PREFIX}/client.js`);
+        return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>globalThis.__SMITHERS_GATEWAY_UI__=${safeJsonScript(boot)};</script>
+    <script type="module" src="${escapeHtml(assetSrc)}"></script>
+  </body>
+</html>`;
+    }
+    /**
+   * @param {{ config: GatewayUiMount; assetPath: string | null }} match
+   */
+    async renderUiAsset(match) {
+        if (match.assetPath !== "client.js") {
+            return null;
+        }
+        const body = await this.bundleUiEntry(match.config.config);
+        return {
+            body,
+            contentType: "text/javascript; charset=utf-8",
+        };
+    }
+    /**
+   * @param {ResolvedGatewayUiConfig} config
+   * @returns {Promise<string>}
+   */
+    async bundleUiEntry(config) {
+        const cached = this.uiAssetCache.get(config.entry);
+        if (cached) {
+            return cached;
+        }
+        if (typeof Bun === "undefined" || typeof Bun.build !== "function") {
+            throw new SmithersError("INVALID_INPUT", "Gateway UI bundling requires Bun.build.");
+        }
+        const result = await Bun.build({
+            entrypoints: [config.entry],
+            target: "browser",
+            format: "esm",
+            sourcemap: "inline",
+            minify: false,
+            jsx: "automatic",
+            jsxImportSource: "react",
+        });
+        if (!result.success) {
+            const message = result.logs?.map((entry) => entry.message).filter(Boolean).join("\n")
+                || `Failed to build Gateway UI entry ${config.entry}`;
+            throw new SmithersError("INVALID_INPUT", message);
+        }
+        const output = result.outputs.find((entry) => entry.path.endsWith(".js")) ?? result.outputs[0];
+        const body = await output.text();
+        this.uiAssetCache.set(config.entry, body);
+        return body;
+    }
+    /**
+   * @param {IncomingMessage} req
+   * @param {ServerResponse} res
+   */
+    async handleUiHttp(req, res) {
+        if ((req.method ?? "GET") !== "GET" && (req.method ?? "GET") !== "HEAD") {
+            return false;
+        }
+        const host = headerValue(req, "host") ?? "127.0.0.1";
+        const request = new Request(`http://${host}${req.url ?? "/"}`, {
+            method: "GET",
+            headers: nodeHeadersToFetchHeaders(req.headers),
+        });
+        const response = await this.uiApp.fetch(request);
+        if (response.status === 404 && response.headers.get("x-smithers-ui-miss") === "1") {
+            return false;
+        }
+        await writeFetchResponse(res, response, (req.method ?? "GET") === "HEAD");
+        return true;
+    }
+    /**
+   * @param {string} key
+   * @param {RegisteredWorkflow} entry
+   */
+    workflowSummary(key, entry) {
+        return {
+            key,
+            ...(entry.workflow.readableName ? { readableName: entry.workflow.readableName } : {}),
+            ...(entry.workflow.description ? { description: entry.workflow.description } : {}),
+            hasUi: Boolean(entry.ui),
+            uiPath: entry.ui?.path ?? null,
+        };
+    }
+    /**
+   * @param {boolean | undefined} hasUi
+   */
+    listWorkflowSummaries(hasUi) {
+        const rows = [];
+        for (const [key, entry] of this.workflows.entries()) {
+            const summary = this.workflowSummary(key, entry);
+            if (hasUi !== undefined && summary.hasUi !== hasUi) {
+                continue;
+            }
+            rows.push(summary);
+        }
+        rows.sort((left, right) => left.key.localeCompare(right.key));
+        return rows;
     }
     authModeLabel() {
         return gatewayAuthMode(this.auth);
@@ -1770,16 +2084,18 @@ export class Gateway {
     /**
    * @param {string} key
    * @param {SmithersWorkflow} workflow
-   * @param {{ schedule?: string; webhook?: GatewayWebhookConfig }} [options]
+   * @param {GatewayRegisterOptions} [options]
    * @returns {this}
    */
     register(key, workflow, options) {
         ensureSmithersTables(workflow.db);
+        const ui = resolveGatewayUiConfig(options?.ui, `/workflows/${encodeURIComponent(key)}`);
         this.workflows.set(key, {
             key,
             workflow,
             schedule: options?.schedule,
             webhook: options?.webhook,
+            ui,
         });
         // Startup recovery: any audit row left in `in_progress` from a prior
         // crash is flipped to `partial` and the associated run is flagged as
@@ -1831,6 +2147,9 @@ export class Gateway {
             }
             if ((req.method ?? "GET") === "POST" && (req.url ?? "/") === "/rpc") {
                 return this.handleHttpRpc(req, res);
+            }
+            if (await this.handleUiHttp(req, res)) {
+                return;
             }
             return sendJson(res, 404, { error: { code: "NOT_FOUND", message: "Route not found" } });
         });
@@ -2698,6 +3017,7 @@ export class Gateway {
                     const request = parseApprovalRequest(parseJson(approval.requestJson), node?.label ?? approval.nodeId);
                     approvals.push({
                         runId: approval.runId,
+                        workflowKey: entry.key,
                         nodeId: approval.nodeId,
                         iteration: approval.iteration ?? 0,
                         requestTitle: request.title ?? node?.label ?? approval.nodeId,
@@ -2944,6 +3264,12 @@ export class Gateway {
                 const limit = asOptionalPositiveInt(params.limit ?? filter.limit, "limit") ?? 50;
                 const status = asString(params.status) ?? asString(filter.status);
                 return responseOk(frame.id, await this.listRunsAcrossWorkflows(limit, status));
+            }
+            case "workflows.list":
+            case "listWorkflows": {
+                const filter = asObject(params.filter) ?? {};
+                const hasUi = asBoolean(params.hasUi) ?? asBoolean(filter.hasUi);
+                return responseOk(frame.id, this.listWorkflowSummaries(hasUi));
             }
             case "runs.create":
             case "launchRun": {
@@ -3548,7 +3874,23 @@ export class Gateway {
                 return responseOk(frame.id, diffRawSnapshots(leftSnapshot, rightSnapshot));
             }
             case "approvals.list":
-                return responseOk(frame.id, await this.listPendingApprovals());
+            case "listApprovals": {
+                const filter = asObject(params.filter) ?? {};
+                const runId = asString(params.runId) ?? asString(filter.runId);
+                const workflow = asString(params.workflow) ?? asString(filter.workflow);
+                const limit = asOptionalPositiveInt(params.limit ?? filter.limit, "limit");
+                let approvals = await this.listPendingApprovals();
+                if (runId) {
+                    approvals = approvals.filter((approval) => approval.runId === runId);
+                }
+                if (workflow) {
+                    approvals = approvals.filter((approval) => approval.workflowKey === workflow);
+                }
+                if (limit !== undefined) {
+                    approvals = approvals.slice(0, limit);
+                }
+                return responseOk(frame.id, approvals);
+            }
             case "approvals.decide":
             case "submitApproval": {
                 const runId = asString(params.runId);

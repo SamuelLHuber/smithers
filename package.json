@@ -18,6 +18,8 @@
   "exports": {
     ".": "./packages/smithers/src/index.js",
     "./gateway": "./packages/server/src/gateway.js",
+    "./gateway-client": "./packages/smithers/src/gateway-client.js",
+    "./gateway-react": "./packages/smithers/src/gateway-react.js",
     "./tools": "./packages/smithers/src/tools.js",
     "./jsx-runtime": "./packages/smithers/src/jsx-runtime.js",
     "./jsx-dev-runtime": "./packages/smithers/src/jsx-runtime.js",
@@ -93,6 +95,9 @@
     "@smithers-orchestrator/driver": "workspace:*",
     "@smithers-orchestrator/engine": "workspace:*",
     "@smithers-orchestrator/errors": "workspace:*",
+    "@smithers-orchestrator/gateway": "workspace:*",
+    "@smithers-orchestrator/gateway-client": "workspace:*",
+    "@smithers-orchestrator/gateway-react": "workspace:*",
     "@smithers-orchestrator/graph": "workspace:*",
     "@smithers-orchestrator/memory": "workspace:*",
     "@smithers-orchestrator/observability": "workspace:*",

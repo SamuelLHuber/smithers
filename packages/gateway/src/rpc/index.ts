@@ -76,6 +76,8 @@ export type GatewayRpcMethod =
   | "submitSignal"
   | "getRun"
   | "listRuns"
+  | "listWorkflows"
+  | "listApprovals"
   | "streamRunEvents"
   | "streamDevTools"
   | "getNodeOutput"
@@ -172,6 +174,47 @@ export type ListRunsRequest = {
     limit?: number;
   };
 };
+
+export type GatewayWorkflowSummary = {
+  key: string;
+  readableName?: string;
+  description?: string;
+  hasUi: boolean;
+  uiPath: string | null;
+};
+
+export type ListWorkflowsRequest = {
+  filter?: {
+    hasUi?: boolean;
+  };
+};
+
+export type ListWorkflowsResponse = GatewayWorkflowSummary[];
+
+export type GatewayApprovalSummary = {
+  runId: string;
+  workflowKey?: string;
+  nodeId: string;
+  iteration: number;
+  requestTitle?: string;
+  requestSummary?: string;
+  requestedAtMs: number | null;
+  approvalMode?: string;
+  options?: unknown;
+  allowedScopes?: readonly string[];
+  allowedUsers?: readonly string[];
+  autoApprove?: unknown;
+};
+
+export type ListApprovalsRequest = {
+  filter?: {
+    runId?: string;
+    workflow?: string;
+    limit?: number;
+  };
+};
+
+export type ListApprovalsResponse = GatewayApprovalSummary[];
 
 export type StreamRunEventsRequest = {
   runId: string;
@@ -458,6 +501,50 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
   },
   {
     version: SMITHERS_API_VERSION,
+    method: "listWorkflows",
+    title: "List Workflows",
+    description: "List workflows registered with the Gateway.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "run:read",
+    requestSchema: objectSchema({
+      filter: objectSchema({
+        hasUi: booleanSchema("Only return workflows with or without an attached UI."),
+      }),
+    }),
+    responseSchema: arraySchema(objectSchema({
+      key: workflow,
+      readableName: stringSchema("Human-readable workflow name."),
+      description: stringSchema("Workflow description."),
+      hasUi: booleanSchema("Whether this workflow has a custom UI mounted."),
+      uiPath: { type: ["string", "null"], description: "Mounted UI path when present." },
+    }, ["key", "hasUi", "uiPath"]), "Registered workflow summaries."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
+    exampleRequest: { filter: { hasUi: true } },
+    exampleResponse: [{ key: "deploy", readableName: "Deploy", hasUi: true, uiPath: "/workflows/deploy" }],
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "listApprovals",
+    title: "List Approvals",
+    description: "List pending Gateway approval requests.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "run:read",
+    requestSchema: objectSchema({
+      filter: objectSchema({
+        runId,
+        workflow: stringSchema("Registered Gateway workflow key."),
+        limit: integerSchema("Maximum number of approvals.", 1),
+      }),
+    }),
+    responseSchema: arraySchema(objectSchema({}, [], "Pending approval summary.", true), "Pending approvals."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
+    exampleRequest: { filter: { workflow: "deploy", limit: 20 } },
+    exampleResponse: [{ runId: "run_01", workflowKey: "deploy", nodeId: "approve", iteration: 0, requestTitle: "Approve deploy", requestedAtMs: 1710000000000 }],
+  },
+  {
+    version: SMITHERS_API_VERSION,
     method: "streamRunEvents",
     title: "Stream Run Events",
     description: "Subscribe to a run event stream with bounded replay and GapResync semantics.",
@@ -591,6 +678,9 @@ export function getRequiredScopeForGatewayMethod(method: string): GatewayScope |
     return "run:read";
   }
   if (method === "approvals.list") {
+    return "run:read";
+  }
+  if (method === "workflows.list") {
     return "run:read";
   }
   if (method === "runs.diff" || method === "frames.list" || method === "frames.get" || method === "attempts.list" || method === "attempts.get") {

@@ -38,6 +38,8 @@ export * from "./gatewayRoutes/jumpToFrame.js";
 export * from "./gatewayRoutes/streamDevTools.js";
 // Type-only stubs reachable via `./*` that are NOT already transitively
 // re-exported through the JS modules above.
+export * from "./GatewayRegisterOptions.js";
+export * from "./GatewayUiConfig.js";
 export * from "./ServerOptions.js";
 
 const runs = new Map();

@@ -106,6 +106,25 @@
         "./packages/errors/src/*.js",
         "./packages/errors/src/*/index.js"
       ],
+      "@smithers-orchestrator/gateway": [
+        "./packages/gateway/src/index.ts"
+      ],
+      "@smithers-orchestrator/gateway/*": [
+        "./packages/gateway/src/*.ts",
+        "./packages/gateway/src/*/index.ts"
+      ],
+      "@smithers-orchestrator/gateway-client": [
+        "./packages/gateway-client/src/index.ts"
+      ],
+      "@smithers-orchestrator/gateway-client/*": [
+        "./packages/gateway-client/src/*.ts"
+      ],
+      "@smithers-orchestrator/gateway-react": [
+        "./packages/gateway-react/src/index.ts"
+      ],
+      "@smithers-orchestrator/gateway-react/*": [
+        "./packages/gateway-react/src/*.ts"
+      ],
       "@smithers-orchestrator/graph": [
         "./packages/graph/src/index.js"
       ],
