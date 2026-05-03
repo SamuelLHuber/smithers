@@ -207,6 +207,19 @@
       }
     ]
   },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/smithersai/smithers"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/smithersai/smithers"
+    }
+  },
   "redirects": [
     { "source": "/docs", "destination": "/" },
     { "source": "/docs/introduction", "destination": "/introduction" },
