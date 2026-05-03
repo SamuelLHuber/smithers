@@ -1,0 +1,16 @@
+---
+title: listApprovals
+description: Stable Gateway RPC for listing pending approvals.
+maturity: stable
+apiVersion: v1
+---
+
+`listApprovals` returns pending Gateway approval requests.
+
+- Method: `listApprovals`
+- Scope: `run:read`
+- Transports: HTTP RPC, WebSocket RPC
+- Request: `{ filter?: { runId?: string; workflow?: string; limit?: number } }`
+- Response: `GatewayApprovalSummary[]`
+
+Each summary includes the run, workflow, node, iteration, request copy, approval mode, options, and any approval-specific allowed scopes or users.

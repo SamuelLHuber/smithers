@@ -52,10 +52,66 @@ ws.onopen = () => ws.send(JSON.stringify({
 }));
 ```
 
+## Custom React UI
+
+Gateway can also serve a browser React app from the same origin as the RPC and WebSocket API. Use this when a workflow needs a custom operator surface instead of a generic client.
+
+```tsx
+const gateway = new Gateway({
+  ui: {
+    entry: "./src/gateway-ui.tsx",
+    path: "/console",
+    title: "Operations Console",
+    props: { environment: "prod" },
+  },
+});
+
+gateway.register("deploy", deploy, {
+  ui: {
+    entry: "./src/deploy-ui.tsx",
+    title: "Deploy Workflow",
+  },
+});
+```
+
+Gateway-level UI defaults to `/`. Workflow-level UI defaults to `/workflows/<workflowKey>`, so the example above serves the workflow UI at `/workflows/deploy`. Gateway generates the HTML shell, bundles the entry with Bun for the browser, serves the bundle from `<mount>/__smithers_ui/client.js`, and injects `globalThis.__SMITHERS_GATEWAY_UI__` with the mount, workflow key, RPC path, WebSocket path, and `props`.
+
+Use the browser client SDK directly:
+
+```ts
+import { SmithersGatewayClient } from "smithers-orchestrator/gateway-client";
+
+const gateway = new SmithersGatewayClient();
+const workflows = await gateway.listWorkflows({ filter: { hasUi: true } });
+```
+
+Or use the React hook package:
+
+```tsx
+import {
+  createGatewayReactRoot,
+  useGatewayActions,
+  useGatewayWorkflows,
+} from "smithers-orchestrator/gateway-react";
+
+function App() {
+  const workflows = useGatewayWorkflows();
+  const { launchRun } = useGatewayActions();
+
+  return (
+    <button onClick={() => launchRun({ workflow: "deploy", input: {} })}>
+      Run {workflows.data?.[0]?.key ?? "workflow"}
+    </button>
+  );
+}
+
+createGatewayReactRoot(<App />);
+```
+
 ## RPC methods (TOON)
 
 ```toon
-rpc[17]{method,params,returns,scope,transport}:
+rpc[19]{method,params,returns,scope,transport}:
   launchRun,workflow/input?/options.runId?/options.idempotencyKey?,{runId/workflow},run:write,http+websocket
   resumeRun,runId/options.force?,{runId/status},run:write,http+websocket
   cancelRun,runId,{runId/status:cancelling},run:write,http+websocket
@@ -65,6 +121,8 @@ rpc[17]{method,params,returns,scope,transport}:
   submitSignal,runId/correlationKey/payload?/signalName?,Delivery metadata,signal:submit,http+websocket
   getRun,runId,RunStateView,run:read,http+websocket
   listRuns,filter.status?/filter.limit?,Run summaries,run:read,http+websocket
+  listWorkflows,filter.hasUi?,Workflow summaries,run:read,http+websocket
+  listApprovals,filter.runId?/filter.workflow?/filter.limit?,Pending approvals,run:read,http+websocket
   streamRunEvents,runId/afterSeq?,{streamId/runId/afterSeq/currentSeq},run:read,websocket
   streamDevTools,runId/afterSeq?,{streamId/runId/afterSeq} + devtools.event frames,observability:read,websocket
   getNodeOutput,runId/nodeId/iteration?,NodeOutputResponse,run:read,http+websocket
@@ -75,7 +133,7 @@ rpc[17]{method,params,returns,scope,transport}:
   cronRun,cronId? or workflow/input?,{runId/workflow},cron:write,http+websocket
 ```
 
-`health` remains available as a utility RPC and `GET /health` is available without auth. The legacy method names are still accepted for compatibility (`runs.create`, `runs.get`, `runs.list`, `runs.cancel`, `runs.rerun`, `runs.diff`, `frames.list`, `frames.get`, `attempts.list`, `attempts.get`, `approvals.list`, `approvals.decide`, `signals.send`, `cron.list`, `cron.add`, `cron.remove`, `cron.trigger`, `getDevToolsSnapshot`, `jumpToFrame`, `devtools.jumpToFrame`, `devtools.getNodeOutput`, `devtools.getNodeDiff`), but new clients should use the v1 names above.
+`health` remains available as a utility RPC and `GET /health` is available without auth. The legacy method names are still accepted for compatibility (`runs.create`, `runs.get`, `runs.list`, `runs.cancel`, `runs.rerun`, `runs.diff`, `frames.list`, `frames.get`, `attempts.list`, `attempts.get`, `workflows.list`, `approvals.list`, `approvals.decide`, `signals.send`, `cron.list`, `cron.add`, `cron.remove`, `cron.trigger`, `getDevToolsSnapshot`, `jumpToFrame`, `devtools.jumpToFrame`, `devtools.getNodeOutput`, `devtools.getNodeDiff`), but new clients should use the v1 names above.
 
 ### Scopes
 

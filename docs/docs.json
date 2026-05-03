@@ -123,6 +123,8 @@
               "rpc/submit-signal",
               "rpc/get-run",
               "rpc/list-runs",
+              "rpc/list-workflows",
+              "rpc/list-approvals",
               "rpc/stream-run-events",
               "rpc/stream-dev-tools",
               "rpc/get-node-output",
