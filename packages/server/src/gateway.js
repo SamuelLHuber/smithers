@@ -1348,12 +1348,15 @@ export class Gateway {
         }
         const result = await Bun.build({
             entrypoints: [config.entry],
+            root: process.cwd(),
             target: "browser",
             format: "esm",
             sourcemap: "inline",
             minify: false,
-            jsx: "automatic",
-            jsxImportSource: "react",
+            jsx: {
+                runtime: "automatic",
+                importSource: "react",
+            },
         });
         if (!result.success) {
             const message = result.logs?.map((entry) => entry.message).filter(Boolean).join("\n")
