@@ -22,7 +22,7 @@
   "scripts": {
     "test": "bun test tests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsup --dts-only"
+    "build": "rm -f src/index.d.ts && node ../../node_modules/tsup/dist/cli-default.js --dts-only"
   },
   "dependencies": {
     "@effect/workflow": "^0.18.0",

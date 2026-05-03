@@ -15,6 +15,16 @@
       "import": "./src/tools.js",
       "default": "./src/tools.js"
     },
+    "./gateway-client": {
+      "types": "./src/gateway-client.d.ts",
+      "import": "./src/gateway-client.js",
+      "default": "./src/gateway-client.js"
+    },
+    "./gateway-react": {
+      "types": "./src/gateway-react.d.ts",
+      "import": "./src/gateway-react.js",
+      "default": "./src/gateway-react.js"
+    },
     "./*": {
       "types": "./src/index.d.ts",
       "import": "./src/*.js",

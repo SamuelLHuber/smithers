@@ -1,7 +1,9 @@
 // @smithers-type-exports-begin
 /** @typedef {import("./EventFrame.js").EventFrame} EventFrame */
 /** @typedef {import("./GatewayDefaults.js").GatewayDefaults} GatewayDefaults */
+/** @typedef {import("./GatewayRegisterOptions.js").GatewayRegisterOptions} GatewayRegisterOptions */
 /** @typedef {import("./GatewayTokenGrant.js").GatewayTokenGrant} GatewayTokenGrant */
+/** @typedef {import("./GatewayUiConfig.js").GatewayUiConfig} GatewayUiConfig */
 /** @typedef {import("./HelloResponse.js").HelloResponse} HelloResponse */
 // @smithers-type-exports-end
 
@@ -43,8 +45,6 @@ import { createGatewayUiApp } from "./gatewayUi/createGatewayUiApp.js";
 /** @typedef {import("./ConnectRequest.js").ConnectRequest} ConnectRequest */
 /** @typedef {import("./GatewayAuthConfig.js").GatewayAuthConfig} GatewayAuthConfig */
 /** @typedef {import("./GatewayOptions.js").GatewayOptions} GatewayOptions */
-/** @typedef {import("./GatewayRegisterOptions.js").GatewayRegisterOptions} GatewayRegisterOptions */
-/** @typedef {import("./GatewayUiConfig.js").GatewayUiConfig} GatewayUiConfig */
 /** @typedef {import("./GatewayWebhookConfig.js").GatewayWebhookConfig} GatewayWebhookConfig */
 /** @typedef {import("node:http").IncomingMessage} IncomingMessage */
 /** @typedef {import("./RequestFrame.js").RequestFrame} RequestFrame */
