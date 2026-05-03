@@ -5,7 +5,7 @@ import { SmithersGatewayContext } from "./SmithersGatewayContext.ts";
 export function SmithersGatewayProvider(props: {
   client?: SmithersGatewayClient;
   options?: SmithersGatewayClientOptions;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   const client = useMemo(
     () => props.client ?? new SmithersGatewayClient(props.options),
