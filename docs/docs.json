@@ -42,6 +42,44 @@
         ]
       },
       {
+        "group": "Default Workflows",
+        "pages": [
+          "workflows/overview",
+          {
+            "group": "Build",
+            "pages": [
+              "workflows/implement",
+              "workflows/research-plan-implement",
+              "workflows/mission",
+              "workflows/kanban",
+              "workflows/ralph",
+              "workflows/workflow-skill"
+            ]
+          },
+          {
+            "group": "Plan",
+            "pages": [
+              "workflows/research",
+              "workflows/plan",
+              "workflows/grill-me",
+              "workflows/write-a-prd",
+              "workflows/ticket-create",
+              "workflows/tickets-create"
+            ]
+          },
+          {
+            "group": "Quality",
+            "pages": [
+              "workflows/review",
+              "workflows/debug",
+              "workflows/improve-test-coverage",
+              "workflows/feature-enum",
+              "workflows/audit"
+            ]
+          }
+        ]
+      },
+      {
         "group": "Components",
         "pages": [
           "components/workflow",

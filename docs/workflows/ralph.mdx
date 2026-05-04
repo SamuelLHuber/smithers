@@ -1,0 +1,20 @@
+---
+title: ralph
+description: Keep an agent continuously working on a prompt.
+---
+
+`ralph` is the simplest continuous-work loop. It repeatedly runs the configured smart agent with the provided prompt.
+
+```bash
+bunx smithers-orchestrator workflow run ralph --prompt "Continue reducing flaky tests"
+```
+
+## Inputs
+
+| Input | Type | Default |
+| --- | --- | --- |
+| `prompt` | string | `"Continue working on the current task."` |
+
+## Notes
+
+`ralph` uses an unbounded loop in the seeded workflow. Use it for ongoing maintenance tasks where an operator is watching run state and can cancel when enough work has been done.

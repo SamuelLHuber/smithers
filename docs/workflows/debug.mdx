@@ -1,0 +1,25 @@
+---
+title: debug
+description: Reproduce and fix a reported bug with validation.
+---
+
+`debug` uses the same validation loop as `implement`, but the default prompt and review framing are tuned for bug reproduction and fixes.
+
+```bash
+bunx smithers-orchestrator workflow run debug --prompt "Fix the intermittent gateway reconnect failure"
+```
+
+## Inputs
+
+| Input | Type | Default |
+| --- | --- | --- |
+| `prompt` | string | `"Reproduce and fix the reported bug."` |
+
+## How It Runs
+
+1. Attempts to understand and reproduce the bug.
+2. Applies a targeted fix.
+3. Validates the result.
+4. Reviews the fix and loops on failures.
+
+Follow with `review` and `improve-test-coverage` when the bug fix needs a regression test pass.
