@@ -46,6 +46,7 @@ function writeWorkflowPackTypecheckHarness(repo) {
         "  export const Timer: any;",
         "  export const WaitForEvent: any;",
         "  export const Worktree: any;",
+        "  export const Gateway: any;",
         "  export const ClaudeCodeAgent: any;",
         "  export const CodexAgent: any;",
         "  export const GeminiAgent: any;",
@@ -70,6 +71,17 @@ function writeWorkflowPackTypecheckHarness(repo) {
         "}",
         "",
     ].join("\n"));
+    repo.write(".smithers/types/smithers-orchestrator-gateway-react.d.ts", [
+        'declare module "smithers-orchestrator/gateway-react" {',
+        "  export const createGatewayReactRoot: any;",
+        "  export function useGatewayActions(): any;",
+        "  export function useGatewayApprovals(...args: any[]): any;",
+        "  export function useGatewayNodeOutput(...args: any[]): any;",
+        "  export function useGatewayRunEvents(...args: any[]): any;",
+        "  export function useGatewayRuns(...args: any[]): any;",
+        "}",
+        "",
+    ].join("\n"));
     repo.write(".smithers/tsconfig.e2e.json", JSON.stringify({
         extends: "./tsconfig.json",
         compilerOptions: {
@@ -79,6 +91,7 @@ function writeWorkflowPackTypecheckHarness(repo) {
             paths: {
                 "~/*": ["./*"],
                 "smithers-orchestrator": ["./types/smithers-orchestrator.d.ts"],
+                "smithers-orchestrator/gateway-react": ["./types/smithers-orchestrator-gateway-react.d.ts"],
                 "smithers-orchestrator/jsx-runtime": ["./types/smithers-orchestrator-jsx-runtime.d.ts"],
             },
         },
@@ -88,8 +101,11 @@ function writeWorkflowPackTypecheckHarness(repo) {
             "./components/**/*.ts",
             "./components/**/*.tsx",
             "./preload.ts",
+            "./gateway.ts",
             "./smithers.config.ts",
             "./types/**/*.d.ts",
+            "./ui/**/*.ts",
+            "./ui/**/*.tsx",
             "./workflows/**/*.ts",
             "./workflows/**/*.tsx",
         ],
@@ -145,6 +161,7 @@ test("smithers init writes the expected workflow-pack layout and it typechecks",
     expect(repo.exists(".smithers/tsconfig.json")).toBe(true);
     expect(repo.exists(".smithers/bunfig.toml")).toBe(true);
     expect(repo.exists(".smithers/preload.ts")).toBe(true);
+    expect(repo.exists(".smithers/gateway.ts")).toBe(true);
     expect(repo.exists(".smithers/agents.ts")).toBe(true);
     expect(repo.exists(".smithers/agents/claude-code.ts")).toBe(true);
     expect(repo.exists(".smithers/agents/codex.ts")).toBe(true);
@@ -176,6 +193,7 @@ test("smithers init writes the expected workflow-pack layout and it typechecks",
     expect(repo.exists(".smithers/workflows/audit.tsx")).toBe(true);
     expect(repo.exists(".smithers/workflows/mission.tsx")).toBe(true);
     expect(repo.exists(".smithers/workflows/kanban.tsx")).toBe(true);
+    expect(repo.exists(".smithers/ui/kanban.tsx")).toBe(true);
     expect(repo.exists(".smithers/prompts/mission-plan.mdx")).toBe(true);
     expect(repo.exists(".smithers/prompts/mission-worker.mdx")).toBe(true);
     expect(repo.exists(".smithers/prompts/mission-integrate.mdx")).toBe(true);
@@ -192,6 +210,9 @@ test("smithers init writes the expected workflow-pack layout and it typechecks",
     expect(repo.read(".smithers/workflows/feature-enum.tsx")).toContain("existingFeatures: z.record(z.string(), z.array(z.string())).nullable().default(null)");
     expect(repo.read(".smithers/workflows/audit.tsx")).toContain("features: z.record(z.string(), z.array(z.string())).default({})");
     expect(repo.read(".smithers/workflows/mission.tsx")).toContain('id="mission:approve-plan"');
+    expect(repo.read(".smithers/gateway.ts")).toContain("process.chdir(projectRoot);");
+    expect(repo.read(".smithers/ui/kanban.tsx")).toContain('nodeId: "tickets", iteration: 0');
+    expect(repo.read(".smithers/workflows/kanban.tsx")).toContain('<Task id="tickets" output={outputs.tickets}>');
     runWorkflowPackTypecheck(repo);
 }, 20_000);
 test("smithers init --agents-only creates only the user-owned agent scaffold", () => {
