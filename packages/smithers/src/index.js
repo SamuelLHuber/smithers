@@ -170,7 +170,13 @@ export { AnthropicAgent, OpenAIAgent, AmpAgent, ClaudeCodeAgent, CodexAgent, Gem
 export { runJj, getJjPointer, revertToJjPointer, isJjRepo, workspaceAdd, workspaceList, workspaceClose, } from "@smithers-orchestrator/vcs/jj";
 // Core API
 export { createSmithers } from "./create.js";
-export { runWorkflow, renderFrame } from "@smithers-orchestrator/engine";
+export {
+  createComponent,
+  createWorkflow,
+  renderFrame,
+  runWorkflow,
+  Smithers,
+} from "@smithers-orchestrator/engine";
 export { signalRun } from "@smithers-orchestrator/engine/signals";
 export { usePatched } from "@smithers-orchestrator/engine/effect/versioning";
 // Tools

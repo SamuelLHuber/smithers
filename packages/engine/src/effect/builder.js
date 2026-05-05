@@ -15,6 +15,9 @@ import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
  * @typedef {import("effect").Schema.Schema<unknown, unknown, never>} AnySchema
  */
 /**
+ * @typedef {unknown | Promise<unknown> | import("effect").Effect.Effect<unknown, unknown, unknown>} AnyEffect
+ */
+/**
  * @typedef {{ needs?: Record<string, BuilderStepHandle>; request: (ctx: Record<string, unknown>) => { title: string; summary?: string | null; }; onDeny?: "fail" | "continue" | "skip"; }} ApprovalOptions
  */
 /** @typedef {import("./BuilderNode.ts").BuilderNode} BuilderNode */
@@ -24,6 +27,41 @@ import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 /** @typedef {import("./BuilderStepHandle.ts").BuilderStepHandle} BuilderStepHandle */
 /** @typedef {import("@smithers-orchestrator/scheduler/RetryPolicy").RetryPolicy} RetryPolicy */
 /** @typedef {import("./SmithersSqliteOptions.ts").SmithersSqliteOptions} SmithersSqliteOptions */
+/**
+ * @typedef {{
+ *   output: AnySchema;
+ *   needs?: Record<string, BuilderStepHandle>;
+ *   run?: (ctx: BuilderStepContext) => AnyEffect;
+ *   retry?: unknown;
+ *   retryPolicy?: RetryPolicy;
+ *   timeout?: unknown;
+ *   skipIf?: (ctx: BuilderStepContext) => boolean;
+ *   cache?: import("@smithers-orchestrator/scheduler/CachePolicy").CachePolicy;
+ * }} StepOptions
+ */
+/**
+ * @typedef {{
+ *   step: (id: string, options: StepOptions) => BuilderStepHandle;
+ *   approval: (id: string, options: ApprovalOptions) => BuilderStepHandle;
+ *   sequence: (...nodes: BuilderNode[]) => BuilderNode;
+ *   parallel: (...nodesOrOptions: [...BuilderNode[], { maxConcurrency?: number }] | BuilderNode[]) => BuilderNode;
+ *   loop: (options: { id?: string; children: BuilderNode; until: (outputs: Record<string, unknown>) => boolean; maxIterations?: number; onMaxReached?: "fail" | "return-last"; }) => BuilderNode;
+ *   match: (source: BuilderStepHandle, options: { when: (value: unknown) => boolean; then: () => BuilderNode; else?: () => BuilderNode; }) => BuilderNode;
+ *   component: (instanceId: string, definition: ComponentDefinition, params?: Record<string, unknown>) => BuilderNode;
+ * }} BuilderApi
+ */
+/**
+ * @typedef {{ execute: (input: unknown, opts?: Omit<Parameters<typeof runWorkflow>[1], "input">) => import("effect").Effect.Effect<unknown, unknown, unknown> }} BuiltSmithersWorkflow
+ */
+/**
+ * @typedef {{ build: (buildGraph: ($: BuilderApi) => BuilderNode) => BuiltSmithersWorkflow }} WorkflowDefinitionBuilder
+ */
+/**
+ * @typedef {{ kind: "component-definition"; name: string; buildWithPrefix: (prefix: string, params?: Record<string, unknown>) => BuilderNode }} ComponentDefinition
+ */
+/**
+ * @typedef {{ build: (buildGraph: ($: BuilderApi, params?: Record<string, unknown>) => BuilderNode) => ComponentDefinition }} ComponentDefinitionBuilder
+ */
 
 const SmithersSqlite = Context.GenericTag("smithers/effect/sqlite");
 class ApprovalDecision extends Schema.Class("ApprovalDecision")({
@@ -754,7 +792,7 @@ function normalizeExecutionError(result) {
 /**
  * @param {{ name: string; input: AnySchema }} options
  */
-function _createWorkflow(options) {
+export function createWorkflow(options) {
     return {
         /**
      * @param {($: BuilderApi) => BuilderNode} buildGraph
@@ -804,7 +842,7 @@ function _createWorkflow(options) {
 /**
  * @param {{ name: string; params?: Record<string, unknown> }} options
  */
-function _createComponent(options) {
+export function createComponent(options) {
     return {
         /**
      * @param {($: BuilderApi, params: Record<string, unknown>) => BuilderNode} buildGraph
@@ -831,7 +869,9 @@ function _createComponent(options) {
 function sqlite(options) {
     return Layer.succeed(SmithersSqlite, options);
 }
-/** @type {{ sqlite: typeof sqlite }} */
+/** @type {{ sqlite: typeof sqlite; createWorkflow: typeof createWorkflow; createComponent: typeof createComponent }} */
 export const Smithers = {
     sqlite,
+    createWorkflow,
+    createComponent,
 };

@@ -1220,10 +1220,63 @@ type WorktreeNode = {
     children: BuilderNode$1;
 };
 type BuilderNode$1 = BuilderStepHandle$1 | SequenceNode | ParallelNode | LoopNode | MatchNode | BranchNode | WorktreeNode;
-
-/** @type {{ sqlite: typeof sqlite }} */
+type StepOptions = {
+    output: AnySchema$1;
+    needs?: Record<string, BuilderStepHandle$1>;
+    run?: (ctx: BuilderStepContext$1) => AnyEffect;
+    retry?: unknown;
+    retryPolicy?: RetryPolicy$1;
+    timeout?: unknown;
+    skipIf?: (ctx: BuilderStepContext$1) => boolean;
+    cache?: CachePolicy;
+};
+type ComponentDefinition = {
+    kind: "component-definition";
+    name: string;
+    buildWithPrefix: (prefix: string, params?: Record<string, unknown>) => BuilderNode$1;
+};
+type BuilderApi = {
+    step: (id: string, options: StepOptions) => BuilderStepHandle$1;
+    approval: (id: string, options: ApprovalOptions$1) => BuilderStepHandle$1;
+    sequence: (...nodes: BuilderNode$1[]) => BuilderNode$1;
+    parallel: (...nodesOrOptions: Array<BuilderNode$1 | {
+        maxConcurrency?: number;
+    }>) => BuilderNode$1;
+    loop: (options: {
+        id?: string;
+        children: BuilderNode$1;
+        until: (outputs: Record<string, unknown>) => boolean;
+        maxIterations?: number;
+        onMaxReached?: "fail" | "return-last";
+    }) => BuilderNode$1;
+    match: (source: BuilderStepHandle$1, options: {
+        when: (value: unknown) => boolean;
+        then: () => BuilderNode$1;
+        else?: () => BuilderNode$1;
+    }) => BuilderNode$1;
+    component: (instanceId: string, definition: ComponentDefinition, params?: Record<string, unknown>) => BuilderNode$1;
+};
+type BuiltSmithersWorkflow = {
+    execute: (input: unknown, opts?: Omit<Parameters<typeof runWorkflow>[1], "input">) => Effect.Effect<unknown, unknown, unknown>;
+};
+type WorkflowDefinitionBuilder = {
+    build: (buildGraph: ($: BuilderApi) => BuilderNode$1) => BuiltSmithersWorkflow;
+};
+type ComponentDefinitionBuilder = {
+    build: (buildGraph: ($: BuilderApi, params?: Record<string, unknown>) => BuilderNode$1) => ComponentDefinition;
+};
+declare function createWorkflow(options: {
+    name: string;
+    input: AnySchema$1;
+}): WorkflowDefinitionBuilder;
+declare function createComponent(options: {
+    name: string;
+    params?: Record<string, unknown>;
+}): ComponentDefinitionBuilder;
 declare const Smithers: {
     sqlite: typeof sqlite;
+    createWorkflow: typeof createWorkflow;
+    createComponent: typeof createComponent;
 };
 type AnySchema = effect.Schema.Schema<unknown, unknown, never>;
 type ApprovalOptions = {
@@ -1234,6 +1287,12 @@ type ApprovalOptions = {
     };
     onDeny?: "fail" | "continue" | "skip";
 };
+type BuiltSmithersWorkflow$1 = BuiltSmithersWorkflow;
+type BuilderApi$1 = BuilderApi;
+type ComponentDefinition$1 = ComponentDefinition;
+type ComponentDefinitionBuilder$1 = ComponentDefinitionBuilder;
+type StepOptions$1 = StepOptions;
+type WorkflowDefinitionBuilder$1 = WorkflowDefinitionBuilder;
 type BuilderNode = BuilderNode$1;
 type BuilderStepContext = Record<string, unknown> & {
     input: unknown;
@@ -1594,4 +1653,4 @@ type SmithersWorkflow = any;
 
 type ChildWorkflowDefinition = ChildWorkflowDefinition$1;
 
-export { type AlertHumanRequestOptions, AlertRuntime, type AlertRuntimeServices, type AnySchema, type ApprovalOptions, type ApprovalPayload, ApprovalPayloadSchema, type ApprovalResult, ApprovalResultSchema, type BridgeManagedTaskKind, type BuilderNode, type BuilderStepContext, type BuilderStepHandle, type CancelPayload, CancelPayloadSchema, type CancelResult, CancelResultSchema, type ChildWorkflowDefinition, type ChildWorkflowExecuteOptions, CodeplaneSandboxExecutorLive, type ComputeTaskBridgeToolConfig, type ContinuationRequest, type CorrelatedSmithersEvent, type CorrelationContext, type DiffBundle, DockerSandboxExecutorLive, EventBus, type ExecuteTaskActivityOptions, type FilePatch, type GetRunPayload, GetRunPayloadSchema, type GetRunResult, GetRunResultSchema, HUMAN_REQUEST_KINDS, HUMAN_REQUEST_STATUSES, type HijackState, type HotReloadEvent, HotWorkflowController, type HumanRequestKind, type HumanRequestSchemaValidation, type HumanRequestStatus, type JsonSchema, type LegacyExecuteTaskFn, type ListRunsPayload, ListRunsPayloadSchema, type OverlayOptions, type PlanNode, type RalphMeta, type RalphState, type RalphStateMap, type ReadonlyTaskStateMap, RetriableTaskFailure, type RetryPolicy, type RetryWaitMap, type RunResult$2 as RunResult, RunStatusSchema, type RunSummary, RunSummarySchema, type SQLiteTable, SandboxHttpRunner, type ScheduleResult, type ScheduleSnapshot, type SignalPayload, SignalPayloadSchema, type SignalResult, SignalResultSchema, type SignalRunOptions, Smithers, type SmithersAlertPolicy, type SmithersEvent, SmithersRpcGroup, type SmithersSqliteOptions, SqlMessageStorage, type StaticTaskBridgeToolConfig, type TaskActivityContext, type TaskActivityRetryOptions, type TaskBridgeToolConfig, type TaskRecord, TaskResult, type TaskState, type TaskStateMap, TaskWorkerEntity, WatchTree, type WatchTreeOptions, WorkerDispatchKind, WorkerTask$1 as WorkerTask, WorkerTaskKind, type WorkflowPatchDecisionRecord, type WorkflowPatchDecisions, type WorkflowVersioningRuntime, type WorkflowVersioningRuntimeOptions, type XmlNode, type _TaskActivityContext, applyDiffBundle, approve, approveNode, awaitApprovalDurableDeferred, awaitWaitForEventDurableDeferred, bridgeApprovalResolve, bridgeSignalResolve, bridgeWaitForEventResolve, buildHumanRequestId, buildOverlay, buildPlanTree, canExecuteBridgeManagedComputeTask, canExecuteBridgeManagedStaticTask, cancel, cancelPendingTimersBridge, cleanupGenerations, computeDiffBundle, computeDiffBundleBetweenRefs, createSchedulerWakeQueue, createWorkflowVersioningRuntime, denyNode, dispatchWorkerTask, ensureSqlMessageStorage, ensureSqlMessageStorageEffect, executeChildWorkflow, executeComputeTaskBridge, executeStaticTaskBridge, executeTaskActivity, executeTaskBridge, executeTaskBridgeEffect, getDefinedToolMetadata, getHumanTaskPrompt, getRun, getSqlMessageStorage, getWorkflowMakeBridgeRuntime, getWorkflowPatchDecisions, getWorkflowVersioningRuntime, isBridgeManagedTimerTask, isBridgeManagedWaitForEventTask, isHumanRequestPastTimeout, isHumanTaskMeta, isPidAlive, isRunHeartbeatFresh, isTaskResultFailure, jsonSchemaToZod, listRuns, makeAbortError, makeApprovalDurableDeferred, makeDurableDeferredBridgeExecutionId, makeTaskActivity, makeTaskBridgeKey, makeWaitForEventDurableDeferred, makeWorkerTask, parseAttemptMetaJson, parseRuntimeOwnerPid, renderFrame, resolveDeferredTaskStateBridge, resolveOverlayEntry, resolveSchema, runWorkflow, runWorkflowWithMakeBridge, scheduleTasks, signal, signalRun, subscribeTaskWorkerDispatches, usePatched, validateHumanRequestValue, wireAbortSignal, withWorkflowMakeBridgeRuntime, withWorkflowVersioningRuntime };
+export { type AlertHumanRequestOptions, AlertRuntime, type AlertRuntimeServices, type AnySchema, type ApprovalOptions, type ApprovalPayload, ApprovalPayloadSchema, type ApprovalResult, ApprovalResultSchema, type BridgeManagedTaskKind, type BuilderApi$1 as BuilderApi, type BuilderNode, type BuilderStepContext, type BuilderStepHandle, type BuiltSmithersWorkflow$1 as BuiltSmithersWorkflow, type CancelPayload, CancelPayloadSchema, type CancelResult, CancelResultSchema, type ChildWorkflowDefinition, type ChildWorkflowExecuteOptions, CodeplaneSandboxExecutorLive, type ComponentDefinition$1 as ComponentDefinition, type ComponentDefinitionBuilder$1 as ComponentDefinitionBuilder, type ComputeTaskBridgeToolConfig, type ContinuationRequest, type CorrelatedSmithersEvent, type CorrelationContext, type DiffBundle, DockerSandboxExecutorLive, EventBus, type ExecuteTaskActivityOptions, type FilePatch, type GetRunPayload, GetRunPayloadSchema, type GetRunResult, GetRunResultSchema, HUMAN_REQUEST_KINDS, HUMAN_REQUEST_STATUSES, type HijackState, type HotReloadEvent, HotWorkflowController, type HumanRequestKind, type HumanRequestSchemaValidation, type HumanRequestStatus, type JsonSchema, type LegacyExecuteTaskFn, type ListRunsPayload, ListRunsPayloadSchema, type OverlayOptions, type PlanNode, type RalphMeta, type RalphState, type RalphStateMap, type ReadonlyTaskStateMap, RetriableTaskFailure, type RetryPolicy, type RetryWaitMap, type RunResult$2 as RunResult, RunStatusSchema, type RunSummary, RunSummarySchema, type SQLiteTable, SandboxHttpRunner, type ScheduleResult, type ScheduleSnapshot, type SignalPayload, SignalPayloadSchema, type SignalResult, SignalResultSchema, type SignalRunOptions, Smithers, type SmithersAlertPolicy, type SmithersEvent, SmithersRpcGroup, type SmithersSqliteOptions, SqlMessageStorage, type StaticTaskBridgeToolConfig, type StepOptions$1 as StepOptions, type TaskActivityContext, type TaskActivityRetryOptions, type TaskBridgeToolConfig, type TaskRecord, TaskResult, type TaskState, type TaskStateMap, TaskWorkerEntity, WatchTree, type WatchTreeOptions, WorkerDispatchKind, WorkerTask$1 as WorkerTask, WorkerTaskKind, type WorkflowDefinitionBuilder$1 as WorkflowDefinitionBuilder, type WorkflowPatchDecisionRecord, type WorkflowPatchDecisions, type WorkflowVersioningRuntime, type WorkflowVersioningRuntimeOptions, type XmlNode, type _TaskActivityContext, applyDiffBundle, approve, approveNode, awaitApprovalDurableDeferred, awaitWaitForEventDurableDeferred, bridgeApprovalResolve, bridgeSignalResolve, bridgeWaitForEventResolve, buildHumanRequestId, buildOverlay, buildPlanTree, canExecuteBridgeManagedComputeTask, canExecuteBridgeManagedStaticTask, cancel, cancelPendingTimersBridge, cleanupGenerations, computeDiffBundle, computeDiffBundleBetweenRefs, createComponent, createSchedulerWakeQueue, createWorkflow, createWorkflowVersioningRuntime, denyNode, dispatchWorkerTask, ensureSqlMessageStorage, ensureSqlMessageStorageEffect, executeChildWorkflow, executeComputeTaskBridge, executeStaticTaskBridge, executeTaskActivity, executeTaskBridge, executeTaskBridgeEffect, getDefinedToolMetadata, getHumanTaskPrompt, getRun, getSqlMessageStorage, getWorkflowMakeBridgeRuntime, getWorkflowPatchDecisions, getWorkflowVersioningRuntime, isBridgeManagedTimerTask, isBridgeManagedWaitForEventTask, isHumanRequestPastTimeout, isHumanTaskMeta, isPidAlive, isRunHeartbeatFresh, isTaskResultFailure, jsonSchemaToZod, listRuns, makeAbortError, makeApprovalDurableDeferred, makeDurableDeferredBridgeExecutionId, makeTaskActivity, makeTaskBridgeKey, makeWaitForEventDurableDeferred, makeWorkerTask, parseAttemptMetaJson, parseRuntimeOwnerPid, renderFrame, resolveDeferredTaskStateBridge, resolveOverlayEntry, resolveSchema, runWorkflow, runWorkflowWithMakeBridge, scheduleTasks, signal, signalRun, subscribeTaskWorkerDispatches, usePatched, validateHumanRequestValue, wireAbortSignal, withWorkflowMakeBridgeRuntime, withWorkflowVersioningRuntime };
