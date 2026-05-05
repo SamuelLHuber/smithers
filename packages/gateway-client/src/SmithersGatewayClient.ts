@@ -26,11 +26,26 @@ function defaultBaseUrl() {
   return "http://127.0.0.1:7331";
 }
 
+function isUnixWebSocketUrl(baseUrl: string) {
+  return /^ws\+unix:/i.test(baseUrl);
+}
+
 function normalizeBaseUrl(baseUrl: string) {
+  if (isUnixWebSocketUrl(baseUrl)) {
+    return baseUrl;
+  }
   return baseUrl.replace(/\/+$/, "");
 }
 
 function toWebSocketUrl(baseUrl: string, wsPath = "/") {
+  if (isUnixWebSocketUrl(baseUrl)) {
+    const url = new URL(baseUrl);
+    const socketPath = url.pathname.split(":", 1)[0];
+    const path = wsPath.startsWith("/") ? wsPath : `/${wsPath}`;
+    url.pathname = `${socketPath}:${path}`;
+    url.search = "";
+    return url.toString();
+  }
   const url = new URL(wsPath, baseUrl);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.toString();

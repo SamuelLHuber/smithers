@@ -2114,7 +2114,7 @@ export class Gateway {
         return this;
     }
     /**
-   * @param {{ port?: number; host?: string }} [options]
+   * @param {{ port?: number; host?: string; path?: string }} [options]
    */
     async listen(options = {}) {
         if (this.server) {
@@ -2185,6 +2185,10 @@ export class Gateway {
             });
         });
         await new Promise((resolve) => {
+            if (options.path !== undefined) {
+                server.listen(options.path, () => resolve());
+                return;
+            }
             if (options.host === undefined) {
                 server.listen(options.port ?? 7331, () => resolve());
                 return;

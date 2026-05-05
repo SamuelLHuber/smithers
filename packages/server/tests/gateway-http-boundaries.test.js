@@ -10,6 +10,9 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { connect } from "node:net";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { Gateway, GATEWAY_RPC_MAX_DEPTH, GATEWAY_RPC_MAX_STRING_LENGTH, } from "../src/gateway.js";
 
 /**
@@ -82,6 +85,24 @@ function rawHttp(headers, body) {
 }
 
 describe("gateway readRawBody / Content-Length", () => {
+    test("can listen on a Unix domain socket path", async () => {
+        const dir = mkdtempSync(join(tmpdir(), "smithers-gateway-"));
+        const socketPath = join(dir, "gateway.sock");
+        try {
+            gateway = new Gateway({ heartbeatMs: 100 });
+            server = await gateway.listen({ path: socketPath });
+            expect(server.address()).toBe(socketPath);
+        }
+        finally {
+            if (gateway) {
+                await gateway.close();
+                gateway = undefined;
+                server = undefined;
+            }
+            rmSync(dir, { force: true, recursive: true });
+        }
+    });
+
     test("Content-Length: 0 with no body is accepted (parsed as {} -> INVALID_REQUEST)", async () => {
         await startGateway();
         // Empty body -> parseJsonBuffer returns {} -> handler rejects as

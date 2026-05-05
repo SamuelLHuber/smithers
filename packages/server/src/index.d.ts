@@ -543,11 +543,12 @@ declare class Gateway {
    */
     register(key: string, workflow: SmithersWorkflow, options?: GatewayRegisterOptions): this;
     /**
-   * @param {{ port?: number; host?: string }} [options]
+   * @param {{ port?: number; host?: string; path?: string }} [options]
    */
     listen(options?: {
         port?: number;
         host?: string;
+        path?: string;
     }): Promise<node_http.Server<typeof node_http.IncomingMessage, typeof node_http.ServerResponse>>;
     close(): Promise<void>;
     startScheduler(): void;

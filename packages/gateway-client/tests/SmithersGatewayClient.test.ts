@@ -1,6 +1,45 @@
 import { describe, expect, test } from "bun:test";
 import { SmithersGatewayClient } from "../src/index.ts";
 
+class FakeWebSocket extends EventTarget {
+  static urls: string[] = [];
+  readonly CONNECTING = 0;
+  readonly OPEN = 1;
+  readonly CLOSING = 2;
+  readonly CLOSED = 3;
+  readyState = this.CONNECTING;
+
+  constructor(url: string | URL) {
+    super();
+    FakeWebSocket.urls.push(String(url));
+    queueMicrotask(() => {
+      this.readyState = this.OPEN;
+      this.dispatchEvent(new Event("open"));
+    });
+  }
+
+  send(raw: string) {
+    const frame = JSON.parse(raw) as { id: string };
+    queueMicrotask(() => {
+      this.dispatchEvent(
+        new MessageEvent("message", {
+          data: JSON.stringify({
+            type: "res",
+            id: frame.id,
+            ok: true,
+            payload: { protocol: 1 },
+          }),
+        }),
+      );
+    });
+  }
+
+  close() {
+    this.readyState = this.CLOSED;
+    this.dispatchEvent(new CloseEvent("close"));
+  }
+}
+
 describe("SmithersGatewayClient", () => {
   test("calls stable Gateway HTTP RPCs", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
@@ -31,5 +70,32 @@ describe("SmithersGatewayClient", () => {
     expect(calls[0].init.method).toBe("POST");
     expect(calls[0].init.body).toBe(JSON.stringify({ filter: { hasUi: true } }));
     expect(new Headers(calls[0].init.headers).get("content-type")).toBe("application/json");
+  });
+
+  test("preserves ws+unix socket paths when opening WebSocket connections", async () => {
+    FakeWebSocket.urls = [];
+    globalThis.__SMITHERS_GATEWAY_UI__ = {
+      apiVersion: "v1",
+      kind: "gateway",
+      workflowKey: null,
+      mountPath: "/console",
+      rpcPath: "/v1/rpc",
+      wsPath: "/rpc",
+      assetBasePath: "/console/__smithers_ui",
+      props: {},
+    };
+    try {
+      const client = new SmithersGatewayClient({
+        baseUrl: "ws+unix:///tmp/smithers-gateway.sock:/",
+        WebSocket: FakeWebSocket as unknown as typeof WebSocket,
+      });
+
+      const connection = await client.connect();
+      connection.close();
+
+      expect(FakeWebSocket.urls).toEqual(["ws+unix:///tmp/smithers-gateway.sock:/rpc"]);
+    } finally {
+      globalThis.__SMITHERS_GATEWAY_UI__ = undefined;
+    }
   });
 });
