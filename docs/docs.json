@@ -29,7 +29,8 @@
       {
         "group": "Build Workflows",
         "pages": [
-          "jsx/overview"
+          "jsx/overview",
+          "effect/overview"
         ]
       },
       {

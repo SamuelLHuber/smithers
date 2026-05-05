@@ -1,0 +1,130 @@
+---
+title: Effect API
+description: Build Smithers workflows without JSX or React components.
+---
+
+The Effect API is the lower-level authoring surface for teams that already model application logic with `Effect`, `Layer`, and `Schema`. It uses the same Smithers runtime as JSX: steps are persisted in SQLite, completed work is not re-run on resume, outputs are schema-validated, and dependencies drive scheduling. The difference is authoring style: you compose a graph with functions instead of rendering JSX.
+
+Use JSX for most workflows. Use the Effect API when your workflow is part of an Effect service, you want step bodies to return `Effect` values directly, or you need a React-free API for generated workflow definitions.
+
+## Minimal workflow
+
+```ts
+import { Smithers } from "smithers-orchestrator";
+import { Effect, Schema } from "effect";
+
+const analysisSchema = Schema.Struct({
+  summary: Schema.String,
+  risk: Schema.Literal("low", "medium", "high"),
+});
+
+const reportSchema = Schema.Struct({
+  markdown: Schema.String,
+});
+
+const inputSchema = Schema.Struct({
+  repo: Schema.String,
+  sha: Schema.String,
+});
+
+type ReviewInput = Schema.Schema.Type<typeof inputSchema>;
+type Analysis = Schema.Schema.Type<typeof analysisSchema>;
+
+const reviewWorkflow = Smithers.createWorkflow({
+  name: "repo-review",
+  input: inputSchema,
+}).build(($) => {
+  const analyze = $.step("analyze", {
+    output: analysisSchema,
+    timeout: "2m",
+    retry: { maxAttempts: 3, backoff: "exponential", initialDelay: "1s" },
+    run: ({ input, heartbeat }) => {
+      const { repo, sha } = input as ReviewInput;
+
+      return Effect.gen(function* () {
+        heartbeat({ phase: "analyzing" });
+        yield* Effect.log(`Reviewing ${repo}@${sha}`);
+        return { summary: "Found one risky migration.", risk: "medium" };
+      });
+    },
+  });
+
+  const report = $.step("report", {
+    needs: { analyze },
+    output: reportSchema,
+    run: ({ analyze }) => {
+      const analysis = analyze as Analysis;
+      return {
+        markdown: `# Review\n\n${analysis.summary}\n\nRisk: ${analysis.risk}`,
+      };
+    },
+  });
+
+  return $.sequence(analyze, report);
+});
+
+const result = await Effect.runPromise(
+  reviewWorkflow.execute(
+    { repo: "acme/api", sha: "abc123" },
+    { runId: "review-abc123" },
+  ).pipe(
+    Effect.provide(Smithers.sqlite({ filename: "smithers.db" })),
+  ),
+);
+```
+
+`execute()` returns an `Effect`. The success value is the decoded output of the final graph node: a step output for a single step, the last child for a sequence, or an array for a parallel block. If the run stops on an approval or timer, the success value is the normal `RunResult` with a waiting status.
+
+## Steps and dependencies
+
+Create steps with `$.step(id, options)`. IDs are durable: changing an ID creates a new task and leaves the old persisted output behind. A step can return a plain value, a Promise, or an `Effect`; Smithers decodes the result with the step's `output` schema before writing it.
+
+Use `needs` to read completed step outputs inside another step:
+
+```ts
+const publish = $.step("publish", {
+  needs: { report },
+  output: Schema.Struct({ url: Schema.String }),
+  run: ({ report, executionId, stepId, attempt, signal }) => {
+    const { markdown } = report as Schema.Schema.Type<typeof reportSchema>;
+    return publishReport(markdown, { executionId, stepId, attempt, signal });
+  },
+});
+```
+
+The step context includes `input`, dependency values, `executionId`, `stepId`, `attempt`, `iteration`, `signal`, `heartbeat(data)`, and `lastHeartbeat`.
+
+## Control flow
+
+Use `$.sequence(...)` for ordered work and `$.parallel(...nodes, { maxConcurrency })` for concurrent work. Use `$.match(source, { when, then, else })` when a completed step decides which branch mounts, and `$.loop({ id, children, until, maxIterations })` for repeated work. Nested loops are not supported.
+
+```ts
+return $.sequence(
+  analyze,
+  $.match(analyze, {
+    when: (value) => (value as Analysis).risk === "high",
+    then: () => $.approval("approve-high-risk", {
+      needs: { analyze },
+      request: ({ analyze }) => {
+        const analysis = analyze as Analysis;
+        return {
+          title: "Approve high-risk review",
+          summary: analysis.summary,
+        };
+      },
+      onDeny: "fail",
+    }),
+  }),
+  report,
+);
+```
+
+For reusable graph fragments, define a component with `Smithers.createComponent({ name }).build(($, params) => ...)`, then mount it with `$.component("instance-id", component, params)`. Component step IDs are prefixed with the instance ID so multiple instances do not collide.
+
+## Operational notes
+
+- Provide exactly one persistence layer with `Effect.provide(Smithers.sqlite({ filename }))`.
+- Keep step IDs stable across releases; use new IDs for materially different work.
+- Use `heartbeat()` in long-running steps and honor `signal` in external calls.
+- Use `retry`, `retryPolicy`, `timeout`, `skipIf`, and `cache` the same way you would on JSX tasks.
+- Prefer idempotent step bodies. For external side effects, use `executionId`, `stepId`, and `attempt` when constructing idempotency keys.
