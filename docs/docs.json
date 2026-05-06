@@ -22,6 +22,7 @@
       {
         "group": "Learn",
         "pages": [
+          "why-react",
           "how-it-works",
           "recipes"
         ]
