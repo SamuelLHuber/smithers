@@ -141,29 +141,6 @@ The reason this composes is that none of these are sealed framework opinions. Th
 
 ---
 
-## Where we actually disagree: events vs. state
-
-> Event-driven control flow — pause and wait for a signal (e.g. Human-in-the-loop, cancellation) without holding a connection open.
-
-This is the one place we'd nuance the essay.
-
-We do have event-driven architecture. You can register callbacks that fire when tasks finish. Some side effects run automatically: agent outputs auto-decode and write to SQLite, traces are emitted by the runtime, retries are scheduled by the substrate. `$.signal` and `$.waitForEvent` durably suspend a workflow until an external event arrives. All of that is true.
-
-The disagreement is at the framing level. "Events drive control flow" is one shape of event-driven orchestration — events fire, handlers run, handlers schedule the next thing. The shape we recommend in Smithers, especially in the [JSX API](/jsx/overview), is different: **events update state; *state* drives control flow.**
-
-Concretely: every event — a step finishing, a signal arriving, a human approving — updates SQLite. SQLite is the single source of truth for the run. The plan (which tasks should be scheduled next) is a *pure function of the current state*. New event arrives → SQLite updates → re-render the plan → diff against what's already scheduled → schedule the diff. It's the same one-way data flow React uses for the DOM, applied to a workflow graph. We talk about this more in [How it works](/how-it-works) and [Why React?](/why-react).
-
-This buys you a few things that direct event-to-task wiring doesn't:
-
-- **Resume.** A crashed run resumes by re-rendering the plan from current state. There is no event log to replay.
-- **Time travel.** A frame is a snapshot of state. Forking from frame N is just "throw away rows after this point, re-render."
-- **Debuggability.** State is queryable in SQL. An event chain is not.
-- **Agents writing workflows.** An LLM can read current state and propose the next plan. It doesn't have to reason about which event handlers might fire when, in what order, with what side effects.
-
-The Effect API doesn't lock you out of direct event-to-task wiring — that's a valid pattern at integration boundaries, and you can build it. But the *recommended* Smithers shape is "events update state; state determines what runs next." The thesis the essay defends — durable orchestration as the substrate — is, we think, sharper when state is the single source of truth and the plan is just a function over it.
-
----
-
 ## On background agents
 
 > The next major pattern shift is already happening: from synchronous chat agents to asynchronous background agents. This is where most infrastructure falls apart, and where durable orchestration becomes non-negotiable.
@@ -208,15 +185,21 @@ This is the line in the essay we'd put on a t-shirt. Composability is what lets 
 
 ---
 
-## On the missing fourth layer
+## On the missing fourth layer (and our one disagreement)
 
 > The orchestration layer (stable). The agent layer (fluid). The model layer (volatile).
 
-The three-layer model is right as far as it goes. We'd add a fourth that the essay doesn't address: the *authoring* layer.
+The three-layer model is right as far as it goes. We'd add a fourth the essay doesn't address: the *authoring* layer.
 
 Who writes the workflow? In 2026 the answer is shifting. A lot of workflow code is now written and re-tuned by other agents — outer self-improving loops that read traces and propose edits to the workflow's source. The workflow has to be readable and writable by an LLM, not just by you.
 
-This is why Smithers ships *two* authoring surfaces over the same runtime. The Effect API above, for humans who already think in `Effect.gen`. And a [JSX API](/jsx/overview), for everyone else — and especially for the agents that will be writing your next round of workflows. The same workflow, written as React:
+This is also where we have our one real disagreement with the essay.
+
+The essay treats event-driven control flow as a substrate primitive — events fire, handlers run, handlers schedule the next thing. Smithers has all the same machinery: callbacks fire on task completion, agent outputs auto-decode and write to SQLite, retries are scheduled by the substrate, `$.signal` and `$.waitForEvent` durably suspend. You can wire events directly to scheduling decisions in the [Effect API](/effect/overview) if you want to.
+
+But we don't recommend it. The shape we recommend is one-way data flow: **events update state; state is the source of truth; the plan is a pure function over state.** New event arrives → SQLite updates → re-render the plan → diff against what's already scheduled → schedule the diff. The same one-way data flow React uses for the DOM, applied to a workflow graph.
+
+Smithers ships two authoring surfaces over the same runtime. The Effect API above, for humans who already think in `Effect.gen` and want full access to the substrate. And a [JSX API](/jsx/overview), where state-driven control flow is the only path. The same workflow, written as React:
 
 ```tsx
 <Workflow name="review">
@@ -233,9 +216,17 @@ This is why Smithers ships *two* authoring surfaces over the same runtime. The E
 
 Same runtime. Same SQLite. Same retries. Same time travel. Same components. Different authoring surface.
 
-Why both? Because LLMs are unreasonably good at writing React. They have seen more JSX than any other shape of TypeScript by an order of magnitude. When you ask Claude or GPT to author a complex orchestration as JSX with `<Task>`, `<ReviewLoop>`, `<Sandbox>`, `<Approval>`, it produces correct, idiomatic, durable Smithers on the first try at a rate the equivalent Effect-builder authoring just doesn't yet match. Not because the Effect API is worse — because the model's prior is JSX-shaped.
+We recommend the JSX one — the declarative one — for two reasons.
 
-That's a cheat code, and it's the answer to the missing fourth layer. The workflow is durable because of the substrate. The workflow is *editable* because the authoring surface is something the editor on the other side of the keyboard — a model — is already fluent in. ([Why React?](/why-react) is the long version.)
+**One: agents are unreasonably good at writing React.** LLMs have seen more JSX than any other shape of TypeScript by an order of magnitude. When you ask Claude or GPT to author a complex orchestration as JSX with `<Task>`, `<ReviewLoop>`, `<Sandbox>`, `<Approval>`, it produces correct, idiomatic, durable Smithers on the first try at a rate the equivalent imperative authoring just doesn't yet match. The model's prior is JSX-shaped. The fourth layer — authoring — gets dramatically easier when the editor on the other side of the keyboard is already fluent in the surface you wrote.
+
+**Two: humans are better at reading declarative orchestration than imperative graphs.** A complex JSX tree is auditable by reading top to bottom — you see the steps, you see the control-flow components, you see the data flow. To understand a single run of an event-driven graph, you have to mentally simulate which events fire which handlers in which order with which side effects. That cost grows non-linearly as the workflow grows. State-driven, declarative orchestration stays linear in cost-to-read, and that matters at 3am when something has gone wrong.
+
+That second reason is the deeper one, and it's also what gets you free time travel (a frame is a snapshot of state, forking from frame N is "throw away rows after this point, re-render"), free resume (re-render the plan from current state, there is no event log to replay), and free SQL debuggability (state is queryable, an event chain is not).
+
+The substrate is the layer that doesn't change. The authoring surface is the layer that has to be legible to the agents that are increasingly editing it — and to the humans who still have to audit what those agents wrote. We bet on declarative for both.
+
+([Why React?](/why-react) is the long version of the JSX argument. [How it works](/how-it-works) is the long version of the state-driven control flow.)
 
 ---
 
@@ -245,4 +236,4 @@ That's a cheat code, and it's the answer to the missing fourth layer. The workfl
 
 Our answer to "is your infrastructure ready" is the rest of these docs. Durable steps with retries by default. Prometheus and SQLite observability with no setup. Approval, Signal, HumanTask, Sandbox. Named composition components on top of the substrate, not in place of it. State-of-the-art default workflows from `smithers init` ([Kanban](/workflows/kanban), [Mission](/workflows/mission), [Research-Plan-Implement](/workflows/research-plan-implement), [Plan + PRD](/workflows/write-a-prd), [Grill-Me](/workflows/grill-me)) you can use today and fork tomorrow. A managed hub if you don't want to run the dashboard yourself.
 
-The post is right that this is the moment. We agree on more than we disagree. The bet we'd add — the one that takes the thesis a step further — is that the substrate also has to be *authorable* by the agents that are increasingly writing the workflows for you. Durable execution isn't enough. Durable execution that's *legible to a model* is what makes the next round of background agents actually buildable.
+The post is right that this is the moment. We agree on more than we disagree.
