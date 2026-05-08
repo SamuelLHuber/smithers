@@ -22,13 +22,13 @@
       {
         "group": "But... Why?",
         "pages": [
-          "why/background-agents"
+          "why/background-agents",
+          "why-react"
         ]
       },
       {
         "group": "Learn",
         "pages": [
-          "why-react",
           "how-it-works",
           "recipes"
         ]
