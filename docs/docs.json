@@ -20,6 +20,12 @@
         ]
       },
       {
+        "group": "But... Why?",
+        "pages": [
+          "why/background-agents"
+        ]
+      },
+      {
         "group": "Learn",
         "pages": [
           "why-react",
