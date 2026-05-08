@@ -22,7 +22,7 @@
       {
         "group": "But... Why?",
         "pages": [
-          "why/production-ready-agentic-workflows"
+          "why/background-agents"
         ]
       },
       {
@@ -332,7 +332,6 @@
     { "source": "/integrations/pi-extension", "destination": "/integrations/pi-integration" },
     { "source": "/integrations/pi-plugin", "destination": "/integrations/pi-integration" },
     { "source": "/jsx/installation", "destination": "/jsx/overview" },
-    { "source": "/jsx/quickstart", "destination": "/jsx/overview" },
-    { "source": "/why/background-agents", "destination": "/why/production-ready-agentic-workflows" }
+    { "source": "/jsx/quickstart", "destination": "/jsx/overview" }
   ]
 }
