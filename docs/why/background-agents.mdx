@@ -1,15 +1,21 @@
 ---
 title: Background agents are here. Smithers is ready.
-description: A line-by-line response to a recent essay on agent infrastructure — where it lands, where it stops short, and where Smithers takes it.
+description: A direct response to "Background agents are here. Your orchestration isn't ready." We agree with most of the thesis, push back in one place, and extend it where it stops short.
 ---
 
-A recent essay on agent infrastructure made a thesis we mostly agree with: that the substrate underneath every agent pattern doesn't change, and that's the layer worth building on. Most of it is right. Some of it stops at the point where things get interesting. Below: the lines that landed, and the responses we'd write back.
+This post is a response.
+
+Specifically, to a recent essay titled **"Background agents are here. Your orchestration isn't ready."** The title of this page is a deliberate echo of that one — because we agree with most of the essay's argument, and we want to be clear that's where this is coming from. The substrate underneath every agent pattern doesn't change. That's the layer worth investing in. We've been building Smithers on exactly that bet.
+
+A few things in the essay stop at the point where things get interesting, and one of its framings is one of the only places we'd push back. So rather than write a parallel post that retells its argument, we're going to pull specific lines from the essay and respond to each one.
 
 ---
 
-## "Every six months, the 'right' way to build an AI agent changes."
+## On the treadmill
 
-We agree, and the cadence is speeding up — because workflows aren't only re-tuned by humans changing their minds anymore.
+> Every six months, the "right" way to build an AI agent changes.
+
+We agree, and the cadence is speeding up — because workflows aren't only retuned by humans changing their minds anymore.
 
 Wrap a workflow in a self-improving outer loop — the Hermes-shaped thing, where one agent watches another agent's traces and proposes edits to the workflow's source code — and you don't need a human to notice the meta has shifted. The outer loop notices. The outer loop edits. By Thursday next week the workflow your agent runs is one no human author ever wrote.
 
@@ -17,7 +23,9 @@ This changes what "good" looks like at the substrate. It's not enough for the wo
 
 ---
 
-## "If you coupled your infrastructure to any one of these patterns, you've already rebuilt at least twice. And you'll rebuild again."
+## On rebuilding
+
+> If you coupled your infrastructure to any one of these patterns, you've already rebuilt at least twice. And you'll rebuild again.
 
 True for the pattern layer. The teams who didn't rebuild are the ones who picked an orchestration substrate first and let the patterns above it churn.
 
@@ -25,9 +33,13 @@ That's why DAX's `research → plan → implement`, Gstack's high-token agentic 
 
 ---
 
-## "Here's the thesis: there's a layer that doesn't change. Durable orchestration: steps, events, state, retries, observability."
+## The thesis we agree with
 
-This is the line we'd put in the headline. Smithers exists to be that layer. Here's the smallest workflow that survives a process crash, in our [Effect API](/effect/overview):
+> Here's the thesis: there's a layer that doesn't change. Durable orchestration: steps, events, state, retries, observability.
+
+This is the line we'd put in the headline. Smithers exists to be that layer.
+
+Here's the smallest workflow that survives a process crash, in our [Effect API](/effect/overview):
 
 ```ts
 import { Smithers } from "smithers-orchestrator";
@@ -69,21 +81,25 @@ await Effect.runPromise(
 );
 ```
 
-What you wrote: two steps in a sequence, with retries. What you got for free: durable persistence (each step's output is decoded against its schema and written to SQLite, so a host crash doesn't replay completed work), default-on retries (LLM APIs fail constantly, you should not be writing that loop by hand), cancellation propagation, and Effect-native composition with the rest of your services, layers, and fibers.
+What you wrote: two steps in a sequence, with retries. What you got for free: durable persistence (each step's output is decoded against its schema and written to SQLite, so a host crash doesn't replay completed work), default-on retries (LLM APIs fail constantly; you should not be writing that loop by hand), cancellation propagation, and Effect-native composition with the rest of your services, layers, and fibers.
 
 ---
 
-## "Agent frameworks aren't libraries. They're bets on which agent pattern wins. When the pattern shifts, you don't refactor; you rewrite."
+## On the framework trap
 
-This is the most important line in the essay. The framework trap is the *topology*, not the framework.
+> Agent frameworks aren't libraries. They're bets on which agent pattern wins. When the pattern shifts, you don't refactor; you rewrite.
 
-A framework that abstracts the substrate — durable steps, retries, persistence, suspension, observability — ages fine. A framework that abstracts the topology — graphs, crews, swarms, role-based agents, conversational multi-agent — ages out as soon as the topology does. The mistake is conflating the two and throwing out both when one expires.
+This is the most important sentence in the essay. The trap is the *topology*, not the framework.
+
+A framework that abstracts the substrate — durable steps, retries, persistence, suspension, observability — ages fine. A framework that abstracts the topology — graphs, crews, swarms, role-based agents, conversational multi-agent — ages out as soon as the topology does. The mistake is conflating the two and throwing both away when one expires.
 
 Smithers does not pick a topology for you. It hands you a primitive — a durable, retryable, observable task — and lets you compose it into whatever shape your problem and your model want this quarter.
 
 ---
 
-## "Abstract the primitives: steps, retries, state. Don't abstract the topology."
+## On abstracting the right thing
+
+> Abstract the primitives: steps, retries, state. Don't abstract the topology.
 
 Right. And the test of "did you abstract the primitives well enough" is whether the topologies you keep building can stop being snowflakes.
 
@@ -107,9 +123,11 @@ None of these are baked into the runtime. They're pure compositions of `$.step`,
 
 ---
 
-## "Five primitives show up underneath every pattern: durable steps, persistent external state, parallel work coordination, event-driven control flow, structured execution observability."
+## On the five primitives
 
-The list is right. We'd push back gently on the framing: these are five *capabilities* the substrate has to provide, not five sealed primitives. In Smithers they're delivered as uniform Effect.ts effects, which is the part the essay doesn't quite name.
+> Five primitives show up underneath every pattern: durable steps, persistent external state, parallel work coordination, event-driven control flow, structured execution observability.
+
+The list is right. We'd push back gently on the framing — these are five *capabilities* the substrate has to provide, not five sealed primitives. In Smithers they're delivered as uniform Effect.ts effects, which is the part the essay doesn't quite name.
 
 | Capability | Smithers shape |
 | :-- | :-- |
@@ -123,13 +141,15 @@ The reason this composes is that none of these are sealed framework opinions. Th
 
 ---
 
-## "Event-driven control flow — pause and wait for a signal."
+## Where we actually disagree: events vs. state
+
+> Event-driven control flow — pause and wait for a signal (e.g. Human-in-the-loop, cancellation) without holding a connection open.
 
 This is the one place we'd nuance the essay.
 
 We do have event-driven architecture. You can register callbacks that fire when tasks finish. Some side effects run automatically: agent outputs auto-decode and write to SQLite, traces are emitted by the runtime, retries are scheduled by the substrate. `$.signal` and `$.waitForEvent` durably suspend a workflow until an external event arrives. All of that is true.
 
-The nuance is at the framing level. "Events drive control flow" is one shape of event-driven orchestration — events fire, handlers run, handlers schedule the next thing. The shape we recommend in Smithers, especially in the [JSX API](/jsx/overview), is different: **events update state; *state* drives control flow.**
+The disagreement is at the framing level. "Events drive control flow" is one shape of event-driven orchestration — events fire, handlers run, handlers schedule the next thing. The shape we recommend in Smithers, especially in the [JSX API](/jsx/overview), is different: **events update state; *state* drives control flow.**
 
 Concretely: every event — a step finishing, a signal arriving, a human approving — updates SQLite. SQLite is the single source of truth for the run. The plan (which tasks should be scheduled next) is a *pure function of the current state*. New event arrives → SQLite updates → re-render the plan → diff against what's already scheduled → schedule the diff. It's the same one-way data flow React uses for the DOM, applied to a workflow graph. We talk about this more in [How it works](/how-it-works) and [Why React?](/why-react).
 
@@ -144,7 +164,9 @@ The Effect API doesn't lock you out of direct event-to-task wiring — that's a 
 
 ---
 
-## "The next major pattern shift is already happening: from synchronous chat agents to asynchronous background agents. This is where most infrastructure falls apart."
+## On background agents
+
+> The next major pattern shift is already happening: from synchronous chat agents to asynchronous background agents. This is where most infrastructure falls apart, and where durable orchestration becomes non-negotiable.
 
 Strong agreement. This is the moment that separates real durable execution from "a queue with extra steps."
 
@@ -156,7 +178,9 @@ In Smithers it's all one shape: `$.step` is durable, `$.signal` and `$.waitForEv
 
 ---
 
-## "Sandboxes operate at the compute layer — they answer 'where does the agent run?'"
+## On sandboxes
+
+> Sandboxes operate at the compute layer — they answer "where does the agent run?" Some pause and resume the full VM state, which is powerful, but it's a runtime snapshot, not a workflow snapshot.
 
 Right. The essay stops one step short of the practical question: do you sandbox the whole graph, each task, or some mix?
 
@@ -168,19 +192,25 @@ This is, honestly, the part of Smithers where we keep changing our mind on the r
 
 ---
 
-## "The two layers are complementary, but conflating them is a costly mistake on the road to production."
+## On conflating layers
+
+> The two layers are complementary, but conflating them is a costly mistake on the road to production.
 
 Yes. We've watched teams burn six months on this exact mistake. Sandbox providers solve isolation. Orchestration solves "which step is in flight, which is done, which crashed, which is blocked on a human, what the dependency graph is, how to resume." Stack them. Don't merge them.
 
 ---
 
-## "Durable orchestration isn't just about reliability. It's about composability."
+## On composability
+
+> Durable orchestration isn't just about reliability. It's about composability.
 
 This is the line in the essay we'd put on a t-shirt. Composability is what lets the named patterns above exist as libraries instead of as runtime opinions. It's also what lets the workflow author — increasingly an agent — refactor the flow without breaking the substrate.
 
 ---
 
-## "The orchestration layer (stable). The agent layer (fluid). The model layer (volatile)."
+## On the missing fourth layer
+
+> The orchestration layer (stable). The agent layer (fluid). The model layer (volatile).
 
 The three-layer model is right as far as it goes. We'd add a fourth that the essay doesn't address: the *authoring* layer.
 
@@ -209,8 +239,10 @@ That's a cheat code, and it's the answer to the missing fourth layer. The workfl
 
 ---
 
-## "Background agents aren't coming. They're here. The only question is whether your infrastructure is ready to let them run, or whether you're about to rebuild it again."
+## On readiness
+
+> Background agents aren't coming. They're here. The only question is whether your infrastructure is ready to let them run, or whether you're about to rebuild it again.
 
 Our answer to "is your infrastructure ready" is the rest of these docs. Durable steps with retries by default. Prometheus and SQLite observability with no setup. Approval, Signal, HumanTask, Sandbox. Named composition components on top of the substrate, not in place of it. State-of-the-art default workflows from `smithers init` ([Kanban](/workflows/kanban), [Mission](/workflows/mission), [Research-Plan-Implement](/workflows/research-plan-implement), [Plan + PRD](/workflows/write-a-prd), [Grill-Me](/workflows/grill-me)) you can use today and fork tomorrow. A managed hub if you don't want to run the dashboard yourself.
 
-The post is right that this is the moment. We agree on more than we disagree. The bet we'd add — the one that takes the thesis a step further — is that the substrate also has to be authorable by the agents that are increasingly writing the workflows for you. Durable execution isn't enough. Durable execution that's *legible to a model* is what makes the next round of background agents actually buildable.
+The post is right that this is the moment. We agree on more than we disagree. The bet we'd add — the one that takes the thesis a step further — is that the substrate also has to be *authorable* by the agents that are increasingly writing the workflows for you. Durable execution isn't enough. Durable execution that's *legible to a model* is what makes the next round of background agents actually buildable.
