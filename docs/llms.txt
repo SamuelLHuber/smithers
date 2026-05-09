@@ -8,6 +8,7 @@ Durable AI workflow orchestration as a JSX runtime.
 - [Memory fragment](/llms-memory.txt) — cross-run memory: facts, history, recall
 - [OpenAPI tools fragment](/llms-openapi.txt) — generate AI SDK tools from OpenAPI specs
 - [Observability fragment](/llms-observability.txt) — HTTP server, gateway, MCP, OpenTelemetry
+- [Effect fragment](/llms-effect.txt) — Effect-ts authoring API (no JSX)
 - [Integrations fragment](/llms-integrations.txt) — agent runtimes, tools, ecosystem
 - [Events fragment](/llms-events.txt) — full SmithersEvent discriminated union
 

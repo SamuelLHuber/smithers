@@ -9,6 +9,7 @@ Opt-in fragments cover features most users do not need:
   - Memory (cross-run state):       /llms-memory.txt
   - OpenAPI tools:                  /llms-openapi.txt
   - Observability + HTTP server:    /llms-observability.txt
+  - Effect-ts authoring API:        /llms-effect.txt
   - Integrations + CLI agents:      /llms-integrations.txt
   - Event types (full union):       /llms-events.txt
 
@@ -96,6 +97,7 @@ Don't use it for a single prompt → single response. That's just an `Agent.gene
 
 - [Tour](/tour) for a working code-review example.
 - [How It Works](/how-it-works) for the execution model.
+- [Why React?](/why-react) for the rationale behind the JSX runtime.
 
 ---
 
