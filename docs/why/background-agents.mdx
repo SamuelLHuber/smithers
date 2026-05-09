@@ -87,34 +87,34 @@ Underneath the JSX surface above is an Effect.ts runtime. For users who already 
 import { Smithers } from "smithers-orchestrator";
 import { Effect, Schema } from "effect";
 
-const Review = Smithers.createWorkflow({
+const G = Smithers.workflow({
   name: "review",
   input: Schema.Struct({ repo: Schema.String, sha: Schema.String }),
-}).build(($) => {
-  const analyze = $.step("analyze", {
-    output: Schema.Struct({
-      summary: Schema.String,
-      risk: Schema.Literal("low", "medium", "high"),
-    }),
-    timeout: "2m",
-    retry: { maxAttempts: 3, backoff: "exponential", initialDelay: "1s" },
-    run: ({ input, heartbeat, signal }) =>
-      Effect.gen(function* () {
-        heartbeat({ phase: "analyzing" });
-        return yield* analyzeRepo(input, { signal });
-      }),
-  });
-
-  const report = $.step("report", {
-    needs: { analyze },
-    output: Schema.Struct({ markdown: Schema.String }),
-    run: ({ analyze }) => ({
-      markdown: `# Review\n\n${analyze.summary}`,
-    }),
-  });
-
-  return $.sequence(analyze, report);
 });
+
+const analyze = G.step("analyze", {
+  output: Schema.Struct({
+    summary: Schema.String,
+    risk: Schema.Literal("low", "medium", "high"),
+  }),
+  timeout: "2m",
+  retry: { maxAttempts: 3, backoff: "exponential", initialDelay: "1s" },
+  run: ({ input, heartbeat, signal }) =>
+    Effect.gen(function* () {
+      heartbeat({ phase: "analyzing" });
+      return yield* analyzeRepo(input, { signal });
+    }),
+});
+
+const report = G.step("report", {
+  needs: { analyze },
+  output: Schema.Struct({ markdown: Schema.String }),
+  run: ({ analyze }) => ({
+    markdown: `# Review\n\n${analyze.summary}`,
+  }),
+});
+
+const Review = G.from(G.sequence(analyze, report));
 
 await Effect.runPromise(
   Review.execute({ repo: "acme/api", sha: "abc123" }).pipe(
