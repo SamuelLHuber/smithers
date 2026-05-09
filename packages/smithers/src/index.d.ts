@@ -76,7 +76,7 @@ export { syncZodTableSchema, zodSchemaColumns, zodToCreateTableSQL } from '@smit
 export { camelToSnake } from '@smithers-orchestrator/db/utils/camelToSnake';
 export { unwrapZodType } from '@smithers-orchestrator/db/unwrapZodType';
 export { zodSchemaToJsonExample } from '@smithers-orchestrator/components/zod-to-example';
-export { BuilderApi, BuiltSmithersWorkflow, ComponentDefinition, ComponentDefinitionBuilder, Smithers, StepOptions, WorkflowDefinitionBuilder, createComponent, createWorkflow, renderFrame, runWorkflow } from '@smithers-orchestrator/engine';
+export { BuilderApi, BuiltSmithersWorkflow, Smithers, StepOptions, fragment, renderFrame, runWorkflow, workflow } from '@smithers-orchestrator/engine';
 import { Tool } from 'ai';
 import { SmithersDb } from '@smithers-orchestrator/db/adapter';
 

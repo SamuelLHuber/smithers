@@ -171,11 +171,11 @@ export { runJj, getJjPointer, revertToJjPointer, isJjRepo, workspaceAdd, workspa
 // Core API
 export { createSmithers } from "./create.js";
 export {
-  createComponent,
-  createWorkflow,
+  fragment,
   renderFrame,
   runWorkflow,
   Smithers,
+  workflow,
 } from "@smithers-orchestrator/engine";
 export { signalRun } from "@smithers-orchestrator/engine/signals";
 export { usePatched } from "@smithers-orchestrator/engine/effect/versioning";

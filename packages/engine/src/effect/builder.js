@@ -790,24 +790,261 @@ function normalizeExecutionError(result) {
     return new SmithersError("WORKFLOW_EXECUTION_FAILED", `Workflow execution ended with status "${result.status}"`, { status: result.status });
 }
 /**
- * @param {{ name: string; input: AnySchema }} options
+ * @typedef {{ _tag: "WorkflowGraph"; expr: unknown; pipe: (...fns: Array<(g: any) => any>) => any }} WorkflowGraph
  */
-export function createWorkflow(options) {
+
+/**
+ * @param {unknown} value
+ * @returns {value is WorkflowGraph}
+ */
+function isWorkflowGraph(value) {
+    return Boolean(value) && typeof value === "object" && /** @type {any} */ (value)._tag === "WorkflowGraph";
+}
+
+/**
+ * @param {unknown} expr
+ * @returns {WorkflowGraph}
+ */
+function makeGraph(expr) {
+    /** @type {WorkflowGraph} */
+    const graph = /** @type {any} */ ({ _tag: "WorkflowGraph", expr });
+    graph.pipe = function pipe(...fns) {
+        return fns.reduce((acc, fn) => fn(acc), graph);
+    };
+    return graph;
+}
+
+/**
+ * Build the graph constructors shared by Smithers.workflow and Smithers.fragment.
+ */
+function makeFactory() {
     return {
         /**
-     * @param {($: BuilderApi) => BuilderNode} buildGraph
-     * @returns {BuiltSmithersWorkflow}
-     */
-        build(buildGraph) {
-            const root = buildGraph(createBuilder());
+         * @param {string} id
+         * @param {StepOptions} options
+         */
+        step: (id, options) => makeGraph({ _tag: "Step", id, options }),
+        /**
+         * @param {string} id
+         * @param {ApprovalOptions} options
+         */
+        approval: (id, options) => makeGraph({ _tag: "Approval", id, options }),
+        /**
+         * @param {WorkflowGraph[]} children
+         */
+        sequence: (...children) => makeGraph({ _tag: "Sequence", children }),
+        parallel: (...args) => {
+            let maxConcurrency;
+            const items = [...args];
+            const last = items[items.length - 1];
+            if (last &&
+                typeof last === "object" &&
+                !Array.isArray(last) &&
+                !isWorkflowGraph(last) &&
+                "maxConcurrency" in last) {
+                maxConcurrency = Number(last.maxConcurrency);
+                items.pop();
+            }
+            return makeGraph({ _tag: "Parallel", children: items, maxConcurrency });
+        },
+        match: (source, options) => makeGraph({
+            _tag: "Match",
+            source,
+            when: options.when,
+            then: options.then,
+            else: options.else,
+        }),
+        branch: (options) => makeGraph({
+            _tag: "Branch",
+            condition: options.condition,
+            needs: options.needs,
+            then: options.then,
+            else: options.else,
+        }),
+        loop: (options) => makeGraph({
+            _tag: "Loop",
+            id: options.id,
+            child: options.children,
+            until: options.until,
+            maxIterations: options.maxIterations,
+            onMaxReached: options.onMaxReached,
+        }),
+        worktree: (options) => makeGraph({
+            _tag: "Worktree",
+            id: options.id,
+            path: options.path,
+            branch: options.branch,
+            skipIf: options.skipIf,
+            needs: options.needs,
+            child: options.children,
+        }),
+        scope: (instanceId, child) => makeGraph({
+            _tag: "Scope",
+            instanceId,
+            child,
+        }),
+    };
+}
+
+/**
+ * @param {string} prefix
+ * @param {string | undefined} id
+ */
+function applyPrefixId(prefix, id) {
+    if (!id) return id;
+    return prefix ? `${prefix}.${id}` : id;
+}
+
+/**
+ * @param {Record<string, WorkflowGraph> | undefined} needs
+ * @param {string} prefix
+ * @param {Map<string, Map<WorkflowGraph, BuilderNode>>} memo
+ */
+function compileNeeds(needs, prefix, memo) {
+    if (!needs) return undefined;
+    const out = {};
+    for (const [key, dep] of Object.entries(needs)) {
+        out[key] = compileGraph(dep, prefix, memo);
+    }
+    return out;
+}
+
+/**
+ * Walk a graph expression tree and produce a BuilderNode tree at the active prefix.
+ * Memoizes per (prefix, graph) so a value referenced as both a child and a needs source
+ * compiles to a single handle, while reuse under different scopes produces distinct handles.
+ *
+ * @param {WorkflowGraph} graph
+ * @param {string} [prefix]
+ * @param {Map<string, Map<WorkflowGraph, BuilderNode>>} [memo]
+ * @returns {BuilderNode}
+ */
+function compileGraph(graph, prefix = "", memo = new Map()) {
+    let perPrefix = memo.get(prefix);
+    if (!perPrefix) {
+        perPrefix = new Map();
+        memo.set(prefix, perPrefix);
+    }
+    const cached = perPrefix.get(graph);
+    if (cached) return cached;
+
+    const builder = createBuilder(prefix);
+    const expr = /** @type {any} */ (graph.expr);
+    let node;
+
+    switch (expr._tag) {
+        case "Step": {
+            const compiledOptions = {
+                ...expr.options,
+                needs: compileNeeds(expr.options.needs, prefix, memo) ?? {},
+            };
+            node = builder.step(expr.id, compiledOptions);
+            break;
+        }
+        case "Approval": {
+            const compiledOptions = {
+                ...expr.options,
+                needs: compileNeeds(expr.options.needs, prefix, memo) ?? {},
+            };
+            node = builder.approval(expr.id, compiledOptions);
+            break;
+        }
+        case "Sequence": {
+            node = {
+                kind: "sequence",
+                children: expr.children.map((c) => compileGraph(c, prefix, memo)),
+            };
+            break;
+        }
+        case "Parallel": {
+            node = {
+                kind: "parallel",
+                children: expr.children.map((c) => compileGraph(c, prefix, memo)),
+                maxConcurrency: expr.maxConcurrency,
+            };
+            break;
+        }
+        case "Match": {
+            node = {
+                kind: "match",
+                source: compileGraph(expr.source, prefix, memo),
+                when: expr.when,
+                then: compileGraph(expr.then, prefix, memo),
+                else: expr.else ? compileGraph(expr.else, prefix, memo) : undefined,
+            };
+            break;
+        }
+        case "Branch": {
+            node = {
+                kind: "branch",
+                condition: expr.condition,
+                needs: compileNeeds(expr.needs, prefix, memo),
+                then: compileGraph(expr.then, prefix, memo),
+                else: expr.else ? compileGraph(expr.else, prefix, memo) : undefined,
+            };
+            break;
+        }
+        case "Loop": {
+            node = {
+                kind: "loop",
+                id: applyPrefixId(prefix, expr.id),
+                children: compileGraph(expr.child, prefix, memo),
+                until: expr.until,
+                maxIterations: expr.maxIterations,
+                onMaxReached: expr.onMaxReached,
+            };
+            break;
+        }
+        case "Worktree": {
+            node = {
+                kind: "worktree",
+                id: applyPrefixId(prefix, expr.id),
+                path: expr.path,
+                branch: expr.branch,
+                skipIf: expr.skipIf,
+                needs: compileNeeds(expr.needs, prefix, memo),
+                children: compileGraph(expr.child, prefix, memo),
+            };
+            break;
+        }
+        case "Scope": {
+            const nextPrefix = prefix ? `${prefix}.${expr.instanceId}` : expr.instanceId;
+            node = compileGraph(expr.child, nextPrefix, memo);
+            break;
+        }
+        default:
+            throw new SmithersError("UNKNOWN_GRAPH_EXPR", `Unknown graph expression _tag: "${expr._tag}"`);
+    }
+
+    perPrefix.set(graph, node);
+    return node;
+}
+
+/**
+ * @param {{ name: string; input: AnySchema }} options
+ */
+export function workflow(options) {
+    const factory = makeFactory();
+    return {
+        ...factory,
+        /**
+         * Finalize the workflow definition. Compiles the graph expression tree to a
+         * BuilderNode tree, allocates step handles with active prefixes, and returns
+         * a runnable workflow.
+         *
+         * @param {WorkflowGraph} graph
+         */
+        from(graph) {
+            const root = compileGraph(graph);
             annotateLoops(root);
             const handles = collectHandles(root);
             assertUniqueHandleIds(handles);
             return {
+                node: root,
                 /**
-         * @param {unknown} input
-         * @param {Omit<Parameters<typeof runWorkflow>[1], "input">} [opts]
-         */
+                 * @param {unknown} input
+                 * @param {Omit<Parameters<typeof runWorkflow>[1], "input">} [opts]
+                 */
                 execute(input, opts) {
                     return Effect.gen(function* () {
                         const env = yield* Effect.context();
@@ -815,12 +1052,12 @@ export function createWorkflow(options) {
                         const decodedInput = decodeSchema(options.input, input);
                         const encodedInput = JSON.parse(JSON.stringify(encodeSchema(options.input, decodedInput) ?? {}));
                         return yield* Effect.acquireUseRelease(Effect.sync(() => createBuilderDb(sqliteConfig.filename, handles)), (runtime) => Effect.promise(async () => {
-                            const workflow = {
+                            const wf = {
                                 db: runtime.db,
-                                build: (ctx) => React.createElement(Workflow, { name: options.name }, renderNode(ctx && root ? root : root, ctx, decodedInput, env)),
+                                build: (ctx) => React.createElement(Workflow, { name: options.name }, renderNode(root, ctx, decodedInput, env)),
                                 opts: {},
                             };
-                            const result = await Effect.runPromise(runWorkflow(workflow, {
+                            const result = await Effect.runPromise(runWorkflow(wf, {
                                 ...opts,
                                 input: encodedInput,
                             }));
@@ -839,39 +1076,28 @@ export function createWorkflow(options) {
         },
     };
 }
+
 /**
- * @param {{ name: string; params?: Record<string, unknown> }} options
+ * Build a graph fragment whose steps live across workflows. Same constructors as
+ * a workflow handle, minus `from` — fragments are values, not workflows. They compile
+ * when mounted into a real workflow via `G.scope(instanceId, fragment)`.
+ *
+ * @param {AnySchema} _inputSchema
  */
-export function createComponent(options) {
-    return {
-        /**
-     * @param {($: BuilderApi, params: Record<string, unknown>) => BuilderNode} buildGraph
-     * @returns {ComponentDefinition}
-     */
-        build(buildGraph) {
-            return {
-                kind: "component-definition",
-                name: options.name,
-                /**
-         * @param {string} prefix
-         * @param {Record<string, unknown>} params
-         */
-                buildWithPrefix(prefix, params) {
-                    return buildGraph(createBuilder(prefix), params);
-                },
-            };
-        },
-    };
+export function fragment(_inputSchema) {
+    return makeFactory();
 }
+
 /**
  * @param {SmithersSqliteOptions} options
  */
 function sqlite(options) {
     return Layer.succeed(SmithersSqlite, options);
 }
-/** @type {{ sqlite: typeof sqlite; createWorkflow: typeof createWorkflow; createComponent: typeof createComponent }} */
+
+/** @type {{ sqlite: typeof sqlite; workflow: typeof workflow; fragment: typeof fragment }} */
 export const Smithers = {
     sqlite,
-    createWorkflow,
-    createComponent,
+    workflow,
+    fragment,
 };
