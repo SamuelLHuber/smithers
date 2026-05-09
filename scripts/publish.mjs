@@ -4,10 +4,11 @@
 // equivalent) first to bump + commit + tag.
 //
 // Usage:
-//   pnpm run release                 # check clean, verify changelog, build, publish
+//   pnpm run release                 # check clean, verify changelog, build, lint, typecheck, test, publish
 //   pnpm run release -- --dry-run    # same but stop before `pnpm publish`
 //   pnpm run release -- --otp=123456
 //   pnpm run release -- --skip-build
+//   pnpm run release -- --skip-checks  # skip lint/typecheck/test
 //   pnpm run release -- --skip-git   # skip the clean-tree check
 
 import { execSync, spawnSync } from "node:child_process";
@@ -24,6 +25,7 @@ const args = Object.fromEntries(
 );
 const DRY_RUN = !!args["dry-run"];
 const SKIP_BUILD = !!args["skip-build"];
+const SKIP_CHECKS = !!args["skip-checks"];
 const SKIP_GIT = !!args["skip-git"];
 const OTP = typeof args.otp === "string" ? args.otp : null;
 
@@ -60,6 +62,22 @@ if (!SKIP_BUILD) {
   run("pnpm -r build");
 } else {
   log("build", "skipped (--skip-build)");
+}
+
+if (!SKIP_CHECKS) {
+  log("lint", "pnpm lint");
+  run("pnpm lint");
+
+  log("typecheck", "pnpm typecheck");
+  run("pnpm typecheck");
+
+  log("typecheck:examples", "pnpm typecheck:examples");
+  run("pnpm typecheck:examples");
+
+  log("test", "pnpm test");
+  run("pnpm test");
+} else {
+  log("checks", "skipped (--skip-checks)");
 }
 
 if (!DRY_RUN) {
