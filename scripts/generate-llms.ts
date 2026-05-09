@@ -115,6 +115,10 @@ const EVENT_PAGES = [
   "reference/event-types.mdx",
 ];
 
+const EFFECT_PAGES = [
+  "effect/overview.mdx",
+];
+
 const INTEGRATIONS_PAGES = [
   "integrations/integrations.mdx",
   "integrations/cli-agents.mdx",
@@ -192,6 +196,7 @@ const HEADERS = {
     "  - Memory (cross-run state):       /llms-memory.txt",
     "  - OpenAPI tools:                  /llms-openapi.txt",
     "  - Observability + HTTP server:    /llms-observability.txt",
+    "  - Effect-ts authoring API:        /llms-effect.txt",
     "  - Integrations + CLI agents:      /llms-integrations.txt",
     "  - Event types (full union):       /llms-events.txt",
     "",
@@ -200,6 +205,7 @@ const HEADERS = {
   memory: "> Smithers cross-run memory: working memory, message history, semantic recall, processors.",
   openapi: "> Smithers OpenAPI tools: turn an OpenAPI spec into AI SDK tools, with auth, filters, and observability.",
   observability: "> Smithers observability surface: HTTP server, gateway, MCP, OpenTelemetry, metrics.",
+  effect: "> Smithers Effect-ts authoring API: build workflows as Effect values without JSX or React.",
   integrations: "> Smithers integrations: agent runtimes (Claude Code, Codex, Gemini, Pi), tool surfaces, ecosystem partners.",
   events: "> Smithers event surface: how to subscribe, the event categories, and the full SmithersEvent discriminated union (~50 variants).",
 };
@@ -209,6 +215,7 @@ const builds: Array<{ file: string; pages: string[]; header: string; name: strin
   { file: "llms-memory.txt", pages: MEMORY_PAGES, header: HEADERS.memory, name: "Smithers Memory" },
   { file: "llms-openapi.txt", pages: OPENAPI_PAGES, header: HEADERS.openapi, name: "Smithers OpenAPI Tools" },
   { file: "llms-observability.txt", pages: OBSERVABILITY_PAGES, header: HEADERS.observability, name: "Smithers Observability" },
+  { file: "llms-effect.txt", pages: EFFECT_PAGES, header: HEADERS.effect, name: "Smithers Effect API" },
   { file: "llms-integrations.txt", pages: INTEGRATIONS_PAGES, header: HEADERS.integrations, name: "Smithers Integrations" },
   { file: "llms-events.txt", pages: EVENT_PAGES, header: HEADERS.events, name: "Smithers Events" },
 ];
@@ -278,6 +285,7 @@ Durable AI workflow orchestration as a JSX runtime.
 - [Memory fragment](/llms-memory.txt) — cross-run memory: facts, history, recall
 - [OpenAPI tools fragment](/llms-openapi.txt) — generate AI SDK tools from OpenAPI specs
 - [Observability fragment](/llms-observability.txt) — HTTP server, gateway, MCP, OpenTelemetry
+- [Effect fragment](/llms-effect.txt) — Effect-ts authoring API (no JSX)
 - [Integrations fragment](/llms-integrations.txt) — agent runtimes, tools, ecosystem
 - [Events fragment](/llms-events.txt) — full SmithersEvent discriminated union
 
