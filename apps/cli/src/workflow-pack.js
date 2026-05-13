@@ -3267,7 +3267,35 @@ function renderTemplateFiles(versions, env) {
     return [
         {
             path: ".smithers/.gitignore",
-            contents: ["node_modules/", "executions/", "runs/", "sandboxes/", "state/", "tmp/", "*.db", "*.sqlite", "dist/", ".DS_Store", ""].join("\n"),
+            contents: [
+                "# Ephemeral data (never commit)",
+                "node_modules/",
+                "executions/",
+                "runs/",
+                "sandboxes/",
+                "state/",
+                "tmp/",
+                "*.db",
+                "*.sqlite",
+                "*.db-shm",
+                "*.db-wal",
+                "dist/",
+                ".DS_Store",
+                "",
+                "# Log files",
+                "*.log",
+                "logs/",
+                ""
+            ].join("\n"),
+        },
+        {
+            path: ".smithers/workflows/.gitignore",
+            contents: [
+                "# Ignore log files in workflows",
+                "*.log",
+                "run-*.log",
+                ""
+            ].join("\n"),
         },
         {
             path: ".smithers/package.json",

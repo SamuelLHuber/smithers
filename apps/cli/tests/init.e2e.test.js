@@ -157,6 +157,7 @@ test("smithers init writes the expected workflow-pack layout and it typechecks",
     });
     expect(result.exitCode).toBe(0);
     expect(repo.exists(".smithers/.gitignore")).toBe(true);
+    expect(repo.exists(".smithers/workflows/.gitignore")).toBe(true);
     expect(repo.exists(".smithers/package.json")).toBe(true);
     expect(repo.exists(".smithers/tsconfig.json")).toBe(true);
     expect(repo.exists(".smithers/bunfig.toml")).toBe(true);
