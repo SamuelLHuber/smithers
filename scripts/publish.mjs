@@ -4,12 +4,13 @@
 // equivalent) first to bump + commit + tag.
 //
 // Usage:
-//   pnpm run release                 # check clean, verify changelog, build, lint, typecheck, test, publish
+//   pnpm run release                 # check clean, verify changelog, build, lint, typecheck, test, publish, gh release
 //   pnpm run release -- --dry-run    # same but stop before `pnpm publish`
 //   pnpm run release -- --otp=123456
 //   pnpm run release -- --skip-build
 //   pnpm run release -- --skip-checks  # skip lint/typecheck/test
 //   pnpm run release -- --skip-git   # skip the clean-tree check
+//   pnpm run release -- --skip-gh-release  # skip creating the GitHub release
 
 import { execSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -27,7 +28,9 @@ const DRY_RUN = !!args["dry-run"];
 const SKIP_BUILD = !!args["skip-build"];
 const SKIP_CHECKS = !!args["skip-checks"];
 const SKIP_GIT = !!args["skip-git"];
+const SKIP_GH_RELEASE = !!args["skip-gh-release"];
 const OTP = typeof args.otp === "string" ? args.otp : null;
+const GH_REPO = "smithersai/smithers";
 
 const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
 
@@ -97,6 +100,44 @@ if (DRY_RUN) {
 } else {
   log("publish", "pnpm -r publish --access public --no-git-checks");
   run(`pnpm -r publish --access public --no-git-checks${otpFlag}`);
+}
+
+const tag = `v${version}`;
+if (SKIP_GH_RELEASE) {
+  log("gh-release", "skipped (--skip-gh-release)");
+} else if (DRY_RUN) {
+  log("gh-release", `DRY RUN — would create GitHub release ${tag} on ${GH_REPO}`);
+} else {
+  const gh = spawnSync("gh", ["--version"], { encoding: "utf8" });
+  if (gh.status !== 0) {
+    console.log("  gh CLI not found — install https://cli.github.com/ then run:");
+    console.log(
+      `    gh release create ${tag} --repo ${GH_REPO} --title ${tag} --notes-file docs/changelogs/${version}.mdx`,
+    );
+  } else {
+    log("gh-release", `creating GitHub release ${tag}`);
+    const exists = spawnSync(
+      "gh",
+      ["release", "view", tag, "--repo", GH_REPO],
+      { cwd: root, encoding: "utf8" },
+    );
+    if (exists.status === 0) {
+      console.log(`  release ${tag} already exists — skipping`);
+    } else {
+      const tagOnRemote = spawnSync(
+        "git",
+        ["ls-remote", "--exit-code", "--tags", "origin", tag],
+        { cwd: root, encoding: "utf8" },
+      );
+      if (tagOnRemote.status !== 0) {
+        console.log(`  tag ${tag} not on origin — pushing`);
+        run(`git push origin ${tag}`);
+      }
+      run(
+        `gh release create ${tag} --repo ${GH_REPO} --title ${tag} --notes-file docs/changelogs/${version}.mdx --latest --verify-tag`,
+      );
+    }
+  }
 }
 
 console.log(`\n✓ v${version} ${DRY_RUN ? "(dry run) " : ""}done`);
