@@ -2551,8 +2551,8 @@ const cli = Cli.create({
                                 { command: "workflow run implement", description: "Run the implementation workflow" },
                             ]
                             : [
-                                { command: "tui", description: "Open the interactive dashboard" },
                                 { command: "workflow list", description: "View all available workflows" },
+                                { command: "workflow run implement", description: "Run the implementation workflow" },
                             ],
                     },
                 });
@@ -2641,49 +2641,6 @@ const cli = Cli.create({
             cleanup();
         }
     },
-})
-    // =========================================================================
-    // smithers tui
-    // =========================================================================
-    .command("tui", {
-    description: "Open the interactive Smithers observability dashboard",
-    async run(c) {
-        const fail = (opts) => {
-            commandExitOverride = opts.exitCode ?? 1;
-            return c.error(opts);
-        };
-        let cleanup;
-        let renderer;
-        try {
-            const db = await findAndOpenDb(undefined, {
-                timeoutMs: 5000,
-                intervalMs: 100,
-            });
-            const adapter = db.adapter;
-            cleanup = db.cleanup;
-            const { createCliRenderer } = await import("@opentui/core");
-            const { createRoot } = await import("@opentui/react");
-            const { TuiApp } = await import("./tui/app.jsx");
-            const React = await import("react");
-            renderer = await createCliRenderer({ exitOnCtrlC: false });
-            const root = createRoot(renderer);
-            await new Promise((resolve) => {
-                root.render(React.createElement(TuiApp, {
-                    adapter,
-                    onExit: () => resolve(true),
-                }));
-            });
-            return c.ok(undefined);
-        }
-        catch (err) {
-            return fail({ code: "TUI_FAILED", message: err?.message ?? String(err), exitCode: 1 });
-        }
-        finally {
-            if (renderer)
-                renderer.destroy();
-            cleanup?.();
-        }
-    }
 })
     // =========================================================================
     // smithers ps

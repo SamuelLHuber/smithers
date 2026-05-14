@@ -133,7 +133,6 @@ function renderPackageJson(versions) {
         dependencies: {
             react: versions.reactVersion,
             "react-dom": versions.reactDomVersion,
-            skills: "github:mattpocock/skills",
             "smithers-orchestrator": smithersSpec,
             zod: versions.zodVersion,
         },
@@ -410,6 +409,17 @@ function renderPrompts() {
                 "  --recommended, -r  Your recommended answer (shown to the user)",
                 "  --branch, -b       Which decision branch this question relates to",
                 "  --timeout, -t      Seconds to wait for answer (default: 300)",
+                "",
+            ].join("\n"),
+        },
+        {
+            path: ".smithers/prompts/grill-me.mdx",
+            contents: [
+                "Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.",
+                "",
+                "Ask the questions one at a time.",
+                "",
+                "If a question can be answered by exploring the codebase, explore the codebase instead.",
                 "",
             ].join("\n"),
         },
@@ -1185,7 +1195,7 @@ function renderComponents() {
                 "/** @jsxImportSource smithers-orchestrator */",
                 'import { Loop, Sequence, Task, type AgentLike, type OutputTarget } from "smithers-orchestrator";',
                 'import { z } from "zod/v4";',
-                'import GrillMeSkill from "skills/grill-me/SKILL.md";',
+                'import GrillMeSkill from "../prompts/grill-me.mdx";',
                 'import AskUserInstructions from "../prompts/ask-user-instructions.mdx";',
                 "",
                 "export const grillOutputSchema = z.looseObject({",
@@ -3417,10 +3427,9 @@ export function initWorkflowPack(options = {}) {
     };
 }
 /**
- * Install `.smithers/` workspace deps so git-specifier packages like
- * `github:mattpocock/skills` — which Bun's runtime auto-install doesn't fetch —
- * are available the first time a workflow runs. Failures here don't fail init:
- * the scaffold is on disk, the user can always re-run `bun install` by hand.
+ * Install `.smithers/` workspace deps so the first workflow run isn't blocked
+ * on a cold install. Failures here don't fail init: the scaffold is on disk,
+ * the user can always re-run `bun install` by hand.
  *
  * @param {string} rootDir
  * @param {boolean} skip

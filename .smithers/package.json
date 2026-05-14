@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@smithers-orchestrator/scorers": "workspace:*",
-    "skills": "github:mattpocock/skills",
     "smithers-orchestrator": "workspace:*",
     "zod": "4.3.6"
   },
