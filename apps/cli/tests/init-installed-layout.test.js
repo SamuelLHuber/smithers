@@ -131,7 +131,7 @@ function buildFakeInstallTree() {
     const binDir = join(root, "bin");
     writeFile(join(binDir, "claude"), "#!/bin/sh\nexit 0\n");
     chmodSync(join(binDir, "claude"), 0o755);
-    mkdirSync(join(root, "home", ".claude"), { recursive: true });
+    writeFile(join(root, "home", ".claude", ".credentials.json"), "{}\n");
 
     return {
         cwd,

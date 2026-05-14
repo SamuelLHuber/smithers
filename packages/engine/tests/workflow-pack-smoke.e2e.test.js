@@ -20,9 +20,10 @@ function buildWorkflowPackEnv(homeDir) {
 }
 function initWorkflowPack(repo = createTempRepo()) {
     const env = buildWorkflowPackEnv(repo.dir);
-    repo.write(".claude/settings.json", "{}\n");
+    repo.write(".claude/.credentials.json", "{}\n");
     repo.write(".codex/auth.json", "{}\n");
     repo.write(".gemini/oauth_creds.json", "{}\n");
+    repo.write(".gemini/trustedFolders.json", JSON.stringify({ [repo.dir]: "TRUST_FOLDER" }) + "\n");
     const initResult = runSmithers(["init"], {
         cwd: repo.dir,
         format: "json",

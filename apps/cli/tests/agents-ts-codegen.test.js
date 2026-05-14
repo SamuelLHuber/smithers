@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { addAccount } from "@smithers-orchestrator/accounts";
 import { generateAgentsTs } from "../src/agent-detection.js";
+import { createExecutableDir, writeFakeClaudeBinary } from "../../../packages/smithers/tests/e2e-helpers.js";
 
 /** @type {string[]} */
 const tempDirs = [];
@@ -78,9 +79,11 @@ describe("generateAgentsTs (account-driven)", () => {
 
     test("falls back to detection-based output when no accounts are registered", () => {
         const env = newSmithersHome();
+        const binDir = createExecutableDir();
+        writeFakeClaudeBinary(binDir);
         // No accounts added; reuses existing logic. Detection requires at least
         // one usable agent; we simulate one by setting an API key env var.
-        const generated = generateAgentsTs({ ...env, ANTHROPIC_API_KEY: "test" });
+        const generated = generateAgentsTs({ ...env, PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`, ANTHROPIC_API_KEY: "test" });
         expect(generated).toContain("// smithers-source: generated");
         // Detection-based output does NOT pull in the accounts.json header.
         expect(generated).not.toContain("~/.smithers/accounts.json");

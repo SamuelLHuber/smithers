@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createTempRepo, runSmithers } from "../../../packages/smithers/tests/e2e-helpers.js";
+import { createExecutableDir, createTempRepo, runSmithers, writeFakeClaudeBinary } from "../../../packages/smithers/tests/e2e-helpers.js";
 
 /** @type {string[]} */
 const tempDirs = [];
@@ -169,11 +169,20 @@ test("agents add does NOT overwrite a hand-edited agents.ts (no sentinel)", () =
 test("agents add appends to a detection-based agents.ts without dropping detected providers", () => {
     const repo = createTempRepo();
     const home = newSmithersHome();
+    const binDir = createExecutableDir();
+    writeFakeClaudeBinary(binDir);
+    repo.write(".claude/.credentials.json", "{}\n");
     // First, run init with a fake API key so detection-based generation succeeds.
     const initResult = runSmithers(["init", "--no-install"], {
         cwd: repo.dir,
         format: "json",
-        env: { SMITHERS_HOME: home, ANTHROPIC_API_KEY: "test", OPENAI_API_KEY: "" },
+        env: {
+            HOME: repo.dir,
+            PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`,
+            SMITHERS_HOME: home,
+            ANTHROPIC_API_KEY: "test",
+            OPENAI_API_KEY: "",
+        },
     });
     expect(initResult.exitCode).toBe(0);
     const initialAgentsTs = repo.read(".smithers/agents.ts");

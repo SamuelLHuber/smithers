@@ -11,7 +11,7 @@ import { KimiAgent } from "@smithers-orchestrator/agents/KimiAgent";
 import { PiAgent } from "@smithers-orchestrator/agents/PiAgent";
 import { SmithersError } from "@smithers-orchestrator/errors";
 import { createSmithersAgentContract, renderSmithersAgentPromptGuidance, } from "@smithers-orchestrator/agents/agent-contract";
-import { detectAvailableAgents, } from "./agent-detection.js";
+import { describeUnavailableAgent, detectAvailableAgents, formatNoUsableAgentsMessage, } from "./agent-detection.js";
 /**
  * @typedef {typeof ASK_AGENT_IDS[number]} AskAgentId
  */
@@ -193,9 +193,7 @@ function formatAgentChecks(agent) {
  * @param {AgentAvailability[]} agents
  */
 function noUsableAgentError(agents) {
-    return new SmithersError("NO_USABLE_AGENTS", `No usable agents detected. Checked: ${agents
-        .map((agent) => `${agent.id} => ${formatAgentChecks(agent)}`)
-        .join(" | ")}`);
+    return new SmithersError("NO_USABLE_AGENTS", formatNoUsableAgentsMessage(agents));
 }
 /**
  * @param {AgentAvailability[]} agents
@@ -210,7 +208,7 @@ function selectAgent(agents, options) {
             throw new SmithersError("CLI_AGENT_UNSUPPORTED", `Agent "${options.agent}" is not supported for \`smithers ask\`.`, { agentId: options.agent });
         }
         if (!explicit.usable) {
-            throw new SmithersError("NO_USABLE_AGENTS", `Agent "${explicit.id}" is not usable. Checked: ${formatAgentChecks(explicit)}`, { agentId: explicit.id });
+            throw new SmithersError("NO_USABLE_AGENTS", `${describeUnavailableAgent(explicit)} Checked: ${formatAgentChecks(explicit)}`, { agentId: explicit.id });
         }
         return {
             availability: explicit,
@@ -404,7 +402,7 @@ function buildAgent(selection, bootstrap, systemPrompt, cwd) {
  * @returns {Promise<void>}
  */
 export async function ask(question, cwd, options = {}) {
-    const agents = detectAvailableAgents();
+    const agents = detectAvailableAgents(process.env, { cwd });
     if (options.listAgents) {
         let selectedAgentId;
         try {

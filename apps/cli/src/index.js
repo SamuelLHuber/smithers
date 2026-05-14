@@ -1855,7 +1855,7 @@ const workflowCli = Cli.create({
                 path: resolve(workflowRoot, "bunfig.toml"),
                 exists: existsSync(resolve(workflowRoot, "bunfig.toml")),
             },
-            agents: detectAvailableAgents(),
+            agents: detectAvailableAgents(process.env, { cwd: process.cwd() }),
         });
     },
 });

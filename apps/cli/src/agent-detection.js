@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { SmithersError } from "@smithers-orchestrator/errors";
 import { listAccounts } from "@smithers-orchestrator/accounts";
@@ -10,30 +10,53 @@ import { listAccounts } from "@smithers-orchestrator/accounts";
 const DETECTORS = [
     {
         id: "claude",
+        displayName: "Claude Code",
         binary: "claude",
-        authSignals: (homeDir) => [join(homeDir, ".claude")],
+        authSignals: (homeDir) => [
+            join(homeDir, ".claude", ".credentials.json"),
+            join(homeDir, ".claude.json"),
+        ],
         apiKeys: ["ANTHROPIC_API_KEY"],
+        setupHint: "Install the Claude Code CLI and run `claude` then `/login`, or set `ANTHROPIC_API_KEY`.",
     },
     {
         id: "codex",
+        displayName: "Codex",
         binary: "codex",
-        authSignals: (homeDir) => [join(homeDir, ".codex")],
+        authSignals: (homeDir) => [join(homeDir, ".codex", "auth.json")],
         apiKeys: ["OPENAI_API_KEY"],
+        setupHint: "Install the Codex CLI and run `codex login`, or set `OPENAI_API_KEY`.",
     },
     {
         id: "gemini",
+        displayName: "Gemini",
         binary: "gemini",
-        authSignals: (homeDir) => [join(homeDir, ".gemini", "oauth_creds.json")],
+        authSignals: (homeDir, env) => {
+            const configDir = env.GEMINI_DIR ? resolve(env.GEMINI_DIR) : join(homeDir, ".gemini");
+            return [
+                join(configDir, "oauth_creds.json"),
+                join(configDir, "google_accounts.json"),
+            ];
+        },
         apiKeys: ["GOOGLE_API_KEY", "GEMINI_API_KEY"],
+        projectTrust: (homeDir, env, cwd) => {
+            const configDir = env.GEMINI_DIR ? resolve(env.GEMINI_DIR) : join(homeDir, ".gemini");
+            const trustFile = join(configDir, "trustedFolders.json");
+            return readGeminiProjectTrust(trustFile, cwd);
+        },
+        setupHint: "Install the Gemini CLI, authenticate it, and trust this project with Gemini, or set `GEMINI_API_KEY` after installing the CLI.",
     },
     {
         id: "pi",
+        displayName: "Pi",
         binary: "pi",
         authSignals: (homeDir) => [join(homeDir, ".pi", "agent", "auth.json")],
         apiKeys: [],
+        setupHint: "Install and authenticate the `pi` CLI.",
     },
     {
         id: "kimi",
+        displayName: "Kimi",
         binary: "kimi",
         authSignals: (homeDir, env) => {
             const signals = [join(homeDir, ".kimi")];
@@ -42,12 +65,15 @@ const DETECTORS = [
             return signals;
         },
         apiKeys: [],
+        setupHint: "Install the Kimi CLI and run `kimi login`.",
     },
     {
         id: "amp",
+        displayName: "Amp",
         binary: "amp",
         authSignals: (homeDir) => [join(homeDir, ".amp")],
         apiKeys: [],
+        setupHint: "Install and authenticate the `amp` CLI.",
     },
 ];
 const ROLE_PREFERENCES = {
@@ -62,6 +88,7 @@ const AGENT_VARIANTS = [
     {
         derivedFrom: "claude",
         variantId: "claudeSonnet",
+        displayName: "Claude Sonnet",
         constructor: {
             importName: "ClaudeCodeAgent",
             expr: 'new SmithersClaudeCodeAgent({ model: "claude-sonnet-4-6", cwd: process.cwd() })',
@@ -104,6 +131,82 @@ const CONSTRUCTORS = {
         expr: "new SmithersAmpAgent()",
     },
 };
+
+/**
+ * @param {string} id
+ */
+function detectorForId(id) {
+    return DETECTORS.find((detector) => detector.id === id);
+}
+
+/**
+ * @param {string} id
+ */
+function variantForId(id) {
+    return AGENT_VARIANTS.find((variant) => variant.variantId === id);
+}
+
+/**
+ * @param {string} id
+ */
+function baseAgentIdForProviderId(id) {
+    return variantForId(id)?.derivedFrom ?? id;
+}
+
+/**
+ * @param {string} id
+ */
+function displayNameForProviderId(id) {
+    return variantForId(id)?.displayName ?? detectorForId(id)?.displayName ?? id;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string[]}
+ */
+function extractTrustedFolderPaths(value) {
+    if (Array.isArray(value)) {
+        return value.filter((entry) => typeof entry === "string");
+    }
+    if (!value || typeof value !== "object") {
+        return [];
+    }
+    return Object.entries(/** @type {Record<string, unknown>} */ (value))
+        .filter(([, trustValue]) => trustValue === true || trustValue === "TRUST_FOLDER")
+        .map(([path]) => path);
+}
+
+/**
+ * @param {string} trustedPath
+ * @param {string} cwd
+ */
+function trustedPathMatchesCwd(trustedPath, cwd) {
+    const trusted = resolve(trustedPath);
+    const current = resolve(cwd);
+    return current === trusted || current.startsWith(trusted.endsWith(sep) ? trusted : `${trusted}${sep}`);
+}
+
+/**
+ * @param {string} trustFile
+ * @param {string} cwd
+ * @returns {{ trusted: boolean; checks: string[] }}
+ */
+function readGeminiProjectTrust(trustFile, cwd) {
+    let trusted = false;
+    if (existsSync(trustFile)) {
+        try {
+            const parsed = JSON.parse(readFileSync(trustFile, "utf8"));
+            trusted = extractTrustedFolderPaths(parsed).some((path) => trustedPathMatchesCwd(path, cwd));
+        }
+        catch {
+            trusted = false;
+        }
+    }
+    return {
+        trusted,
+        checks: [`project-trust:${trustFile}:${resolve(cwd)}:${trusted ? "yes" : "no"}`],
+    };
+}
 /**
  * @param {string} binary
  * @param {NodeJS.ProcessEnv} env
@@ -149,32 +252,103 @@ function scoreStatus(status) {
             return 0;
     }
 }
+
+/**
+ * @param {{ authSignals: (homeDir: string, env: NodeJS.ProcessEnv) => string[]; apiKeys: string[] }} detector
+ * @param {string} homeDir
+ * @param {NodeJS.ProcessEnv} env
+ */
+function credentialRequirementLabel(detector, homeDir, env) {
+    const authSignals = detector.authSignals(homeDir, env);
+    const pieces = [
+        ...authSignals.map((signal) => signal.replace(homeDir, "~")),
+        ...detector.apiKeys.map((name) => `$${name}`),
+    ];
+    return pieces.length > 0 ? pieces.join(" or ") : "agent credentials";
+}
+
+/**
+ * @param {AgentAvailability} agent
+ */
+function formatUnusableReasons(agent) {
+    return agent.unusableReasons.length > 0
+        ? agent.unusableReasons.join("; ")
+        : "not enough availability signals";
+}
+
+/**
+ * @param {AgentAvailability} agent
+ */
+export function describeUnavailableAgent(agent) {
+    return `${agent.displayName} is unavailable: ${formatUnusableReasons(agent)}. ${agent.displayName === "Codex"
+        ? "Recommended setup: install the Codex CLI, run `codex login`, then rerun `smithers init`."
+        : "Smithers will use another available agent for this role."}`;
+}
+
+/**
+ * @param {AgentAvailability[]} detections
+ */
+export function formatNoUsableAgentsMessage(detections) {
+    const summaries = detections
+        .map((entry) => `${entry.displayName}: ${entry.usable ? "usable" : formatUnusableReasons(entry)}`)
+        .join(" | ");
+    return [
+        `No usable agents detected. ${summaries}.`,
+        `Checked: ${detections.flatMap((entry) => entry.checks).join(", ")}`,
+        "Recommended setup: install the Codex CLI, run `codex login`, then rerun `smithers init`.",
+        "If you use API billing, make sure `codex` is installed and set `OPENAI_API_KEY`.",
+    ].join(" ");
+}
+
 /**
  * @param {NodeJS.ProcessEnv} [env]
+ * @param {{ cwd?: string }} [options]
  * @returns {AgentAvailability[]}
  */
-export function detectAvailableAgents(env = process.env) {
+export function detectAvailableAgents(env = process.env, options = {}) {
     const homeDir = env.HOME ?? homedir();
+    const cwd = options.cwd ?? process.cwd();
     return DETECTORS.map((detector) => {
         const authSignals = detector.authSignals(homeDir, env);
         const hasBinary = commandExists(detector.binary, env);
-        const hasAuthSignal = authSignals.some((signal) => existsSync(signal));
+        const authSignalChecks = authSignals.map((signal) => ({
+            signal,
+            exists: existsSync(signal),
+        }));
+        const hasAuthSignal = authSignalChecks.some((check) => check.exists);
         const hasApiKeySignal = detector.apiKeys.some((name) => Boolean(env[name]));
+        const projectTrust = detector.projectTrust?.(homeDir, env, cwd) ?? { trusted: true, checks: [] };
+        const hasProjectTrustSignal = projectTrust.trusted;
         const status = computeStatus(hasBinary, hasAuthSignal, hasApiKeySignal);
+        const hasCredentialSignal = hasAuthSignal || hasApiKeySignal;
+        const unusableReasons = [];
+        if (!hasBinary) {
+            unusableReasons.push(`missing \`${detector.binary}\` on PATH`);
+        }
+        if (!hasCredentialSignal) {
+            unusableReasons.push(`missing credentials (${credentialRequirementLabel(detector, homeDir, env)})`);
+        }
+        if (!hasProjectTrustSignal) {
+            unusableReasons.push("current project is not trusted by Gemini");
+        }
         return {
             id: detector.id,
+            displayName: detector.displayName,
             binary: detector.binary,
             hasBinary,
             hasAuthSignal,
             hasApiKeySignal,
+            hasProjectTrustSignal,
             status,
             score: scoreStatus(status),
-            usable: scoreStatus(status) > 0,
+            usable: unusableReasons.length === 0,
             checks: [
                 `binary:${detector.binary}:${hasBinary ? "yes" : "no"}`,
-                ...authSignals.map((signal) => `auth:${signal}:${existsSync(signal) ? "yes" : "no"}`),
+                ...authSignalChecks.map((check) => `auth:${check.signal}:${check.exists ? "yes" : "no"}`),
                 ...detector.apiKeys.map((name) => `env:${name}:${env[name] ? "yes" : "no"}`),
+                ...projectTrust.checks,
             ],
+            unusableReasons,
         };
     });
 }
@@ -357,14 +531,47 @@ function renderAccountProviderLine(account, homeDir) {
 }
 
 /**
- * @param {NodeJS.ProcessEnv} [env]
+ * @param {string} tier
+ * @param {string[]} order
+ * @param {Set<string>} allProviderIds
+ * @param {Map<string, AgentAvailability>} detectionsById
+ * @returns {string[]}
  */
-export function generateAgentsTs(env = process.env) {
+function renderUnavailablePreferenceComments(tier, order, allProviderIds, detectionsById) {
+    const firstAvailablePreferredIndex = order.findIndex((id) => allProviderIds.has(id));
+    const cutoff = firstAvailablePreferredIndex === -1 ? order.length : firstAvailablePreferredIndex;
+    const comments = [];
+    for (const providerId of order.slice(0, cutoff)) {
+        const baseId = baseAgentIdForProviderId(providerId);
+        const detection = detectionsById.get(baseId);
+        if (!detection || detection.usable) continue;
+        comments.push(`  // ${tier}: Smithers would normally suggest ${displayNameForProviderId(providerId)} here, but ${detection.displayName} is not available: ${formatUnusableReasons(detection)}.`);
+    }
+    return comments;
+}
+
+/**
+ * @param {string} tier
+ * @param {string[]} providerIds
+ * @param {string[]} comments
+ */
+function renderTierLine(tier, providerIds, comments) {
+    return [
+        ...comments,
+        `  ${tier}: [${providerIds.map((id) => `providers.${id}`).join(", ")}],`,
+    ];
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {{ cwd?: string }} [options]
+ */
+export function generateAgentsTs(env = process.env, options = {}) {
     const registeredAccounts = listAccounts(env);
-    const detections = detectAvailableAgents(env);
+    const detections = detectAvailableAgents(env, options);
     const available = detections.filter((entry) => entry.usable);
     if (available.length === 0 && registeredAccounts.length === 0) {
-        throw new SmithersError("NO_USABLE_AGENTS", `No usable agents detected and no accounts registered. Checked: ${detections.flatMap((entry) => entry.checks).join(", ")}`);
+        throw new SmithersError("NO_USABLE_AGENTS", formatNoUsableAgentsMessage(detections));
     }
     // When no agents are detected (e.g. fresh machine with only API keys
     // registered via `smithers agent add`), emit the accounts-only shape with
@@ -411,11 +618,12 @@ export function generateAgentsTs(env = process.env) {
         ...orderedProviders.map((p) => p.id),
         ...activeVariants.map((v) => v.variantId),
     ]);
+    const detectionsById = new Map(detections.map((entry) => [entry.id, entry]));
     // Fallback: all base provider IDs sorted by score (for tiers with no preferred match)
     const fallbackIds = orderedProviders.map((p) => p.id);
     // Tier lines: detection-resolved members, then accounts whose engine
     // family is in the tier's preference order get appended.
-    const tierLines = Object.entries(TIER_PREFERENCES).map(([tier, { order, maxSize }]) => {
+    const tierLines = Object.entries(TIER_PREFERENCES).flatMap(([tier, { order, maxSize }]) => {
         let resolved = order
             .filter((id) => allProviderIds.has(id))
             .slice(0, maxSize);
@@ -427,7 +635,11 @@ export function generateAgentsTs(env = process.env) {
             .filter((account) => tierFamilies.has(ACCOUNT_PROVIDER_POOL[account.provider]))
             .map((account) => labelToCamel(account.label));
         const merged = [...resolved, ...tierAccounts];
-        return `  ${tier}: [${merged.map((id) => `providers.${id}`).join(", ")}],`;
+        return renderTierLine(
+            tier,
+            merged,
+            renderUnavailablePreferenceComments(tier, order, allProviderIds, detectionsById),
+        );
     });
     return [
         "// smithers-source: generated",

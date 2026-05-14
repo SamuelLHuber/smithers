@@ -3261,9 +3261,10 @@ function renderWorkflows() {
 /**
  * @param {DependencyVersions} versions
  * @param {NodeJS.ProcessEnv} env
+ * @param {string} projectRoot
  * @returns {TemplateFile[]}
  */
-function renderTemplateFiles(versions, env) {
+function renderTemplateFiles(versions, env, projectRoot) {
     return [
         {
             path: ".smithers/.gitignore",
@@ -3332,7 +3333,7 @@ function renderTemplateFiles(versions, env) {
         ...renderAgentScaffoldFiles(),
         {
             path: ".smithers/agents.ts",
-            contents: generateAgentsTs(env),
+            contents: generateAgentsTs(env, { cwd: projectRoot }),
         },
         {
             path: ".smithers/smithers.config.ts",
@@ -3389,7 +3390,7 @@ export function initWorkflowPack(options = {}) {
         else {
             ensureDir(executionsDir);
         }
-        templateFiles = renderTemplateFiles(versions, env);
+        templateFiles = renderTemplateFiles(versions, env, projectRoot);
     }
     for (const file of templateFiles) {
         const absolutePath = resolve(projectRoot, file.path);

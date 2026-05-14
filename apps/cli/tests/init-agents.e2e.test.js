@@ -20,7 +20,7 @@ test("smithers init prefers Claude when only a Claude CLI signal is available", 
     const repo = createTempRepo();
     const binDir = createExecutableDir();
     writeFakeClaudeBinary(binDir);
-    repo.write(".claude/settings.json", "{}\n");
+    repo.write(".claude/.credentials.json", "{}\n");
     const result = runSmithers(["init"], {
         cwd: repo.dir,
         format: "json",
@@ -53,6 +53,8 @@ test("smithers init includes Codex implementation roles when Codex plus OPENAI_A
     expect(agentsSource).toContain("cheapFast: [providers.codex]");
     expect(agentsSource).toContain("smart: [providers.codex]");
     expect(agentsSource).toContain("smartTool: [providers.codex]");
+    expect(agentsSource).toContain("smartTool: Smithers would normally suggest Claude Code here");
+    expect(agentsSource).toContain("cheapFast: Smithers would normally suggest Kimi here");
 });
 test("smithers init orders role chains correctly when multiple local agent CLIs are available", () => {
     const repo = createTempRepo();
@@ -60,9 +62,10 @@ test("smithers init orders role chains correctly when multiple local agent CLIs 
     writeFakeClaudeBinary(binDir);
     writeFakeCodexBinary(binDir);
     writeFakeGeminiBinary(binDir);
-    repo.write(".claude/settings.json", "{}\n");
+    repo.write(".claude/.credentials.json", "{}\n");
     repo.write(".codex/auth.json", "{}\n");
     repo.write(".gemini/oauth_creds.json", "{}\n");
+    repo.write(".gemini/trustedFolders.json", JSON.stringify({ [repo.dir]: "TRUST_FOLDER" }) + "\n");
     const result = runSmithers(["init"], {
         cwd: repo.dir,
         format: "json",
@@ -89,4 +92,45 @@ test("smithers init exits with a typed error when no usable agents are detected"
     expect(JSON.stringify(result.json)).toContain("claude");
     expect(JSON.stringify(result.json)).toContain("codex");
     expect(JSON.stringify(result.json)).toContain("gemini");
+    expect(JSON.stringify(result.json)).toContain("codex login");
+});
+
+test("smithers init rejects a CLI that is present but not authenticated", () => {
+    const repo = createTempRepo();
+    const binDir = createExecutableDir();
+    writeFakeCodexBinary(binDir);
+    const result = runSmithers(["init"], {
+        cwd: repo.dir,
+        format: "json",
+        env: buildEnv(repo.dir, binDir),
+    });
+    expect(result.exitCode).toBe(4);
+    expect(result.json).toMatchObject({
+        code: "NO_USABLE_AGENTS",
+    });
+    expect(JSON.stringify(result.json)).toContain("missing credentials");
+    expect(JSON.stringify(result.json)).toContain("OPENAI_API_KEY");
+});
+
+test("smithers init does not select Gemini until the project is trusted", () => {
+    const repo = createTempRepo();
+    const binDir = createExecutableDir();
+    writeFakeGeminiBinary(binDir);
+    repo.write(".gemini/oauth_creds.json", "{}\n");
+    const untrusted = runSmithers(["init"], {
+        cwd: repo.dir,
+        format: "json",
+        env: buildEnv(repo.dir, binDir),
+    });
+    expect(untrusted.exitCode).toBe(4);
+    expect(JSON.stringify(untrusted.json)).toContain("project-trust");
+    repo.write(".gemini/trustedFolders.json", JSON.stringify({ [repo.dir]: "TRUST_FOLDER" }) + "\n");
+    const trusted = runSmithers(["init"], {
+        cwd: repo.dir,
+        format: "json",
+        env: buildEnv(repo.dir, binDir),
+    });
+    expect(trusted.exitCode).toBe(0);
+    const agentsSource = repo.read(".smithers/agents.ts");
+    expect(agentsSource).toContain("gemini: GeminiAgent");
 });
