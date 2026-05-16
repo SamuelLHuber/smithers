@@ -20,7 +20,6 @@ examples/bun-port-smithers/
     porting-rules.test.ts
     schemas.ts                  # Zod contracts for every persisted output
     scorers.ts                  # Smithers scorer bindings
-    smithers.ts                 # shared createSmithers wrapper
   prompts/
     *.mdx                       # all agent and human prompt text
   workflows/

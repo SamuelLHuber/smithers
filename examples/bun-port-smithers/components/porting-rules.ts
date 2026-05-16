@@ -47,16 +47,6 @@ export type SweepInput = {
   scope: string;
 };
 
-export type ReviewLike = {
-  targetId?: string;
-  subject?: string;
-  reviewer?: string;
-  approved?: boolean;
-  ok?: boolean;
-  issues?: Array<{ severity?: string; rule?: string; detail?: string }>;
-  feedback?: string;
-};
-
 export const DEFAULT_TEST_AREAS: TestArea[] = [
   { id: "bun-http", glob: "test/js/bun/http/", crate: "runtime/server" },
   { id: "bun-crypto", glob: "test/js/bun/crypto/", crate: "runtime/crypto" },
@@ -212,44 +202,6 @@ export function cacheKeyForFile(input: {
     crate: input.crate ?? "",
     portingRevision: input.portingRevision ?? "",
     lifetimeRevision: input.lifetimeRevision ?? "",
-  };
-}
-
-export function latestByNodeId<T>(
-  latest: (schema: string, nodeId: string) => T | undefined,
-  schema: string,
-  nodeIds: string[],
-): T[] {
-  return nodeIds
-    .map((nodeId) => latest(schema, nodeId))
-    .filter((row): row is T => Boolean(row));
-}
-
-export function reviewDecision(
-  targetId: string,
-  reviews: ReviewLike[],
-  minApprovals = 2,
-): {
-  targetId: string;
-  approved: boolean;
-  approvals: number;
-  rejections: number;
-  issues: NonNullable<ReviewLike["issues"]>;
-  feedback: string;
-} {
-  const targetReviews = reviews.filter((review) =>
-    review.targetId === targetId || review.subject === targetId
-  );
-  const approvals = targetReviews.filter((review) => review.approved === true || review.ok === true).length;
-  const rejections = targetReviews.filter((review) => review.approved === false || review.ok === false).length;
-  const issues = targetReviews.flatMap((review) => review.issues ?? []);
-  return {
-    targetId,
-    approved: approvals >= minApprovals && rejections === 0,
-    approvals,
-    rejections,
-    issues,
-    feedback: targetReviews.map((review) => review.feedback).filter(Boolean).join("\n\n"),
   };
 }
 

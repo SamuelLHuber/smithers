@@ -1,7 +1,7 @@
 /** @jsxImportSource smithers-orchestrator */
 import { ApprovalGate, HumanTask, Subflow } from "@smithers-orchestrator/components";
+import { createSmithers } from "smithers-orchestrator";
 
-import { createBunPortSmithers } from "./components/smithers";
 import {
   approvalSchema,
   bunPortFinalSchema,
@@ -18,14 +18,17 @@ import phaseAWorkflow from "./workflows/phase-a-port";
 import testSwarmWorkflow from "./workflows/test-swarm";
 import ungateWorkflow from "./workflows/ungate-proper-port";
 
-const { Workflow, Task, Sequence, smithers, outputs } = createBunPortSmithers({
-  input: bunPortInputSchema,
-  operatorPlan: operatorPlanSchema,
-  childRunResult: childRunResultSchema,
-  approval: approvalSchema,
-  bunPortFinal: bunPortFinalSchema,
-  output: bunPortFinalSchema,
-});
+const { Workflow, Task, Sequence, smithers, outputs } = createSmithers(
+  {
+    input: bunPortInputSchema,
+    operatorPlan: operatorPlanSchema,
+    childRunResult: childRunResultSchema,
+    approval: approvalSchema,
+    bunPortFinal: bunPortFinalSchema,
+    output: bunPortFinalSchema,
+  },
+  { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
+);
 
 const phaseToFlag = {
   lifetimes: "runLifetimes",

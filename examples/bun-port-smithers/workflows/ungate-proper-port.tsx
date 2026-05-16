@@ -1,10 +1,10 @@
 /** @jsxImportSource smithers-orchestrator */
+import { createSmithers } from "smithers-orchestrator";
 import type { z } from "zod";
 
 import { agentsForRepo } from "../components/agents";
 import { stableNodeId } from "../components/porting-rules";
 import { standardScorers } from "../components/scorers";
-import { createBunPortSmithers } from "../components/smithers";
 import {
   patchResultSchema,
   phaseDoneSchema,
@@ -18,16 +18,18 @@ import ProperPortPrompt from "../prompts/proper-port.mdx";
 import SpecDecisionPrompt from "../prompts/spec-decision.mdx";
 import SpecReviewPrompt from "../prompts/spec-review.mdx";
 
-const { Workflow, Task, Sequence, Parallel, Loop, smithers, outputs } = createBunPortSmithers({
-  input: ungateInputSchema,
-  targetSurvey: targetSurveySchema,
-  patchResult: patchResultSchema,
-  specReview: specReviewSchema,
-  specDecision: specDecisionSchema,
-  ungateReport: ungateReportSchema,
-  output: phaseDoneSchema,
-});
-const KeyedLoop = Loop as any;
+const { Workflow, Task, Sequence, Parallel, Loop, smithers, outputs } = createSmithers(
+  {
+    input: ungateInputSchema,
+    targetSurvey: targetSurveySchema,
+    patchResult: patchResultSchema,
+    specReview: specReviewSchema,
+    specDecision: specDecisionSchema,
+    ungateReport: ungateReportSchema,
+    output: phaseDoneSchema,
+  },
+  { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
+);
 
 const ungateMemory = { kind: "workflow", id: "bun-port-ungate" } as const;
 
@@ -72,7 +74,7 @@ export default smithers((ctx) => {
               const targetNodeId = stableNodeId(target.id);
               const { patch, reviews, decision } = latestFor(target.id);
               return (
-                <KeyedLoop
+                <Loop
                   key={target.id}
                   id={`ungate:${targetNodeId}:loop`}
                   until={decision?.approved === true}
@@ -139,7 +141,7 @@ export default smithers((ctx) => {
                       </Task>
                     ) : null}
                   </Sequence>
-                </KeyedLoop>
+                </Loop>
               );
             })}
           </Parallel>

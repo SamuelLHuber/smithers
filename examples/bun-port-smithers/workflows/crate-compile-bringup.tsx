@@ -1,10 +1,10 @@
 /** @jsxImportSource smithers-orchestrator */
+import { createSmithers } from "smithers-orchestrator";
 import type { z } from "zod";
 
 import { agentsForRepo } from "../components/agents";
 import { groupCratesByTier, stableNodeId } from "../components/porting-rules";
 import { standardScorers } from "../components/scorers";
-import { createBunPortSmithers } from "../components/smithers";
 import {
   compileReportSchema,
   crateCheckSchema,
@@ -14,15 +14,16 @@ import {
 } from "../components/schemas";
 import CrateCheckPrompt from "../prompts/crate-check.mdx";
 
-const { Workflow, Task, Sequence, Parallel, Loop, smithers, outputs } = createBunPortSmithers({
-  input: crateCompileInputSchema,
-  cratePlan: cratePlanSchema,
-  crateCheck: crateCheckSchema,
-  compileReport: compileReportSchema,
-  output: phaseDoneSchema,
-});
-const KeyedSequence = Sequence as any;
-const KeyedLoop = Loop as any;
+const { Workflow, Task, Sequence, Parallel, Loop, smithers, outputs } = createSmithers(
+  {
+    input: crateCompileInputSchema,
+    cratePlan: cratePlanSchema,
+    crateCheck: crateCheckSchema,
+    compileReport: compileReportSchema,
+    output: phaseDoneSchema,
+  },
+  { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
+);
 
 const compileMemory = { kind: "workflow", id: "bun-port-compile" } as const;
 
@@ -55,13 +56,13 @@ export default smithers((ctx) => {
         </Task>
 
         {plan?.tiers.map((tier) => (
-          <KeyedSequence key={`tier-${tier.tier}`}>
+          <Sequence key={`tier-${tier.tier}`}>
             <Parallel maxConcurrency={Math.max(1, tier.crates.length)}>
               {tier.crates.map((crate) => {
                 const crateId = stableNodeId(crate.name);
                 const latest = ctx.latest("crateCheck", `compile:${crateId}:check`) as CrateCheck | undefined;
                 return (
-                  <KeyedLoop
+                  <Loop
                     key={crate.name}
                     id={`compile:${crateId}:loop`}
                     until={latest?.compiles === true}
@@ -86,11 +87,11 @@ export default smithers((ctx) => {
                         schema={crateCheckSchema}
                       />
                     </Task>
-                  </KeyedLoop>
+                  </Loop>
                 );
               })}
             </Parallel>
-          </KeyedSequence>
+          </Sequence>
         ))}
 
         {hasAllChecks ? (

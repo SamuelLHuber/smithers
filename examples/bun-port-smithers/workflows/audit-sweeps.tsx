@@ -1,10 +1,10 @@
 /** @jsxImportSource smithers-orchestrator */
+import { createSmithers } from "smithers-orchestrator";
 import type { z } from "zod";
 
 import { agentsForRepo } from "../components/agents";
 import { DEFAULT_SWEEPS, stableNodeId } from "../components/porting-rules";
 import { standardScorers } from "../components/scorers";
-import { createBunPortSmithers } from "../components/smithers";
 import {
   sweepInputSchema,
   phaseDoneSchema,
@@ -14,14 +14,16 @@ import {
 } from "../components/schemas";
 import SweepPrompt from "../prompts/sweep.mdx";
 
-const { Workflow, Task, Sequence, Parallel, Loop, smithers, outputs } = createBunPortSmithers({
-  input: sweepInputSchema,
-  sweepSurvey: sweepSurveySchema,
-  sweepResult: sweepResultSchema,
-  sweepReport: sweepReportSchema,
-  output: phaseDoneSchema,
-});
-const KeyedLoop = Loop as any;
+const { Workflow, Task, Sequence, Parallel, Loop, smithers, outputs } = createSmithers(
+  {
+    input: sweepInputSchema,
+    sweepSurvey: sweepSurveySchema,
+    sweepResult: sweepResultSchema,
+    sweepReport: sweepReportSchema,
+    output: phaseDoneSchema,
+  },
+  { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
+);
 
 const sweepMemory = { kind: "workflow", id: "bun-port-sweeps" } as const;
 
@@ -55,7 +57,7 @@ export default smithers((ctx) => {
               const sweepId = stableNodeId(sweep.id);
               const previous = ctx.latest("sweepResult", `sweep:${sweepId}`) as SweepResult | undefined;
               return (
-                <KeyedLoop
+                <Loop
                   key={sweep.id}
                   id={`sweep:${sweepId}:loop`}
                   until={previous ? previous.skipped === 0 : false}
@@ -80,7 +82,7 @@ export default smithers((ctx) => {
                       schema={sweepResultSchema}
                     />
                   </Task>
-                </KeyedLoop>
+                </Loop>
               );
             })}
           </Parallel>

@@ -262,6 +262,7 @@ type SignalProps$2<Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.Zod
 };
 
 type SequenceProps$2 = {
+    key?: string;
     skipIf?: boolean;
     children?: React.ReactNode;
 };
@@ -424,6 +425,7 @@ type ReviewLoopProps$2 = {
 };
 
 type LoopProps$2 = {
+    key?: string;
     id?: string;
     until?: boolean;
     maxIterations?: number;

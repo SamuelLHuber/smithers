@@ -1,10 +1,10 @@
 /** @jsxImportSource smithers-orchestrator */
+import { createSmithers } from "smithers-orchestrator";
 import type { z } from "zod";
 
 import { agentsForRepo } from "../components/agents";
 import { normalizePortFiles, stableNodeId } from "../components/porting-rules";
 import { standardScorers } from "../components/scorers";
-import { createBunPortSmithers } from "../components/smithers";
 import {
   phaseAFixSchema,
   phaseAImplementSchema,
@@ -18,16 +18,18 @@ import PhaseAFixPrompt from "../prompts/phase-a-fix.mdx";
 import PhaseAImplementPrompt from "../prompts/phase-a-implement.mdx";
 import PhaseAVerifyPrompt from "../prompts/phase-a-verify.mdx";
 
-const { Workflow, Task, Sequence, Parallel, smithers, outputs } = createBunPortSmithers({
-  input: phaseAInputSchema,
-  phaseAPlan: phaseAPlanSchema,
-  phaseAImplement: phaseAImplementSchema,
-  phaseAReview: reviewSchema,
-  phaseAFix: phaseAFixSchema,
-  phaseAReport: phaseAReportSchema,
-  output: phaseDoneSchema,
-});
-const KeyedSequence = Sequence as any;
+const { Workflow, Task, Sequence, Parallel, smithers, outputs } = createSmithers(
+  {
+    input: phaseAInputSchema,
+    phaseAPlan: phaseAPlanSchema,
+    phaseAImplement: phaseAImplementSchema,
+    phaseAReview: reviewSchema,
+    phaseAFix: phaseAFixSchema,
+    phaseAReport: phaseAReportSchema,
+    output: phaseDoneSchema,
+  },
+  { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
+);
 
 const phaseAMemory = { kind: "workflow", id: "bun-port-phase-a" } as const;
 
@@ -72,7 +74,7 @@ export default smithers((ctx) => {
               const review = ctx.outputMaybe(outputs.phaseAReview, { nodeId: `phase-a:${fileId}:verify` }) as PhaseAReview | undefined;
               const mustFix = (review?.issues ?? []).some((issue) => issue.severity !== "nit");
               return (
-                <KeyedSequence key={file.zig}>
+                <Sequence key={file.zig}>
                   <Task
                     id={`phase-a:${fileId}:implement`}
                     output={outputs.phaseAImplement}
@@ -121,7 +123,7 @@ export default smithers((ctx) => {
                       />
                     </Task>
                   ) : null}
-                </KeyedSequence>
+                </Sequence>
               );
             })}
           </Parallel>

@@ -1,10 +1,10 @@
 /** @jsxImportSource smithers-orchestrator */
+import { createSmithers } from "smithers-orchestrator";
 import type { z } from "zod";
 
 import { agentsForRepo } from "../components/agents";
 import { DEFAULT_PROBES, dedupeFailures, stableNodeId } from "../components/porting-rules";
 import { standardScorers } from "../components/scorers";
-import { createBunPortSmithers } from "../components/smithers";
 import {
   buildResultSchema,
   failureFixSchema,
@@ -18,15 +18,18 @@ import BuildPrompt from "../prompts/build.mdx";
 import FailureFixPrompt from "../prompts/failure-fix.mdx";
 import ProbePrompt from "../prompts/probe.mdx";
 
-const { Workflow, Task, Sequence, Parallel, Loop, smithers, outputs } = createBunPortSmithers({
-  input: probeInputSchema,
-  buildResult: buildResultSchema,
-  probeResult: probeResultSchema,
-  failureSet: failureSetSchema,
-  failureFix: failureFixSchema,
-  probeReport: probeReportSchema,
-  output: phaseDoneSchema,
-});
+const { Workflow, Task, Sequence, Parallel, Loop, smithers, outputs } = createSmithers(
+  {
+    input: probeInputSchema,
+    buildResult: buildResultSchema,
+    probeResult: probeResultSchema,
+    failureSet: failureSetSchema,
+    failureFix: failureFixSchema,
+    probeReport: probeReportSchema,
+    output: phaseDoneSchema,
+  },
+  { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
+);
 
 const probeMemory = { kind: "workflow", id: "bun-port-probes" } as const;
 

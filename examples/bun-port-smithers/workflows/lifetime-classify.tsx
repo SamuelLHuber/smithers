@@ -1,4 +1,5 @@
 /** @jsxImportSource smithers-orchestrator */
+import { createSmithers } from "smithers-orchestrator";
 import type { z } from "zod";
 
 import { agentsForRepo } from "../components/agents";
@@ -11,7 +12,6 @@ import {
   summarizeLifetimeRows,
 } from "../components/porting-rules";
 import { standardScorers } from "../components/scorers";
-import { createBunPortSmithers } from "../components/smithers";
 import {
   lifetimeClassificationSchema,
   lifetimeInputSchema,
@@ -23,14 +23,17 @@ import {
 import LifetimeClassifyPrompt from "../prompts/lifetime-classify.mdx";
 import LifetimeVerifyPrompt from "../prompts/lifetime-verify.mdx";
 
-const { Workflow, Task, Sequence, Parallel, smithers, outputs } = createBunPortSmithers({
-  input: lifetimeInputSchema,
-  lifetimeClassification: lifetimeClassificationSchema,
-  lifetimeSelection: lifetimeSelectionSchema,
-  lifetimeVote: lifetimeVoteSchema,
-  lifetimeSummary: lifetimeSummarySchema,
-  output: phaseDoneSchema,
-});
+const { Workflow, Task, Sequence, Parallel, smithers, outputs } = createSmithers(
+  {
+    input: lifetimeInputSchema,
+    lifetimeClassification: lifetimeClassificationSchema,
+    lifetimeSelection: lifetimeSelectionSchema,
+    lifetimeVote: lifetimeVoteSchema,
+    lifetimeSummary: lifetimeSummarySchema,
+    output: phaseDoneSchema,
+  },
+  { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
+);
 
 const lifetimeMemory = { kind: "workflow", id: "bun-port-lifetimes" } as const;
 

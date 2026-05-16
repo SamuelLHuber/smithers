@@ -1,11 +1,11 @@
 /** @jsxImportSource smithers-orchestrator */
 import { resolve } from "node:path";
+import { createSmithers } from "smithers-orchestrator";
 import type { z } from "zod";
 
 import { agentsForRepo } from "../components/agents";
 import { DEFAULT_TEST_AREAS, stableNodeId } from "../components/porting-rules";
 import { standardScorers } from "../components/scorers";
-import { createBunPortSmithers } from "../components/smithers";
 import {
   ciSignalSchema,
   mergeResultSchema,
@@ -17,21 +17,19 @@ import {
 import MergePrompt from "../prompts/merge.mdx";
 import TestAreaPrompt from "../prompts/test-area.mdx";
 
-const { Workflow, Task, Sequence, Parallel, Loop, MergeQueue, Worktree, Signal, smithers, outputs } = createBunPortSmithers({
-  input: testSwarmInputSchema,
-  testAreaResult: testAreaResultSchema,
-  mergeResult: mergeResultSchema,
-  testSwarmReport: testSwarmReportSchema,
-  ciSignal: ciSignalSchema,
-  output: phaseDoneSchema,
-});
-const KeyedLoop = Loop as any;
+const { Workflow, Task, Sequence, Parallel, Loop, MergeQueue, Worktree, Signal, smithers, outputs } = createSmithers(
+  {
+    input: testSwarmInputSchema,
+    testAreaResult: testAreaResultSchema,
+    mergeResult: mergeResultSchema,
+    testSwarmReport: testSwarmReportSchema,
+    ciSignal: ciSignalSchema,
+    output: phaseDoneSchema,
+  },
+  { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
+);
 
 const testMemory = { kind: "workflow", id: "bun-port-test-swarm" } as const;
-
-function worktreePath(repo: string, areaId: string): string {
-  return resolve(repo, ".worktrees", `bun-port-${areaId}`);
-}
 
 export default smithers((ctx) => {
   const inputAreas = ctx.input.areas ?? [];
@@ -68,7 +66,7 @@ export default smithers((ctx) => {
             const latest = ctx.latest("testAreaResult", `test-swarm:${areaNodeId}:area`) as TestAreaResult | undefined;
             const branch = `bun-port/${area.id}`;
             const areaLoop = (
-              <KeyedLoop
+              <Loop
                 key={area.id}
                 id={`test-swarm:${areaNodeId}:loop`}
                 until={latest?.allPass === true}
@@ -94,12 +92,12 @@ export default smithers((ctx) => {
                     schema={testAreaResultSchema}
                   />
                 </Task>
-              </KeyedLoop>
+              </Loop>
             );
             return ctx.input.useWorktrees === false ? areaLoop : (
               <Worktree
                 key={area.id}
-                path={worktreePath(ctx.input.repo, area.id)}
+                path={resolve(ctx.input.repo, ".worktrees", `bun-port-${area.id}`)}
                 branch={branch}
                 baseBranch={ctx.input.baseBranch ?? "main"}
               >

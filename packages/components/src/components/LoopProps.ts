@@ -1,6 +1,7 @@
 import type React from "react";
 
 export type LoopProps = {
+	key?: string;
 	id?: string;
 	until?: boolean;
 	maxIterations?: number;
