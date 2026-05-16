@@ -58,7 +58,7 @@ function dryOutput(kind: string, prompt: string): Record<string, unknown> {
     case "phase-a-implement":
       return { zig, rs, status: "drafted", confidence: "medium", todos: 0, rsLoc: 12, note: "dry-run draft" };
     case "phase-a-verify":
-      return { subject: rs, reviewer: "phase-a-dry-reviewer", ok: true, issues: [] };
+      return { subject: rs, reviewer: "phase-a-dry-reviewer", approved: true, ok: true, issues: [], feedback: "dry-run approved" };
     case "phase-a-fix":
       return { zig, rs, applied: 0, remaining: 0, note: "no dry-run fixes required" };
     case "crate-check":
@@ -76,6 +76,8 @@ function dryOutput(kind: string, prompt: string): Record<string, unknown> {
       return { targetId, status: "patched", filesChanged: [readTag(prompt, "FILE", "src/example.rs")], summary: "dry-run patch" };
     case "spec-review":
       return { targetId, reviewer: voter, approved: true, issues: [], feedback: "dry-run approved" };
+    case "spec-decision":
+      return { targetId, approved: true, approvals: 2, rejections: 0, issues: [], feedback: "dry-run consensus approved" };
     case "build":
       return { ok: true, command: "cargo build -p bun_bin", summary: "dry-run build green" };
     case "probe":
@@ -108,7 +110,7 @@ function dryOutput(kind: string, prompt: string): Record<string, unknown> {
     case "sweep":
       return { sweepId, kind: readTag(prompt, "KIND", "sweep"), candidates: 1, fixed: 1, skipped: 0, summary: "dry-run sweep" };
     default:
-      return { subject, reviewer: "dry", ok: true, issues: [] };
+      return { subject, reviewer: "dry", approved: true, ok: true, issues: [], feedback: "dry-run approved" };
   }
 }
 
@@ -126,36 +128,65 @@ function makeDryAgent(kind: string): LocalAgent {
   };
 }
 
-const writerAgent: any = useRealAgents
-  ? new ClaudeCodeAgent({
+function writerAgent(repo: string, kind = "phase-a-implement"): any {
+  if (!useRealAgents) return makeDryAgent(kind);
+  return new ClaudeCodeAgent({
+    cwd: repo,
     model: process.env.BUN_PORT_WRITER_MODEL ?? "claude-sonnet-4-20250514",
     permissionMode: "acceptEdits",
+    allowedTools: process.env.BUN_PORT_WRITER_ALLOWED_TOOLS?.split(",") ?? [
+      "Read",
+      "Grep",
+      "Glob",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Bash(cargo check:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(bun test:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(rg:*)",
+      "Bash(sed:*)",
+    ],
+    disallowedTools: ["WebFetch", "WebSearch"],
     timeoutMs: 30 * 60 * 1000,
-    systemPrompt: "You are a Bun Zig-to-Rust porting agent. Follow docs/PORTING.md exactly.",
-  })
-  : makeDryAgent("phase-a-implement");
+  });
+}
 
-const reviewerAgent: any = useRealAgents
-  ? new PiAgent({
+function reviewerAgent(repo: string, kind = "phase-a-verify"): any {
+  if (!useRealAgents) return makeDryAgent(kind);
+  return new PiAgent({
+    cwd: repo,
     provider: process.env.BUN_PORT_REVIEW_PROVIDER ?? "openai-codex",
     model: process.env.BUN_PORT_REVIEW_MODEL ?? "gpt-5.3-codex",
     mode: "rpc",
     thinking: "high",
     tools: ["read", "grep", "bash"],
-  })
-  : makeDryAgent("phase-a-verify");
+  });
+}
 
-export const lifetimeClassifier: any = useRealAgents ? writerAgent : makeDryAgent("lifetime-classify");
-export const lifetimeVerifier: any = useRealAgents ? reviewerAgent : makeDryAgent("lifetime-verify");
-export const phaseAImplementer: any = writerAgent;
-export const phaseAVerifier: any = reviewerAgent;
-export const phaseAFixer: any = useRealAgents ? writerAgent : makeDryAgent("phase-a-fix");
-export const crateChecker: any = useRealAgents ? writerAgent : makeDryAgent("crate-check");
-export const properPorter: any = useRealAgents ? writerAgent : makeDryAgent("proper-port");
-export const specReviewer: any = useRealAgents ? reviewerAgent : makeDryAgent("spec-review");
-export const builder: any = useRealAgents ? writerAgent : makeDryAgent("build");
-export const prober: any = useRealAgents ? writerAgent : makeDryAgent("probe");
-export const failureFixer: any = useRealAgents ? writerAgent : makeDryAgent("failure-fix");
-export const testAreaWorker: any = useRealAgents ? writerAgent : makeDryAgent("test-area");
-export const mergeAgent: any = useRealAgents ? writerAgent : makeDryAgent("merge");
-export const sweepAgent: any = useRealAgents ? writerAgent : makeDryAgent("sweep");
+export function agentsForRepo(repo: string) {
+  return {
+    lifetimeClassifier: writerAgent(repo, "lifetime-classify"),
+    lifetimeVerifier: reviewerAgent(repo, "lifetime-verify"),
+    phaseAImplementer: writerAgent(repo, "phase-a-implement"),
+    phaseAVerifier: reviewerAgent(repo, "phase-a-verify"),
+    phaseAFixer: writerAgent(repo, "phase-a-fix"),
+    crateChecker: writerAgent(repo, "crate-check"),
+    properPorter: writerAgent(repo, "proper-port"),
+    specReviewer: reviewerAgent(repo, "spec-review"),
+    specDecider: reviewerAgent(repo, "spec-decision"),
+    builder: writerAgent(repo, "build"),
+    prober: writerAgent(repo, "probe"),
+    failureFixer: writerAgent(repo, "failure-fix"),
+    testAreaWorker: writerAgent(repo, "test-area"),
+    mergeAgent: writerAgent(repo, "merge"),
+    sweepAgent: writerAgent(repo, "sweep"),
+    judge: reviewerAgent(repo, "judge"),
+  };
+}

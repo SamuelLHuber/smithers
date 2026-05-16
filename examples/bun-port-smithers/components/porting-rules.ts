@@ -47,6 +47,16 @@ export type SweepInput = {
   scope: string;
 };
 
+export type ReviewLike = {
+  targetId?: string;
+  subject?: string;
+  reviewer?: string;
+  approved?: boolean;
+  ok?: boolean;
+  issues?: Array<{ severity?: string; rule?: string; detail?: string }>;
+  feedback?: string;
+};
+
 export const DEFAULT_TEST_AREAS: TestArea[] = [
   { id: "bun-http", glob: "test/js/bun/http/", crate: "runtime/server" },
   { id: "bun-crypto", glob: "test/js/bun/crypto/", crate: "runtime/crypto" },
@@ -120,11 +130,13 @@ export function groupCratesByTier(crates: CrateInput[]): Required<CrateInput>[][
 }
 
 export function stableNodeId(value: string): string {
-  return value
+  const slug = value
     .toLowerCase()
     .replace(/[^a-z0-9_.:-]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 160);
+    .slice(0, 140);
+  const hash = hashString(value).toString(36);
+  return `${slug || "node"}-${hash}`;
 }
 
 export function fieldKey(field: Pick<LifetimeField, "file" | "struct" | "field">): string {
@@ -168,6 +180,76 @@ export function summarizeLifetimeRows(fields: LifetimeField[]): {
     totalFields,
     byClass,
     unknownRate: totalFields === 0 ? 0 : (byClass.UNKNOWN ?? 0) / totalFields,
+  };
+}
+
+export function lifetimeTsv(fields: LifetimeField[]): string {
+  return [
+    "file\tstruct\tfield\tzigType\tclass\trustType\tevidence\tconfidence",
+    ...fields.map((field) => [
+      field.file,
+      field.struct,
+      field.field,
+      field.zigType,
+      field.class,
+      field.rustType,
+      field.evidence,
+      field.confidence,
+    ].join("\t")),
+  ].join("\n");
+}
+
+export function cacheKeyForFile(input: {
+  repo: string;
+  zig: string;
+  crate?: string;
+  portingRevision?: string;
+  lifetimeRevision?: string;
+}): Record<string, string> {
+  return {
+    repo: input.repo,
+    zig: input.zig,
+    crate: input.crate ?? "",
+    portingRevision: input.portingRevision ?? "",
+    lifetimeRevision: input.lifetimeRevision ?? "",
+  };
+}
+
+export function latestByNodeId<T>(
+  latest: (schema: string, nodeId: string) => T | undefined,
+  schema: string,
+  nodeIds: string[],
+): T[] {
+  return nodeIds
+    .map((nodeId) => latest(schema, nodeId))
+    .filter((row): row is T => Boolean(row));
+}
+
+export function reviewDecision(
+  targetId: string,
+  reviews: ReviewLike[],
+  minApprovals = 2,
+): {
+  targetId: string;
+  approved: boolean;
+  approvals: number;
+  rejections: number;
+  issues: NonNullable<ReviewLike["issues"]>;
+  feedback: string;
+} {
+  const targetReviews = reviews.filter((review) =>
+    review.targetId === targetId || review.subject === targetId
+  );
+  const approvals = targetReviews.filter((review) => review.approved === true || review.ok === true).length;
+  const rejections = targetReviews.filter((review) => review.approved === false || review.ok === false).length;
+  const issues = targetReviews.flatMap((review) => review.issues ?? []);
+  return {
+    targetId,
+    approved: approvals >= minApprovals && rejections === 0,
+    approvals,
+    rejections,
+    issues,
+    feedback: targetReviews.map((review) => review.feedback).filter(Boolean).join("\n\n"),
   };
 }
 

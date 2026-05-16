@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export const workflowPhaseSchema = z.enum([
+  "lifetimes",
+  "phaseA",
+  "compile",
+  "ungate",
+  "probes",
+  "tests",
+  "sweeps",
+]);
+
 export const zigFileInputSchema = z.object({
   zig: z.string(),
   loc: z.number().int().nonnegative().default(0),
@@ -11,6 +21,8 @@ export const lifetimeInputSchema = z.object({
   files: z.array(zigFileInputSchema).default([]),
   sampleRate: z.number().min(0).max(1).default(0.12),
   unknownApprovalThreshold: z.number().min(0).max(1).default(0.05),
+  portingRevision: z.string().default(""),
+  lifetimeRevision: z.string().default(""),
 });
 
 export const lifetimeClassificationSchema = z.object({
@@ -67,6 +79,8 @@ export const lifetimeSummarySchema = z.object({
   overturned: z.number().int().nonnegative(),
   byClass: z.record(z.string(), z.number().int().nonnegative()),
   tsvPreview: z.string(),
+  tsv: z.string(),
+  refutedKeys: z.array(z.string()).default([]),
 });
 
 export const approvalSchema = z.object({
@@ -112,8 +126,10 @@ export const issueSchema = z.object({
 export const reviewSchema = z.object({
   subject: z.string(),
   reviewer: z.string().default("reviewer"),
+  approved: z.boolean().default(false),
   ok: z.boolean(),
   issues: z.array(issueSchema),
+  feedback: z.string().default(""),
 });
 
 export const phaseAFixSchema = z.object({
@@ -140,6 +156,7 @@ export const crateCompileInputSchema = z.object({
     tier: z.number().int().nonnegative().default(0),
   })).default([]),
   maxRounds: z.number().int().positive().default(25),
+  broadGateApprovalThreshold: z.number().int().nonnegative().default(20),
 });
 
 export const cratePlanSchema = z.object({
@@ -166,6 +183,8 @@ export const compileReportSchema = z.object({
   green: z.number().int().nonnegative(),
   failing: z.number().int().nonnegative(),
   gatedModules: z.number().int().nonnegative(),
+  greenCrates: z.array(z.string()).default([]),
+  failingCrates: z.array(z.string()).default([]),
   summary: z.string(),
 });
 
@@ -205,6 +224,15 @@ export const specReviewSchema = z.object({
   feedback: z.string(),
 });
 
+export const specDecisionSchema = z.object({
+  targetId: z.string(),
+  approved: z.boolean(),
+  approvals: z.number().int().nonnegative(),
+  rejections: z.number().int().nonnegative(),
+  issues: z.array(issueSchema).default([]),
+  feedback: z.string().default(""),
+});
+
 export const ungateReportSchema = z.object({
   totalTargets: z.number().int().nonnegative(),
   patched: z.number().int().nonnegative(),
@@ -220,6 +248,7 @@ export const probeInputSchema = z.object({
     cmd: z.string(),
     expect: z.string().optional(),
   })).default([]),
+  maxRounds: z.number().int().positive().default(5),
 });
 
 export const buildResultSchema = z.object({
@@ -271,6 +300,9 @@ export const testSwarmInputSchema = z.object({
   useWorktrees: z.boolean().default(true),
   maxIterations: z.number().int().positive().default(30),
   maxConcurrency: z.number().int().positive().default(8),
+  requireGreenBeforeMerge: z.boolean().default(true),
+  awaitExternalCiSignal: z.boolean().default(false),
+  ciCorrelationId: z.string().default("bun-port-test-swarm"),
   areas: z.array(z.object({
     id: z.string(),
     glob: z.string(),
@@ -295,6 +327,12 @@ export const mergeResultSchema = z.object({
   picked: z.number().int().nonnegative(),
   conflicts: z.number().int().nonnegative().default(0),
   notes: z.string(),
+});
+
+export const ciSignalSchema = z.object({
+  status: z.enum(["passed", "failed", "cancelled"]),
+  url: z.string().default(""),
+  summary: z.string().default(""),
 });
 
 export const testSwarmReportSchema = z.object({
@@ -339,4 +377,59 @@ export const sweepReportSchema = z.object({
   fixed: z.number().int().nonnegative(),
   skipped: z.number().int().nonnegative(),
   summary: z.string(),
+});
+
+export const operatorPlanSchema = z.object({
+  approved: z.boolean(),
+  comments: z.string().default(""),
+  runLifetimes: z.boolean().default(true),
+  runPhaseA: z.boolean().default(true),
+  runCompile: z.boolean().default(true),
+  runUngate: z.boolean().default(true),
+  runProbes: z.boolean().default(true),
+  runTests: z.boolean().default(true),
+  runSweeps: z.boolean().default(true),
+});
+
+export const childRunResultSchema = z.object({
+  status: z.string().default("finished"),
+  output: z.unknown().optional(),
+}).passthrough();
+
+export const phaseDoneSchema = z.object({
+  phase: z.string(),
+  status: z.enum(["completed", "partial", "failed"]).default("completed"),
+  summary: z.string(),
+}).passthrough();
+
+export const bunPortInputSchema = z.object({
+  repo: z.string().default("."),
+  phases: z.array(workflowPhaseSchema).default([
+    "lifetimes",
+    "phaseA",
+    "compile",
+    "ungate",
+    "probes",
+    "tests",
+    "sweeps",
+  ]),
+  requireOperatorPlan: z.boolean().default(true),
+  baseBranch: z.string().default("main"),
+  files: z.array(zigFileInputSchema).default([]),
+  crates: crateCompileInputSchema.shape.crates.default([]),
+  targets: ungateInputSchema.shape.targets.default([]),
+  probes: probeInputSchema.shape.probes.default([]),
+  areas: testSwarmInputSchema.shape.areas.default([]),
+  sweeps: sweepInputSchema.shape.sweeps.default([]),
+  maxConcurrency: z.number().int().positive().default(8),
+  useWorktrees: z.boolean().default(true),
+  awaitExternalCiSignal: z.boolean().default(false),
+  unknownApprovalThreshold: z.number().min(0).max(1).default(0.05),
+});
+
+export const bunPortFinalSchema = z.object({
+  status: z.enum(["completed", "cancelled", "partial"]).default("completed"),
+  phasesRun: z.array(z.string()).default([]),
+  summary: z.string(),
+  nextActions: z.array(z.string()).default([]),
 });
