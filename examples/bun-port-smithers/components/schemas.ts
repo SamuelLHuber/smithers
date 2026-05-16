@@ -425,6 +425,7 @@ export const bunPortInputSchema = z.object({
   useWorktrees: z.boolean().default(true),
   awaitExternalCiSignal: z.boolean().default(false),
   unknownApprovalThreshold: z.number().min(0).max(1).default(0.05),
+  broadGateApprovalThreshold: z.number().int().nonnegative().default(20),
 });
 
 export const bunPortFinalSchema = z.object({

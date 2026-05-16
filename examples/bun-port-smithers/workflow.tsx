@@ -24,6 +24,7 @@ const { Workflow, Task, Sequence, smithers, outputs } = createBunPortSmithers({
   childRunResult: childRunResultSchema,
   approval: approvalSchema,
   bunPortFinal: bunPortFinalSchema,
+  output: bunPortFinalSchema,
 });
 
 const phaseToFlag = {
@@ -78,7 +79,7 @@ export default smithers((ctx) => {
         ) : null}
 
         {operatorDenied ? (
-          <Task id="main:cancelled" output={outputs.bunPortFinal}>
+          <Task id="main:cancelled" output={outputs.output}>
             {{
               status: "cancelled",
               phasesRun: [],
@@ -93,6 +94,7 @@ export default smithers((ctx) => {
             id="main:lifetimes"
             output={outputs.childRunResult}
             workflow={lifetimeWorkflow as any}
+            retries={0}
             input={{
               repo: ctx.input.repo,
               files: ctx.input.files,
@@ -124,6 +126,7 @@ export default smithers((ctx) => {
             id="main:phaseA"
             output={outputs.childRunResult}
             workflow={phaseAWorkflow as any}
+            retries={0}
             input={{ repo: ctx.input.repo, files: ctx.input.files, maxConcurrency: ctx.input.maxConcurrency }}
           />
         ) : null}
@@ -133,6 +136,7 @@ export default smithers((ctx) => {
             id="main:compile"
             output={outputs.childRunResult}
             workflow={compileWorkflow as any}
+            retries={0}
             input={{ repo: ctx.input.repo, crates: ctx.input.crates }}
           />
         ) : null}
@@ -141,7 +145,7 @@ export default smithers((ctx) => {
           <ApprovalGate
             id="main:compile:approval"
             output={outputs.approval}
-            when={(compileResult.gatedModules ?? 0) > 20}
+            when={(compileResult.gatedModules ?? 0) > ctx.input.broadGateApprovalThreshold}
             request={{
               title: "Approve compile gate/stub debt?",
               summary: compileResult.summary,
@@ -159,6 +163,7 @@ export default smithers((ctx) => {
             id="main:ungate"
             output={outputs.childRunResult}
             workflow={ungateWorkflow as any}
+            retries={0}
             input={{ repo: ctx.input.repo, targets: ctx.input.targets }}
           />
         ) : null}
@@ -168,6 +173,7 @@ export default smithers((ctx) => {
             id="main:probes"
             output={outputs.childRunResult}
             workflow={probeWorkflow as any}
+            retries={0}
             input={{ repo: ctx.input.repo, probes: ctx.input.probes }}
           />
         ) : null}
@@ -177,6 +183,7 @@ export default smithers((ctx) => {
             id="main:tests"
             output={outputs.childRunResult}
             workflow={testSwarmWorkflow as any}
+            retries={0}
             input={{
               repo: ctx.input.repo,
               baseBranch: ctx.input.baseBranch,
@@ -193,12 +200,13 @@ export default smithers((ctx) => {
             id="main:sweeps"
             output={outputs.childRunResult}
             workflow={auditSweepsWorkflow as any}
+            retries={0}
             input={{ repo: ctx.input.repo, sweeps: ctx.input.sweeps }}
           />
         ) : null}
 
         {allSubflowsDone ? (
-          <Task id="main:final" output={outputs.bunPortFinal}>
+          <Task id="main:final" output={outputs.output}>
             {{
               status: "completed",
               phasesRun: requestedPhases,

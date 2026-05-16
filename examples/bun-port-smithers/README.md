@@ -111,7 +111,8 @@ Useful fields:
   "targets": [{ "id": "http-server", "crate": "http", "file": "src/http/lib.rs" }],
   "areas": [{ "id": "bun-http", "glob": "test/js/bun/http/", "crate": "runtime/server" }],
   "useWorktrees": true,
-  "awaitExternalCiSignal": false
+  "awaitExternalCiSignal": false,
+  "broadGateApprovalThreshold": 20
 }
 ```
 
@@ -130,8 +131,8 @@ verify, and conditional fix tasks. Reports aggregate per planned file by stable
 node id rather than raw table row counts.
 
 Compile bring-up loops per crate and reports only the latest check per crate.
-Broad gating requires an `ApprovalGate` when gated module count exceeds the
-configured threshold.
+The top-level workflow requires an `ApprovalGate` when gated module count
+exceeds `broadGateApprovalThreshold`.
 
 Ungate/proper-port now requires two reviewer approvals with no rejection. One
 approving reviewer no longer accepts a target.
