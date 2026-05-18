@@ -1,0 +1,22 @@
+# 0.20.3
+
+Patch release: two new top-level CLI commands stream the published
+`llms.txt` and `llms-full.txt` straight to stdout, so coding agents can
+pull Smithers docs without leaving the terminal.
+
+---
+
+## CLI
+
+- **`smithers docs`.** Fetches `https://smithers.sh/llms.txt` (the concise
+  docs index for LLMs) and writes it to stdout. With `--json`, returns
+  `{ url, content }` instead.
+
+- **`smithers docs-full`.** Fetches `https://smithers.sh/llms-full.txt`
+  (the full ~8k-line docs bundle for LLMs) and writes it to stdout. Same
+  `--json` behavior as `docs`.
+
+  Both commands fetch at runtime against the published docs site, so
+  output always reflects the latest shipped docs and the CLI bundle stays
+  small. Fetch failures surface as `DOCS_FETCH_FAILED` /
+  `DOCS_FULL_FETCH_FAILED` with a non-zero exit.
