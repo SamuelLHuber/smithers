@@ -461,8 +461,7 @@ function computeSignalName(node, descriptor, attempts, events) {
             correlationId ??
                 parseString(payload.correlationId) ??
                 null;
-        if (signalName && correlationId)
-            break;
+        if (signalName && correlationId) break;
     }
     return { signalName, correlationId };
 }

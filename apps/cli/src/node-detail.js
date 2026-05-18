@@ -89,12 +89,7 @@ function parseErrorSummary(raw) {
         if (message) {
             return { message, detail: parsed };
         }
-        try {
-            return { message: JSON.stringify(parsed), detail: parsed };
-        }
-        catch {
-            return { message: String(parsed), detail: parsed };
-        }
+        return { message: JSON.stringify(parsed), detail: parsed };
     }
     return { message: String(parsed), detail: parsed };
 }

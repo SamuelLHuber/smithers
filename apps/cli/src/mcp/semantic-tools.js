@@ -601,8 +601,7 @@ async function listAllEvents(adapter, runId) {
             break;
         events.push(...batch);
         lastSeq = batch[batch.length - 1].seq;
-        if (batch.length < 1_000)
-            break;
+        if (batch.length < 1_000) break;
     }
     return events;
 }
