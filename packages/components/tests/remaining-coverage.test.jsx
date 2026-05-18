@@ -19,6 +19,7 @@ import {
     HumanTask,
     Kanban,
     Poller,
+    Runbook,
     Saga,
     Signal,
     Task,
@@ -28,6 +29,7 @@ import {
     continueAsNew,
 } from "../src/components/index.js";
 import { forceContinueOnFail } from "../src/components/control-flow-utils.js";
+import { markdownComponents } from "../src/markdownComponents.js";
 import { renderPromptToText } from "../src/components/Task.js";
 import { zodSchemaToJsonExample } from "../src/zod-to-example.js";
 import { createTestSmithers } from "./helpers.js";
@@ -108,6 +110,11 @@ describe("remaining component branch coverage", () => {
             approvalAllowedScopes: ["deploy"],
             approvalAllowedUsers: ["alice"],
         });
+
+        const noCallbackAutoApprove = await render(
+            <Approval id="approval-auto" output="out" request={{ title: "Auto" }} autoApprove={{ after: 1 }} />,
+        );
+        expect(noCallbackAutoApprove.tasks[0].approvalAutoApprove).toEqual({ after: 1, audit: true });
 
         await expect(rendered.tasks[0].computeFn()).rejects.toThrow("Approval decisions can only be resolved");
 
@@ -293,6 +300,7 @@ describe("remaining component branch coverage", () => {
             },
         };
         expect(() => renderPromptToText(promptValue)).toThrow("MDX prompt could not be rendered");
+        expect(renderPromptToText({ toString: () => "custom prompt" })).toBe("custom prompt");
 
         const schema = z.object({ title: z.string().describe("Title") });
         function Prompt(props) {
@@ -348,8 +356,10 @@ describe("remaining component branch coverage", () => {
         expect(forceContinueOnFail(emptyElement)).toBe(emptyElement);
         const plainElement = forceContinueOnFail(React.createElement("span", null, "plain"));
         expect(plainElement.type).toBe("span");
-        const forced = forceContinueOnFail(["plain"]);
-        expect(forced).toEqual(["plain"]);
+        const arrayChild = React.createElement("span");
+        const forced = forceContinueOnFail([arrayChild, "plain"]);
+        expect(forced[0]).toBe(arrayChild);
+        expect(forced[1]).toBe("plain");
 
         expect(Timer({ id: "skip", duration: "1s", skipIf: true })).toBeNull();
         expect(() => Timer({ id: "bad" })).toThrow("requires exactly one");
@@ -384,6 +394,19 @@ describe("remaining component branch coverage", () => {
         });
         expect(tcf.props.__tcfCatchHandler).toEqual(expect.any(Function));
         expect(React.Children.toArray(tcf.props.children).some((child) => child.type === "smithers:tcf-finally")).toBe(true);
+        const tcfNoFinally = TryCatchFinally({
+            id: "no-cleanup",
+            try: React.createElement("span"),
+        });
+        expect(React.Children.toArray(tcfNoFinally.props.children).some((child) => child?.type === "smithers:tcf-finally")).toBe(false);
+        const tcfArray = TryCatchFinally({
+            id: "array-try",
+            try: [
+                React.createElement("span", { key: "a" }),
+                React.createElement("span", { key: "b" }),
+            ],
+        });
+        expect(tcfArray.props.id).toBe("array-try");
 
         const drift = await render(
             <DriftDetector id="drift-string" captureAgent={agent} compareAgent={agent} captureOutput="capture" compareOutput="compare" baseline="main" />,
@@ -397,6 +420,25 @@ describe("remaining component branch coverage", () => {
         );
         expect(poller.tasks[0].timeoutMs).toBe(100);
         expect(poller.tasks[0].agent).toBe(agent);
+        const exponentialPoller = await render(
+            <Poller id="poll-exp" check={() => ({ satisfied: false })} checkOutput="check_out" backoff="exponential" intervalMs={100} />,
+        );
+        expect(exponentialPoller.tasks[0].timeoutMs).toBe(100);
+
+        const runbook = await render(
+            <Runbook
+                id="runbook-defaults"
+                defaultAgent={agent}
+                stepOutput="step_out"
+                steps={[
+                    { id: "risk", risk: "risky" },
+                    { id: "critical", risk: "critical" },
+                ]}
+            />,
+        );
+        expect(runbook.tasks[0].meta.requestSummary).toContain("Risky step requires approval");
+        expect(runbook.tasks[2].meta.requestSummary).toContain("CRITICAL step requires elevated approval");
+        expect(runbook.tasks[2].meta).toMatchObject({ stepId: "critical", risk: "critical", elevated: true });
 
         const kanban = Kanban({
             columns: [{ name: "todo", output: "todo_out", agent }],
@@ -433,5 +475,19 @@ describe("remaining component branch coverage", () => {
             customDescription: "Custom",
             noDef: "value",
         });
+    });
+
+    test("markdown component functions render every mapping", () => {
+        for (const [name, Component] of Object.entries(markdownComponents)) {
+            const node = Component({
+                children: name === "code" ? "const x = 1;" : "text",
+                className: name === "code" ? "language-js" : undefined,
+                href: "https://example.test",
+                alt: "alt",
+                src: "image.png",
+            });
+            expect(React.isValidElement(node)).toBe(true);
+        }
+        expect(React.isValidElement(markdownComponents.code({ children: "inline" }))).toBe(true);
     });
 });

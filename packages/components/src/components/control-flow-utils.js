@@ -5,7 +5,11 @@ import React from "react";
  */
 function mapChildren(node) {
     if (Array.isArray(node)) {
-        return node.map((child) => forceContinueOnFail(child));
+        const mapped = [];
+        for (const child of node) {
+            mapped.push(forceContinueOnFail(child));
+        }
+        return mapped;
     }
     if (React.isValidElement(node)) {
         return forceContinueOnFail(node);
@@ -19,6 +23,9 @@ function mapChildren(node) {
  * @returns {React.ReactNode}
  */
 export function forceContinueOnFail(node) {
+    if (Array.isArray(node)) {
+        return mapChildren(node);
+    }
     if (!React.isValidElement(node)) {
         return node;
     }
