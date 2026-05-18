@@ -485,6 +485,41 @@ function isRunStatusTerminal(status) {
         status !== "waiting-event");
 }
 /**
+ * Fetch a docs file from smithers.sh and write it to stdout.
+ * Honors --json (global) by emitting `{ url, content }`.
+ *
+ * @param {{ error: Function; ok: Function; format?: string; options?: { json?: boolean } }} c
+ * @param {string} url
+ * @param {string} errorCode
+ */
+async function printSmithersDocs(c, url, errorCode) {
+    let body;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            return c.error({
+                code: errorCode,
+                message: `Failed to fetch ${url}: HTTP ${res.status}`,
+                exitCode: 1,
+            });
+        }
+        body = await res.text();
+    }
+    catch (err) {
+        return c.error({
+            code: errorCode,
+            message: `Failed to fetch ${url}: ${err?.message ?? String(err)}`,
+            exitCode: 1,
+        });
+    }
+    const wantsJson = Boolean(c.options?.json) || c.format === "json";
+    if (wantsJson) {
+        return c.ok({ url, content: body });
+    }
+    process.stdout.write(body.endsWith("\n") ? body : `${body}\n`);
+    return c.ok(undefined);
+}
+/**
  * @param {string | undefined} format
  * @param {unknown} payload
  * @param {string} [human]
@@ -4922,6 +4957,22 @@ const cli = Cli.create({
         catch (err) {
             return c.error({ code: "GUI_LAUNCH_FAILED", message: err?.message ?? String(err), exitCode: 1 });
         }
+    },
+})
+    // =========================================================================
+    // smithers docs / smithers docs-full
+    // Print the published llms.txt / llms-full.txt from smithers.sh.
+    // =========================================================================
+    .command("docs", {
+    description: "Print llms.txt (concise docs index for LLMs) from smithers.sh.",
+    async run(c) {
+        return printSmithersDocs(c, "https://smithers.sh/llms.txt", "DOCS_FETCH_FAILED");
+    },
+})
+    .command("docs-full", {
+    description: "Print llms-full.txt (full docs bundle for LLMs) from smithers.sh.",
+    async run(c) {
+        return printSmithersDocs(c, "https://smithers.sh/llms-full.txt", "DOCS_FULL_FETCH_FAILED");
     },
 })
     .command(workflowCli)
