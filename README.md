@@ -1,6 +1,6 @@
 # Smithers
 
-Durable AI workflows defined as React components.
+Smithers powers TypeScript teams to run long AI coding workflows that survive crashes and handle approvals, retries, and restarts
 
 ## Getting started
 

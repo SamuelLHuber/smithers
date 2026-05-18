@@ -3,7 +3,9 @@ title: Introduction
 description: What Smithers is and when to use it.
 ---
 
-Smithers is a durable workflow runtime. You write a workflow as a JSX tree, and Smithers repeatedly renders it. Each render answers: given what has already finished, what can run now? Tasks produce outputs validated by Zod schemas; the runtime persists them to SQLite. Crashes, restarts, and approvals are first-class — the runtime resumes from the last persisted state without re-running completed work.
+Smithers is a durable workflow runtime. Smithers survive crashes and handle approvals, retries, and restarts.
+
+You write a workflow as a JSX tree, and Smithers repeatedly renders it every "tick". Each render answers: given what has already finished, what can run now? Tasks produce outputs validated by Zod schemas; the runtime persists them to SQLite. Crashes, restarts, and approvals are first-class — the runtime resumes from the last persisted state without re-running completed work.
 
 ```tsx
 <Workflow name="review">

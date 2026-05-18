@@ -20,7 +20,7 @@ This raises two problems Smithers exists to solve:
 1. **Authoring** a complex workflow from scratch is hard.
 2. **Maintaining, changing, and reusing** it as the meta shifts is harder.
 
-Both get dramatically easier if you map them to a domain that agents are *already* disproportionately good at. We picked TypeScript for the language and React (JSX) for the workflow surface.
+Both get dramatically easier if you map them to a domain that agents are _already_ disproportionately good at. We picked TypeScript for the language and React (JSX) for the workflow surface.
 
 **TypeScript**, because prompts are template strings.
 
@@ -44,9 +44,11 @@ inputs:
   repo: string
   sha: string
 ---
+
 import { RiskAnalysis, OutputSpec } from "./fragments";
 
 # Repo review
+
 Analyze {props.repo} at {props.sha}.
 
 <RiskAnalysis level="thorough" />
@@ -54,7 +56,7 @@ Analyze {props.repo} at {props.sha}.
 <OutputSpec fields={["summary", "risk"]} />
 ```
 
-**React**, because agents are disproportionately good at writing it. They have seen more JSX than any other shape of TypeScript by an order of magnitude. They manage complex state machines inside it, debug it, log through it, and review other agents' React. The humans auditing what the agents wrote are also better at reviewing React than at simulating an imperative graph in their heads.
+**React**, because agents are disproportionately good at writing it. They have have trained on it. They understand it's functional patterns. It's easy for humans to read what the agents output. Agents can manage complex state machines inside it, debug it, log through it, and review other agents' React. The humans auditing what the agents wrote are also better at reviewing React than at simulating an imperative graph in their heads.
 
 The same review workflow as JSX:
 
@@ -135,7 +137,7 @@ The trap is the topology, not the framework.
 
 A framework that abstracts the substrate (durable steps, retries, persistence, suspension, observability) ages fine. A framework that abstracts the topology (graphs, crews, swarms, role-based agents, conversational multi-agent) ages out as soon as the topology does. The mistake is conflating the two and throwing both away when one expires.
 
-Smithers does not pick a topology for you. It hands you a primitive (a durable, retryable, observable task) and lets you compose it into whatever shape your problem and your model want this quarter.
+Smithers does not pick a topology for you. It hands you a primitive (a durable, retryable, observable task) and lets you compose it into whatever shape your problem and your model want this quarter or this minute.
 
 ---
 
@@ -147,19 +149,19 @@ The test of "did you abstract the primitives well enough" is whether the topolog
 
 If your primitives are good, named patterns fall out as compositions, not as runtime opinions. Smithers ships these as components on top of the substrate, never in place of it:
 
-| Component | What it composes |
-| :-- | :-- |
-| [`ReviewLoop`](/components/review-loop) | Producer + reviewer, looping until reviewer approves. |
-| [`Optimizer`](/components/optimizer) | Generator + evaluator, looping until a numeric score crosses a threshold. |
-| [`ScanFixVerify`](/components/scan-fix-verify) | Scanner finds issues, fixers run in parallel, verifier confirms each fix, retries the survivors. |
-| [`Panel`](/components/panel) | N specialist reviewers in parallel, moderator synthesizes. Vote, consensus, or synthesize. |
-| [`Debate`](/components/debate) | Proposer and opponent argue for N rounds, judge issues a verdict. |
-| [`GatherAndSynthesize`](/components/gather-and-synthesize) | Fan out to multiple sources in parallel, fan in through a synthesizer. |
-| [`ClassifyAndRoute`](/components/classify-and-route) | Classifier sorts items into categories; specialists handle their categories in parallel. |
-| [`EscalationChain`](/components/escalation-chain) | Try tier 1, escalate to tier 2 if confidence is low, escalate to a human if needed. |
-| [`Poller`](/components/poller) | Poll an external condition with backoff until satisfied or timed out. |
-| [`Supervisor`](/components/supervisor) | Boss plans, workers execute in parallel, boss reviews and re-delegates failures. |
-| [`Saga`](/components/saga) | Forward steps with compensations that run in reverse on failure. |
+| Component                                                  | What it composes                                                                                 |
+| :--------------------------------------------------------- | :----------------------------------------------------------------------------------------------- |
+| [`ReviewLoop`](/components/review-loop)                    | Producer + reviewer, looping until reviewer approves.                                            |
+| [`Optimizer`](/components/optimizer)                       | Generator + evaluator, looping until a numeric score crosses a threshold.                        |
+| [`ScanFixVerify`](/components/scan-fix-verify)             | Scanner finds issues, fixers run in parallel, verifier confirms each fix, retries the survivors. |
+| [`Panel`](/components/panel)                               | N specialist reviewers in parallel, moderator synthesizes. Vote, consensus, or synthesize.       |
+| [`Debate`](/components/debate)                             | Proposer and opponent argue for N rounds, judge issues a verdict.                                |
+| [`GatherAndSynthesize`](/components/gather-and-synthesize) | Fan out to multiple sources in parallel, fan in through a synthesizer.                           |
+| [`ClassifyAndRoute`](/components/classify-and-route)       | Classifier sorts items into categories; specialists handle their categories in parallel.         |
+| [`EscalationChain`](/components/escalation-chain)          | Try tier 1, escalate to tier 2 if confidence is low, escalate to a human if needed.              |
+| [`Poller`](/components/poller)                             | Poll an external condition with backoff until satisfied or timed out.                            |
+| [`Supervisor`](/components/supervisor)                     | Boss plans, workers execute in parallel, boss reviews and re-delegates failures.                 |
+| [`Saga`](/components/saga)                                 | Forward steps with compensations that run in reverse on failure.                                 |
 
 None of these are baked into the runtime. `<ReviewLoop>` is roughly:
 
@@ -186,13 +188,13 @@ That's the whole pattern. You can read the source, fork it, write your own. When
 
 These are five capabilities the substrate has to provide, not five sealed primitives. In Smithers they're delivered as uniform Effect.ts effects.
 
-| Capability | Smithers shape |
-| :-- | :-- |
-| Durable steps | `<Task>` / `$.step`. Output decoded against a `Schema`, persisted to SQLite. |
-| Persistent external state | Every output schema becomes a typed SQLite table. Run state is queryable with the SQL tools you already have. |
-| Parallel work | `<Parallel>` / `$.parallel`. Built on Effect fibers; structured concurrency, interruption, and resource lifetimes behave the way you expect. |
-| Event-driven control flow | `<Signal>`, `<WaitForEvent>`, `<Approval>`, `<HumanTask>`. Durably suspend until something happens. |
-| Structured observability | Prometheus metrics out of the box, plus the SQLite event log. Every state transition, every attempt, every input/output, every retry, every approval is a row. |
+| Capability                | Smithers shape                                                                                                                                                 |
+| :------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Durable steps             | `<Task>` / `$.step`. Output decoded against a `Schema`, persisted to SQLite.                                                                                   |
+| Persistent external state | Every output schema becomes a typed SQLite table. Run state is queryable with the SQL tools you already have.                                                  |
+| Parallel work             | `<Parallel>` / `$.parallel`. Built on Effect fibers; structured concurrency, interruption, and resource lifetimes behave the way you expect.                   |
+| Event-driven control flow | `<Signal>`, `<WaitForEvent>`, `<Approval>`, `<HumanTask>`. Durably suspend until something happens.                                                            |
+| Structured observability  | Prometheus metrics out of the box, plus the SQLite event log. Every state transition, every attempt, every input/output, every retry, every approval is a row. |
 
 A retry policy is just a `Schedule`. A dependency is a `Layer`. A timeout is `Effect.timeout`. We didn't invent a parallel ecosystem. We borrowed an existing one that already does this well.
 
@@ -204,7 +206,7 @@ A retry policy is just a `Schedule`. A dependency is a `Layer`. A timeout is `Ef
 
 This is the moment that separates real durable execution from "a queue with extra steps."
 
-Synchronous chat is forgiving. The user is staring at the screen, retries are free, an upstream Lambda with a five-minute timeout is fine. Background agents are a different shape. They run for hours. They survive deploys. They pause for a human approval that won't arrive until tomorrow, and they wake back up *at the right step* when the human finally shows up.
+Synchronous chat is forgiving. The user is staring at the screen, retries are free, an upstream Lambda with a five-minute timeout is fine. Background agents are a different shape. They run for hours. They survive deploys. They pause for a human approval that won't arrive until tomorrow, and they wake back up _at the right step_ when the human finally shows up.
 
 You cannot fake this with a queue and a database. You can build it that way, but you'll be reinventing 60% of what Smithers (or any honest durable execution layer) already does, more poorly.
 
@@ -215,8 +217,13 @@ In Smithers it's all one shape:
   <Task id="implement" agent={engineer} output={outputs.diff}>
     Implement: {ctx.input.spec}
   </Task>
-  <Approval id="ship" output={outputs.shipDecision}
-    request={(ctx) => ({ title: "Ship this diff?", summary: ctx.output(outputs.diff).summary })}
+  <Approval
+    id="ship"
+    output={outputs.shipDecision}
+    request={(ctx) => ({
+      title: "Ship this diff?",
+      summary: ctx.output(outputs.diff).summary,
+    })}
     onDeny="fail"
   />
   <Task id="deploy" agent={deployer} output={outputs.deploy}>
@@ -263,7 +270,7 @@ Composability is what lets the named patterns above exist as libraries instead o
 
 > The orchestration layer (stable). The agent layer (fluid). The model layer (volatile).
 
-The three-layer model misses a fourth: the *authoring* layer. In 2026 a lot of workflow code is written and re-tuned by other agents. The authoring surface has to be legible to the agents that are increasingly editing it, and to the humans auditing what those agents wrote. That's why we picked React, above.
+The three-layer model misses a fourth: the _authoring_ layer. In 2026 a lot of workflow code is written and re-tuned by other agents. The authoring surface has to be legible to the agents that are increasingly editing it, and to the humans auditing what those agents wrote. That's why we picked React, above.
 
 It's also where we have our one real disagreement with the essay.
 
