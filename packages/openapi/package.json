@@ -30,7 +30,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@smithers-orchestrator/driver": "workspace:*",
     "@smithers-orchestrator/errors": "workspace:*",
     "@smithers-orchestrator/observability": "workspace:*",
     "@smithers-orchestrator/scheduler": "workspace:*",

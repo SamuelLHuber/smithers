@@ -292,21 +292,6 @@ importers:
       '@smithers-orchestrator/agents':
         specifier: workspace:*
         version: link:../../packages/agents
-      '@smithers-orchestrator/driver':
-        specifier: workspace:*
-        version: link:../../packages/driver
-      '@smithers-orchestrator/memory':
-        specifier: workspace:*
-        version: link:../../packages/memory
-      '@smithers-orchestrator/openapi':
-        specifier: workspace:*
-        version: link:../../packages/openapi
-      '@smithers-orchestrator/scorers':
-        specifier: workspace:*
-        version: link:../../packages/scorers
-      '@smithers-orchestrator/time-travel':
-        specifier: workspace:*
-        version: link:../../packages/time-travel
       effect:
         specifier: 3.21.1
         version: 3.21.1
@@ -486,18 +471,12 @@ importers:
       '@smithers-orchestrator/graph':
         specifier: workspace:*
         version: link:../graph
-      '@smithers-orchestrator/memory':
-        specifier: workspace:*
-        version: link:../memory
       '@smithers-orchestrator/observability':
         specifier: workspace:*
         version: link:../../apps/observability
       '@smithers-orchestrator/scheduler':
         specifier: workspace:*
         version: link:../scheduler
-      '@smithers-orchestrator/scorers':
-        specifier: workspace:*
-        version: link:../scorers
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(better-sqlite3@11.10.0)(bun-types@1.3.13)
@@ -599,9 +578,6 @@ importers:
       '@smithers-orchestrator/graph':
         specifier: workspace:*
         version: link:../graph
-      '@smithers-orchestrator/memory':
-        specifier: workspace:*
-        version: link:../memory
       '@smithers-orchestrator/observability':
         specifier: workspace:*
         version: link:../../apps/observability
@@ -714,9 +690,6 @@ importers:
 
   packages/graph:
     dependencies:
-      '@smithers-orchestrator/agents':
-        specifier: workspace:*
-        version: link:../agents
       '@smithers-orchestrator/errors':
         specifier: workspace:*
         version: link:../errors
@@ -739,9 +712,6 @@ importers:
       '@smithers-orchestrator/db':
         specifier: workspace:*
         version: link:../db
-      '@smithers-orchestrator/driver':
-        specifier: workspace:*
-        version: link:../driver
       '@smithers-orchestrator/errors':
         specifier: workspace:*
         version: link:../errors
@@ -773,9 +743,6 @@ importers:
 
   packages/openapi:
     dependencies:
-      '@smithers-orchestrator/driver':
-        specifier: workspace:*
-        version: link:../driver
       '@smithers-orchestrator/errors':
         specifier: workspace:*
         version: link:../errors
@@ -849,13 +816,6 @@ importers:
         version: 5.9.3
 
   packages/protocol:
-    dependencies:
-      effect:
-        specifier: 3.21.1
-        version: 3.21.1
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
     devDependencies:
       '@types/bun':
         specifier: latest
@@ -909,24 +869,15 @@ importers:
       '@effect/rpc':
         specifier: ^0.75.0
         version: 0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1)
-      '@smithers-orchestrator/components':
-        specifier: workspace:*
-        version: link:../components
       '@smithers-orchestrator/db':
         specifier: workspace:*
         version: link:../db
       '@smithers-orchestrator/driver':
         specifier: workspace:*
         version: link:../driver
-      '@smithers-orchestrator/engine':
-        specifier: workspace:*
-        version: link:../engine
       '@smithers-orchestrator/errors':
         specifier: workspace:*
         version: link:../errors
-      '@smithers-orchestrator/graph':
-        specifier: workspace:*
-        version: link:../graph
       '@smithers-orchestrator/observability':
         specifier: workspace:*
         version: link:../../apps/observability
@@ -971,9 +922,6 @@ importers:
       '@smithers-orchestrator/db':
         specifier: workspace:*
         version: link:../db
-      '@smithers-orchestrator/driver':
-        specifier: workspace:*
-        version: link:../driver
       '@smithers-orchestrator/errors':
         specifier: workspace:*
         version: link:../errors
@@ -1075,18 +1023,9 @@ importers:
 
   packages/smithers:
     dependencies:
-      '@mariozechner/pi-tui':
-        specifier: ^0.70.2
-        version: 0.70.2
       '@mdx-js/esbuild':
         specifier: ^3.1.1
         version: 3.1.1(esbuild@0.27.7)
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@4.3.6)
-      '@sinclair/typebox':
-        specifier: ^0.34.49
-        version: 0.34.49
       '@smithers-orchestrator/agents':
         specifier: workspace:*
         version: link:../agents
@@ -1187,15 +1126,9 @@ importers:
       '@smithers-orchestrator/db':
         specifier: workspace:*
         version: link:../db
-      '@smithers-orchestrator/driver':
-        specifier: workspace:*
-        version: link:../driver
       '@smithers-orchestrator/errors':
         specifier: workspace:*
         version: link:../errors
-      '@smithers-orchestrator/graph':
-        specifier: workspace:*
-        version: link:../graph
       '@smithers-orchestrator/observability':
         specifier: workspace:*
         version: link:../../apps/observability
