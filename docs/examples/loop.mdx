@@ -47,6 +47,14 @@ const reviewer = new Agent({
 export default smithers((ctx) => {
   const latestReview = ctx.outputMaybe("review", { nodeId: "review" });
   const latestCode = ctx.outputMaybe("code", { nodeId: "write" });
+  const codeFence = "`".repeat(3);
+  const reviewPrompt = [
+    "Review this code for correctness and edge cases:",
+    "",
+    `${codeFence}${latestCode?.language ?? "ts"}`,
+    latestCode?.source ?? "// no code yet",
+    codeFence,
+  ].join("\n");
 
   return (
     <Workflow name="review-loop">
@@ -66,10 +74,7 @@ export default smithers((ctx) => {
             </Task>
 
             <Task id="review" output={outputs.review} agent={reviewer}>
-              Review this code for correctness and edge cases:
-              {"\n\n```" + (latestCode?.language ?? "ts") + "\n"}
-              {latestCode?.source ?? "// no code yet"}
-              {"\n```"}
+              {reviewPrompt}
             </Task>
           </Sequence>
         </Loop>

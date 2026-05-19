@@ -8,7 +8,12 @@ CLI-backed agent classes wrap external AI command-line tools and implement the [
 ## Quick Start
 
 ```tsx
-import { ClaudeCodeAgent } from "smithers-orchestrator";
+import { ClaudeCodeAgent, Task, Workflow, createSmithers } from "smithers-orchestrator";
+import { z } from "zod";
+
+const { smithers, outputs } = createSmithers({
+  analysis: z.object({ summary: z.string() }),
+});
 
 const claude = new ClaudeCodeAgent({
   model: "claude-sonnet-4-20250514",

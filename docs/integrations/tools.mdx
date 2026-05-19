@@ -294,7 +294,8 @@ Pass tools to an [AI SDK](https://ai-sdk.dev) agent and assign the agent to a [`
 ```tsx
 import { ToolLoopAgent as Agent } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { read, write, edit, grep, bash } from "smithers-orchestrator";
+import { createSmithers, read, write, edit, grep, bash, Task, Workflow } from "smithers-orchestrator";
+import { z } from "zod";
 
 const codeAgent = new Agent({
   model: anthropic("claude-sonnet-4-20250514"),

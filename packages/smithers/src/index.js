@@ -163,7 +163,7 @@ export { isKnownSmithersErrorCode } from "@smithers-orchestrator/errors/isKnownS
 export { isSmithersError } from "@smithers-orchestrator/errors/isSmithersError";
 export { knownSmithersErrorCodes } from "@smithers-orchestrator/errors/knownSmithersErrorCodes";
 // Components
-export { Approval, approvalDecisionSchema, approvalRankingSchema, approvalSelectionSchema, Workflow, Task, Sequence, Parallel, MergeQueue, Branch, Loop, Ralph, ContinueAsNew, continueAsNew, Worktree, Sandbox, Kanban, Poller, Saga, TryCatchFinally, Signal, Timer, WaitForEvent, } from "@smithers-orchestrator/components";
+export { Approval, ApprovalGate, Aspects, Branch, CheckSuite, ClassifyAndRoute, ContentPipeline, ContinueAsNew, Debate, DecisionTable, DriftDetector, EscalationChain, GatherAndSynthesize, HumanTask, Kanban, Loop, MergeQueue, Optimizer, Panel, Parallel, Poller, Ralph, ReviewLoop, Runbook, Saga, Sandbox, ScanFixVerify, Sequence, Signal, Subflow, SuperSmithers, Supervisor, Task, Timer, TryCatchFinally, WaitForEvent, Workflow, Worktree, approvalDecisionSchema, approvalRankingSchema, approvalSelectionSchema, continueAsNew, } from "@smithers-orchestrator/components";
 // Agents
 export { AnthropicAgent, OpenAIAgent, AmpAgent, ClaudeCodeAgent, CodexAgent, GeminiAgent, PiAgent, KimiAgent, ForgeAgent, } from "@smithers-orchestrator/agents";
 // VCS
