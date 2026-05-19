@@ -17,6 +17,37 @@ import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 
 const DEFAULT_MAX_GENERATIONS = 3;
 const DEFAULT_DEBOUNCE_MS = 100;
+
+function makeHotReloadFailureEvent(err, ctx) {
+    const { entryPath, generation, changedFiles } = ctx;
+    if (err instanceof Error && err.message?.includes("Schema change detected")) {
+        logWarning("hot workflow reload marked unsafe", {
+            entryPath,
+            generation,
+            changedFileCount: changedFiles.length,
+            reason: err.message,
+        }, "hot:reload");
+        return {
+            type: "unsafe",
+            generation,
+            changedFiles,
+            reason: err.message,
+        };
+    }
+    logWarning("hot workflow reload failed", {
+        entryPath,
+        generation,
+        changedFileCount: changedFiles.length,
+        error: err instanceof Error ? err.message : String(err),
+    }, "hot:reload");
+    return {
+        type: "failed",
+        generation,
+        changedFiles,
+        error: err,
+    };
+}
+
 export class HotWorkflowController {
     entryPath;
     hotRoot;
@@ -160,32 +191,11 @@ export class HotWorkflowController {
             };
         }).pipe(Effect.catchAll((err) => Effect.gen(function* () {
             yield* Metric.increment(hotReloadFailures);
-            if (err instanceof Error && err.message?.includes("Schema change detected")) {
-                logWarning("hot workflow reload marked unsafe", {
-                    entryPath,
-                    generation: gen,
-                    changedFileCount: changedFiles.length,
-                    reason: err.message,
-                }, "hot:reload");
-                return {
-                    type: "unsafe",
-                    generation: gen,
-                    changedFiles,
-                    reason: err.message,
-                };
-            }
-            logWarning("hot workflow reload failed", {
+            return makeHotReloadFailureEvent(err, {
                 entryPath,
                 generation: gen,
-                changedFileCount: changedFiles.length,
-                error: err instanceof Error ? err.message : String(err),
-            }, "hot:reload");
-            return {
-                type: "failed",
-                generation: gen,
                 changedFiles,
-                error: err,
-            };
+            });
         })), Effect.annotateLogs({
             entryPath,
             hotRoot,
@@ -218,3 +228,7 @@ export class HotWorkflowController {
         }), Effect.withLogSpan("hot:close"));
     }
 }
+
+export const __hotWorkflowControllerInternals = {
+    makeHotReloadFailureEvent,
+};

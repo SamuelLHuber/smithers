@@ -91,4 +91,21 @@ describe("sandbox entity contract", () => {
             },
         ]);
     });
+
+    test("wraps executor failures with sandbox entity context", async () => {
+        const executorLayer = Layer.succeed(SandboxEntityExecutor, SandboxEntityExecutor.of({
+            create: () => Effect.fail(new Error("create exploded")),
+            ship: () => Effect.void,
+            execute: () => Effect.succeed({ exitCode: 0 }),
+            collect: (currentHandle) => Effect.succeed({ bundlePath: currentHandle.resultPath }),
+            cleanup: () => Effect.void,
+        }));
+
+        await expect(
+            Effect.runPromise(Effect.gen(function* () {
+                const transport = yield* SandboxTransport;
+                yield* transport.create(config);
+            }).pipe(Effect.provide(makeSandboxTransportLayer(executorLayer)))),
+        ).rejects.toThrow("sandbox entity create failed: create exploded");
+    });
 });

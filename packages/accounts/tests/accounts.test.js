@@ -57,6 +57,17 @@ describe("parseAccountsFile", () => {
         expect(() => parseAccountsFile(JSON.stringify({ version: 99, accounts: [] })))
             .toThrow(/unsupported version/);
     });
+    test("rejects invalid top-level and account shapes", () => {
+        expect(() => parseAccountsFile("null")).toThrow(/must be a JSON object/);
+        expect(() => parseAccountsFile(JSON.stringify({ version: 1, accounts: {} })))
+            .toThrow(/accounts` must be an array/);
+        expect(() => parseAccountsFile(JSON.stringify({ version: 1, accounts: [null] })))
+            .toThrow(/accounts\[0\] must be an object/);
+        expect(() => parseAccountsFile(JSON.stringify({ version: 1, accounts: [{ label: "", provider: "codex", configDir: "/x" }] })))
+            .toThrow(/label must be a non-empty string/);
+        expect(() => parseAccountsFile(JSON.stringify({ version: 1, accounts: [{ label: "x", provider: "nope" }] })))
+            .toThrow(/provider must be one of/);
+    });
     test("rejects missing configDir on subscription provider", () => {
         expect(() => parseAccountsFile(JSON.stringify({
             version: 1,
@@ -129,6 +140,8 @@ describe("readAccounts / writeAccounts / addAccount / removeAccount", () => {
         const env = newSmithersHome();
         expect(() => addAccount({ label: "", provider: "claude-code", configDir: "/x" }, { env }))
             .toThrow(/non-empty string/);
+        expect(() => addAccount({ label: "bad", provider: "nope" }, { env }))
+            .toThrow(/provider must be one of/);
         expect(() => addAccount({ label: "x", provider: "claude-code", configDir: "" }, { env }))
             .toThrow(/configDir/);
         expect(() => addAccount({ label: "y", provider: "openai-api" }, { env }))
@@ -203,5 +216,15 @@ describe("accountToProviderEnv", () => {
     test("subscription provider with missing configDir throws", () => {
         expect(() => accountToProviderEnv({ label: "x", provider: "claude-code" }))
             .toThrow(/missing configDir/);
+        expect(() => accountToProviderEnv({ label: "x", provider: "codex" }))
+            .toThrow(/missing configDir/);
+        expect(() => accountToProviderEnv({ label: "x", provider: "gemini" }))
+            .toThrow(/missing configDir/);
+        expect(() => accountToProviderEnv({ label: "x", provider: "kimi" }))
+            .toThrow(/missing configDir/);
+    });
+    test("unknown provider throws", () => {
+        expect(() => accountToProviderEnv({ label: "x", provider: "nope" }))
+            .toThrow(/unknown provider/);
     });
 });

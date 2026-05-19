@@ -112,6 +112,58 @@ describe("jsonSchemaToZod", () => {
         const schema = jsonSchemaToZod({ description: "mysterious" }, emptySpec);
         expect(schema.parse("anything")).toBe("anything");
     });
+    test("converts composed schemas and unions", () => {
+        const allOf = jsonSchemaToZod({
+            allOf: [
+                {
+                    type: "object",
+                    required: ["id"],
+                    properties: { id: { type: "string" } },
+                },
+                {
+                    type: "object",
+                    required: ["name"],
+                    properties: { name: { type: "string" } },
+                },
+            ],
+            description: "composed",
+        }, emptySpec);
+        expect(allOf.parse({ id: "p1", name: "Fido" })).toEqual({ id: "p1", name: "Fido" });
+        expect(() => allOf.parse({ id: "p1" })).toThrow();
+
+        const singleAllOf = jsonSchemaToZod({
+            allOf: [{ type: "string" }],
+            description: "single composed",
+        }, emptySpec);
+        expect(singleAllOf.parse("ok")).toBe("ok");
+
+        const oneOf = jsonSchemaToZod({
+            oneOf: [{ type: "string" }, { type: "integer" }],
+        }, emptySpec);
+        expect(oneOf.parse("ok")).toBe("ok");
+        expect(oneOf.parse(3)).toBe(3);
+
+        const anyOf = jsonSchemaToZod({
+            anyOf: [{ type: "boolean" }],
+            description: "single union",
+        }, emptySpec);
+        expect(anyOf.parse(true)).toBe(true);
+    });
+    test("converts null type and string formats", () => {
+        expect(jsonSchemaToZod({ type: "null" }, emptySpec).parse(null)).toBe(null);
+
+        const pattern = jsonSchemaToZod({ type: "string", pattern: "^pet-[0-9]+$" }, emptySpec);
+        expect(pattern.parse("pet-12")).toBe("pet-12");
+        expect(() => pattern.parse("cat-12")).toThrow();
+
+        const email = jsonSchemaToZod({ type: "string", format: "email" }, emptySpec);
+        expect(email.parse("a@example.com")).toBe("a@example.com");
+        expect(() => email.parse("not email")).toThrow();
+
+        const url = jsonSchemaToZod({ type: "string", format: "uri" }, emptySpec);
+        expect(url.parse("https://example.com")).toBe("https://example.com");
+        expect(() => url.parse("not a url")).toThrow();
+    });
     test("handles nested objects", () => {
         const schema = jsonSchemaToZod({
             type: "object",
@@ -179,6 +231,26 @@ describe("buildOperationSchema", () => {
             },
         };
         const schema = buildOperationSchema([], requestBody, emptySpec);
+        expect(schema.parse({ body: { name: "Fido" } })).toEqual({
+            body: { name: "Fido" },
+        });
+    });
+    test("builds schema with optional request body", () => {
+        const requestBody = {
+            required: false,
+            content: {
+                "application/json": {
+                    schema: {
+                        type: "object",
+                        properties: {
+                            name: { type: "string" },
+                        },
+                    },
+                },
+            },
+        };
+        const schema = buildOperationSchema([], requestBody, emptySpec);
+        expect(schema.parse({})).toEqual({});
         expect(schema.parse({ body: { name: "Fido" } })).toEqual({
             body: { name: "Fido" },
         });

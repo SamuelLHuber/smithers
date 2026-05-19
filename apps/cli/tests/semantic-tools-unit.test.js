@@ -1,5 +1,4 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
@@ -18,7 +17,9 @@ afterEach(() => {
 });
 
 function tempCwd() {
-    const dir = mkdtempSync(join(tmpdir(), "smithers-semantic-tools-"));
+    const root = join(process.cwd(), "tmp", "verification");
+    mkdirSync(root, { recursive: true });
+    const dir = mkdtempSync(join(root, "smithers-semantic-tools-"));
     tempDirs.push(dir);
     return dir;
 }

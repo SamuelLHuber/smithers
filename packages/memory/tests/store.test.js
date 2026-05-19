@@ -82,6 +82,25 @@ describe("MemoryStore - Working Memory", () => {
         const fact = await store.getFact(WF_NS, "complex");
         expect(JSON.parse(fact.valueJson)).toEqual(value);
     });
+    test("wraps read and write failures as Smithers errors", async () => {
+        const readStore = createMemoryStore({
+            select() {
+                throw new Error("read boom");
+            },
+        });
+        await expect(readStore.getFact(WF_NS, "x")).rejects.toThrow(/memory getFact|DB_QUERY_FAILED/);
+
+        const writeStore = createMemoryStore({
+            insert() {
+                return {
+                    values() {
+                        throw new Error("write boom");
+                    },
+                };
+            },
+        });
+        await expect(writeStore.setFact(WF_NS, "x", 1)).rejects.toThrow(/memory setFact|DB_WRITE_FAILED/);
+    });
 });
 describe("MemoryStore - Threads", () => {
     let store;

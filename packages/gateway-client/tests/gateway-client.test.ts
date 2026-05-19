@@ -189,12 +189,33 @@ describe("SmithersGatewayClient HTTP RPC", () => {
 
     await client.hijackRun({ runId: "run-1" });
     await client.rewindRun({ runId: "run-1", frameNo: 1, confirm: true });
+    await client.cancelRun({ runId: "run-1" });
+    await client.submitApproval({ runId: "run-1", nodeId: "gate", decision: "approved" });
+    await client.submitSignal({ runId: "run-1", signal: "continue", payload: {} });
+    await client.listRuns();
+    await client.listApprovals();
+    await client.getNodeOutput({ runId: "run-1", nodeId: "task" });
+    await client.getNodeDiff({ runId: "run-1", nodeId: "task" });
     await client.cronList();
     await client.cronCreate({ workflow: "deploy", pattern: "* * * * *" });
     await client.cronDelete({ cronId: "cron-1" });
     await client.cronRun({ workflow: "deploy", input: { manual: true } });
 
-    expect(methods).toEqual(["hijackRun", "rewindRun", "cronList", "cronCreate", "cronDelete", "cronRun"]);
+    expect(methods).toEqual([
+      "hijackRun",
+      "rewindRun",
+      "cancelRun",
+      "submitApproval",
+      "submitSignal",
+      "listRuns",
+      "listApprovals",
+      "getNodeOutput",
+      "getNodeDiff",
+      "cronList",
+      "cronCreate",
+      "cronDelete",
+      "cronRun",
+    ]);
   });
 });
 
@@ -259,6 +280,17 @@ describe("SmithersGatewayConnection WebSocket RPC", () => {
       name: "GatewayRpcError",
       code: "INVALID_GATEWAY_RESPONSE",
     });
+    connection.close();
+  });
+
+  test("surfaces WebSocket error events through the event stream", async () => {
+    const ws = new FakeWebSocket("ws://gateway.local");
+    const connection = new SmithersGatewayConnection(ws as unknown as WebSocket);
+    const next = connection.events().next();
+
+    ws.dispatchEvent(new Event("error"));
+
+    await expect(next).rejects.toThrow("Gateway WebSocket error");
     connection.close();
   });
 
@@ -331,6 +363,30 @@ describe("SmithersGatewayClient WebSocket helpers", () => {
       method: "connect",
       code: "Unauthorized",
     });
+    expect(ws.closeCalls).toBe(1);
+  });
+
+  test("rejects when WebSocket open fails", async () => {
+    const WebSocket = fakeWebSocketCtor();
+    const client = new SmithersGatewayClient({ WebSocket });
+
+    const pending = client.connect();
+    const ws = FakeWebSocket.instances[0];
+    ws.dispatchEvent(new Event("error"));
+
+    await expect(pending).rejects.toThrow("Gateway WebSocket failed to open");
+  });
+
+  test("aborts a pending WebSocket open and closes the socket", async () => {
+    const WebSocket = fakeWebSocketCtor();
+    const controller = new AbortController();
+    const client = new SmithersGatewayClient({ WebSocket });
+
+    const pending = client.connect({ signal: controller.signal });
+    const ws = FakeWebSocket.instances[0];
+    controller.abort();
+
+    await expect(pending).rejects.toThrow("Gateway WebSocket open aborted");
     expect(ws.closeCalls).toBe(1);
   });
 

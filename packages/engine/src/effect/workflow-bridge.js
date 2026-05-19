@@ -113,6 +113,12 @@ const getNextTaskActivityAttempt = async (adapter, runId, desc) => {
     const latestAttempt = attempts[0]?.attempt ?? 0;
     return latestAttempt + 1;
 };
+function taskBridgeResultForError(error) {
+    if (error instanceof RetriableTaskFailure) {
+        return { terminal: false };
+    }
+    throw error;
+}
 /**
  * @param {SmithersDb} adapter
  * @param {_BunSQLiteDatabase} db
@@ -174,10 +180,7 @@ const runTaskBridgeExecution = async (adapter, db, runId, desc, descriptorMap, i
             return { terminal: true };
         }
         catch (error) {
-            if (error instanceof RetriableTaskFailure) {
-                return { terminal: false };
-            }
-            throw error;
+            return taskBridgeResultForError(error);
         }
     });
 };
@@ -260,3 +263,11 @@ export const executeTaskBridgeEffect = (adapter, db, runId, desc, descriptorMap,
     try: () => executeTaskBridge(adapter, db, runId, desc, descriptorMap, inputTable, eventBus, toolConfig, workflowName, cacheEnabled, signal, disabledAgents, runAbortController, hijackState, legacyExecuteTaskFn),
     catch: (cause) => toSmithersError(cause, "execute task bridge"),
 });
+export const __workflowBridgeInternals = {
+    classifyTaskAttempt,
+    getNextTaskActivityAttempt,
+    isRetryableBridgeTaskFailure,
+    parseAttemptErrorCode,
+    runEffectOrPromise,
+    taskBridgeResultForError,
+};

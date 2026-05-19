@@ -172,6 +172,24 @@ async function computeUntrackedDiffs(currentDir) {
     return diffs;
 }
 /**
+ * @param {string} currentDir
+ * @param {string} targetRef
+ * @param {string} path
+ * @returns {Promise<string | undefined>}
+ */
+async function readBinaryContentAtRef(currentDir, targetRef, path) {
+    try {
+        const { stdout } = await runGit(currentDir, [
+            "show",
+            `${targetRef}:${path}`,
+        ]);
+        return Buffer.from(stdout, "binary").toString("base64");
+    }
+    catch {
+        return undefined;
+    }
+}
+/**
  * Compute a diff bundle strictly between two immutable refs.
  *
  * Unlike {@link computeDiffBundle}, this variant does NOT read the working
@@ -225,18 +243,7 @@ export async function computeDiffBundleBetweenRefs(baseRef, targetRef, currentDi
         const binary = isBinaryPatch(chunk) || binaryPaths.has(path);
         let binaryContent;
         if (binary && operation !== "delete") {
-            try {
-                const { stdout } = await runGit(currentDir, [
-                    "show",
-                    `${targetRef}:${path}`,
-                ]);
-                binaryContent = Buffer.from(stdout, "binary").toString("base64");
-            }
-            catch {
-                // File may not be readable as a blob at targetRef; fall through
-                // without binaryContent. Caller receives operation + diff only.
-                binaryContent = undefined;
-            }
+            binaryContent = await readBinaryContentAtRef(currentDir, targetRef, path);
         }
         patches.push({
             path,
@@ -350,3 +357,8 @@ export async function applyDiffBundle(bundle, targetDir) {
         }
     }
 }
+export const __diffBundleInternals = {
+    extractPatchPath,
+    readBinaryContentAtRef,
+    splitGitDiff,
+};

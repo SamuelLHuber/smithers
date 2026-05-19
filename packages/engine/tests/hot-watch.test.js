@@ -2,6 +2,7 @@ import { describe, expect, test, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect, Fiber } from "effect";
 import { WatchTree } from "../src/hot/watch.js";
 function makeTempDir() {
     return mkdtempSync(join(tmpdir(), "smithers-watch-"));
@@ -34,6 +35,18 @@ describe("WatchTree", () => {
         tree.close();
         const result = await waitPromise;
         expect(result).toEqual([]);
+    });
+    test("interrupting waitEffect clears the pending resolver", async () => {
+        const dir = makeTempDir();
+        cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+        const tree = new WatchTree(dir);
+        const fiber = Effect.runFork(tree.waitEffect());
+        for (let i = 0; i < 10 && tree.waitResolve === null; i += 1) {
+            await Bun.sleep(0);
+        }
+        expect(tree.waitResolve).toBeFunction();
+        await Effect.runPromise(Fiber.interrupt(fiber));
+        expect(tree.waitResolve).toBeNull();
     });
     test("detects file changes", async () => {
         const dir = makeTempDir();

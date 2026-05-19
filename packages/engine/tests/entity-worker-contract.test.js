@@ -5,7 +5,7 @@ import { z } from "zod";
 import { jsx, jsxs } from "smithers-orchestrator/jsx-runtime";
 import { createTestSmithers } from "../../smithers/tests/helpers.js";
 import { runWorkflow, } from "smithers-orchestrator";
-import { TaskResult, WorkerTask, } from "../src/effect/entity-worker.js";
+import { isTaskResultFailure, isUnknownWorkerError, makeWorkerTask, TaskResult, WorkerTask, } from "../src/effect/entity-worker.js";
 import { subscribeTaskWorkerDispatches, } from "../src/effect/single-runner.js";
 const contractSchemas = {
     activity: z.object({ value: z.number() }),
@@ -46,6 +46,24 @@ describe("entity worker contract", () => {
             _tag: "Success",
             executionId: "exec-1",
             terminal: true,
+        });
+        expect(isTaskResultFailure({ _tag: "Failure", executionId: "exec-1", error: { _tag: "UnknownWorkerError", errorId: "err", message: "boom" } })).toBe(true);
+        expect(isUnknownWorkerError({ _tag: "UnknownWorkerError", errorId: "err", message: "boom" })).toBe(true);
+        expect(isUnknownWorkerError({ _tag: "InvalidInput", message: "bad" })).toBe(false);
+        expect(makeWorkerTask("bridge", "wf", "run", {
+            nodeId: "static",
+            iteration: 1,
+            retries: 0,
+        }, "static")).toEqual({
+            executionId: "bridge",
+            bridgeKey: "bridge",
+            workflowName: "wf",
+            runId: "run",
+            nodeId: "static",
+            iteration: 1,
+            retries: 0,
+            taskKind: "static",
+            dispatchKind: "static",
         });
     });
     test("engine task dispatch flows through the worker entity", async () => {

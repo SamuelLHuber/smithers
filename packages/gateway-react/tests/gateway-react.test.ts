@@ -4,7 +4,15 @@ import { renderToString } from "react-dom/server";
 import {
   SmithersGatewayContext,
   SmithersGatewayProvider,
+  createGatewayReactRoot,
   useGatewayActions,
+  useGatewayApprovals,
+  useGatewayNodeOutput,
+  useGatewayRpc,
+  useGatewayRun,
+  useGatewayRunEvents,
+  useGatewayRuns,
+  useGatewayWorkflows,
   useSmithersGateway,
 } from "../src/index.ts";
 import type { SmithersGatewayClient } from "@smithers-orchestrator/gateway-client";
@@ -26,6 +34,30 @@ function createSpyClient() {
   return { client, calls };
 }
 
+function createRpcClient() {
+  const calls: unknown[] = [];
+  const client = {
+    rpc: (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return Promise.resolve({ ok: true });
+    },
+    streamRunEvents: async function* () {},
+  } as unknown as SmithersGatewayClient;
+  return { client, calls };
+}
+
+function createRejectingRpcClient(cause: unknown) {
+  const calls: unknown[] = [];
+  const client = {
+    rpc: (method: string, params: unknown) => {
+      calls.push({ method, params });
+      return Promise.reject(cause);
+    },
+    streamRunEvents: async function* () {},
+  } as unknown as SmithersGatewayClient;
+  return { client, calls };
+}
+
 describe("SmithersGatewayProvider", () => {
   test("provides an explicit client through context", () => {
     const { client } = createSpyClient();
@@ -43,6 +75,31 @@ describe("SmithersGatewayProvider", () => {
     ));
 
     expect(observed).toBe(client);
+  });
+});
+
+describe("createGatewayReactRoot", () => {
+  test("throws when the configured root element is missing", () => {
+    const global = globalThis as typeof globalThis & { document?: Document };
+    const originalDocument = global.document;
+    global.document = {
+      getElementById: (id: string) => {
+        expect(id).toBe("missing-root");
+        return null;
+      },
+    } as unknown as Document;
+
+    try {
+      expect(() =>
+        createGatewayReactRoot(createElement("div"), { rootId: "missing-root" }),
+      ).toThrow("Gateway React root element not found: missing-root");
+    } finally {
+      if (originalDocument) {
+        global.document = originalDocument;
+      } else {
+        delete global.document;
+      }
+    }
   });
 });
 
@@ -99,5 +156,124 @@ describe("useGatewayActions", () => {
       "cronDelete",
       "cronRun",
     ]);
+  });
+});
+
+describe("gateway query hooks", () => {
+  test("shape RPC hook state during server render", () => {
+    const { client } = createRpcClient();
+    let enabledState: ReturnType<typeof useGatewayRpc<"listRuns">> | undefined;
+    let disabledState: ReturnType<typeof useGatewayRpc<"getRun">> | undefined;
+
+    function Probe() {
+      enabledState = useGatewayRpc("listRuns", { limit: 5 });
+      disabledState = useGatewayRpc(
+        "getRun",
+        { runId: "" },
+        { enabled: false, deps: ["disabled"] },
+      );
+      return null;
+    }
+
+    renderToString(createElement(SmithersGatewayProvider, { client }, createElement(Probe)));
+
+    expect(enabledState).toMatchObject({
+      data: undefined,
+      error: undefined,
+      loading: true,
+    });
+    expect(disabledState).toMatchObject({
+      data: undefined,
+      error: undefined,
+      loading: false,
+    });
+    expect(typeof enabledState?.refetch).toBe("function");
+  });
+
+  test("RPC refetch handles success, disabled state, and non-Error failures", async () => {
+    const { client, calls } = createRpcClient();
+    let enabledState: ReturnType<typeof useGatewayRpc<"listRuns">> | undefined;
+    let disabledState: ReturnType<typeof useGatewayRpc<"getRun">> | undefined;
+
+    function Probe() {
+      enabledState = useGatewayRpc("listRuns", { limit: 2 });
+      disabledState = useGatewayRpc("getRun", { runId: "run-disabled" }, { enabled: false });
+      return null;
+    }
+
+    renderToString(createElement(SmithersGatewayProvider, { client }, createElement(Probe)));
+
+    await enabledState?.refetch();
+    await disabledState?.refetch();
+    expect(calls).toEqual([{ method: "listRuns", params: { limit: 2 } }]);
+
+    const rejecting = createRejectingRpcClient("rpc exploded");
+    let errorState: ReturnType<typeof useGatewayRpc<"listRuns">> | undefined;
+    function ErrorProbe() {
+      errorState = useGatewayRpc("listRuns", { limit: 1 });
+      return null;
+    }
+
+    renderToString(createElement(SmithersGatewayProvider, { client: rejecting.client }, createElement(ErrorProbe)));
+    await errorState?.refetch();
+    expect(rejecting.calls).toEqual([{ method: "listRuns", params: { limit: 1 } }]);
+  });
+
+  test("wrapper hooks pass expected params and enabled state", () => {
+    const { client } = createRpcClient();
+    const observed: Record<string, unknown> = {};
+
+    function Probe() {
+      observed.runs = useGatewayRuns({ status: "running" });
+      observed.workflows = useGatewayWorkflows({ rootDir: "/repo" });
+      observed.approvals = useGatewayApprovals({ runId: "run-1" });
+      observed.run = useGatewayRun("run-1");
+      observed.disabledRun = useGatewayRun(undefined);
+      observed.output = useGatewayNodeOutput({
+        runId: "run-1",
+        nodeId: "node-1",
+        iteration: 3,
+      });
+      observed.disabledOutput = useGatewayNodeOutput({
+        runId: undefined,
+        nodeId: "node-1",
+      });
+      return null;
+    }
+
+    renderToString(createElement(SmithersGatewayProvider, { client }, createElement(Probe)));
+
+    expect(observed.runs).toMatchObject({ loading: true });
+    expect(observed.workflows).toMatchObject({ loading: true });
+    expect(observed.approvals).toMatchObject({ loading: true });
+    expect(observed.run).toMatchObject({ loading: true });
+    expect(observed.disabledRun).toMatchObject({ loading: false });
+    expect(observed.output).toMatchObject({ loading: true });
+    expect(observed.disabledOutput).toMatchObject({ loading: false });
+  });
+
+  test("run event hook exposes initial streaming state", () => {
+    const { client } = createRpcClient();
+    let active: ReturnType<typeof useGatewayRunEvents> | undefined;
+    let inactive: ReturnType<typeof useGatewayRunEvents> | undefined;
+
+    function Probe() {
+      active = useGatewayRunEvents("run-1", { afterSeq: 2 });
+      inactive = useGatewayRunEvents(undefined);
+      return null;
+    }
+
+    renderToString(createElement(SmithersGatewayProvider, { client }, createElement(Probe)));
+
+    expect(active).toMatchObject({
+      events: [],
+      error: undefined,
+      streaming: true,
+    });
+    expect(inactive).toMatchObject({
+      events: [],
+      error: undefined,
+      streaming: false,
+    });
   });
 });

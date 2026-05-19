@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveSandboxPath, assertPathWithinRoot } from "../src/sandboxPath.js";
@@ -49,5 +49,20 @@ describe("assertPathWithinRoot", () => {
         const root = mkdtempSync(join(tmpdir(), "sandbox-"));
         const nonexistent = join(root, "a", "b", "c.txt");
         await expect(assertPathWithinRoot(root, nonexistent)).resolves.toBeUndefined();
+    });
+    test("rejects realpath failures other than missing path segments", async () => {
+        if (process.platform === "win32") {
+            return;
+        }
+        const root = mkdtempSync(join(tmpdir(), "sandbox-"));
+        const locked = join(root, "locked");
+        mkdirSync(locked);
+        chmodSync(locked, 0o000);
+        try {
+            await expect(assertPathWithinRoot(root, join(locked, "child"))).rejects.toThrow(/EACCES|permission denied/i);
+        }
+        finally {
+            chmodSync(locked, 0o700);
+        }
     });
 });

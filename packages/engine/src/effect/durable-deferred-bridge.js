@@ -135,6 +135,12 @@ function buildResolvedWaitForEventMetaJson(snapshot, signal) {
         },
     });
 }
+async function decrementAsyncEventWaitPending(updatePending = updateAsyncExternalWaitPending) {
+    try {
+        await Effect.runPromise(updatePending("event", -1));
+    }
+    catch { }
+}
 /**
  * @param {_SmithersDb} adapter
  * @param {string} runId
@@ -154,10 +160,7 @@ async function markWaitForEventResolved(adapter, runId, nodeId, iteration, signa
         metaJson: buildResolvedWaitForEventMetaJson(snapshot, signal),
     }));
     if (snapshot.waitAsync) {
-        try {
-            await Effect.runPromise(updateAsyncExternalWaitPending("event", -1));
-        }
-        catch { }
+        await decrementAsyncEventWaitPending();
     }
 }
 const deferredResolutions = new Map();
@@ -279,4 +282,13 @@ export const bridgeSignalResolve = async (adapter, runId, signal) => {
             continue;
         await bridgeWaitForEventResolve(adapter, runId, node.nodeId, iteration, signal);
     }
+};
+export const __durableDeferredBridgeInternals = {
+    buildResolvedWaitForEventMetaJson,
+    decrementAsyncEventWaitPending,
+    getAdapterNamespace,
+    markWaitForEventResolved,
+    normalizeCorrelationId,
+    parseOptionalFiniteNumber,
+    parseWaitForEventAttemptSnapshot,
 };

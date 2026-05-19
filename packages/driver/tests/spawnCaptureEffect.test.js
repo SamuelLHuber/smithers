@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, Exit, Cause } from "effect";
+import { Effect, Exit, Cause, Fiber } from "effect";
 import { spawnCaptureEffect } from "../src/child-process.js";
 
 const tmpDir = process.cwd();
@@ -210,6 +210,67 @@ describe("spawnCaptureEffect — timeouts and cancellation", () => {
         { signal: ac.signal },
       ),
     ).rejects.toMatchObject({ code: "PROCESS_ABORTED" });
+  });
+
+  test("detached timeout kills the process group", async () => {
+    await expect(
+      run("node", ["-e", "setTimeout(()=>{}, 10_000)"], { detached: true, timeoutMs: 80 }),
+    ).rejects.toMatchObject({ code: "PROCESS_TIMEOUT" });
+  });
+
+  test("detached timeout falls back when process-group kill throws", async () => {
+    const originalKill = process.kill;
+    process.kill = ((pid, signal) => {
+      if (typeof pid === "number" && pid < 0) {
+        throw new Error("process group unavailable");
+      }
+      return originalKill(pid, signal);
+    });
+    try {
+      await expect(
+        run("node", ["-e", "setTimeout(()=>{}, 10_000)"], { detached: true, timeoutMs: 80 }),
+      ).rejects.toMatchObject({ code: "PROCESS_TIMEOUT" });
+    } finally {
+      process.kill = originalKill;
+    }
+  });
+
+  test("interrupting the Effect runs the non-detached cleanup finalizer", async () => {
+    const fiber = Effect.runFork(
+      spawnCaptureEffect("node", ["-e", "setTimeout(()=>{}, 10_000)"], {
+        cwd: tmpDir,
+        timeoutMs: 10_000,
+        idleTimeoutMs: 10_000,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const exit = await Effect.runPromise(Fiber.interrupt(fiber));
+    expect(Exit.isFailure(exit)).toBe(true);
+  });
+
+  test("interrupting a detached Effect uses kill fallback when group kill throws", async () => {
+    const originalKill = process.kill;
+    process.kill = ((pid, signal) => {
+      if (typeof pid === "number" && pid < 0) {
+        throw new Error("process group unavailable");
+      }
+      return originalKill(pid, signal);
+    });
+    try {
+      const fiber = Effect.runFork(
+        spawnCaptureEffect("node", ["-e", "setTimeout(()=>{}, 10_000)"], {
+          cwd: tmpDir,
+          detached: true,
+          timeoutMs: 10_000,
+          idleTimeoutMs: 10_000,
+        }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const exit = await Effect.runPromise(Fiber.interrupt(fiber));
+      expect(Exit.isFailure(exit)).toBe(true);
+    } finally {
+      process.kill = originalKill;
+    }
   });
 });
 

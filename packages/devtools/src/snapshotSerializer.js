@@ -11,9 +11,6 @@ const SNAPSHOT_SERIALIZER_DEFAULT_MAX_ENTRIES = 100_000;
  * @returns {value is Record<string, unknown>}
  */
 function isPlainObject(value) {
-    if (!value || typeof value !== "object") {
-        return false;
-    }
     const proto = Object.getPrototypeOf(value);
     return proto === Object.prototype || proto === null;
 }
@@ -76,9 +73,6 @@ function serializeInternal(value, state, depth, path) {
             ? "[Date: Invalid]"
             : `[Date: ${value.toISOString()}]`;
     }
-    if (valueType !== "object") {
-        return String(value);
-    }
     if (state.traversed >= state.maxEntries) {
         warn("MaxEntriesExceeded", path, state.onWarning);
         return "[MaxEntries]";
@@ -96,10 +90,7 @@ function serializeInternal(value, state, depth, path) {
         }
         if (!isPlainObject(value)) {
             const ctorName = value.constructor?.name;
-            if (ctorName && ctorName !== "Object") {
-                warn("UnsupportedType", path, state.onWarning, ctorName);
-                return `[${ctorName}]`;
-            }
+            if (ctorName && ctorName !== "Object") return warn("UnsupportedType", path, state.onWarning, ctorName), `[${ctorName}]`;
         }
         /** @type {Record<string, unknown>} */
         const out = {};

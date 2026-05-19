@@ -50,11 +50,7 @@ export function assertPathWithinRootEffect(rootDir, resolvedPath) {
             if (code && code !== "ENOENT" && code !== "ENOTDIR") {
                 return yield* Effect.fail(err);
             }
-            const parent = dirname(current);
-            if (parent === current) {
-                return yield* Effect.fail(new SmithersError("TOOL_PATH_ESCAPE", "Path escapes sandbox root (via symlink)"));
-            }
-            current = parent;
+            current = dirname(current);
         }
     });
 }

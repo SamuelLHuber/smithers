@@ -161,3 +161,10 @@ export async function executeChildWorkflow(parentWorkflow, options) {
         output: normalizeChildOutput(result),
     };
 }
+export const __childWorkflowInternals = {
+    buildChildWorkflowRunId,
+    normalizeChildInput,
+    normalizeChildOutput,
+    resolveChildWorkflow,
+    stripSystemColumns,
+};

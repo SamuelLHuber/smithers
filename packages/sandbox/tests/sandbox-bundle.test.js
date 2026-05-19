@@ -48,6 +48,21 @@ describe("sandbox bundle", () => {
         writeFileSync(join(bundlePath, "README.md"), "not-json", "utf8");
         await expect(validateSandboxBundle(bundlePath)).rejects.toThrow("must contain valid JSON");
     });
+    test("rejects empty README content", async () => {
+        const bundlePath = tempDir("smithers-sandbox-bundle-");
+        writeFileSync(join(bundlePath, "README.md"), "   \n\t", "utf8");
+        await expect(validateSandboxBundle(bundlePath)).rejects.toThrow("README.md is empty");
+    });
+    test("rejects README JSON that is not an object", async () => {
+        const bundlePath = tempDir("smithers-sandbox-bundle-");
+        writeFileSync(join(bundlePath, "README.md"), "null", "utf8");
+        await expect(validateSandboxBundle(bundlePath)).rejects.toThrow("JSON must be an object");
+    });
+    test("rejects README with invalid status", async () => {
+        const bundlePath = tempDir("smithers-sandbox-bundle-");
+        writeFileSync(join(bundlePath, "README.md"), JSON.stringify({ status: "pending" }), "utf8");
+        await expect(validateSandboxBundle(bundlePath)).rejects.toThrow("must include status");
+    });
     test("rejects manifest patch path traversal", async () => {
         const bundlePath = tempDir("smithers-sandbox-bundle-");
         writeFileSync(join(bundlePath, "README.md"), JSON.stringify({
@@ -56,6 +71,16 @@ describe("sandbox bundle", () => {
             patches: ["../../etc/passwd"],
         }), "utf8");
         await expect(validateSandboxBundle(bundlePath)).rejects.toThrow("escapes sandbox root");
+    });
+    test("rejects manifest patch path that points at the patches directory", async () => {
+        const bundlePath = tempDir("smithers-sandbox-bundle-");
+        mkdirSync(join(bundlePath, "patches"), { recursive: true });
+        writeFileSync(join(bundlePath, "README.md"), JSON.stringify({
+            outputs: {},
+            status: "finished",
+            patches: ["patches"],
+        }), "utf8");
+        await expect(validateSandboxBundle(bundlePath)).rejects.toThrow("escapes bundle root");
     });
     test("rejects too many patch files", async () => {
         const bundlePath = tempDir("smithers-sandbox-bundle-");

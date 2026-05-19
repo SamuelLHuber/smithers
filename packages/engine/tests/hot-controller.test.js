@@ -2,7 +2,8 @@ import { describe, expect, test, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, rmSync, existsSync, } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HotWorkflowController } from "../src/hot/HotWorkflowController.js";
+import { Effect } from "effect";
+import { HotWorkflowController, __hotWorkflowControllerInternals, } from "../src/hot/HotWorkflowController.js";
 function makeTempDir() {
     return mkdtempSync(join(tmpdir(), "smithers-hot-ctrl-"));
 }
@@ -42,6 +43,22 @@ describe("HotWorkflowController", () => {
         await ctrl.init();
         expect(existsSync(outDir)).toBe(true);
     });
+    test("wait delegates through the watcher effect", async () => {
+        const dir = makeTempDir();
+        cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+        const entryPath = join(dir, "workflow.ts");
+        writeFileSync(entryPath, "export default { build: () => null };");
+        const ctrl = new HotWorkflowController(entryPath, {
+            outDir: join(dir, ".hmr"),
+        });
+        ctrl.watcher = {
+            waitEffect: () => Effect.succeed(["workflow.ts"]),
+            startEffect: () => Effect.void,
+            close: () => {},
+        };
+        cleanups.push(() => ctrl.close());
+        await expect(ctrl.wait()).resolves.toEqual(["workflow.ts"]);
+    });
     test("reload increments generation", async () => {
         const dir = makeTempDir();
         cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
@@ -69,6 +86,23 @@ describe("HotWorkflowController", () => {
         const event = await ctrl.reload(["workflow.ts"]);
         expect(event.type).toBe("failed");
         expect(event.generation).toBe(1);
+    });
+    test("reload returns failed when overlay source cannot be read", async () => {
+        const dir = makeTempDir();
+        cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
+        const missingRoot = join(dir, "missing-root");
+        const entryPath = join(missingRoot, "workflow.ts");
+        const ctrl = new HotWorkflowController(entryPath, {
+            rootDir: missingRoot,
+            outDir: join(dir, ".hmr"),
+        });
+        cleanups.push(() => ctrl.close());
+        const event = await ctrl.reload(["workflow.ts"]);
+        expect(event.type).toBe("failed");
+        expect(event.generation).toBe(1);
+        if (event.type === "failed") {
+            expect(event.error.code).toBe("HOT_OVERLAY_FAILED");
+        }
     });
     test("reload returns failed when default lacks build function", async () => {
         const dir = makeTempDir();
@@ -136,5 +170,33 @@ describe("HotWorkflowController", () => {
         expect(ctrl.gen).toBe(2);
         await ctrl.reload(["c.ts"]);
         expect(ctrl.gen).toBe(3);
+    });
+});
+describe("HotWorkflowController internals", () => {
+    test("classifies schema reload errors as unsafe", () => {
+        const event = __hotWorkflowControllerInternals.makeHotReloadFailureEvent(new Error("Schema change detected: input shape changed"), {
+            entryPath: "/tmp/workflow.ts",
+            generation: 7,
+            changedFiles: ["workflow.ts"],
+        });
+        expect(event).toEqual({
+            type: "unsafe",
+            generation: 7,
+            changedFiles: ["workflow.ts"],
+            reason: "Schema change detected: input shape changed",
+        });
+    });
+    test("classifies non-error reload failures as failed", () => {
+        const event = __hotWorkflowControllerInternals.makeHotReloadFailureEvent("boom", {
+            entryPath: "/tmp/workflow.ts",
+            generation: 8,
+            changedFiles: ["helper.ts"],
+        });
+        expect(event).toEqual({
+            type: "failed",
+            generation: 8,
+            changedFiles: ["helper.ts"],
+            error: "boom",
+        });
     });
 });

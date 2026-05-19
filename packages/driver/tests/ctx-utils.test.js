@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { buildCurrentScopes } from "../src/buildCurrentScopes.js";
+import { defaultTaskExecutor } from "../src/defaultTaskExecutor.js";
 import { filterRowsByNodeId } from "../src/filterRowsByNodeId.js";
 import { ignoreSyncError } from "../src/ignoreSyncError.js";
 import { normalizeInputRow } from "../src/normalizeInputRow.js";
 import { SmithersCtx } from "../src/SmithersCtx.js";
+import { WorkflowDriver } from "../src/WorkflowDriver.js";
 import {
   getTaskRuntime,
   requireTaskRuntime,
@@ -30,6 +32,39 @@ const numberSchema = {
       : { success: false, error: new Error("not number") };
   },
 };
+
+const runtime = {
+  runPromise(value) {
+    return value && typeof value.pipe === "function"
+      ? Effect.runPromise(value)
+      : Promise.resolve(value);
+  },
+};
+
+function makeSession(overrides = {}) {
+  return {
+    submitGraph: () => ({ _tag: "Finished", result: { runId: "run-session", status: "finished" } }),
+    taskCompleted: () => ({ _tag: "Finished", result: { runId: "run-session", status: "finished" } }),
+    taskFailed: () => ({ _tag: "Failed", error: new Error("task failed") }),
+    ...overrides,
+  };
+}
+
+function makeDriver(overrides = {}) {
+  return new WorkflowDriver({
+    workflow: {
+      db: null,
+      zodToKeyName: new Map(),
+      build: (ctx) => ({ ctx }),
+    },
+    runtime,
+    renderer: {
+      render: async () => ({ tasks: [] }),
+    },
+    session: makeSession(),
+    ...overrides,
+  });
+}
 
 describe("normalizeInputRow", () => {
   test("leaves primitives unchanged", () => {
@@ -373,5 +408,78 @@ describe("task runtime and async helpers", () => {
         }),
       ),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("defaultTaskExecutor", () => {
+  test("executes compute functions, static payloads, agents, and prompt fallback", async () => {
+    const context = { signal: undefined };
+    await expect(defaultTaskExecutor({ computeFn: () => "computed" }, context))
+      .resolves.toBe("computed");
+    await expect(defaultTaskExecutor({ staticPayload: { ok: true } }, context))
+      .resolves.toEqual({ ok: true });
+    await expect(defaultTaskExecutor({ agent: [{ execute: () => "agent-execute" }] }, context))
+      .resolves.toBe("agent-execute");
+    await expect(defaultTaskExecutor({ agent: { run: () => "agent-run" } }, context))
+      .resolves.toBe("agent-run");
+    await expect(defaultTaskExecutor({ agent: { call: () => "agent-call" } }, context))
+      .resolves.toBe("agent-call");
+    await expect(defaultTaskExecutor({ agent: {}, prompt: "agentless prompt" }, context))
+      .resolves.toBe("agentless prompt");
+    await expect(defaultTaskExecutor({ prompt: "hello" }, context)).resolves.toBe("hello");
+    await expect(defaultTaskExecutor({}, context)).resolves.toBeNull();
+  });
+});
+
+describe("WorkflowDriver", () => {
+  test("run creates a run id and returns a finished decision", async () => {
+    const driver = makeDriver({
+      session: makeSession({
+        submitGraph: () => ({ _tag: "Finished", result: { runId: "generated", status: "finished" } }),
+      }),
+    });
+    const result = await driver.run({ input: { value: 1 } });
+    expect(result.status).toBe("finished");
+    expect(driver.activeRunId).toMatch(/^run_/);
+  });
+
+  test("initializeSession accepts direct and Effect-created sessions", async () => {
+    const directSession = makeSession();
+    const directDriver = makeDriver({
+      session: undefined,
+      createSession: (options) => {
+        expect(options.runId).toBe("run-direct");
+        expect(options.rootDir).toBe("/root");
+        expect(options.workflowPath).toBe("/workflow.tsx");
+        return directSession;
+      },
+      rootDir: "/root",
+      workflowPath: "/workflow.tsx",
+    });
+    await expect(directDriver.initializeSession("run-direct", {})).resolves.toBe(directSession);
+
+    const effectSession = makeSession();
+    const effectDriver = makeDriver({
+      session: undefined,
+      createSession: () => Effect.succeed(effectSession),
+    });
+    await expect(effectDriver.initializeSession("run-effect", {})).resolves.toBe(effectSession);
+  });
+
+  test("initializeSession can load the default scheduler session factory", async () => {
+    const driver = makeDriver({ session: undefined, createSession: undefined });
+    const session = await driver.initializeSession("run-loaded", {});
+    expect(typeof session.submitGraph).toBe("function");
+  });
+
+  test("unknown engine decisions return a failed run result", async () => {
+    const driver = makeDriver({
+      session: makeSession({
+        submitGraph: () => ({ _tag: "Mystery" }),
+      }),
+    });
+    const result = await driver.run({ runId: "run-unknown", input: {} });
+    expect(result.status).toBe("failed");
+    expect(result.error.message).toContain("Unknown engine decision");
   });
 });

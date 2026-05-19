@@ -159,6 +159,36 @@ esac
             expect(res.success).toBe(true);
         });
     });
+    test("forgets stale workspace and removes existing target path before adding", async () => {
+        const target = await fs.mkdtemp(path.join(os.tmpdir(), "jj-existing-wc-"));
+        const forgotFlag = path.join(os.tmpdir(), `jj-forgot-${Date.now()}-${Math.random()}`);
+        const script = `
+if [[ "$1" = "workspace" && "$2" = "list" ]]; then
+  echo "stale:"
+  exit 0
+fi
+if [[ "$1" = "workspace" && "$2" = "forget" && "$3" = "stale" ]]; then
+  touch "${forgotFlag}"
+  exit 0
+fi
+if [[ "$1" = "workspace" && "$2" = "add" && "$3" = "${target}" && "$4" = "--name" && "$5" = "stale" ]]; then
+  [[ -f "${forgotFlag}" ]] || exit 8
+  [[ ! -e "${target}" ]] || exit 9
+  exit 0
+fi
+exit 1
+`;
+        try {
+            await withFakeJj(script, async () => {
+                const res = await vcs.workspaceAdd("stale", target);
+                expect(res.success).toBe(true);
+            });
+        }
+        finally {
+            await fs.rm(target, { recursive: true, force: true }).catch(() => {});
+            await fs.rm(forgotFlag, { force: true }).catch(() => {});
+        }
+    });
     test("falls back to legacy name path form", async () => {
         const script = `
 if [[ "$1" = "workspace" && "$2" = "add" && "$3" != "--wc-path" && "$3" != "-r" && "$6" = "-r" ]]; then
@@ -351,6 +381,16 @@ if [[ "$1" = "log" ]]; then
   exit 0
 fi
 exit 1
+`;
+        await withFakeJj(script, async () => {
+            const ptr = await vcs.getJjPointer();
+            expect(ptr).toBeNull();
+        });
+    });
+    test("returns null when pointer command times out", async () => {
+        const script = `
+sleep 2
+exit 0
 `;
         await withFakeJj(script, async () => {
             const ptr = await vcs.getJjPointer();

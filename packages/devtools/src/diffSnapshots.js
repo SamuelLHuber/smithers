@@ -181,25 +181,18 @@ export function diffSnapshots(a, b) {
         .map((id) => ({ op: "removeNode", id }));
     const topLevelAddIds = [...addSet].filter((id) => {
         const parentId = to.get(id)?.parentId;
-        return parentId === null || !addSet.has(parentId);
+        return parentId !== null && !addSet.has(parentId);
     });
     /** @type {DevToolsDeltaOp[]} */
     const addOps = topLevelAddIds
         .sort((leftId, rightId) => (to.get(leftId)?.node.depth ?? 0) - (to.get(rightId)?.node.depth ?? 0))
         .map((id) => {
         const entry = to.get(id);
-        if (!entry || entry.parentId === null) {
-            return /** @type {DevToolsDeltaOp} */ ({
-                op: "updateProps",
-                id,
-                props: /** @type {Record<string, unknown>} */ (cloneValue(entry?.node.props ?? {})),
-            });
-        }
         return /** @type {DevToolsDeltaOp} */ ({
             op: "addNode",
-            parentId: entry.parentId,
-            index: entry.index,
-            node: /** @type {DevToolsNode} */ (cloneValue(entry.node)),
+            parentId: /** @type {number} */ (entry?.parentId),
+            index: entry?.index ?? 0,
+            node: /** @type {DevToolsNode} */ (cloneValue(entry?.node)),
         });
     });
     return {

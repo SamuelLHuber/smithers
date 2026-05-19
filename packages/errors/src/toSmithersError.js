@@ -9,11 +9,11 @@ import { isSmithersError } from "./isSmithersError.js";
  * @returns {string}
  */
 function causeSummary(cause) {
-    if (isSmithersErrorLike(cause)) {
-        return typeof cause.summary === "string" ? cause.summary : cause.message;
-    }
     if (cause instanceof EngineError) {
         return cause.message;
+    }
+    if (isSmithersErrorLike(cause)) {
+        return typeof cause.summary === "string" ? cause.summary : cause.message;
     }
     if (cause instanceof Error) {
         return cause.message;

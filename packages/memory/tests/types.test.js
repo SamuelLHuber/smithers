@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { MemoryService } from "../src/MemoryService.js";
+import { MemoryStoreService } from "../src/store/MemoryStoreService.js";
 import { namespaceToString, parseNamespace, } from "../src/types.js";
 describe("namespaceToString", () => {
     test("workflow namespace", () => {
@@ -52,5 +54,12 @@ describe("parseNamespace", () => {
         const str = namespaceToString(original);
         const parsed = parseNamespace(str);
         expect(parsed).toEqual(original);
+    });
+});
+
+describe("Context service tags", () => {
+    test("Memory service tags are constructible tag classes", () => {
+        expect(new MemoryService()).toBeInstanceOf(MemoryService);
+        expect(new MemoryStoreService()).toBeInstanceOf(MemoryStoreService);
     });
 });

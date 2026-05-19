@@ -82,6 +82,10 @@ function requireSandboxHandle(handle, sandboxId) {
         return handle;
     throw new SmithersError("SANDBOX_EXECUTION_FAILED", `Sandbox ${sandboxId} did not initialize correctly.`, { sandboxId });
 }
+export const __executeSandboxInternals = {
+    directorySize,
+    requireSandboxHandle,
+};
 /**
  * @returns {number}
  */

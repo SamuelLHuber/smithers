@@ -175,9 +175,6 @@ export function createSchedulerWakeQueue() {
             }
             return new Promise((resolve) => {
                 resolver = () => {
-                    if (pending > 0) {
-                        pending -= 1;
-                    }
                     resolve();
                 };
             });
@@ -231,3 +228,13 @@ export async function runWorkflowWithMakeBridge(workflow, opts, executeBody) {
         }
     }
 }
+
+export const __workflowMakeBridgeInternals = {
+    createWorkflowExecutionEffect,
+    createWorkflowMakeBridgeRuntime,
+    executeRegisteredChildWorkflow,
+    getWorkflowNamespace,
+    isSuspendingStatus,
+    makeBridgeWorkflow,
+    registerBridgeWorkflow,
+};

@@ -162,6 +162,56 @@ describe("diffSnapshots + applyDelta round trip", () => {
     expect((patched.root.children[0]?.props.value as string)).toBe(unicode);
   });
 
+  test("rejects snapshots from different runs", () => {
+    const from = snapshot(30, node(1));
+    const to = { ...snapshot(31, node(1)), runId: "other-run" };
+    expect(() => diffSnapshots(from, to)).toThrow("different runs");
+  });
+
+  test("diffs array, null, and object inequality cases", () => {
+    const from = snapshot(32, node(1, [node(2, [], { a: [1, 2], b: null, c: { same: true } })]));
+    const to = snapshot(33, node(1, [node(2, [], { a: [1, 3], b: {}, c: { same: true, extra: true } })]));
+    const delta = diffSnapshots(from, to);
+    expect(delta.ops).toEqual([
+      {
+        op: "updateProps",
+        id: 2,
+        props: { a: [1, 3], b: {}, c: { same: true, extra: true } },
+      },
+    ]);
+    expect(applyDelta(from, delta)).toEqual(to);
+  });
+
+  test("diffs primitive type, null, array length, and object key mismatches", () => {
+    const cases: Array<[Record<string, unknown>, Record<string, unknown>]> = [
+      [{ value: 1 }, { value: "1" }],
+      [{ value: null }, { value: {} }],
+      [{ value: [1] }, { value: [1, 2] }],
+      [{ equalArray: [1, 2], marker: "a" }, { equalArray: [1, 2], marker: "b" }],
+      [{ value: { left: true } }, { value: { right: true } }],
+    ];
+    for (const [fromProps, toProps] of cases) {
+      const from = snapshot(40, node(1, [node(2, [], fromProps)]));
+      const to = snapshot(41, node(1, [node(2, [], toProps)]));
+      const delta = diffSnapshots(from, to);
+      expect(delta.ops).toEqual([{ op: "updateProps", id: 2, props: toProps }]);
+    }
+  });
+
+  test("falls back to JSON cloning when structuredClone is unavailable", () => {
+    const from = snapshot(34, node(1));
+    const to = snapshot(35, node(9));
+    const original = globalThis.structuredClone;
+    try {
+      (globalThis as typeof globalThis & { structuredClone?: typeof structuredClone }).structuredClone = undefined;
+      const delta = diffSnapshots(from, to);
+      expect(delta.ops[0]).toMatchObject({ op: "replaceRoot" });
+      expect((delta.ops[0] as { node?: DevToolsNode }).node?.id).toBe(9);
+    } finally {
+      globalThis.structuredClone = original;
+    }
+  });
+
   test("meets perf budget for 500-node diff with 10 changes (<10ms p95)", () => {
     const baseline = wideTree(500);
     const mutated = structuredClone(baseline);

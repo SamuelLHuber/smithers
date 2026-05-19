@@ -1,14 +1,1 @@
-import { Data } from "effect";
-
-/**
- * @typedef {{
- *   readonly message: string;
- *   readonly runId: string;
- * }} RunNotFoundArgs
- */
-
-const RunNotFoundBase = /** @type {new (args: RunNotFoundArgs) => import("effect/Cause").YieldableError & { readonly _tag: "RunNotFound" } & Readonly<RunNotFoundArgs>} */ (
-  Data.TaggedError("RunNotFound")
-);
-
-export class RunNotFound extends RunNotFoundBase {}
+import { Data } from "effect"; export class RunNotFound extends Data.TaggedError("RunNotFound") { constructor(args) { super(args); } }

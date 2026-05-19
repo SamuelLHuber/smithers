@@ -15,16 +15,16 @@ import { SmithersError } from "@smithers-orchestrator/errors";
 export function findSmithersDb(from) {
     let dir = resolve(from ?? process.cwd());
     const root = resolve("/");
-    while (true) {
+    while (dir !== root) {
         const candidate = resolve(dir, "smithers.db");
         if (existsSync(candidate))
             return candidate;
-        const parent = dirname(dir);
-        if (parent === dir || dir === root) {
-            throw new SmithersError("CLI_DB_NOT_FOUND", "No smithers.db found. Run this command from a directory containing a smithers.db, or use 'smithers up <workflow>' to start a run first.");
-        }
-        dir = parent;
+        dir = dirname(dir);
     }
+    const rootCandidate = resolve(root, "smithers.db");
+    if (existsSync(rootCandidate))
+        return rootCandidate;
+    throw new SmithersError("CLI_DB_NOT_FOUND", "No smithers.db found. Run this command from a directory containing a smithers.db, or use 'smithers up <workflow>' to start a run first.");
 }
 /**
  * @param {number} ms

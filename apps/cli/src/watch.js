@@ -110,7 +110,7 @@ export async function runWatchLoop(options) {
             tickCount += 1;
             latest = await options.fetch();
             await renderSnapshot(latest, false);
-            if (options.isTerminal?.(latest)) {
+            if (options.isTerminal?.(latest))
                 return {
                     intervalMs,
                     tickCount,
@@ -118,7 +118,6 @@ export async function runWatchLoop(options) {
                     reachedTerminal: true,
                     lastData: latest,
                 };
-            }
         }
     }
     finally {

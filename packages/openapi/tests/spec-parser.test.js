@@ -1,9 +1,22 @@
 // ---------------------------------------------------------------------------
 // Spec parsing and operation extraction tests
 // ---------------------------------------------------------------------------
-import { describe, test, expect } from "bun:test";
+import { afterEach, describe, test, expect } from "bun:test";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect } from "effect";
 import { extractOperations, loadSpecSync } from "../src/spec-parser.js";
+import { loadSpecEffect } from "../src/loadSpecEffect.js";
+import { parseSpecText } from "../src/_specHelpers.js";
 import { petStoreSpec, refSpec, noOperationIdSpec } from "./fixtures.js";
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+    globalThis.fetch = originalFetch;
+});
+
 describe("loadSpecSync", () => {
     test("loads spec from object", () => {
         const spec = loadSpecSync(petStoreSpec);
@@ -18,6 +31,43 @@ describe("loadSpecSync", () => {
     });
     test("throws on invalid input", () => {
         expect(() => loadSpecSync("not valid json or yaml")).toThrow();
+    });
+});
+describe("loadSpecEffect", () => {
+    test("loads specs from object, raw text, file path, and URL", async () => {
+        const fromObject = await Effect.runPromise(loadSpecEffect(petStoreSpec));
+        expect(fromObject.info.title).toBe("Pet Store");
+
+        const fromText = await Effect.runPromise(loadSpecEffect(JSON.stringify(petStoreSpec)));
+        expect(fromText.openapi).toBe("3.0.0");
+
+        const dir = mkdtempSync(join(tmpdir(), "openapi-spec-"));
+        const filePath = join(dir, "openapi.json");
+        writeFileSync(filePath, JSON.stringify(petStoreSpec), "utf8");
+        const fromFile = await Effect.runPromise(loadSpecEffect(filePath));
+        expect(fromFile.info.title).toBe("Pet Store");
+
+        globalThis.fetch = async (url) => {
+            expect(url).toBe("https://example.test/openapi.json");
+            return new Response(JSON.stringify(petStoreSpec), { status: 200 });
+        };
+        const fromUrl = await Effect.runPromise(loadSpecEffect("https://example.test/openapi.json"));
+        expect(fromUrl.paths["/pets"]).toBeDefined();
+    });
+
+    test("wraps URL and raw text loading failures", async () => {
+        globalThis.fetch = async () => new Response("missing", { status: 404, statusText: "Not Found" });
+        await expect(
+            Effect.runPromise(loadSpecEffect("https://example.test/missing.json")),
+        ).rejects.toThrow("openapi fetch spec");
+
+        await expect(
+            Effect.runPromise(loadSpecEffect("not valid json or yaml")),
+        ).rejects.toThrow("openapi load spec");
+    });
+
+    test("parseSpecText reports YAML parser failures", () => {
+        expect(() => parseSpecText("[unterminated")).toThrow("Failed to parse OpenAPI spec");
     });
 });
 describe("extractOperations", () => {

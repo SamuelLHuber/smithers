@@ -142,8 +142,15 @@ async function buildSingleRunnerRuntime() {
  * @returns {Promise<SingleRunnerRuntime>}
  */
 async function getSingleRunnerRuntime() {
+    return getSingleRunnerRuntimeFromBuilder(buildSingleRunnerRuntime);
+}
+/**
+ * @param {() => Promise<SingleRunnerRuntime>} buildRuntime
+ * @returns {Promise<SingleRunnerRuntime>}
+ */
+async function getSingleRunnerRuntimeFromBuilder(buildRuntime) {
     if (!singleRunnerRuntimePromise) {
-        singleRunnerRuntimePromise = buildSingleRunnerRuntime().catch((error) => {
+        singleRunnerRuntimePromise = buildRuntime().catch((error) => {
             singleRunnerRuntimePromise = undefined;
             throw error;
         });
@@ -187,3 +194,21 @@ export function subscribeTaskWorkerDispatches(subscriber) {
         dispatchSubscribers.delete(subscriber);
     };
 }
+
+export const __singleRunnerInternals = {
+    buildMissingExecutionResult,
+    buildSingleRunnerRuntime,
+    consumeWorkerError,
+    dispatchSubscribers,
+    getSingleRunnerRuntimeFromBuilder,
+    getSingleRunnerRuntime,
+    setSingleRunnerRuntimePromiseForTest: (promise) => {
+        singleRunnerRuntimePromise = promise;
+    },
+    notifyDispatchSubscribers,
+    runRegisteredExecution,
+    storeWorkerError,
+    toWorkerTaskError,
+    workerErrors,
+    workerExecutions,
+};

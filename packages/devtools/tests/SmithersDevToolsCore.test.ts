@@ -62,6 +62,18 @@ describe("SmithersDevToolsCore", () => {
     expect(commits[0]?.event).toBe("unmount");
   });
 
+  test("captureCommit captures and emits a snapshot", () => {
+    const commits: DevToolsSnapshot[] = [];
+    const core = new SmithersDevToolsCore({
+      onCommit(_event, snapshot) {
+        commits.push(snapshot);
+      },
+    });
+    const snapshot = core.captureCommit(sampleTree());
+    expect(snapshot.nodeCount).toBe(2);
+    expect(commits).toEqual([snapshot]);
+  });
+
   test("findTask and listTasks operate on latest tree", () => {
     const core = new SmithersDevToolsCore();
     expect(core.listTasks()).toEqual([]);
@@ -99,5 +111,14 @@ describe("SmithersDevToolsCore", () => {
     expect(core.getRun("r1")?.status).toBe("running");
     core.detachEventBuses();
     expect(listeners).toHaveLength(0);
+  });
+
+  test("processEngineEvent and runs expose run store state", () => {
+    const core = new SmithersDevToolsCore();
+    core.processEngineEvent({ type: "RunStarted", runId: "manual", timestampMs: 1 });
+    core.processEngineEvent({ type: "NodeStarted", runId: "manual", nodeId: "task", iteration: 0, timestampMs: 2 });
+    expect(core.getRun("manual")?.status).toBe("running");
+    expect(core.getTaskState("manual", "task")?.status).toBe("started");
+    expect(core.runs.get("manual")?.startedAt).toBe(1);
   });
 });

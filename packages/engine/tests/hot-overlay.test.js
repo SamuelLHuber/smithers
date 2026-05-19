@@ -2,7 +2,7 @@ import { describe, expect, test, afterEach } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, existsSync, readFileSync, rmSync, } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildOverlay, cleanupGenerations, resolveOverlayEntry, } from "../src/hot/overlay.js";
+import { buildOverlay, cleanupGenerations, resolveOverlayEntry, __overlayInternals, } from "../src/hot/overlay.js";
 function makeTempDir() {
     return mkdtempSync(join(tmpdir(), "smithers-hot-"));
 }
@@ -91,6 +91,16 @@ describe("buildOverlay", () => {
         expect(existsSync(gen1)).toBe(true);
         expect(existsSync(gen2)).toBe(true);
     });
+    test("falls back to copying when a hardlink destination already exists", async () => {
+        const root = makeTempDir();
+        const outDir = makeTempDir();
+        dirs.push(root, outDir);
+        writeFileSync(join(root, "workflow.ts"), "fresh");
+        mkdirSync(join(outDir, "gen-1"));
+        writeFileSync(join(outDir, "gen-1", "workflow.ts"), "stale");
+        const genDir = await buildOverlay(root, outDir, 1);
+        expect(readFileSync(join(genDir, "workflow.ts"), "utf8")).toBe("fresh");
+    });
 });
 describe("cleanupGenerations", () => {
     const dirs = [];
@@ -138,5 +148,19 @@ describe("cleanupGenerations", () => {
         expect(existsSync(join(outDir, "gen-3"))).toBe(true);
         expect(existsSync(join(outDir, "other-dir"))).toBe(true);
         expect(existsSync(join(outDir, "gen-1"))).toBe(false);
+    });
+});
+describe("overlay internals", () => {
+    test("maps overlay operation errors with stable code and details", () => {
+        const cause = new Error("disk unavailable");
+        const mapped = __overlayInternals.hotOverlayErrorMapper("copy overlay file", {
+            srcPath: "/src/workflow.ts",
+            destPath: "/dest/workflow.ts",
+        })(cause);
+        expect(mapped.code).toBe("HOT_OVERLAY_FAILED");
+        expect(mapped.summary).toContain("copy overlay file");
+        expect(mapped.details?.srcPath).toBe("/src/workflow.ts");
+        expect(mapped.details?.destPath).toBe("/dest/workflow.ts");
+        expect(mapped.cause).toBe(cause);
     });
 });

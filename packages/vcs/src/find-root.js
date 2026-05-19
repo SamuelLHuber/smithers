@@ -13,15 +13,17 @@ export function findVcsRoot(startDir) {
     return Effect.sync(() => {
         let dir = resolve(startDir);
         const { root: fsRoot } = parse(dir);
-        while (true) {
+        while (dir !== fsRoot) {
             if (existsSync(resolve(dir, ".jj")))
                 return /** @type {{ type: "jj"; root: string }} */ ({ type: "jj", root: dir });
             if (existsSync(resolve(dir, ".git")))
                 return /** @type {{ type: "git"; root: string }} */ ({ type: "git", root: dir });
-            const parent = dirname(dir);
-            if (parent === dir || dir === fsRoot)
-                return null;
-            dir = parent;
+            dir = dirname(dir);
         }
+        if (existsSync(resolve(dir, ".jj")))
+            return /** @type {{ type: "jj"; root: string }} */ ({ type: "jj", root: dir });
+        if (existsSync(resolve(dir, ".git")))
+            return /** @type {{ type: "git"; root: string }} */ ({ type: "git", root: dir });
+        return null;
     });
 }

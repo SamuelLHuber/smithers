@@ -21,13 +21,13 @@ import * as BunContext from "@effect/platform-bun/BunContext";
 function isAbortError(err) {
     if (!err)
         return false;
-    if (err.name === "AbortError")
-        return true;
     if (typeof DOMException !== "undefined" &&
         err instanceof DOMException &&
         err.name === "AbortError") {
         return true;
     }
+    if (err.name === "AbortError")
+        return true;
     if (err instanceof Error) {
         return /aborted|abort/i.test(err.message);
     }
@@ -303,4 +303,8 @@ export const executeStaticTaskBridge = async (adapter, runId, desc, eventBus, to
     finally {
         removeAbortForwarder();
     }
+};
+
+export const __staticTaskBridgeInternals = {
+    isAbortError,
 };

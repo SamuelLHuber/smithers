@@ -178,4 +178,17 @@ describe("printTree", () => {
     const out = printTree(node);
     expect(out).toContain(`"MyFlow"`);
   });
+
+  test("falls back to props.id when no name or task info", () => {
+    const node: DevToolsNode = {
+      id: 1,
+      type: "task",
+      name: "x",
+      props: { id: "prop-id" },
+      children: [],
+      depth: 0,
+    };
+    const out = printTree(node);
+    expect(out).toContain("[prop-id]");
+  });
 });

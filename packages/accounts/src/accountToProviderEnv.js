@@ -36,9 +36,8 @@ export function accountToProviderEnv(account) {
             return account.apiKey ? { OPENAI_API_KEY: account.apiKey } : {};
         case "gemini-api":
             return account.apiKey ? { GEMINI_API_KEY: account.apiKey } : {};
-        default: {
+        default:
             const exhaustive = /** @type {never} */ (account.provider);
             throw new SmithersError("ACCOUNT_INVALID", `unknown provider: ${exhaustive}`);
-        }
     }
 }

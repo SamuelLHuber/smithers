@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { extractFromHost, } from "../src/dom/extract.js";
 import { z } from "zod";
+import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 /**
  * @param {string} tag
  * @param {Record<string, any>} [rawProps]
@@ -278,6 +279,25 @@ describe("extractFromHost", () => {
         const root = hostEl("smithers:sandbox", { id: "safe" });
         expect(() => extractFromHost(root)).toThrow("Sandbox safe is missing output");
     });
+    test("validates sandbox id and duplicates", () => {
+        expect(() => extractFromHost(hostEl("smithers:sandbox", { output: "out" }))).toThrow("Sandbox id is required");
+        const root = hostEl("smithers:workflow", {}, [
+            hostEl("smithers:sandbox", { id: "safe", output: "out" }),
+            hostEl("smithers:sandbox", { id: "safe", output: "out" }),
+        ]);
+        expect(() => extractFromHost(root)).toThrow("Duplicate Sandbox id");
+    });
+    test("sandbox compute function validates missing workflow definitions", async () => {
+        const root = hostEl("smithers:sandbox", {
+            id: "safe",
+            output: "sandbox_out",
+            runtime: "unknown-runtime",
+            input: { prompt: "go" },
+            allowNetwork: true,
+        });
+        const task = extractFromHost(root).tasks[0];
+        await expect(task.computeFn()).rejects.toThrow("missing workflow definition");
+    });
     test("subflow inline mode does not create standalone descriptor", () => {
         const root = hostEl("smithers:workflow", {}, [
             hostEl("smithers:subflow", {
@@ -374,5 +394,282 @@ describe("extractFromHost", () => {
         });
         const result = extractFromHost(root);
         expect(result.tasks[0].dependsOn).toEqual(["valid", "also-valid"]);
+    });
+    test("extracts drizzle table outputs and ignores non-table object outputs", () => {
+        const table = sqliteTable("table_out", {
+            runId: text("run_id").primaryKey(),
+        });
+        const root = hostEl("smithers:workflow", {}, [
+            hostEl("smithers:task", { id: "table-task", output: table }),
+            hostEl("smithers:task", { id: "object-task", output: { nope: true } }),
+        ]);
+        const result = extractFromHost(root);
+        expect(result.tasks[0].outputTable).toBe(table);
+        expect(result.tasks[0].outputTableName).toBe("table_out");
+        expect(result.tasks[1].outputTable).toBeNull();
+        expect(result.tasks[1].outputTableName).toBe("");
+    });
+    test("extracts child-run subflow descriptors with scope, groups, and worktree metadata", () => {
+        const output = z.object({ value: z.string() });
+        const cache = { key: "cache" };
+        const root = hostEl("smithers:parallel", { id: "p", maxConcurrency: 2.8 }, [
+            hostEl("smithers:worktree", {
+                id: "wt",
+                path: "workspace",
+                branch: "feature",
+                baseBranch: "main",
+            }, [
+                hostEl("smithers:subflow", {
+                    id: "sf",
+                    output,
+                    retries: 2,
+                    timeoutMs: 3000,
+                    heartbeatTimeout: 123.8,
+                    continueOnFail: true,
+                    skipIf: true,
+                    cache,
+                    dependsOn: ["a", 1, "b"],
+                    needs: { plan: "plan", bad: 1 },
+                    label: "Subflow",
+                    meta: { source: "test" },
+                    __smithersSubflowMode: "childRun",
+                    __smithersSubflowInput: { prompt: "go" },
+                }),
+            ]),
+        ]);
+        const result = extractFromHost(root, { baseRootDir: "/tmp/root" });
+        const task = result.tasks[0];
+        expect(task.nodeId).toBe("sf");
+        expect(task.outputRef).toBe(output);
+        expect(task.retries).toBe(2);
+        expect(task.timeoutMs).toBe(3000);
+        expect(task.heartbeatTimeoutMs).toBe(123);
+        expect(task.continueOnFail).toBe(true);
+        expect(task.skipIf).toBe(true);
+        expect(task.cachePolicy).toBe(cache);
+        expect(task.dependsOn).toEqual(["a", "b"]);
+        expect(task.needs).toEqual({ plan: "plan" });
+        expect(task.worktreeId).toBe("wt");
+        expect(task.worktreePath).toBe("/tmp/root/workspace");
+        expect(task.worktreeBranch).toBe("feature");
+        expect(task.worktreeBaseBranch).toBe("main");
+        expect(task.parallelGroupId).toBe("p");
+        expect(task.parallelMaxConcurrency).toBe(2);
+        expect(task.meta).toMatchObject({
+            source: "test",
+            __subflow: true,
+            __subflowMode: "childRun",
+            __subflowInput: { prompt: "go" },
+        });
+    });
+    test("validates child-run subflow id, output, and duplicates", () => {
+        expect(() => extractFromHost(hostEl("smithers:subflow", { output: "out" }))).toThrow("Subflow id is required");
+        expect(() => extractFromHost(hostEl("smithers:subflow", { id: "sf" }))).toThrow("Subflow sf is missing output");
+        const root = hostEl("smithers:workflow", {}, [
+            hostEl("smithers:subflow", { id: "sf", output: "out" }),
+            hostEl("smithers:subflow", { id: "sf", output: "out" }),
+        ]);
+        expect(() => extractFromHost(root)).toThrow("Duplicate Subflow id");
+    });
+    test("extracts wait-for-event descriptors", () => {
+        const output = z.object({ ok: z.boolean() });
+        const outputSchema = z.object({ ok: z.boolean(), event: z.string() });
+        const root = hostEl("smithers:merge-queue", { id: "mq", maxConcurrency: 0 }, [
+            hostEl("smithers:wait-for-event", {
+                id: "wait",
+                output,
+                outputSchema,
+                waitAsync: true,
+                timeoutMs: 500,
+                heartbeatTimeoutMs: 55.9,
+                dependsOn: ["a", null, "b"],
+                needs: { previous: "task", ignored: false },
+                skipIf: true,
+                onTimeout: "skip",
+                event: "deploy.done",
+                correlationId: "corr-1",
+                label: "Wait",
+                meta: { source: "event" },
+            }),
+        ]);
+        const task = extractFromHost(root).tasks[0];
+        expect(task.nodeId).toBe("wait");
+        expect(task.outputRef).toBe(output);
+        expect(task.outputSchema).toBe(outputSchema);
+        expect(task.waitAsync).toBe(true);
+        expect(task.timeoutMs).toBe(500);
+        expect(task.heartbeatTimeoutMs).toBe(55);
+        expect(task.dependsOn).toEqual(["a", "b"]);
+        expect(task.needs).toEqual({ previous: "task" });
+        expect(task.continueOnFail).toBe(true);
+        expect(task.parallelGroupId).toBe("mq");
+        expect(task.parallelMaxConcurrency).toBe(1);
+        expect(task.meta).toMatchObject({
+            source: "event",
+            __waitForEvent: true,
+            __eventName: "deploy.done",
+            __correlationId: "corr-1",
+            __onTimeout: "skip",
+        });
+    });
+    test("validates wait-for-event id, output, and duplicates", () => {
+        expect(() => extractFromHost(hostEl("smithers:wait-for-event", { output: "out" }))).toThrow("WaitForEvent id is required");
+        expect(() => extractFromHost(hostEl("smithers:wait-for-event", { id: "wait" }))).toThrow("WaitForEvent wait is missing output");
+        const root = hostEl("smithers:workflow", {}, [
+            hostEl("smithers:wait-for-event", { id: "wait", output: "out" }),
+            hostEl("smithers:wait-for-event", { id: "wait", output: "out" }),
+        ]);
+        expect(() => extractFromHost(root)).toThrow("Duplicate WaitForEvent id");
+    });
+    test("extracts timers with duration and absolute scheduling", () => {
+        const until = new Date("2026-01-02T03:04:05.000Z");
+        const root = hostEl("smithers:workflow", {}, [
+            hostEl("smithers:timer", {
+                id: "delay",
+                duration: " 5m ",
+                dependsOn: ["a", 1, "b"],
+                needs: { previous: "task", ignored: true },
+                skipIf: true,
+                label: "Delay",
+                meta: { source: "timer" },
+            }),
+            hostEl("smithers:timer", { id: "absolute", until }),
+        ]);
+        const result = extractFromHost(root);
+        expect(result.tasks[0]).toMatchObject({
+            nodeId: "delay",
+            label: "Delay",
+            dependsOn: ["a", "b"],
+            needs: { previous: "task" },
+            skipIf: true,
+            retries: 0,
+            continueOnFail: false,
+        });
+        expect(result.tasks[0].meta).toMatchObject({
+            source: "timer",
+            __timer: true,
+            __timerType: "duration",
+            __timerDuration: "5m",
+        });
+        expect(result.tasks[1].label).toBe("timer:absolute");
+        expect(result.tasks[1].meta).toMatchObject({
+            __timerType: "absolute",
+            __timerUntil: "2026-01-02T03:04:05.000Z",
+        });
+    });
+    test("validates timer ids and schedule shape", () => {
+        expect(() => extractFromHost(hostEl("smithers:timer", { duration: "1s" }))).toThrow("Timer id is required");
+        expect(() => extractFromHost(hostEl("smithers:timer", { id: "x".repeat(257), duration: "1s" }))).toThrow("256 characters");
+        expect(() => extractFromHost(hostEl("smithers:timer", { id: "bad" }))).toThrow("exactly one");
+        expect(() => extractFromHost(hostEl("smithers:timer", { id: "bad", duration: "1s", until: "tomorrow" }))).toThrow("exactly one");
+        expect(() => extractFromHost(hostEl("smithers:timer", { id: "bad", duration: "1s", every: "1m" }))).toThrow("recurring timers");
+        const root = hostEl("smithers:workflow", {}, [
+            hostEl("smithers:timer", { id: "dup", duration: "1s" }),
+            hostEl("smithers:timer", { id: "dup", duration: "2s" }),
+        ]);
+        expect(() => extractFromHost(root)).toThrow("Duplicate Timer id");
+    });
+    test("detects duplicate saga and try-catch-finally ids", () => {
+        expect(() => extractFromHost(hostEl("smithers:workflow", {}, [
+            hostEl("smithers:saga", { id: "s" }),
+            hostEl("smithers:saga", { id: "s" }),
+        ]))).toThrow("Duplicate Saga id");
+        expect(() => extractFromHost(hostEl("smithers:workflow", {}, [
+            hostEl("smithers:try-catch-finally", { id: "tcf" }),
+            hostEl("smithers:try-catch-finally", { id: "tcf" }),
+        ]))).toThrow("Duplicate TryCatchFinally id");
+    });
+    test("extracts rich approval, hijack, memory, and agent retry metadata", () => {
+        const outputSchema = z.object({ value: z.string() });
+        const agent = { generate: async () => ({}) };
+        const memory = { namespace: "task" };
+        const scorers = { quality: {} };
+        const root = hostEl("smithers:task", {
+            id: "approval",
+            output: "out",
+            outputSchema,
+            agent,
+            continueOnFail: true,
+            waitAsync: true,
+            needsApproval: true,
+            approvalMode: "rank",
+            approvalOnDeny: "skip",
+            approvalOptions: [
+                { key: "approve", label: "Approve", summary: "ok", metadata: { score: 1 } },
+                { key: "", label: "No key" },
+                "bad",
+            ],
+            approvalAllowedScopes: ["admin", 1, "ops"],
+            approvalAllowedUsers: ["alice", null, "bob"],
+            approvalAutoApprove: {
+                after: 10,
+                audit: true,
+                conditionMet: false,
+                revertOnMet: true,
+            },
+            heartbeatTimeoutMs: 44.4,
+            hijack: true,
+            onHijackExit: "reopen",
+            memory,
+            scorers,
+            children: "inspect the diff",
+        });
+        const task = extractFromHost(root).tasks[0];
+        expect(task.outputSchema).toBe(outputSchema);
+        expect(task.retries).toBe(1);
+        expect(task.retryPolicy).toEqual({
+            backoff: "exponential",
+            initialDelayMs: 1000,
+        });
+        expect(task.prompt).toBe("inspect the diff");
+        expect(task.waitAsync).toBe(true);
+        expect(task.approvalMode).toBe("rank");
+        expect(task.approvalOnDeny).toBe("skip");
+        expect(task.approvalOptions).toEqual([
+            {
+                key: "approve",
+                label: "Approve",
+                summary: "ok",
+                metadata: { score: 1 },
+            },
+        ]);
+        expect(task.approvalAllowedScopes).toEqual(["admin", "ops"]);
+        expect(task.approvalAllowedUsers).toEqual(["alice", "bob"]);
+        expect(task.approvalAutoApprove).toEqual({
+            after: 10,
+            audit: true,
+            conditionMet: false,
+            revertOnMet: true,
+        });
+        expect(task.heartbeatTimeoutMs).toBe(44);
+        expect(task.hijack).toBe(true);
+        expect(task.onHijackExit).toBe("reopen");
+        expect(task.memoryConfig).toBe(memory);
+        expect(task.scorers).toBe(scorers);
+    });
+    test("throws a clear error for object prompts when MDX preload is inactive", () => {
+        const root = hostEl("smithers:task", {
+            id: "mdx",
+            output: "out",
+            agent: { generate: async () => ({}) },
+            children: { bad: true },
+        });
+        expect(() => extractFromHost(root)).toThrow("MDX preload is likely not active");
+    });
+    test("scopes task ids by ancestor Ralph loops", () => {
+        const root = hostEl("smithers:ralph", { id: "outer" }, [
+            hostEl("smithers:workflow", {}, [
+                hostEl("smithers:ralph", { id: "inner" }, [
+                    hostEl("smithers:task", { id: "work", output: "out" }),
+                ]),
+            ]),
+        ]);
+        const result = extractFromHost(root, {
+            ralphIterations: { outer: 2, "inner@@outer=2": 4 },
+        });
+        expect(result.tasks[0].nodeId).toBe("work@@outer=2");
+        expect(result.tasks[0].ralphId).toBe("inner@@outer=2");
+        expect(result.tasks[0].iteration).toBe(4);
+        expect(result.mountedTaskIds).toEqual(["work@@outer=2::4"]);
     });
 });

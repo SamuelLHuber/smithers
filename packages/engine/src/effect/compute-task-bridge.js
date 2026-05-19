@@ -38,13 +38,13 @@ function isAbortError(err) {
     }
     if (fromTaggedError(err)?.code === "TASK_ABORTED")
         return true;
-    if (err.name === "AbortError")
-        return true;
     if (typeof DOMException !== "undefined" &&
         err instanceof DOMException &&
         err.name === "AbortError") {
         return true;
     }
+    if (err.name === "AbortError")
+        return true;
     if (err instanceof Error) {
         return /aborted|abort/i.test(err.message);
     }
@@ -89,9 +89,6 @@ function validateHeartbeatValue(value, path, seen) {
         typeof value === "function" ||
         typeof value === "symbol") {
         throw new SmithersError("HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE", `Heartbeat payload contains a non-JSON value (invalid at ${path}).`, { path, valueType: typeof value });
-    }
-    if (typeof value !== "object") {
-        throw new SmithersError("HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE", `Heartbeat payload contains an unsupported value at ${path}.`, { path });
     }
     if (seen.has(value)) {
         throw new SmithersError("HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE", "Heartbeat payload cannot contain circular references.", { path });
@@ -170,6 +167,25 @@ function isHeartbeatPayloadValidationError(err) {
     const code = err.code;
     return (code === "HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE" ||
         code === "HEARTBEAT_PAYLOAD_TOO_LARGE");
+}
+/**
+ * @param {AbortController} controller
+ * @param {AbortSignal} signal
+ * @returns {() => void}
+ */
+function linkEffectAbortSignal(controller, signal) {
+    const forwardAbort = () => {
+        controller.abort(signal.reason ?? makeAbortError());
+    };
+    if (signal.aborted) {
+        forwardAbort();
+    }
+    else {
+        signal.addEventListener("abort", forwardAbort, { once: true });
+    }
+    return () => {
+        signal.removeEventListener("abort", forwardAbort);
+    };
 }
 /**
  * @param {_TaskDescriptor} desc
@@ -288,46 +304,26 @@ export const executeComputeTaskBridge = async (adapter, db, runId, desc, eventBu
         finally {
             heartbeatWriteInFlight = false;
             if (heartbeatHasPendingWrite && !heartbeatClosed) {
-                if (heartbeatWriteTimer) {
-                    clearTimeout(heartbeatWriteTimer);
-                    heartbeatWriteTimer = undefined;
-                }
                 void flushHeartbeat();
             }
         }
     };
     /**
    * @param {unknown} data
-   * @param {{ internal?: boolean }} [opts]
    */
-    const queueHeartbeat = (data, opts) => {
+    const queueHeartbeat = (data) => {
         if (taskCompleted ||
             heartbeatClosed ||
-            (!opts?.internal && taskExecutionReturned)) {
+            taskExecutionReturned) {
             return;
         }
         const heartbeatAtMs = nowMs();
         let nextHeartbeatDataJson = null;
         let dataSizeBytes = 0;
-        try {
-            if (data !== undefined) {
-                const serialized = serializeHeartbeatPayload(data);
-                nextHeartbeatDataJson = serialized.heartbeatDataJson;
-                dataSizeBytes = serialized.dataSizeBytes;
-            }
-        }
-        catch (error) {
-            if (!opts?.internal) {
-                throw error;
-            }
-            logWarning("internal heartbeat payload rejected", {
-                runId,
-                nodeId: desc.nodeId,
-                iteration: desc.iteration,
-                attempt: attemptNo,
-                error: error instanceof Error ? error.message : String(error),
-            }, "heartbeat:record");
-            return;
+        if (data !== undefined) {
+            const serialized = serializeHeartbeatPayload(data);
+            nextHeartbeatDataJson = serialized.heartbeatDataJson;
+            dataSizeBytes = serialized.dataSizeBytes;
         }
         heartbeatPendingAtMs = heartbeatAtMs;
         heartbeatPendingDataJson = nextHeartbeatDataJson;
@@ -357,10 +353,6 @@ export const executeComputeTaskBridge = async (adapter, db, runId, desc, eventBu
             });
             if (Exit.isSuccess(exit)) {
                 return exit.value;
-            }
-            const failure = Cause.failureOption(exit.cause);
-            if (failure._tag === "Some") {
-                throw failure.value;
             }
             throw Cause.squash(exit.cause);
         };
@@ -484,17 +476,7 @@ export const executeComputeTaskBridge = async (adapter, db, runId, desc, eventBu
             try: (effectSignal) => {
                 const computeAbortController = new AbortController();
                 const removeTaskAbortForwarder = wireAbortSignal(computeAbortController, taskSignal);
-                const forwardEffectAbort = () => {
-                    computeAbortController.abort(effectSignal.reason ?? makeAbortError());
-                };
-                if (effectSignal.aborted) {
-                    forwardEffectAbort();
-                }
-                else {
-                    effectSignal.addEventListener("abort", forwardEffectAbort, {
-                        once: true,
-                    });
-                }
+                const removeEffectAbortForwarder = linkEffectAbortSignal(computeAbortController, effectSignal);
                 return Promise.resolve()
                     .then(() => withTaskRuntime({
                     runId,
@@ -510,7 +492,7 @@ export const executeComputeTaskBridge = async (adapter, db, runId, desc, eventBu
                 }, () => desc.computeFn()))
                     .finally(() => {
                     removeTaskAbortForwarder();
-                    effectSignal.removeEventListener("abort", forwardEffectAbort);
+                    removeEffectAbortForwarder();
                 });
             },
             catch: (error) => error,
@@ -737,4 +719,17 @@ export const executeComputeTaskBridge = async (adapter, db, runId, desc, eventBu
         }
         removeAbortForwarder();
     }
+};
+
+export const __computeTaskBridgeInternals = {
+    TASK_HEARTBEAT_MAX_PAYLOAD_BYTES,
+    TASK_HEARTBEAT_THROTTLE_MS,
+    TASK_HEARTBEAT_TIMEOUT_CHECK_MS,
+    heartbeatTimeoutReasonFromAbort,
+    isAbortError,
+    isHeartbeatPayloadValidationError,
+    linkEffectAbortSignal,
+    parseAttemptHeartbeatData,
+    serializeHeartbeatPayload,
+    validateHeartbeatValue,
 };

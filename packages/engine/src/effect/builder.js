@@ -289,21 +289,16 @@ function deriveRetryCount(retry) {
             return Math.max(0, Math.floor(maxAttempts - 1));
         }
     }
-    try {
-        const driver = Effect.runSync(Schedule.driver(retry));
-        let count = 0;
-        while (count < 100) {
-            const exit = Effect.runSyncExit(driver.next(undefined));
-            if (Exit.isFailure(exit)) {
-                return count;
-            }
-            count += 1;
+    const driver = Effect.runSync(Schedule.driver(retry));
+    let count = 0;
+    while (count < 100) {
+        const exit = Effect.runSyncExit(driver.next(undefined));
+        if (Exit.isFailure(exit)) {
+            return count;
         }
-        return count;
+        count += 1;
     }
-    catch {
-        return 0;
-    }
+    return count;
 }
 /**
  * @template T
@@ -1100,4 +1095,44 @@ export const Smithers = {
     sqlite,
     workflow,
     fragment,
+};
+
+export const __builderInternals = {
+    ApprovalDecision,
+    SmithersSqlite,
+    annotateLoops,
+    applyPrefixId,
+    assertUniqueHandleIds,
+    buildNeedsContext,
+    buildUserContext,
+    collectHandles,
+    compileGraph,
+    compileNeeds,
+    createBuilder,
+    createBuilderDb,
+    createInputTable,
+    createPayloadTable,
+    decodeSchema,
+    deriveRetryCount,
+    deriveRetryPolicy,
+    durationToMs,
+    encodeSchema,
+    evaluateSkip,
+    executeStepHandle,
+    extractResult,
+    isBuilderNode,
+    isWorkflowGraph,
+    makeFactory,
+    makeGraph,
+    makeTableName,
+    normalizeExecutionError,
+    readHandle,
+    readHandleMaybe,
+    readLatestHandleResult,
+    renderNode,
+    resolveEffectResult,
+    resolveHandleIteration,
+    sanitizeIdentifier,
+    sqlite,
+    stripPersistedKeys,
 };

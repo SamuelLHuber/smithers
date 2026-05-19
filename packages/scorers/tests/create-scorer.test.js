@@ -118,6 +118,24 @@ describe("llmJudge", () => {
         expect(result.reason).toBe("Failed to parse judge response as JSON");
         expect(result.meta?.raw).toBeDefined();
     });
+    it("falls back when an extracted JSON-looking response is malformed", async () => {
+        const mockAgent = {
+            generate: mock(async () => ({
+                text: 'Judge output: { "score": 0.7, }',
+            })),
+        };
+        const scorer = llmJudge({
+            id: "malformed-json",
+            name: "Malformed JSON",
+            description: "d",
+            judge: mockAgent,
+            instructions: "Judge.",
+            promptTemplate: () => "eval",
+        });
+        const result = await scorer.score({ input: "", output: "" });
+        expect(result.score).toBe(0);
+        expect(result.reason).toBe("Failed to parse judge response as JSON");
+    });
     it("clamps scores to 0-1 range", async () => {
         const mockAgent = {
             generate: mock(async () => ({

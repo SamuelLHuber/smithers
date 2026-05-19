@@ -67,6 +67,9 @@ describe("resolveRef", () => {
     test("throws for unresolvable path", () => {
         expect(() => resolveRef(spec, "#/components/schemas/DoesNotExist")).toThrow("Could not resolve $ref");
     });
+    test("throws when a pointer walks through a primitive value", () => {
+        expect(() => resolveRef({ components: { schemas: "not an object" } }, "#/components/schemas/User")).toThrow("Could not resolve $ref");
+    });
     test("resolves to root-level properties", () => {
         const specWithInfo = { info: { title: "My API", version: "1.0" } };
         const result = resolveRef(specWithInfo, "#/info");

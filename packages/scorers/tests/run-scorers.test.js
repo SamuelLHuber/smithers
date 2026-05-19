@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 import { createScorer } from "../src/create-scorer.js";
-import { runScorersBatch } from "../src/run-scorers.js";
+import { runScorersAsync, runScorersBatch } from "../src/run-scorers.js";
 // Mock DB adapter — only needs insertScorerResult for our tests
 function createMockAdapter() {
     const rows = [];
@@ -94,6 +94,51 @@ describe("runScorersBatch", () => {
         expect(results.always?.score).toBe(1);
         expect(scoreFn).toHaveBeenCalledTimes(1);
     });
+    it("respects ratio sampling and falls back to running unknown sampling types", async () => {
+        const originalRandom = Math.random;
+        const scoreFn = mock(async () => ({ score: 1 }));
+        try {
+            Math.random = () => 0.75;
+            let results = await runScorersBatch({
+                ratio: {
+                    scorer: createScorer({
+                        id: "ratio",
+                        name: "Ratio",
+                        description: "d",
+                        score: scoreFn,
+                    }),
+                    sampling: { type: "ratio", rate: 0.5 },
+                },
+            }, makeContext(), null);
+            expect(results.ratio).toBeNull();
+
+            Math.random = () => 0.25;
+            results = await runScorersBatch({
+                ratio: {
+                    scorer: createScorer({
+                        id: "ratio",
+                        name: "Ratio",
+                        description: "d",
+                        score: scoreFn,
+                    }),
+                    sampling: { type: "ratio", rate: 0.5 },
+                },
+                unknown: {
+                    scorer: createScorer({
+                        id: "unknown",
+                        name: "Unknown",
+                        description: "d",
+                        score: scoreFn,
+                    }),
+                    sampling: { type: "surprise" },
+                },
+            }, makeContext(), null);
+            expect(results.ratio?.score).toBe(1);
+            expect(results.unknown?.score).toBe(1);
+        } finally {
+            Math.random = originalRandom;
+        }
+    });
     it("handles scorer errors gracefully", async () => {
         const scorers = {
             failing: {
@@ -142,6 +187,89 @@ describe("runScorersBatch", () => {
         expect(insertedRow.score).toBe(0.75);
         expect(insertedRow.reason).toBe("Decent");
         expect(insertedRow.source).toBe("batch");
+    });
+    it("emits scorer lifecycle events and persists circular values as strings", async () => {
+        const adapter = createMockAdapter();
+        const events = [];
+        const circular = { label: "circle" };
+        circular.self = circular;
+        const scorers = {
+            evented: {
+                scorer: createScorer({
+                    id: "evented",
+                    name: "Evented",
+                    description: "d",
+                    score: async () => ({ score: 0.5, meta: { bucket: "mid" } }),
+                }),
+            },
+        };
+        const results = await runScorersBatch(
+            scorers,
+            makeContext({ input: circular, output: undefined }),
+            adapter,
+            { emit: (name, event) => events.push({ name, event }) },
+        );
+        expect(results.evented?.score).toBe(0.5);
+        expect(events.map((entry) => entry.event.type)).toEqual([
+            "ScorerStarted",
+            "ScorerFinished",
+        ]);
+        expect(adapter.rows[0].inputJson).toBe("[object Object]");
+        expect(adapter.rows[0].outputJson).toBeNull();
+        expect(JSON.parse(adapter.rows[0].metaJson)).toEqual({ bucket: "mid" });
+    });
+    it("emits failure events and runScorersAsync handles empty and non-empty maps", async () => {
+        const failureEvents = [];
+        await runScorersBatch(
+            {
+                failing: {
+                    scorer: createScorer({
+                        id: "failing-event",
+                        name: "Failing Event",
+                        description: "d",
+                        score: async () => {
+                            throw new Error("event failure");
+                        },
+                    }),
+                },
+            },
+            makeContext(),
+            null,
+            { emit: (name, event) => failureEvents.push({ name, event }) },
+        );
+        expect(failureEvents.map((entry) => entry.event.type)).toEqual([
+            "ScorerStarted",
+            "ScorerFailed",
+        ]);
+
+        runScorersAsync({}, makeContext(), null);
+        const asyncFinished = new Promise((resolve) => {
+            runScorersAsync(
+                {
+                    asyncOne: {
+                        scorer: createScorer({
+                            id: "async-one",
+                            name: "Async One",
+                            description: "d",
+                            score: async () => ({ score: 0.4 }),
+                        }),
+                    },
+                },
+                makeContext(),
+                null,
+                {
+                    emit: (_name, event) => {
+                        if (event.type === "ScorerFinished") {
+                            resolve(event);
+                        }
+                    },
+                },
+            );
+        });
+        await expect(asyncFinished).resolves.toMatchObject({
+            type: "ScorerFinished",
+            scorerId: "async-one",
+        });
     });
     it("passes correct scorer input fields", async () => {
         let receivedInput;

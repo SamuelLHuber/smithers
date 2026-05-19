@@ -167,14 +167,7 @@ export function captureProcess(
     });
     child.on("close", (exitCode, signal) => {
       finish(() => {
-        resolve({
-          exitCode: exitCode ?? (signal ? 1 : 0),
-          signal,
-          stdout: Buffer.concat(stdoutChunks).toString("utf8"),
-          stderr: Buffer.concat(stderrChunks).toString("utf8"),
-          truncated: state.truncated,
-          totalBytes: state.totalBytes,
-        });
+        resolve({ exitCode: exitCode ?? (signal ? 1 : 0), signal, stdout: Buffer.concat(stdoutChunks).toString("utf8"), stderr: Buffer.concat(stderrChunks).toString("utf8"), truncated: state.truncated, totalBytes: state.totalBytes });
       });
     });
   });

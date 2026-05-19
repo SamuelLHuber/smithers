@@ -217,3 +217,9 @@ export function denyNode(adapter, runId, nodeId, iteration, note, decidedBy, dec
         approvalDecidedBy: decidedBy ?? null,
     }), Effect.withLogSpan("approval:deny"));
 }
+export const __approvalInternals = {
+    isAsyncApprovalRequest,
+    nextRunStatusForApproval,
+    serializeDecision,
+    validateNodeWaitingForApproval,
+};
