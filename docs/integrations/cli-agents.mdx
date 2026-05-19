@@ -33,17 +33,58 @@ export default smithers((ctx) => (
 ## Available agents
 
 ```toon
-agents[7]{class,cli,defaultModel,hijack,notes}:
+agents[8]{class,cli,defaultModel,hijack,notes}:
   ClaudeCodeAgent,claude,claude-sonnet-4-20250514,native session id,Anthropic Claude Code CLI
-  CodexAgent,codex,gpt-4.1,native session id,OpenAI Codex CLI (codex exec via stdin)
+  CodexAgent,codex,gpt-5.3-codex,native thread id,OpenAI Codex CLI (codex exec via stdin + JSON stream)
   GeminiAgent,gemini,gemini-2.5-pro,native session id,Google Gemini CLI (falls back to gcloud auth)
   PiAgent,pi,gpt-5.2-codex,native session id,Pi CLI (text/json/rpc modes + extension UI hooks)
   KimiAgent,kimi,kimi-latest,native session id,Moonshot Kimi CLI (auto-isolates KIMI_SHARE_DIR)
   ForgeAgent,forge,anthropic/claude-sonnet-4-20250514,conversation id,Forge CLI (300+ models)
   AmpAgent,amp,claude-sonnet-4-20250514,thread id,Amp CLI (--execute headless mode)
+  OpenCodeAgent,opencode,provider/model string,not yet,OpenCode CLI (opencode run --format json)
 ```
 
-CLI binaries must be on `PATH`: `claude`, `codex`, `gemini`, `pi`, `kimi`, `forge`, `amp`.
+CLI binaries must be on `PATH`: `claude`, `codex`, `gemini`, `pi`, `kimi`, `forge`, `amp`, `opencode`.
+
+## Codex CLI Agent
+
+`CodexAgent` is the Smithers wrapper for OpenAI's `codex` CLI. It runs `codex exec` in non-interactive mode, sends the task prompt over stdin, forces `--json` so Smithers can stream structured progress, and captures the final assistant message via `--output-last-message`.
+
+```tsx
+import { CodexAgent, Task, Workflow, createSmithers } from "smithers-orchestrator";
+import { z } from "zod";
+
+const { smithers, outputs } = createSmithers({
+  patch: z.object({ summary: z.string(), files: z.array(z.string()) }),
+});
+
+const codex = new CodexAgent({
+  model: "gpt-5.3-codex",
+  sandbox: "workspace-write",
+  skipGitRepoCheck: true,
+  yolo: true,
+});
+
+export default smithers(() => (
+  <Workflow name="codex-implementation">
+    <Task id="implement" output={outputs.patch} agent={codex}>
+      Implement the requested change and summarize the edited files.
+    </Task>
+  </Workflow>
+));
+```
+
+Authentication options:
+
+- Subscription login: run `codex login` once. For isolated accounts, pass `configDir`; Smithers sets `CODEX_HOME` for that invocation.
+- API billing: pass `apiKey` or set `OPENAI_API_KEY`; Smithers forwards it to the spawned `codex` process.
+- Account registry: `bunx smithers-orchestrator agents add --provider codex ...` registers a subscription config directory, while `--provider openai-api` registers API-key billing for Codex-compatible providers.
+
+Structured output:
+
+- If the Smithers task has an output schema and `outputSchema` is not set, Smithers writes a temporary OpenAI-compatible JSON Schema file and passes it as `--output-schema`.
+- Resume attempts use `codex exec resume <thread-id>` and skip `--output-schema`, matching the Codex CLI's resume command surface.
+- Hijack opens native Codex with `codex resume <thread-id> -C <cwd>`.
 
 ## Common options
 
@@ -83,8 +124,14 @@ new ClaudeCodeAgent({
   allowedTools?: string[]; disallowedTools?: string[]; disableSlashCommands?: boolean;
   addDir?: string[]; file?: string[]; fromPr?: string; fallbackModel?: string;
   appendSystemPrompt?: string; agents?: Record<string, { description?: string; prompt?: string }> | string;
+  agent?: string; tools?: string[] | "default" | "";
   betas?: string[]; pluginDir?: string[]; resume?: string; sessionId?: string;
   mcpConfig?: string[]; mcpDebug?: boolean; maxBudgetUsd?: number; jsonSchema?: string;
+  configDir?: string; apiKey?: string;
+  dangerouslySkipPermissions?: boolean; allowDangerouslySkipPermissions?: boolean; chrome?: boolean; noChrome?: boolean;
+  continue?: boolean; forkSession?: boolean; noSessionPersistence?: boolean; replayUserMessages?: boolean;
+  debug?: boolean | string; debugFile?: string; ide?: boolean; includePartialMessages?: boolean;
+  inputFormat?: "text" | "stream-json"; settingSources?: string; settings?: string; strictMcpConfig?: boolean; verbose?: boolean;
   outputFormat?: "text" | "json" | "stream-json"; // default stream-json
 });
 ```
@@ -94,8 +141,13 @@ import { CodexAgent } from "smithers-orchestrator";
 new CodexAgent({
   sandbox?: "read-only" | "workspace-write" | "danger-full-access";
   fullAuto?: boolean; dangerouslyBypassApprovalsAndSandbox?: boolean;
-  config?: Record<string, unknown> | string[]; oss?: boolean; localProvider?: string;
-  image?: string[]; outputSchema?: string; outputLastMessage?: string; profile?: string;
+  config?: Record<string, unknown> | string[];
+  enable?: string[]; disable?: string[];
+  oss?: boolean; localProvider?: string;
+  image?: string[]; profile?: string; cd?: string; addDir?: string[];
+  skipGitRepoCheck?: boolean; color?: "always" | "never" | "auto";
+  outputSchema?: string; outputLastMessage?: string; json?: boolean;
+  configDir?: string; apiKey?: string;
 });
 ```
 
@@ -105,6 +157,8 @@ new GeminiAgent({
   sandbox?: boolean; approvalMode?: "default" | "auto_edit" | "yolo" | "plan";
   allowedTools?: string[]; allowedMcpServerNames?: string[];
   extensions?: string[]; resume?: string; includeDirectories?: string[];
+  experimentalAcp?: boolean; listExtensions?: boolean; listSessions?: boolean; deleteSession?: string;
+  configDir?: string; apiKey?: string; debug?: boolean; screenReader?: boolean;
   outputFormat?: "text" | "json" | "stream-json"; // default json
 });
 ```
@@ -112,12 +166,15 @@ new GeminiAgent({
 ```ts
 import { PiAgent, type PiExtensionUiRequest, type PiExtensionUiResponse } from "smithers-orchestrator";
 new PiAgent({
-  provider?: string; mode?: "text" | "json" | "rpc";
+  provider?: string; apiKey?: string; mode?: "text" | "json" | "rpc";
   print?: boolean; continue?: boolean; resume?: boolean; session?: string;
   sessionDir?: string; noSession?: boolean;
+  models?: string | string[]; listModels?: boolean | string;
   extension?: string[]; skill?: string[]; promptTemplate?: string[]; theme?: string[];
+  noExtensions?: boolean; noSkills?: boolean; noPromptTemplates?: boolean; noThemes?: boolean;
   tools?: string[]; noTools?: boolean; files?: string[];
   thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  export?: string; verbose?: boolean;
   onExtensionUiRequest?: (req: PiExtensionUiRequest) => Promise<PiExtensionUiResponse | null>;
 });
 ```
@@ -131,6 +188,7 @@ new KimiAgent({
   workDir?: string; session?: string; continue?: boolean;
   skillsDir?: string; mcpConfigFile?: string[]; mcpConfig?: string[];
   maxStepsPerTurn?: number; maxRetriesPerStep?: number; maxRalphIterations?: number;
+  verbose?: boolean; debug?: boolean; configDir?: string;
 });
 ```
 
@@ -139,7 +197,7 @@ import { ForgeAgent } from "smithers-orchestrator";
 new ForgeAgent({
   directory?: string; provider?: string; agent?: string;
   conversationId?: string; sandbox?: string; restricted?: boolean;
-  workflow?: string; event?: string; conversation?: string;
+  verbose?: boolean; workflow?: string; event?: string; conversation?: string;
 });
 ```
 
@@ -149,13 +207,23 @@ new AmpAgent({
   visibility?: "private" | "public" | "workspace" | "group";
   mcpConfig?: string; settingsFile?: string;
   logLevel?: "error" | "warn" | "info" | "debug" | "audit"; logFile?: string;
-  dangerouslyAllowAll?: boolean;
+  dangerouslyAllowAll?: boolean; ide?: boolean; jetbrains?: boolean;
+});
+```
+
+```ts
+import { OpenCodeAgent } from "smithers-orchestrator";
+new OpenCodeAgent({
+  model?: string; agentName?: string;
+  attachFiles?: string[];
+  continueSession?: boolean; sessionId?: string;
+  variant?: string;
 });
 ```
 
 ## Hijack handoff
 
-Every built-in CLI agent supports `bunx smithers-orchestrator hijack <runId>`, which relaunches the agent in its native CLI session for interactive takeover. Smithers persists the native session id (or conversation id for Forge / thread id for Amp) on each task event; on hijack it waits for a safe boundary between blocking tool calls, then reopens the session via the vendor's resume flag (`claude --resume`, `codex resume`, `gemini --resume`, `pi --session`, `kimi --session`, `forge --conversation-id`, `amp threads continue`). On clean exit the workflow resumes in detached mode. See [How it works → Durability and resume](/how-it-works#durability--resume).
+Most built-in CLI agents support `bunx smithers-orchestrator hijack <runId>`, which relaunches the agent in its native CLI session for interactive takeover. Smithers persists the native session id (or conversation id for Forge / thread id for Amp) on each task event; on hijack it waits for a safe boundary between blocking tool calls, then reopens the session via the vendor's resume flag (`claude --resume`, `codex resume`, `gemini --resume`, `pi --session`, `kimi --session`, `forge --conversation-id`, `amp threads continue`). On clean exit the workflow resumes in detached mode. OpenCode stream capture is documented above, but native `smithers hijack` support for OpenCode is not shipped yet. See [How it works → Durability and resume](/how-it-works#durability--resume).
 
 ## Notes
 

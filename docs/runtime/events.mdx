@@ -55,21 +55,23 @@ Used by `bunx smithers-orchestrator events --type <category>` and the metrics la
 
 | Category | Events |
 |---|---|
-| `run` | RunStarted, RunStatusChanged, RunFinished, RunFailed, RunCancelled, RunContinuedAsNew, RunHijackRequested, RunHijacked |
+| `run` | RunAutoResumed, RunAutoResumeSkipped, RunStarted, RunStatusChanged, RunStateChanged, RunFinished, RunFailed, RunCancelled, RunContinuedAsNew, RunHijackRequested, RunHijacked, RetryTaskStarted, RetryTaskFinished, RunForked, ReplayStarted |
 | `frame` | FrameCommitted |
-| `node` | NodePending, NodeStarted, NodeFinished, NodeFailed, NodeCancelled, NodeSkipped, NodeRetrying, NodeOutput |
-| `approval` | NodeWaitingApproval, ApprovalRequested, ApprovalGranted, ApprovalDenied |
+| `node` | NodePending, NodeStarted, TaskHeartbeat, TaskHeartbeatTimeout, NodeFinished, NodeFailed, NodeCancelled, NodeSkipped, NodeRetrying, NodeWaitingApproval, NodeWaitingTimer |
+| `approval` | ApprovalRequested, ApprovalGranted, ApprovalAutoApproved, ApprovalDenied |
 | `tool-call` | ToolCallStarted, ToolCallFinished |
-| `agent` | AgentEvent |
-| `revert` | RevertStarted, RevertFinished |
+| `agent` | AgentEvent, AgentTraceEvent, AgentTraceSummary, AgentSessionEvent |
+| `output` | NodeOutput |
+| `revert` | RevertStarted, RevertFinished, TimeTravelStarted, TimeTravelFinished, TimeTravelJumped |
 | `workflow` | WorkflowReloadDetected, WorkflowReloaded, WorkflowReloadFailed, WorkflowReloadUnsafe |
 | `scorer` | ScorerStarted, ScorerFinished, ScorerFailed |
 | `token` | TokenUsageReported |
 | `timer` | TimerCreated, TimerFired, TimerCancelled |
 | `memory` | MemoryFactSet, MemoryRecalled, MemoryMessageSaved |
 | `openapi` | OpenApiToolCalled |
-| `sandbox` | SandboxCreated, SandboxShipped, SandboxCompleted |
-| `supervisor` | TaskHeartbeat |
+| `sandbox` | SandboxCreated, SandboxShipped, SandboxHeartbeat, SandboxBundleReceived, SandboxCompleted, SandboxFailed, SandboxDiffReviewRequested, SandboxDiffAccepted, SandboxDiffRejected |
+| `snapshot` | SnapshotCaptured |
+| `supervisor` | SupervisorStarted, SupervisorPollCompleted |
 
 ## Built-in metrics
 

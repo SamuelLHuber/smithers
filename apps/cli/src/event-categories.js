@@ -8,6 +8,7 @@ const EVENT_CATEGORY_BY_TYPE = {
     RunAutoResumeSkipped: "run",
     RunStarted: "run",
     RunStatusChanged: "run",
+    RunStateChanged: "run",
     RunFinished: "run",
     RunFailed: "run",
     RunCancelled: "run",
@@ -49,6 +50,7 @@ const EVENT_CATEGORY_BY_TYPE = {
     RevertFinished: "revert",
     TimeTravelStarted: "revert",
     TimeTravelFinished: "revert",
+    TimeTravelJumped: "revert",
     WorkflowReloadDetected: "workflow",
     WorkflowReloaded: "workflow",
     WorkflowReloadFailed: "workflow",
@@ -67,6 +69,9 @@ const EVENT_CATEGORY_BY_TYPE = {
     TimerCreated: "timer",
     TimerFired: "timer",
     TimerCancelled: "timer",
+    AgentTraceEvent: "agent",
+    AgentTraceSummary: "agent",
+    AgentSessionEvent: "agent",
 };
 const CATEGORY_ALIASES = {
     agent: "agent",

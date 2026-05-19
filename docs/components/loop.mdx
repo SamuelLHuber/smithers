@@ -45,3 +45,4 @@ export default smithers((ctx) => {
 - `ctx.latest(table, nodeId)` reads the highest-iteration output; `until` must use `ctx.outputMaybe()` since output is absent on iter 0.
 - Direct nesting of `<Loop>` in `<Loop>` throws; wrap the inner loop in `<Sequence>`.
 - Custom Drizzle tables for loop tasks require `iteration` in the primary key.
+- `Ralph` is still exported as a deprecated alias of `Loop` for older workflows. New code should import and render `Loop`.

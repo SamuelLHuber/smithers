@@ -6,7 +6,7 @@
 
 ## Memory
 
-> Cross-run state — facts, message history, semantic recall.
+> Cross-run facts, message history, namespaces, and task memory metadata.
 
 Memory persists state **across runs**. Task outputs are per-run; memory is per-namespace and survives every workflow execution.
 
@@ -22,9 +22,9 @@ const ns = { kind: "workflow" as const, id: "code-review" };
 
 | Layer | API | Use for |
 |---|---|---|
-| Working memory | `store.set(ns, key, value)` / `store.get(ns, key)` | Facts. Optional TTL. Last-write-wins. |
-| Message history | `store.saveMessage(threadId, msg)` / `store.listMessages(threadId, limit)` | Ordered chat threads per agent or user. |
-| Semantic recall | `store.recall(ns, query, topK)` | Vector search over stored facts. Requires embedding setup. |
+| Facts | `store.setFact(ns, key, value, ttlMs?)` / `store.getFact(ns, key)` / `store.listFacts(ns)` | Namespaced JSON facts. Optional TTL. Last-write-wins. |
+| Message history | `store.createThread(ns, title?)`, `store.saveMessage(msg)`, `store.listMessages(threadId, limit)` | Ordered chat threads per agent or user. |
+| Maintenance | `store.deleteExpiredFacts()` plus processors | TTL cleanup and history compaction. |
 
 ## Namespaces
 
@@ -34,7 +34,7 @@ type MemoryNamespace = { kind: "workflow" | "agent" | "user" | "global"; id: str
 
 Pick the kind to match the lifetime: `workflow` is scoped to a workflow definition; `agent` to an agent identity; `user` to an end user; `global` is shared across everything.
 
-## Wire memory into a Task
+## Task Memory Metadata
 
 ```tsx
 <Task
@@ -51,7 +51,7 @@ Pick the kind to match the lifetime: `workflow` is scoped to a workflow definiti
 </Task>
 ```
 
-`recall` adds matching facts to the prompt before the agent runs. `remember` writes the validated output into memory after success. `threadId` ties the agent's prompt/response to a durable conversation.
+`memory` is preserved on the task descriptor as metadata for runtimes and integrations that layer memory behavior onto task execution. The direct store APIs above are the current public memory read/write surface.
 
 ## Processors
 
@@ -73,13 +73,13 @@ await summarizer.process(store);
 
 ```bash
 bunx smithers-orchestrator memory list workflow:code-review -w workflow.tsx
-bunx smithers-orchestrator memory recall "auth bugs" -w workflow.tsx --top-k 10
 ```
+
+The CLI currently exposes fact listing. Use the store API for writes, deletes, threads, messages, and TTL cleanup.
 
 ## Notes
 
 - Memory and task outputs are **distinct stores**. Don't use memory for run-scoped state — it's not transactional with the workflow's frame commits.
-- Semantic recall requires an embedding provider; configure via `SemanticRecallConfig.embedding`.
 - Working-memory writes are unordered. Use message history when sequence matters.
 
 ---

@@ -231,13 +231,15 @@ import { schemaAdherenceScorer, latencyScorer } from "smithers-orchestrator/scor
 
 Five built-ins: `schemaAdherenceScorer`, `latencyScorer`, `relevancyScorer`, `toxicityScorer`, `faithfulnessScorer`. Sampling: `all` / `ratio` / `none`. Custom scorers and LLM-judge scorers with `createScorer` and `llmJudge`.
 
+The public scorer surface also exports `runScorersAsync`, `runScorersBatch`, `aggregateScores`, the `smithersScorers` table, and scorer metrics (`scorersStarted`, `scorersFinished`, `scorersFailed`, `scorerDuration`).
+
 ```bash
 bunx smithers-orchestrator scores <run-id>
 ```
 
 ## Memory (cross-run state)
 
-Memory is **state that survives across runs** — facts, message history, semantic recall. Not the same as task outputs (which are per-run).
+Memory is **state that survives across runs** -- namespaced facts and message history. Not the same as task outputs (which are per-run).
 
 Three layers, four namespaces (`workflow`, `agent`, `user`, `global`). Three processors (`TtlGarbageCollector`, `TokenLimiter`, `Summarizer`). See [llms-memory.txt](/llms-memory.txt) for the full surface.
 

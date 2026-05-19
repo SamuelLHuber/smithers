@@ -1,68 +1,134 @@
 ---
 title: Event Types
-description: The full SmithersEvent discriminated union.
+description: Current SmithersEvent variants, event categories, and top-level fields.
 ---
 
-`SmithersEvent` is the discriminated union of every lifecycle event the runtime emits. Every variant has `runId` and `timestampMs`. Most have `nodeId` and `iteration`. Attempt-scoped variants add `attempt`.
+`SmithersEvent` is the discriminated union emitted by the runtime, persisted to the event log, passed to `runWorkflow({ onProgress })`, streamed by Gateway, and filtered by `smithers events --type <category>`.
 
-For subscribing (`onProgress` callback, NDJSON log file, CLI), category filters (`agent`, `node`, `tool-call`, …), and built-in metrics, see [Events](/runtime/events).
+Every variant has `type`, `runId`, and `timestampMs`. Node-scoped variants add `nodeId` and `iteration`. Attempt-scoped variants add `attempt`.
+
+For subscription examples, CLI usage, and built-in metrics, see [Events](/runtime/events).
+
+## Status Types
 
 ```ts
-type SmithersEvent =
-  | { type: "RunStarted"; runId: string; timestampMs: number }
-  | { type: "RunStatusChanged"; runId: string; status: RunStatus; timestampMs: number }
-  | { type: "RunFinished"; runId: string; timestampMs: number }
-  | { type: "RunFailed"; runId: string; error: unknown; timestampMs: number }
-  | { type: "RunCancelled"; runId: string; timestampMs: number }
-  | { type: "RunContinuedAsNew"; runId: string; newRunId: string; iteration: number; carriedStateSize: number; ancestryDepth?: number; timestampMs: number }
-  | { type: "RunHijackRequested"; runId: string; target?: string; timestampMs: number }
-  | { type: "RunHijacked"; runId: string; nodeId: string; iteration: number; attempt: number; engine: string; mode: "native-cli" | "conversation"; resume?: string | null; cwd: string; timestampMs: number }
+type RunStatus =
+  | "running"
+  | "waiting-approval"
+  | "waiting-event"
+  | "waiting-timer"
+  | "finished"
+  | "continued"
+  | "failed"
+  | "cancelled";
 
-  | { type: "FrameCommitted"; runId: string; frameNo: number; xmlHash: string; timestampMs: number }
-
-  | { type: "NodePending"; runId: string; nodeId: string; iteration: number; timestampMs: number }
-  | { type: "NodeStarted"; runId: string; nodeId: string; iteration: number; attempt: number; timestampMs: number }
-  | { type: "NodeFinished"; runId: string; nodeId: string; iteration: number; attempt: number; timestampMs: number }
-  | { type: "NodeFailed"; runId: string; nodeId: string; iteration: number; attempt: number; error: unknown; timestampMs: number }
-  | { type: "NodeCancelled"; runId: string; nodeId: string; iteration: number; attempt?: number; reason?: string; timestampMs: number }
-  | { type: "NodeSkipped"; runId: string; nodeId: string; iteration: number; timestampMs: number }
-  | { type: "NodeRetrying"; runId: string; nodeId: string; iteration: number; attempt: number; timestampMs: number }
-  | { type: "NodeOutput"; runId: string; nodeId: string; iteration: number; attempt: number; text: string; stream: "stdout" | "stderr"; timestampMs: number }
-
-  | { type: "NodeWaitingApproval"; runId: string; nodeId: string; iteration: number; timestampMs: number }
-  | { type: "ApprovalRequested"; runId: string; nodeId: string; iteration: number; timestampMs: number }
-  | { type: "ApprovalGranted"; runId: string; nodeId: string; iteration: number; timestampMs: number }
-  | { type: "ApprovalDenied"; runId: string; nodeId: string; iteration: number; timestampMs: number }
-
-  | { type: "ToolCallStarted"; runId: string; nodeId: string; iteration: number; attempt: number; toolName: string; seq: number; timestampMs: number }
-  | { type: "ToolCallFinished"; runId: string; nodeId: string; iteration: number; attempt: number; toolName: string; seq: number; status: "success" | "error"; timestampMs: number }
-
-  | { type: "AgentEvent"; runId: string; nodeId: string; iteration: number; attempt: number; engine: string; event: any; timestampMs: number }
-
-  | { type: "RevertStarted"; runId: string; nodeId: string; iteration: number; attempt: number; jjPointer: string; timestampMs: number }
-  | { type: "RevertFinished"; runId: string; nodeId: string; iteration: number; attempt: number; jjPointer: string; success: boolean; error?: string; timestampMs: number }
-
-  | { type: "WorkflowReloadDetected"; runId: string; changedFiles: string[]; timestampMs: number }
-  | { type: "WorkflowReloaded"; runId: string; generation: number; changedFiles: string[]; timestampMs: number }
-  | { type: "WorkflowReloadFailed"; runId: string; error: unknown; changedFiles: string[]; timestampMs: number }
-  | { type: "WorkflowReloadUnsafe"; runId: string; reason: string; changedFiles: string[]; timestampMs: number }
-
-  | { type: "ScorerStarted"; runId: string; nodeId: string; scorerId: string; scorerName: string; timestampMs: number }
-  | { type: "ScorerFinished"; runId: string; nodeId: string; scorerId: string; scorerName: string; score: number; timestampMs: number }
-  | { type: "ScorerFailed"; runId: string; nodeId: string; scorerId: string; scorerName: string; error: unknown; timestampMs: number }
-
-  | { type: "TokenUsageReported"; runId: string; nodeId: string; iteration: number; attempt: number; model: string; agent: string; inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number; reasoningTokens?: number; timestampMs: number }
-
-  | { type: "TimerCreated"; runId: string; timerId: string; firesAtMs: number; timerType: "duration" | "absolute"; timestampMs: number }
-  | { type: "TimerFired"; runId: string; timerId: string; firesAtMs: number; firedAtMs: number; delayMs: number; timestampMs: number }
-  | { type: "TimerCancelled"; runId: string; timerId: string; timestampMs: number }
-
-  | { type: "MemoryFactSet"; runId: string; namespace: string; key: string; timestampMs: number }
-  | { type: "MemoryRecalled"; runId: string; namespace: string; query: string; resultCount: number; timestampMs: number }
-
-  | { type: "TaskHeartbeat"; runId: string; nodeId: string; iteration: number; attempt: number; hasData: boolean; dataSizeBytes: number; intervalMs?: number; timestampMs: number }
-
-  | { type: "SandboxCreated"; runId: string; sandboxId: string; runtime: SandboxRuntime; configJson: string; timestampMs: number }
-  | { type: "SandboxShipped"; runId: string; sandboxId: string; runtime: SandboxRuntime; bundleSizeBytes: number; timestampMs: number }
-  | { type: "SandboxCompleted"; runId: string; sandboxId: string; remoteRunId?: string; runtime: SandboxRuntime; status: "finished" | "failed" | "cancelled"; durationMs: number; timestampMs: number };
+type RunState =
+  | "running"
+  | "waiting-approval"
+  | "waiting-event"
+  | "waiting-timer"
+  | "recovering"
+  | "stale"
+  | "orphaned"
+  | "failed"
+  | "cancelled"
+  | "succeeded"
+  | "unknown";
 ```
+
+## Event Variants
+
+| Event | Top-level fields |
+|---|---|
+| `SupervisorStarted` | `runId`, `pollIntervalMs`, `staleThresholdMs`, `timestampMs` |
+| `SupervisorPollCompleted` | `runId`, `staleCount`, `resumedCount`, `skippedCount`, `durationMs`, `timestampMs` |
+| `RunAutoResumed` | `runId`, `lastHeartbeatAtMs`, `staleDurationMs`, `timestampMs` |
+| `RunAutoResumeSkipped` | `runId`, `reason`, `timestampMs` |
+| `RunStarted` | `runId`, `timestampMs` |
+| `RunStatusChanged` | `runId`, `status`, `timestampMs` |
+| `RunStateChanged` | `runId`, `before`, `after`, `timestampMs` |
+| `RunFinished` | `runId`, `timestampMs` |
+| `RunFailed` | `runId`, `error`, `timestampMs` |
+| `RunCancelled` | `runId`, `timestampMs` |
+| `RunContinuedAsNew` | `runId`, `newRunId`, `iteration`, `carriedStateSize`, `ancestryDepth?`, `timestampMs` |
+| `RunHijackRequested` | `runId`, `target?`, `timestampMs` |
+| `RunHijacked` | `runId`, `nodeId`, `iteration`, `attempt`, `engine`, `mode`, `resume?`, `cwd`, `timestampMs` |
+| `SandboxCreated` | `runId`, `sandboxId`, `runtime`, `configJson`, `timestampMs` |
+| `SandboxShipped` | `runId`, `sandboxId`, `runtime`, `bundleSizeBytes`, `timestampMs` |
+| `SandboxHeartbeat` | `runId`, `sandboxId`, `remoteRunId?`, `progress?`, `timestampMs` |
+| `SandboxBundleReceived` | `runId`, `sandboxId`, `bundleSizeBytes`, `patchCount`, `hasOutputs`, `timestampMs` |
+| `SandboxCompleted` | `runId`, `sandboxId`, `remoteRunId?`, `runtime`, `status`, `durationMs`, `timestampMs` |
+| `SandboxFailed` | `runId`, `sandboxId`, `runtime`, `error`, `timestampMs` |
+| `SandboxDiffReviewRequested` | `runId`, `sandboxId`, `patchCount`, `totalDiffLines`, `timestampMs` |
+| `SandboxDiffAccepted` | `runId`, `sandboxId`, `patchCount`, `timestampMs` |
+| `SandboxDiffRejected` | `runId`, `sandboxId`, `reason?`, `timestampMs` |
+| `FrameCommitted` | `runId`, `frameNo`, `xmlHash`, `timestampMs` |
+| `NodePending` | `runId`, `nodeId`, `iteration`, `timestampMs` |
+| `NodeStarted` | `runId`, `nodeId`, `iteration`, `attempt`, `timestampMs` |
+| `TaskHeartbeat` | `runId`, `nodeId`, `iteration`, `attempt`, `hasData`, `dataSizeBytes`, `intervalMs?`, `timestampMs` |
+| `TaskHeartbeatTimeout` | `runId`, `nodeId`, `iteration`, `attempt`, `lastHeartbeatAtMs`, `timeoutMs`, `timestampMs` |
+| `NodeFinished` | `runId`, `nodeId`, `iteration`, `attempt`, `timestampMs` |
+| `NodeFailed` | `runId`, `nodeId`, `iteration`, `attempt`, `error`, `timestampMs` |
+| `NodeCancelled` | `runId`, `nodeId`, `iteration`, `attempt?`, `reason?`, `timestampMs` |
+| `NodeSkipped` | `runId`, `nodeId`, `iteration`, `timestampMs` |
+| `NodeRetrying` | `runId`, `nodeId`, `iteration`, `attempt`, `timestampMs` |
+| `NodeWaitingApproval` | `runId`, `nodeId`, `iteration`, `timestampMs` |
+| `NodeWaitingTimer` | `runId`, `nodeId`, `iteration`, `firesAtMs`, `timestampMs` |
+| `ApprovalRequested` | `runId`, `nodeId`, `iteration`, `timestampMs` |
+| `ApprovalGranted` | `runId`, `nodeId`, `iteration`, `timestampMs` |
+| `ApprovalAutoApproved` | `runId`, `nodeId`, `iteration`, `timestampMs` |
+| `ApprovalDenied` | `runId`, `nodeId`, `iteration`, `timestampMs` |
+| `ToolCallStarted` | `runId`, `nodeId`, `iteration`, `attempt`, `toolCallId`, `toolName`, `seq`, `timestampMs` |
+| `ToolCallFinished` | `runId`, `nodeId`, `iteration`, `attempt`, `toolCallId`, `toolName`, `seq`, `status`, `timestampMs` |
+| `NodeOutput` | `runId`, `nodeId`, `iteration`, `attempt`, `text`, `stream`, `timestampMs` |
+| `AgentEvent` | `runId`, `nodeId`, `iteration`, `attempt`, `engine`, `event`, `timestampMs` |
+| `RetryTaskStarted` | `runId`, `nodeId`, `iteration`, `resetDependents`, `resetNodes`, `timestampMs` |
+| `RetryTaskFinished` | `runId`, `nodeId`, `iteration`, `resetNodes`, `success`, `error?`, `timestampMs` |
+| `RevertStarted` | `runId`, `nodeId`, `iteration`, `attempt`, `jjPointer`, `timestampMs` |
+| `RevertFinished` | `runId`, `nodeId`, `iteration`, `attempt`, `jjPointer`, `success`, `error?`, `timestampMs` |
+| `TimeTravelStarted` | `runId`, `nodeId`, `iteration`, `attempt`, `jjPointer?`, `timestampMs` |
+| `TimeTravelFinished` | `runId`, `nodeId`, `iteration`, `attempt`, `jjPointer?`, `success`, `vcsRestored`, `resetNodes`, `error?`, `timestampMs` |
+| `TimeTravelJumped` | `runId`, `fromFrameNo`, `toFrameNo`, `timestampMs`, `caller?` |
+| `WorkflowReloadDetected` | `runId`, `changedFiles`, `timestampMs` |
+| `WorkflowReloaded` | `runId`, `generation`, `changedFiles`, `timestampMs` |
+| `WorkflowReloadFailed` | `runId`, `error`, `changedFiles`, `timestampMs` |
+| `WorkflowReloadUnsafe` | `runId`, `reason`, `changedFiles`, `timestampMs` |
+| `ScorerStarted` | `runId`, `nodeId`, `scorerId`, `scorerName`, `timestampMs` |
+| `ScorerFinished` | `runId`, `nodeId`, `scorerId`, `scorerName`, `score`, `timestampMs` |
+| `ScorerFailed` | `runId`, `nodeId`, `scorerId`, `scorerName`, `error`, `timestampMs` |
+| `TokenUsageReported` | `runId`, `nodeId`, `iteration`, `attempt`, `model`, `agent`, `inputTokens`, `outputTokens`, `cacheReadTokens?`, `cacheWriteTokens?`, `reasoningTokens?`, `timestampMs` |
+| `SnapshotCaptured` | `runId`, `frameNo`, `contentHash`, `timestampMs` |
+| `RunForked` | `runId`, `parentRunId`, `parentFrameNo`, `branchLabel?`, `timestampMs` |
+| `ReplayStarted` | `runId`, `parentRunId`, `parentFrameNo`, `restoreVcs`, `timestampMs` |
+| `MemoryFactSet` | `runId`, `namespace`, `key`, `timestampMs` |
+| `MemoryRecalled` | `runId`, `namespace`, `query`, `resultCount`, `timestampMs` |
+| `MemoryMessageSaved` | `runId`, `threadId`, `role`, `timestampMs` |
+| `OpenApiToolCalled` | `runId`, `operationId`, `method`, `path`, `durationMs`, `status`, `timestampMs` |
+| `TimerCreated` | `runId`, `timerId`, `firesAtMs`, `timerType`, `timestampMs` |
+| `TimerFired` | `runId`, `timerId`, `firesAtMs`, `firedAtMs`, `delayMs`, `timestampMs` |
+| `TimerCancelled` | `runId`, `timerId`, `timestampMs` |
+| `AgentTraceEvent` | `runId`, `nodeId`, `iteration`, `attempt`, `trace`, `timestampMs` |
+| `AgentTraceSummary` | `runId`, `nodeId`, `iteration`, `attempt`, `summary`, `timestampMs` |
+| `AgentSessionEvent` | `runId`, `nodeId`, `iteration`, `attempt`, `transcript`, `timestampMs` |
+
+## Agent Event Payload
+
+`AgentEvent.event` is the normalized CLI-agent event payload:
+
+```ts
+type AgentCliEvent =
+  | { type: "started"; engine: string; title: string; resume?: string; detail?: Record<string, unknown> }
+  | {
+      type: "action";
+      engine: string;
+      phase: "started" | "updated" | "completed";
+      entryType?: "thought" | "message";
+      action: { id: string; kind: AgentCliActionKind; title: string; detail?: Record<string, unknown> };
+      message?: string;
+      ok?: boolean;
+      level?: "debug" | "info" | "warning" | "error";
+    }
+  | { type: "completed"; engine: string; ok: boolean; answer?: string; error?: string; resume?: string; usage?: Record<string, unknown> };
+```
+
+Canonical agent tracing uses the dedicated `AgentTraceEvent`, `AgentTraceSummary`, and `AgentSessionEvent` variants.

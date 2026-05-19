@@ -46,7 +46,7 @@ type ServerOptions = {
 ## API Routes (TOON)
 
 ```toon
-routes[15]{method,path,purpose,auth}:
+routes[16]{method,path,purpose,auth}:
   GET,/health,Liveness probe,none
   GET,/metrics,Prometheus exposition,bearer
   POST,/v1/runs,Start or resume a run,bearer
@@ -61,6 +61,7 @@ routes[15]{method,path,purpose,auth}:
   POST,/v1/runs/:runId/signals/:signalName,Deliver a named signal,bearer
   GET,/v1/approvals,List pending approvals (requires db),bearer
   GET,/v1/approval/list,Legacy alias for /v1/approvals,bearer
+  GET,/approval/list and /approvals,Legacy aliases for /v1/approvals,bearer
   POST,/signal/:runId/:signalName,Legacy alias for signals,bearer
 ```
 

@@ -84,18 +84,18 @@ try {
 | `SNAPSHOT_NOT_FOUND` | A requested time-travel snapshot or frame does not exist. | `{ runId, frameNo }` |
 | `VCS_WORKSPACE_CREATE_FAILED` | Smithers fails to materialize a jj workspace for time-travel or replay. | `{ runId, frameNo, vcsPointer, workspacePath }` |
 | `TASK_TIMEOUT` | A task compute callback exceeds its configured timeout. | `{ nodeId, attempt, timeoutMs }` |
+| `TASK_HIJACK_UNSUPPORTED` | A task requests auto-hijack but its agent cannot provide a resumable session or conversation. | `{ nodeId, agentId? }` |
 | `TASK_ABORTED` | A running task is aborted through an AbortSignal or shutdown path. | -- |
 | `RUN_NOT_FOUND` | A CLI or engine command references a run ID that does not exist in the database. | `{ runId }` |
 | `NODE_NOT_FOUND` | A CLI command references a node ID that does not exist for the given run. | `{ runId, nodeId }` |
-| `UI_COMMAND_FAILED` | The smithers ui command fails to open the browser or probe the server. | `{ url }` |
 | `INVALID_EVENTS_OPTIONS` | The smithers events command receives invalid filter options. | -- |
 | `SANDBOX_BUNDLE_INVALID` | A sandbox bundle fails validation (missing README, invalid manifest, etc.). | `{ bundlePath }` |
 | `SANDBOX_BUNDLE_TOO_LARGE` | A sandbox bundle exceeds the maximum allowed size. | `{ bundlePath, maxBytes }` |
 | `WORKFLOW_EXECUTION_FAILED` | A child or builder workflow exits unsuccessfully without surfacing a typed error payload. | `{ status }` |
 | `SANDBOX_EXECUTION_FAILED` | Sandbox setup or execution fails before a more specific sandbox error can be emitted. | `{ sandboxId, runId?, maxConcurrent?, activeSandboxCount? }` |
 | `TASK_HEARTBEAT_TIMEOUT` | A task has not heartbeated within its configured timeout. | `{ nodeId, iteration, attempt, timeoutMs, staleForMs, lastHeartbeatAtMs }` |
-| `HEARTBEAT_PAYLOAD_TOO_LARGE` | A task heartbeat payload exceeds the maximum allowed size. | `{ nodeId, sizeBytes, maxBytes }` |
-| `HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE` | A task heartbeat payload cannot be serialized to JSON. | `{ nodeId }` |
+| `HEARTBEAT_PAYLOAD_TOO_LARGE` | A task heartbeat payload exceeds the maximum allowed size. | `{ dataSizeBytes, maxBytes }` |
+| `HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE` | A task heartbeat payload cannot be serialized to JSON. | `{ path, valueType? }` |
 | `RUN_CANCELLED` | A run is cancelled while runtime work is still active. | `{ runId }` |
 | `RUN_NOT_RESUMABLE` | A resume request targets a run state that cannot be resumed. | `{ runId, status }` |
 | `RUN_OWNER_ALIVE` | Resume recovery is skipped because the previous runtime owner is still heartbeating. | `{ runId, runtimeOwnerId }` |
@@ -148,6 +148,7 @@ try {
 | Code | When | Details |
 |---|---|---|
 | `AGENT_CLI_ERROR` | A CLI-backed agent exits unsuccessfully, streams an explicit error, or its RPC transport fails. | -- |
+| `AGENT_CONFIG_INVALID` | A CLI-backed agent fails with a non-retryable configuration error such as an unknown model, missing LLM, or unsupported model. | -- |
 | `AGENT_RPC_FILE_ARGS` | Pi RPC mode is used with file arguments that the transport does not support. | -- |
 | `AGENT_BUILD_COMMAND` | An agent implementation forbids `buildCommand()` because it uses a custom `generate()` transport. | -- |
 | `AGENT_DIAGNOSTIC_TIMEOUT` | An internal agent diagnostic check exceeds the per-check timeout budget. | -- |
@@ -192,10 +193,6 @@ try {
 | Code | When | Details |
 |---|---|---|
 | `WORKFLOW_EXISTS` | The workflow creation CLI refuses to overwrite an existing workflow file. | -- |
-| `PROMPT_EXISTS` | The prompt creation CLI refuses to overwrite an existing prompt file. | -- |
-| `PROMPT_MDX_INVALID` | An MDX prompt file does not export a valid default component. | -- |
-| `TICKET_EXISTS` | The ticket creation CLI refuses to overwrite an existing ticket file. | -- |
-| `TICKET_NOT_FOUND` | A CLI command references a ticket file that does not exist. | -- |
 | `CLI_DB_NOT_FOUND` | A CLI command cannot find a nearby `smithers.db` file. | -- |
 | `CLI_AGENT_UNSUPPORTED` | The ask command selects an agent integration that Smithers does not support in that mode. | -- |
 

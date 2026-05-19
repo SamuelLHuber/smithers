@@ -84,7 +84,7 @@ const CORE_PAGES = [
   "reference/package-configuration.mdx",
   "reference/vcs-helpers.mdx",
   // Runtime API (small, useful in core). Events moved to its own opt-in
-  // fragment because the SmithersEvent union is ~50 variants of pure
+  // fragment because the SmithersEvent union is too detailed for everyday
   // schema noise for everyday use.
   "runtime/run-workflow.mdx",
   "runtime/render-frame.mdx",
@@ -207,7 +207,7 @@ const HEADERS = {
   observability: "> Smithers observability surface: HTTP server, gateway, MCP, OpenTelemetry, metrics.",
   effect: "> Smithers Effect-ts authoring API: build workflows as Effect values without JSX or React.",
   integrations: "> Smithers integrations: agent runtimes (Claude Code, Codex, Gemini, Pi), tool surfaces, ecosystem partners.",
-  events: "> Smithers event surface: how to subscribe, the event categories, and the full SmithersEvent discriminated union (~50 variants).",
+  events: "> Smithers event surface: how to subscribe, the event categories, and the full SmithersEvent discriminated union.",
 };
 
 const builds: Array<{ file: string; pages: string[]; header: string; name: string }> = [

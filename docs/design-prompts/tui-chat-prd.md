@@ -1,5 +1,7 @@
 # PRD: TUI Chat-First Redesign
 
+> Archived design prompt: `smithers tui` was removed in 0.20.2. This file is retained as historical product/design material and does not describe a current shipped command.
+
 **Status**: Draft
 **Date**: 2026-03-29
 **Author**: Auto-generated from codebase analysis

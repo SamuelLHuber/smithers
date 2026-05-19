@@ -272,7 +272,7 @@ type XmlText = { readonly kind: "text"; readonly text: string };
 // =============================================================================
 //
 // `SmithersEvent` is a discriminated union of every lifecycle event the runtime
-// emits. The full union (~50 variants) is documented separately to keep this
+// emits. The full union is documented separately to keep this
 // file usable as the everyday type reference.
 //
 // See: docs/reference/event-types.mdx (rendered) or /llms-events.txt (LLM fragment).
@@ -633,16 +633,33 @@ type CreateScorerConfig = {
 // Memory (smithers-orchestrator/memory)
 // =============================================================================
 
-type MemoryFact    = { key: string; value: unknown; metadata?: Record<string, unknown>; createdAt?: number; expiresAt?: number };
-type MemoryMessage = { role: "user" | "assistant" | "system"; content: string; createdAt?: number };
-type MemoryThread  = { id: string; messages: MemoryMessage[] };
+type MemoryFact    = { namespace: string; key: string; valueJson: string; schemaSig?: string | null; createdAtMs: number; updatedAtMs: number; ttlMs?: number | null };
+type MemoryMessage = { id: string; threadId: string; role: string; contentJson: string; runId?: string | null; nodeId?: string | null; createdAtMs: number };
+type MemoryThread  = { threadId: string; namespace: string; title?: string | null; metadataJson?: string | null; createdAtMs: number; updatedAtMs: number };
 
 type MemoryStore = {
-  set(namespace: MemoryNamespace, key: string, value: unknown): Promise<void>;
-  get(namespace: MemoryNamespace, key: string): Promise<unknown | null>;
-  recall(namespace: MemoryNamespace, query: string, topK?: number): Promise<MemoryFact[]>;
-  saveMessage(threadId: string, message: MemoryMessage): Promise<void>;
-  getMessages(threadId: string): Promise<MemoryMessage[]>;
+  getFact(ns: MemoryNamespace, key: string): Promise<MemoryFact | undefined>;
+  setFact(ns: MemoryNamespace, key: string, value: unknown, ttlMs?: number): Promise<void>;
+  deleteFact(ns: MemoryNamespace, key: string): Promise<void>;
+  listFacts(ns: MemoryNamespace): Promise<MemoryFact[]>;
+  createThread(ns: MemoryNamespace, title?: string): Promise<MemoryThread>;
+  getThread(threadId: string): Promise<MemoryThread | undefined>;
+  deleteThread(threadId: string): Promise<void>;
+  saveMessage(msg: Omit<MemoryMessage, "createdAtMs"> & { createdAtMs?: number }): Promise<void>;
+  listMessages(threadId: string, limit?: number): Promise<MemoryMessage[]>;
+  countMessages(threadId: string): Promise<number>;
+  deleteExpiredFacts(): Promise<number>;
+  getFactEffect(ns: MemoryNamespace, key: string): Effect.Effect<MemoryFact | undefined, SmithersError>;
+  setFactEffect(ns: MemoryNamespace, key: string, value: unknown, ttlMs?: number): Effect.Effect<void, SmithersError>;
+  deleteFactEffect(ns: MemoryNamespace, key: string): Effect.Effect<void, SmithersError>;
+  listFactsEffect(ns: MemoryNamespace): Effect.Effect<MemoryFact[], SmithersError>;
+  createThreadEffect(ns: MemoryNamespace, title?: string): Effect.Effect<MemoryThread, SmithersError>;
+  getThreadEffect(threadId: string): Effect.Effect<MemoryThread | undefined, SmithersError>;
+  deleteThreadEffect(threadId: string): Effect.Effect<void, SmithersError>;
+  saveMessageEffect(msg: Omit<MemoryMessage, "createdAtMs"> & { createdAtMs?: number }): Effect.Effect<void, SmithersError>;
+  listMessagesEffect(threadId: string, limit?: number): Effect.Effect<MemoryMessage[], SmithersError>;
+  countMessagesEffect(threadId: string): Effect.Effect<number, SmithersError>;
+  deleteExpiredFactsEffect(): Effect.Effect<number, SmithersError>;
 };
 
 // =============================================================================
@@ -650,17 +667,17 @@ type MemoryStore = {
 // =============================================================================
 
 type OpenApiAuth =
-  | { type: "none" }
-  | { type: "apiKey"; name: string; in: "header" | "query" | "cookie"; value: string }
+  | { type: "apiKey"; name: string; in: "header" | "query"; value: string }
   | { type: "bearer"; token: string }
-  | { type: "basicAuth"; username: string; password: string };
+  | { type: "basic"; username: string; password: string };
 
 type OpenApiToolsOptions = {
-  spec: unknown | string;            // OpenAPI spec object or path/URL
-  auth?: OpenApiAuth;
   baseUrl?: string;
-  includeOperations?: string[];
-  excludeOperations?: string[];
+  headers?: Record<string, string>;
+  auth?: OpenApiAuth;
+  include?: string[];
+  exclude?: string[];
+  namePrefix?: string;
 };
 
 // =============================================================================
