@@ -356,7 +356,7 @@ async function constructAgent(detection: AgentAvailability): Promise<AgentLike> 
   switch (id) {
     case "claude": {
       const { ClaudeCodeAgent } = await import("../../agents/ClaudeCodeAgent");
-      return new ClaudeCodeAgent({ model: "claude-opus-4-6" });
+      return new ClaudeCodeAgent({ model: "claude-opus-4-7" });
     }
     case "codex": {
       const { CodexAgent } = await import("../../agents/CodexAgent");

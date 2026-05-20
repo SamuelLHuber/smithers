@@ -21,7 +21,7 @@ export default smithers((ctx) => {
         agents={{
           opus: {
             agent: new ClaudeCodeAgent({ 
-              model: "claude-opus-4-6", 
+              model: "claude-opus-4-7", 
               systemPrompt: PLANNING_PROMPT,  // ← a string constant, frozen at import time
             }),
           },

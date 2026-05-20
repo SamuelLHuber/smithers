@@ -100,7 +100,7 @@ Implication:
 Smithers’ current guidance in `docs/guides/model-selection.mdx` says:
 
 - `gpt-5.3-codex` for implementation and validation
-- `claude-opus-4-6` for research, planning, and review
+- `claude-opus-4-7` for research, planning, and review
 - `claude-sonnet-4-5-20250929` for lighter/faster tasks
 
 `~/codeplane/specs/generate/index.tsx` goes further and encodes role-specific fallback chains:
@@ -368,7 +368,7 @@ export const roleChains = {
 
 Recommended default models, based on current Smithers and local Codeplane usage:
 
-- Claude: `claude-opus-4-6`
+- Claude: `claude-opus-4-7`
 - Claude fast: `claude-sonnet-4-5-20250929`
 - Codex: `gpt-5.3-codex` with reasoning effort `high`
 - Gemini: `gemini-3.1-pro-preview`

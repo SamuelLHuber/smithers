@@ -3429,8 +3429,8 @@ const cli = Cli.create({
     // =========================================================================
     // smithers inspect <run_id>
     // =========================================================================
-    .command("inspect", {
-    description: "Output detailed state of a run: steps, agents, approvals, and outputs.",
+.command("inspect", {
+    description: "Output detailed run state, including steps, agents, approvals, and outputs.",
     args: inspectArgs,
     options: inspectOptions,
     alias: { watch: "w", interval: "i" },
@@ -4356,8 +4356,8 @@ const cli = Cli.create({
     // =========================================================================
     // smithers timetravel <workflow>
     // =========================================================================
-    .command("timetravel", {
-    description: "Time-travel to a previous task state: revert filesystem, reset DB, and optionally resume.",
+.command("timetravel", {
+    description: "Time-travel to a previous task state by reverting filesystem state, resetting DB state, and optionally resuming.",
     args: workflowArgs,
     options: z.object({
         runId: z.string().describe("Run ID"),
@@ -5276,7 +5276,7 @@ function normalizeResumeOption(value) {
 const CHAT_CREATE_PROMPT = [
     "Start an interactive chat session with the user and help them directly.",
     "Stay in this conversation until the user is done.",
-    'When you are completely finished and want to hand control back to Smithers, end your final response with an empty JSON object in a ```json fence: {}.',
+    'When you are completely finished and want to hand control back to Smithers, return ONLY this raw JSON object with no prose, markdown, or code fence: {}.',
 ].join("\n\n");
 /**
  * @param {"claude-code" | "codex" | "gemini"} agentId
@@ -5288,7 +5288,7 @@ async function createChatAgent(agentId, cwd) {
             const { ClaudeCodeAgent } = await import("@smithers-orchestrator/agents/ClaudeCodeAgent");
             return new ClaudeCodeAgent({
                 cwd,
-                model: "claude-opus-4-6",
+                model: "claude-opus-4-7",
             });
         }
         case "codex": {

@@ -55,7 +55,7 @@ name: hello-world
 agents:
   assistant:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are a friendly assistant.
 
@@ -93,12 +93,12 @@ name: research-report
 agents:
   researcher:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are an expert research assistant.
   writer:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are a technical writer.
 
@@ -175,7 +175,7 @@ agents:
     fullAuto: true
   analyst:
     type: anthropic
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     instructions: You are a data analyst.
 ```
 
@@ -377,7 +377,7 @@ imports:
   plugins[2]:                          # plugins use expanded list (per-entry config)
     - from: smithers-plugin-anthropic
       config:
-        defaultModel: claude-opus-4-6
+        defaultModel: claude-opus-4-7
     - from: smithers-plugin-linear
       config:
         team: ENG
@@ -538,7 +538,7 @@ The default node. Sends a prompt to an agent (or runs code) and produces structu
 agents:
   coder:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are a senior software engineer.
 
@@ -1072,7 +1072,7 @@ imports:
   plugins[2]:
     - from: smithers-plugin-anthropic
       config:
-        defaultModel: claude-opus-4-6
+        defaultModel: claude-opus-4-7
     - from: smithers-plugin-linear
       config:
         team: ENG
@@ -3254,12 +3254,12 @@ name: parallel-research
 agents:
   researcher:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are an expert research assistant.
   writer:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are a concise technical writer.
 
@@ -3344,12 +3344,12 @@ name: review-and-publish
 agents:
   writer:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are a technical writer.
   reviewer:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are a thorough technical reviewer.
 
@@ -3412,7 +3412,7 @@ name: bugfix
 agents:
   coder:
     type: claude-code
-    model: claude-opus-4-6
+    model: claude-opus-4-7
     subscription: true
     instructions: You are a senior software engineer specializing in debugging.
 

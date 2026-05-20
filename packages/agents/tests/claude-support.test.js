@@ -36,7 +36,7 @@ process.stdout.write(JSON.stringify({
             process.env.PATH = `${fake.dir}:${originalPath}`;
             process.env.CLAUDE_ARGS_FILE = argsFile;
             const agent = new ClaudeCodeAgent({
-                model: "claude-opus-4-6",
+                model: "claude-opus-4-7",
                 env: { PATH: process.env.PATH },
             });
             const result = await agent.generate({
@@ -67,7 +67,7 @@ process.stdout.write("done\\n");
             process.env.PATH = `${fake.dir}:${originalPath}`;
             process.env.CLAUDE_ARGS_FILE = argsFile;
             const agent = new ClaudeCodeAgent({
-                model: "claude-opus-4-6",
+                model: "claude-opus-4-7",
                 outputFormat: "text",
                 env: { PATH: process.env.PATH },
             });

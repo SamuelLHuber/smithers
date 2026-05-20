@@ -137,13 +137,13 @@ const UNSAFE = process.env.SMITHERS_UNSAFE === "1";
 
 // Claude — switches between API agent and CLI agent
 const claudeApi = new Agent({
-  model: anthropic("claude-opus-4-6"),
+  model: anthropic("claude-opus-4-7"),
   instructions: SYSTEM_PROMPT,
   stopWhen: stepCountIs(100),
 });
 
 const claudeCli = new ClaudeCodeAgent({
-  model: "claude-opus-4-6",
+  model: "claude-opus-4-7",
   systemPrompt: SYSTEM_PROMPT,
   dangerouslySkipPermissions: UNSAFE,
   timeoutMs: 30 * 60 * 1000,

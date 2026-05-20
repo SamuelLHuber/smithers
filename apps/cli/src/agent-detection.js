@@ -91,7 +91,7 @@ const AGENT_VARIANTS = [
         displayName: "Claude Sonnet",
         constructor: {
             importName: "ClaudeCodeAgent",
-            expr: 'new SmithersClaudeCodeAgent({ model: "claude-sonnet-4-6", cwd: process.cwd() })',
+            expr: 'new SmithersClaudeCodeAgent({ model: "claude-sonnet-4-7", cwd: process.cwd() })',
         },
     },
 ];
@@ -108,7 +108,7 @@ const TIER_PREFERENCES = {
 const CONSTRUCTORS = {
     claude: {
         importName: "ClaudeCodeAgent",
-        expr: 'new SmithersClaudeCodeAgent({ model: "claude-opus-4-6", cwd: process.cwd() })',
+        expr: 'new SmithersClaudeCodeAgent({ model: "claude-opus-4-7", cwd: process.cwd() })',
     },
     codex: {
         importName: "CodexAgent",

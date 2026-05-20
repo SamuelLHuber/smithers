@@ -2980,14 +2980,14 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                 if (desc.outputTable && !supportsNativeStructuredOutput) {
                     const schemaDesc = describeSchemaShape(desc.outputTable, desc.outputSchema);
                     const jsonInstructions = [
-                        "**REQUIRED OUTPUT** — You MUST end your response with a JSON object in a code fence matching this schema:",
-                        "```json",
+                        "**REQUIRED OUTPUT** — You MUST return ONLY a raw JSON object matching this schema:",
                         schemaDesc,
-                        "```",
-                        "Output the JSON at the END of your response. The workflow will fail without it.",
+                        "Do not include prose, markdown, headings, commentary, or code fences.",
+                        "The first character of your response must be `{` and the last character must be `}`.",
+                        "The workflow will fail unless the entire response is the JSON object.",
                     ].join("\n");
                     effectivePrompt = [
-                        "IMPORTANT: After completing the task below, you MUST output a JSON object in a ```json code fence at the very end of your response. Do NOT forget this — the workflow fails without it.",
+                        "IMPORTANT: After completing the task below, you MUST output ONLY a raw JSON object. Do NOT wrap it in markdown or add any prose — the workflow fails without it.",
                         "",
                         effectivePrompt,
                         "",
@@ -3448,7 +3448,7 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                             `Now you MUST output ONLY a valid JSON object (no other text) summarizing your work above, with exactly these fields and types:`,
                             schemaDesc,
                             ``,
-                            `Output ONLY the JSON object, nothing else.`,
+                            `Output ONLY the raw JSON object, with no markdown fences or prose.`,
                         ].join("\n");
                         const retryResult = await effectiveAgent.generate({
                             options: undefined,
@@ -3679,7 +3679,7 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     `You MUST output ONLY a valid JSON object with exactly these fields and types:`,
                     schemaDesc,
                     ``,
-                    `Output ONLY the JSON object, no other text.`,
+                    `Output ONLY the raw JSON object, with no markdown fences or other text.`,
                 ].join("\n");
             logInfo("schema validation retry", {
                 runId,

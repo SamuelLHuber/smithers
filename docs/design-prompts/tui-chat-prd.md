@@ -98,7 +98,7 @@ Transform the TUI's main screen from a dashboard into a **chat-first interface**
 ### F7: Status Bar
 
 - Persistent bar at the top or bottom showing:
-  - Active agent name and model (e.g., `claude-opus-4-6`)
+  - Active agent name and model (e.g., `claude-opus-4-7`)
   - Number of active runs
   - Current screen name
   - Keyboard shortcut hints

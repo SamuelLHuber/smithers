@@ -425,7 +425,7 @@ export class KimiAgent extends BaseCliAgent {
             ? `${params.systemPrompt}\n\n`
             : "";
         const jsonReminder = params.prompt?.includes("REQUIRED OUTPUT")
-            ? "\n\nREMINDER: Your response MUST end with a ```json code fence containing the required JSON object. Do NOT skip this step — the pipeline will reject your response without it.\n"
+            ? "\n\nREMINDER: Your response MUST be ONLY the required raw JSON object. Do not include prose, markdown, or code fences. The first character must be `{` and the last character must be `}`.\n"
             : "";
         const fullPrompt = `${systemPrefix}${params.prompt ?? ""}${jsonReminder}`;
         // Pass prompt via --prompt flag

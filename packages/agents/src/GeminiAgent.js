@@ -255,10 +255,10 @@ export class GeminiAgent extends BaseCliAgent {
         const systemPrefix = params.systemPrompt
             ? `${params.systemPrompt}\n\n`
             : "";
-        // Reinforce JSON output requirement in the prompt for Gemini models which
-        // tend to forget structured output instructions on long responses.
+        // Reinforce raw JSON output requirement in the prompt for Gemini models
+        // which tend to forget structured output instructions on long responses.
         const jsonReminder = params.prompt?.includes("REQUIRED OUTPUT")
-            ? "\n\nREMINDER: Your response MUST end with a ```json code fence containing the required JSON object. Do NOT skip this step — the pipeline will reject your response without it.\n"
+            ? "\n\nREMINDER: Your response MUST be ONLY the required raw JSON object. Do not include prose, markdown, or code fences. The first character must be `{` and the last character must be `}`.\n"
             : "";
         const fullPrompt = `${systemPrefix}${params.prompt ?? ""}${jsonReminder}`;
         args.push("--prompt", fullPrompt);
