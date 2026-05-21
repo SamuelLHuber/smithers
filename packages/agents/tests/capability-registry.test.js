@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import React from "react";
 import { z } from "zod";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { Workflow, Task, runWorkflow } from "smithers-orchestrator";
 import { ClaudeCodeAgent } from "../src/ClaudeCodeAgent.js";
 import { CodexAgent } from "../src/CodexAgent.js";
@@ -221,8 +222,16 @@ describe("engine cache capability fingerprint", () => {
 describe("smithers agents capabilities", () => {
     test("prints a stable JSON report for each built-in CLI adapter", () => {
         const repo = createTempRepo();
+        const xdgDataHome = repo.path(".xdg-data");
+        mkdirSync(repo.path(".xdg-data", "incur"), { recursive: true });
+        writeFileSync(repo.path(".xdg-data", "incur", "smithers.json"), `${JSON.stringify({
+            hash: "stale-test-hash",
+            skills: [],
+            at: "2026-05-21T00:00:00.000Z",
+        })}\n`);
         const result = runSmithers(["agents", "capabilities"], {
             cwd: repo.dir,
+            env: { XDG_DATA_HOME: xdgDataHome },
             format: null,
         });
         expect(result.exitCode).toBe(0);

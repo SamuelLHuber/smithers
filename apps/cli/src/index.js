@@ -2301,10 +2301,10 @@ let lastDevtoolsCommandOutcome;
  * friendly typed error the helper already wrote to stderr (finding #2).
  *
  * @param {"tree"|"diff"|"output"|"rewind"} cmd
- * @param {{ args: any; options: any; ok: (d?: unknown) => unknown }} c
+ * @param {{ args: any; options: any }} c
  * @param {() => Promise<number>} handler
  */
-async function runDevtoolsCommandWithTelemetry(cmd, c, handler) {
+async function* runDevtoolsCommandWithTelemetry(cmd, c, handler) {
     const startedAt = Date.now();
     let exitCode = 0;
     try {
@@ -2362,9 +2362,8 @@ async function runDevtoolsCommandWithTelemetry(cmd, c, handler) {
             // best-effort metrics.
         }
     }
-    // Return c.ok(undefined) so incur does not emit an additional
-    // envelope on stdout (finding #2).
-    return c.ok(undefined);
+    // This is an empty stream so Incur does not emit an additional envelope
+    // or framework CTA on stdout after the helper has already written output.
 }
 
 /**
@@ -4641,7 +4640,7 @@ const cli = Cli.create({
     // rewrites raw `--json` → `-j` for these commands so it lands as a
     // command option, not a format directive.
     alias: { json: "j" },
-    async run(c) {
+    run(c) {
         return runDevtoolsCommandWithTelemetry("tree", c, async () => {
             const { runTreeOnce, runTreeWatch } = await import("./tree.js");
             const { adapter, cleanup } = await findAndOpenDb();
@@ -4707,7 +4706,7 @@ const cli = Cli.create({
         color: z.enum(["auto", "always", "never"]).default("auto").describe("Colorize output"),
     }),
     alias: { json: "j" },
-    async run(c) {
+    run(c) {
         return runDevtoolsCommandWithTelemetry("diff", c, async () => {
             const { runDiffOnce } = await import("./diff.js");
             const { adapter, cleanup } = await findAndOpenDb();
@@ -4746,7 +4745,7 @@ const cli = Cli.create({
         pretty: z.boolean().default(false).describe("Schema-ordered render"),
     }),
     alias: { json: "j" },
-    async run(c) {
+    run(c) {
         return runDevtoolsCommandWithTelemetry("output", c, async () => {
             const { runOutputOnce } = await import("./output.js");
             const { adapter, cleanup } = await findAndOpenDb();
@@ -4782,7 +4781,7 @@ const cli = Cli.create({
         json: z.boolean().default(false).describe("Emit JumpResult JSON"),
     }),
     alias: { json: "j" },
-    async run(c) {
+    run(c) {
         return runDevtoolsCommandWithTelemetry("rewind", c, async () => {
             const { runRewindOnce } = await import("./rewind.js");
             const { adapter, cleanup } = await findAndOpenDb();
@@ -5194,6 +5193,54 @@ function argvRequestsJsonMode(argv) {
     return false;
 }
 /**
+ * Some commands own stdout completely and promise a raw JSON document even
+ * without `--format json`. Run those before Incur can append framework CTAs
+ * such as the stale-skills reminder, which would make stdout unparsable.
+ *
+ * @param {string[]} argv
+ * @returns {boolean}
+ */
+function runRawJsonAgentCommandIfMatched(argv) {
+    const positionals = [];
+    let jsonOutput = false;
+    for (let index = 0; index < argv.length; index++) {
+        const arg = argv[index];
+        if (arg === "--json") {
+            jsonOutput = true;
+            continue;
+        }
+        if (arg === "--format") {
+            if (argv[index + 1] !== "json") {
+                return false;
+            }
+            jsonOutput = true;
+            index += 1;
+            continue;
+        }
+        if (arg === "--format=json") {
+            jsonOutput = true;
+            continue;
+        }
+        if (arg.startsWith("-")) {
+            return false;
+        }
+        positionals.push(arg);
+    }
+    if (positionals.length !== 2 || positionals[0] !== "agents") {
+        return false;
+    }
+    if (positionals[1] === "capabilities") {
+        process.stdout.write(`${JSON.stringify(getCliAgentCapabilityReport(), null, 2)}\n`);
+        process.exit(0);
+    }
+    if (positionals[1] === "doctor" && jsonOutput) {
+        const report = getCliAgentCapabilityDoctorReport();
+        process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+        process.exit(report.ok ? 0 : 1);
+    }
+    return false;
+}
+/**
  * @param {string[]} argv
  */
 function rewriteWorkflowCommandArgv(argv) {
@@ -5394,6 +5441,9 @@ async function main() {
     argv = rewriteDevtoolsJsonFlagArgv(argv);
     if (argvRequestsJsonMode(argv)) {
         setJsonMode(true);
+    }
+    if (runRawJsonAgentCommandIfMatched(argv)) {
+        return;
     }
     // Finding #1: pre-validate argv for devtools commands so missing-args
     // / invalid-flag errors go to stderr with exit 1 (not incur's
