@@ -1,43 +1,48 @@
 #!/usr/bin/env bash
-# Autonomous Smithers demo (terminal + macOS `say`).
+# Keyboard-driven Smithers slide deck.
 #
-# Defaults: full audio, presentation pacing.
-#   ./.smithers/scripts/run-demo.sh
+#   ▸ / Space / Enter / Down  — next slide
+#   ◂ / Up                    — previous slide
+#   r                         — replay current slide's narration
+#   m                         — mute / unmute audio for the rest of the deck
+#   q / Esc / Ctrl-C          — quit
 #
-# Iterate on visuals without listening:
-#   ./.smithers/scripts/run-demo.sh --silent
-#
-# Fast-forward through the whole demo (~30s):
-#   ./.smithers/scripts/run-demo.sh --silent --speed 8
-#
-# Pick a different macOS voice:
+# Usage (from repo root):
+#   ./.smithers/scripts/run-demo.sh                # full deck, audio on
+#   ./.smithers/scripts/run-demo.sh --silent       # no audio
+#   ./.smithers/scripts/run-demo.sh --start-at 12  # jump straight to slide 13
 #   ./.smithers/scripts/run-demo.sh --voice Daniel
-#   say -v "?"   # list available voices
+#   ./.smithers/scripts/run-demo.sh --auto --silent --auto-ms 4000   # auto rehearsal
 #
-# All other flags get forwarded to `smithers up`.
+# Any other flags get forwarded to `smithers up`.
 
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
 silent=false
-speed=1
+auto=false
+auto_ms=8000
+start_at=0
 voice="Ava (Premium)"
 rate=195
 forward=()
 
 while (("$#")); do
   case "$1" in
-    --silent) silent=true; shift ;;
-    --speed)  speed=$2; shift 2 ;;
-    --voice)  voice=$2; shift 2 ;;
-    --rate)   rate=$2; shift 2 ;;
-    *)        forward+=("$1"); shift ;;
+    --silent|--no-audio|--no-sound|--mute)
+                 silent=true; shift ;;
+    --auto)      auto=true; shift ;;
+    --auto-ms)   auto_ms=$2; shift 2 ;;
+    --start-at)  start_at=$2; shift 2 ;;
+    --voice)     voice=$2; shift 2 ;;
+    --rate)      rate=$2; shift 2 ;;
+    *)           forward+=("$1"); shift ;;
   esac
 done
 
-input=$(printf '{"silent":%s,"speed":%s,"voice":"%s","rate":%s}' \
-  "$silent" "$speed" "$voice" "$rate")
+input=$(printf '{"silent":%s,"auto":%s,"autoMs":%s,"startAt":%s,"voice":"%s","rate":%s}' \
+  "$silent" "$auto" "$auto_ms" "$start_at" "$voice" "$rate")
 
 exec bun run smithers up .smithers/workflows/demo.tsx \
   --input "$input" "${forward[@]+"${forward[@]}"}"
