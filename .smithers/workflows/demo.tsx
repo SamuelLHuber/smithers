@@ -180,13 +180,18 @@ function startKeyboard(onKey: (k: Key) => void): () => void {
 
 const STAGE_DIR = ".smithers/workflows/demo-stage";
 
+function forcedColorEnv() {
+  const { NO_COLOR: _noColor, ...env } = process.env;
+  return { ...env, FORCE_COLOR: "1" };
+}
+
 async function runReal(args: string[], opts: { allowFailure?: boolean } = {}): Promise<number> {
   const { spawn } = await import("node:child_process");
   return new Promise<number>((resolve, reject) => {
     const p = spawn("bun", ["run", "smithers", ...args], {
       cwd: STAGE_DIR,
       stdio: "inherit",
-      env: { ...process.env, FORCE_COLOR: "1" },
+      env: forcedColorEnv(),
     });
     p.on("close", (code) => {
       if (code === 0 || opts.allowFailure) resolve(code ?? 0);
@@ -201,7 +206,7 @@ async function startReal(args: string[]) {
   const p = spawn("bun", ["run", "smithers", ...args], {
     cwd: STAGE_DIR,
     stdio: "inherit",
-    env: { ...process.env, FORCE_COLOR: "1" },
+    env: forcedColorEnv(),
   });
   const exited = new Promise<number>((resolve) => p.on("close", (c) => resolve(c ?? 0)));
   return { p, exited };
