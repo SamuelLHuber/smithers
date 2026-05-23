@@ -15,9 +15,13 @@ describe("Concurrent runs", () => {
             tools: {},
             generate: async () => {
                 active += 1;
-                await sleep(150);
-                active -= 1;
-                return { output: { value: 1 } };
+                try {
+                    await sleep(750);
+                    return { output: { value: 1 } };
+                }
+                finally {
+                    active -= 1;
+                }
             },
         };
         const workflow = smithers(() => (<Workflow name="concurrent-runs">
@@ -29,21 +33,34 @@ describe("Concurrent runs", () => {
         const adapter = new SmithersDb(db);
         const firstRunId = "run-a";
         const secondRunId = "run-b";
-        const firstPromise = Effect.runPromise(runWorkflow(workflow, { input: {}, runId: firstRunId }));
-        for (let i = 0; i < 40; i++) {
-            const attempts = await adapter.listAttempts(firstRunId, "slow", 0);
-            if (attempts.some((attempt) => attempt.state === "in-progress"))
-                break;
-            await sleep(10);
+        const waitForAttemptState = async (runId, expectedState) => {
+            let attempts = [];
+            for (let i = 0; i < 100; i++) {
+                attempts = await adapter.listAttempts(runId, "slow", 0);
+                if (attempts.some((attempt) => attempt.state === expectedState))
+                    return;
+                await sleep(10);
+            }
+            const states = attempts.map((attempt) => attempt.state).join(", ") || "none";
+            throw new Error(`Timed out waiting for ${runId} slow attempt to be ${expectedState}; last states: ${states}`);
+        };
+        let firstPromise;
+        let secondPromise;
+        try {
+            firstPromise = Effect.runPromise(runWorkflow(workflow, { input: {}, runId: firstRunId }));
+            await waitForAttemptState(firstRunId, "in-progress");
+            secondPromise = Effect.runPromise(runWorkflow(workflow, { input: {}, runId: secondRunId }));
+            await waitForAttemptState(secondRunId, "in-progress");
+            const firstAttemptsAfterSecondStart = await adapter.listAttempts(firstRunId, "slow", 0);
+            expect(firstAttemptsAfterSecondStart.some((attempt) => attempt.state === "in-progress")).toBe(true);
+            const [firstResult, secondResult] = await Promise.all([firstPromise, secondPromise]);
+            expect(firstResult.status).toBe("finished");
+            expect(secondResult.status).toBe("finished");
+            expect(active).toBe(0);
         }
-        const secondPromise = Effect.runPromise(runWorkflow(workflow, { input: {}, runId: secondRunId }));
-        await sleep(25);
-        const firstAttemptsAfterSecondStart = await adapter.listAttempts(firstRunId, "slow", 0);
-        expect(firstAttemptsAfterSecondStart[0]?.state).toBe("in-progress");
-        const [firstResult, secondResult] = await Promise.all([firstPromise, secondPromise]);
-        expect(firstResult.status).toBe("finished");
-        expect(secondResult.status).toBe("finished");
-        expect(active).toBe(0);
-        cleanup();
+        finally {
+            await Promise.allSettled([firstPromise, secondPromise].filter(Boolean));
+            cleanup();
+        }
     });
 });
