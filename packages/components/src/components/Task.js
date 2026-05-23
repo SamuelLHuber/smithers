@@ -13,6 +13,7 @@ import { zodSchemaToJsonExample } from "../zod-to-example.js";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { SmithersContext } from "@smithers-orchestrator/react-reconciler/context";
 import { AspectContext } from "../aspects/AspectContext.js";
+import { AntigravityAgent } from "@smithers-orchestrator/agents/AntigravityAgent";
 import { ClaudeCodeAgent } from "@smithers-orchestrator/agents/ClaudeCodeAgent";
 import { GeminiAgent } from "@smithers-orchestrator/agents/GeminiAgent";
 import { PiAgent } from "@smithers-orchestrator/agents/PiAgent";
@@ -170,6 +171,13 @@ function applyCliToolAllowlist(agent, allowTools) {
     if (agent instanceof GeminiAgent) {
         const opts = { ...agent.opts };
         return new GeminiAgent({
+            ...opts,
+            allowedTools: [...allowTools],
+        });
+    }
+    if (agent instanceof AntigravityAgent) {
+        const opts = { ...agent.opts };
+        return new AntigravityAgent({
             ...opts,
             allowedTools: [...allowTools],
         });

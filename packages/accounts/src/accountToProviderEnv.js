@@ -15,6 +15,11 @@ export function accountToProviderEnv(account) {
                 throw new SmithersError("ACCOUNT_INVALID", `claude-code account "${account.label}" missing configDir`);
             }
             return { CLAUDE_CONFIG_DIR: account.configDir };
+        case "antigravity":
+            if (!account.configDir) {
+                throw new SmithersError("ACCOUNT_INVALID", `antigravity account "${account.label}" missing configDir`);
+            }
+            return { GEMINI_DIR: account.configDir };
         case "codex":
             if (!account.configDir) {
                 throw new SmithersError("ACCOUNT_INVALID", `codex account "${account.label}" missing configDir`);

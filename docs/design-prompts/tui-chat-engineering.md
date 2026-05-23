@@ -199,7 +199,7 @@ export function useAgent(): AgentState {
 }
 ```
 
-**Key decision**: We use the existing `detectAvailableAgents()` from `src/cli/agent-detection.ts` which scores each agent (claude, codex, gemini, etc.) based on binary presence and auth signals, then pick the highest-scored one. This is the same system used by `smithers ask`.
+**Key decision**: We use the existing `detectAvailableAgents()` from `src/cli/agent-detection.ts` which scores each agent (claude, codex, antigravity, etc.) based on binary presence and auth signals, then pick the highest-scored one. This is the same system used by `smithers ask`.
 
 ### useRuns
 
@@ -362,9 +362,9 @@ async function constructAgent(detection: AgentAvailability): Promise<AgentLike> 
       const { CodexAgent } = await import("../../agents/CodexAgent");
       return new CodexAgent({ model: "gpt-5.3-codex", skipGitRepoCheck: true });
     }
-    case "gemini": {
-      const { GeminiAgent } = await import("../../agents/GeminiAgent");
-      return new GeminiAgent({ model: "gemini-3.1-pro-preview" });
+    case "antigravity": {
+      const { AntigravityAgent } = await import("../../agents/AntigravityAgent");
+      return new AntigravityAgent();
     }
     // ... etc for pi, kimi, amp
   }
@@ -598,7 +598,7 @@ test("Active runs sidebar shows running workflows", async () => {
 ### Already Available
 - `@opentui/core` + `@opentui/react` — rendering framework
 - `react` 19.2.4 — component model
-- Agent classes (ClaudeCodeAgent, CodexAgent, GeminiAgent, etc.)
+- Agent classes (ClaudeCodeAgent, CodexAgent, AntigravityAgent, etc.)
 - `detectAvailableAgents()` — agent detection
 - `discoverWorkflows()` — workflow discovery
 - `SmithersDb` adapter — database access

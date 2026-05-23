@@ -5,6 +5,7 @@
  */
 export type AccountProvider =
   | "claude-code"
+  | "antigravity"
   | "codex"
   | "gemini"
   | "kimi"

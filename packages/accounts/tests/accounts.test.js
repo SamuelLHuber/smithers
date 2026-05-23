@@ -198,6 +198,8 @@ describe("accountToProviderEnv", () => {
     test("subscription providers map to their dir env var", () => {
         expect(accountToProviderEnv({ label: "x", provider: "claude-code", configDir: "/c" }))
             .toEqual({ CLAUDE_CONFIG_DIR: "/c" });
+        expect(accountToProviderEnv({ label: "x", provider: "antigravity", configDir: "/c" }))
+            .toEqual({ GEMINI_DIR: "/c" });
         expect(accountToProviderEnv({ label: "x", provider: "codex", configDir: "/c" }))
             .toEqual({ CODEX_HOME: "/c" });
         expect(accountToProviderEnv({ label: "x", provider: "gemini", configDir: "/c" }))
@@ -215,6 +217,8 @@ describe("accountToProviderEnv", () => {
     });
     test("subscription provider with missing configDir throws", () => {
         expect(() => accountToProviderEnv({ label: "x", provider: "claude-code" }))
+            .toThrow(/missing configDir/);
+        expect(() => accountToProviderEnv({ label: "x", provider: "antigravity" }))
             .toThrow(/missing configDir/);
         expect(() => accountToProviderEnv({ label: "x", provider: "codex" }))
             .toThrow(/missing configDir/);

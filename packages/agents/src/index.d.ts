@@ -138,7 +138,7 @@ type AgentToolDescriptor$1 = {
 
 type AgentCapabilityRegistry$3 = {
     version: 1;
-    engine: "claude-code" | "codex" | "gemini" | "kimi" | "pi" | "amp" | "forge" | "opencode";
+    engine: "claude-code" | "codex" | "antigravity" | "gemini" | "kimi" | "pi" | "amp" | "forge" | "opencode";
     runtimeTools: Record<string, AgentToolDescriptor$1>;
     mcp: {
         bootstrap: "inline-config" | "project-config" | "allow-list" | "unsupported";
@@ -424,6 +424,57 @@ declare class AmpAgent extends BaseCliAgent {
 }
 type AmpAgentOptions = AmpAgentOptions$1;
 type CliOutputInterpreter$6 = CliOutputInterpreter$8;
+
+type AntigravityAgentOptions$1 = BaseCliAgentOptions$1 & {
+    debug?: boolean;
+    model?: string;
+    sandbox?: boolean;
+    yolo?: boolean;
+    dangerouslySkipPermissions?: boolean;
+    allowedMcpServerNames?: string[];
+    allowedTools?: string[];
+    extensions?: string[];
+    listExtensions?: boolean;
+    resume?: string;
+    listSessions?: boolean;
+    deleteSession?: string;
+    includeDirectories?: string[];
+    screenReader?: boolean;
+    outputFormat?: "text" | "json" | "stream-json";
+    binary?: string;
+    configDir?: string;
+    geminiDir?: string;
+    apiKey?: string;
+};
+declare function createAntigravityCapabilityRegistry(opts?: AntigravityAgentOptions): AgentCapabilityRegistry$3;
+declare class AntigravityAgent extends BaseCliAgent {
+    /**
+   * @param {AntigravityAgentOptions} [opts]
+   */
+    constructor(opts?: AntigravityAgentOptions);
+    opts: AntigravityAgentOptions$1;
+    capabilities: AgentCapabilityRegistry$3;
+    cliEngine: string;
+    /**
+   * @returns {CliOutputInterpreter}
+   */
+    createOutputInterpreter(): CliOutputInterpreter$6;
+    /**
+   * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
+   */
+    buildCommand(params: {
+        prompt: string;
+        systemPrompt?: string;
+        cwd: string;
+        options: any;
+    }): Promise<{
+        command: string;
+        args: string[];
+        outputFormat: "text" | "json" | "stream-json";
+        env: Record<string, string> | undefined;
+    }>;
+}
+type AntigravityAgentOptions = AntigravityAgentOptions$1;
 
 type ClaudeCodeAgentOptions$1 = BaseCliAgentOptions$1 & {
     addDir?: string[];
@@ -896,4 +947,4 @@ type SmithersAgentToolCategory = SmithersAgentToolCategory$1;
 type SmithersListedTool = SmithersListedTool$2;
 type SmithersToolSurface = SmithersToolSurface$2;
 
-export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, BaseCliAgent, ClaudeCodeAgent, CodexAgent, ForgeAgent, GeminiAgent, KimiAgent, OpenAIAgent, type OpenAIAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, createSmithersAgentContract, hashCapabilityRegistry, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };
+export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AntigravityAgent, AnthropicAgent, type AnthropicAgentOptions, BaseCliAgent, ClaudeCodeAgent, CodexAgent, ForgeAgent, GeminiAgent, KimiAgent, OpenAIAgent, type OpenAIAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, createAntigravityCapabilityRegistry, createSmithersAgentContract, hashCapabilityRegistry, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };

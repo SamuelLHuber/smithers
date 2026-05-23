@@ -2,6 +2,7 @@ import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 
 const VALID_PROVIDERS = new Set([
     "claude-code",
+    "antigravity",
     "codex",
     "gemini",
     "kimi",
@@ -12,6 +13,7 @@ const VALID_PROVIDERS = new Set([
 
 const SUBSCRIPTION_PROVIDERS = new Set([
     "claude-code",
+    "antigravity",
     "codex",
     "gemini",
     "kimi",

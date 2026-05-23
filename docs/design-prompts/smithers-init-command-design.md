@@ -85,14 +85,14 @@ Implication:
 
 Observed on this machine, without reading secrets:
 
-- binaries present: `claude`, `codex`, `gemini`, `pi`, `kimi`, `forge`, `amp`
+- binaries present: `claude`, `codex`, `agy`, `pi`, `kimi`, `forge`, `amp`
 - env var names present: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `LINEAR_API_KEY`
 - config/auth directories present: `~/.claude`, `~/.codex`, `~/.gemini`, `~/.pi`
 
 Implication:
 
 - the generated `agents.ts` should not assume only one provider
-- the scaffold can safely generate first-class Claude, Codex, Gemini, and Pi roles on this machine
+- the scaffold can safely generate first-class Claude, Codex, Antigravity, and Pi roles on this machine
 - Kimi, Forge, and Amp can be detected too, but they should start as opportunistic extras until auth detection is hardened
 
 ### 5. Smithers and Codeplane already encode model precedence
@@ -106,16 +106,16 @@ Smithers’ current guidance in `docs/guides/model-selection.mdx` says:
 `~/codeplane/specs/generate/index.tsx` goes further and encodes role-specific fallback chains:
 
 - spec: `claude -> codex`
-- research: `gemini -> kimi -> codex -> claude`
-- review research: `claude -> kimi -> codex -> gemini`
-- plan: `gemini -> codex -> claude -> kimi`
-- review plan: `codex -> claude -> gemini -> kimi`
-- implementation: dynamic primary, fallback order `gemini -> codex -> claude -> kimi`
+- research: `antigravity -> kimi -> codex -> claude`
+- review research: `claude -> kimi -> codex -> antigravity`
+- plan: `antigravity -> codex -> claude -> kimi`
+- review plan: `codex -> claude -> antigravity -> kimi`
+- implementation: dynamic primary, fallback order `antigravity -> codex -> claude -> kimi`
 
 `~/codeplane/specs/tui/generate/index.tsx` uses a simpler but consistent trio:
 
 - spec: Claude Opus
-- implement: Gemini 3.1 Pro
+- implement: Antigravity CLI default
 - review: Codex
 
 Implication:
@@ -308,9 +308,9 @@ These have a reasonable local signal:
   - binary: `codex`
   - likely auth/config signal: `~/.codex/`
   - API fallback signal: `OPENAI_API_KEY`
-- Gemini CLI
-  - binary: `gemini`
-  - likely auth/config signal: `~/.gemini/oauth_creds.json` or `gcloud auth print-access-token`
+- Antigravity CLI
+  - binary: `agy`
+  - likely auth/config signal: `~/.gemini/antigravity-cli/settings.json`
   - API fallback signal: `GOOGLE_API_KEY` or `GEMINI_API_KEY`
 - Pi
   - binary: `pi`
@@ -350,19 +350,19 @@ Recommended structure:
 export const providers = {
   claude,
   codex,
-  gemini,
+  antigravity,
   kimi,
   pi,
 }
 
 export const roleChains = {
   spec: [claude, codex],
-  research: [gemini, kimi, codex, claude],
-  plan: [gemini, codex, claude, kimi],
-  implement: [codex, gemini, claude, kimi],
-  validate: [codex, gemini],
+  research: [antigravity, kimi, codex, claude],
+  plan: [antigravity, codex, claude, kimi],
+  implement: [codex, antigravity, claude, kimi],
+  validate: [codex, antigravity],
   review: [claude, codex],
-  fast: [claudeSonnet, geminiFlash, piFast],
+  fast: [claudeSonnet, antigravity, piFast],
 }
 ```
 
@@ -371,7 +371,7 @@ Recommended default models, based on current Smithers and local Codeplane usage:
 - Claude: `claude-opus-4-7`
 - Claude fast: `claude-sonnet-4-5-20250929`
 - Codex: `gpt-5.3-codex` with reasoning effort `high`
-- Gemini: `gemini-3.1-pro-preview`
+- Antigravity: CLI default model
 - Kimi: `kimi-latest`
 - Pi:
   - provider chosen from detected auth
@@ -608,7 +608,7 @@ Harness requirements:
 - CLI runner helper
 - fixture assertions for file existence and file content
 - helper to prepend a fake `PATH`
-- helper to create fake `claude`, `codex`, and `gemini` binaries that emit deterministic schema-valid output
+- helper to create fake `claude`, `codex`, and `agy` binaries that emit deterministic schema-valid output
 
 Verification gate:
 

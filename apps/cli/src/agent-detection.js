@@ -28,9 +28,25 @@ const DETECTORS = [
         setupHint: "Install the Codex CLI and run `codex login`, or set `OPENAI_API_KEY`.",
     },
     {
+        id: "antigravity",
+        displayName: "Antigravity",
+        binary: "agy",
+        authSignals: (homeDir, env) => {
+            const configRoot = env.GEMINI_DIR ? resolve(env.GEMINI_DIR) : join(homeDir, ".gemini");
+            return [
+                join(configRoot, "antigravity-cli", "settings.json"),
+                join(configRoot, "antigravity-cli"),
+            ];
+        },
+        apiKeys: [],
+        setupHint: "Install the Antigravity CLI, run `agy`, and complete Google Sign-In.",
+    },
+    {
         id: "gemini",
         displayName: "Gemini",
         binary: "gemini",
+        deprecated: true,
+        deprecationReason: "Gemini CLI is deprecated for individual/free users; use Antigravity CLI (`agy`) instead.",
         authSignals: (homeDir, env) => {
             const configDir = env.GEMINI_DIR ? resolve(env.GEMINI_DIR) : join(homeDir, ".gemini");
             return [
@@ -44,7 +60,7 @@ const DETECTORS = [
             const trustFile = join(configDir, "trustedFolders.json");
             return readGeminiProjectTrust(trustFile, cwd);
         },
-        setupHint: "Install the Gemini CLI, authenticate it, and trust this project with Gemini, or set `GEMINI_API_KEY` after installing the CLI.",
+        setupHint: "Gemini CLI is deprecated. Install Antigravity CLI and run `agy`, or continue using Gemini only for legacy/enterprise setups.",
     },
     {
         id: "pi",
@@ -78,10 +94,10 @@ const DETECTORS = [
 ];
 const ROLE_PREFERENCES = {
     spec: ["claude", "codex"],
-    research: ["gemini", "kimi", "codex", "claude"],
-    plan: ["gemini", "codex", "claude", "kimi"],
-    implement: ["codex", "amp", "gemini", "claude", "kimi"],
-    validate: ["codex", "amp", "gemini"],
+    research: ["antigravity", "kimi", "codex", "claude"],
+    plan: ["antigravity", "codex", "claude", "kimi"],
+    implement: ["codex", "amp", "antigravity", "claude", "kimi"],
+    validate: ["codex", "amp", "antigravity"],
     review: ["claude", "amp", "codex"],
 };
 const AGENT_VARIANTS = [
@@ -98,12 +114,28 @@ const AGENT_VARIANTS = [
 const SCAFFOLDED_PROVIDERS = {
     claude: "ClaudeCodeAgent",
     codex: "CodexAgent",
+    antigravity: "AntigravityAgent",
+};
+const SCAFFOLDED_PROVIDER_FILES = {
+    claude: "claude-code",
+    codex: "codex",
+    antigravity: "antigravity",
+};
+const LEGACY_SCAFFOLDED_PROVIDERS = {
     gemini: "GeminiAgent",
 };
+const LOCAL_SCAFFOLDED_PROVIDERS = {
+    ...SCAFFOLDED_PROVIDERS,
+    ...LEGACY_SCAFFOLDED_PROVIDERS,
+};
+const LOCAL_SCAFFOLDED_PROVIDER_FILES = {
+    ...SCAFFOLDED_PROVIDER_FILES,
+    gemini: "gemini",
+};
 const TIER_PREFERENCES = {
-    cheapFast: { order: ["kimi", "claudeSonnet", "gemini", "pi"], maxSize: 2 },
-    smart: { order: ["codex", "claude", "kimi", "gemini", "amp"], maxSize: 3 },
-    smartTool: { order: ["claude", "codex", "kimi", "gemini", "amp"], maxSize: 3 },
+    cheapFast: { order: ["kimi", "claudeSonnet", "antigravity", "pi"], maxSize: 2 },
+    smart: { order: ["codex", "claude", "kimi", "antigravity", "amp"], maxSize: 3 },
+    smartTool: { order: ["claude", "codex", "kimi", "antigravity", "amp"], maxSize: 3 },
 };
 const CONSTRUCTORS = {
     claude: {
@@ -113,6 +145,10 @@ const CONSTRUCTORS = {
     codex: {
         importName: "CodexAgent",
         expr: 'new SmithersCodexAgent({ model: "gpt-5.3-codex", cwd: process.cwd(), skipGitRepoCheck: true })',
+    },
+    antigravity: {
+        importName: "AntigravityAgent",
+        expr: "new SmithersAntigravityAgent({ cwd: process.cwd() })",
     },
     gemini: {
         importName: "GeminiAgent",
@@ -174,7 +210,7 @@ export function extractGeneratedDetectionProviderIds(source) {
         if (!match)
             continue;
         const [, providerId, initializer] = match;
-        const scaffoldedProvider = SCAFFOLDED_PROVIDERS[providerId];
+        const scaffoldedProvider = SCAFFOLDED_PROVIDERS[providerId] ?? LEGACY_SCAFFOLDED_PROVIDERS[providerId];
         const constructorProvider = CONSTRUCTORS[providerId];
         if ((scaffoldedProvider && initializer === scaffoldedProvider) ||
             (constructorProvider && initializer === constructorProvider.expr)) {
@@ -326,7 +362,7 @@ export function describeUnavailableAgent(agent) {
  */
 export function formatNoUsableAgentsMessage(detections) {
     const summaries = detections
-        .map((entry) => `${entry.displayName}: ${entry.usable ? "usable" : formatUnusableReasons(entry)}`)
+        .map((entry) => `${entry.displayName}: ${entry.deprecated ? `deprecated (${entry.deprecationReason})` : entry.usable ? "usable" : formatUnusableReasons(entry)}`)
         .join(" | ");
     return [
         `No usable agents detected. ${summaries}.`,
@@ -371,6 +407,8 @@ export function detectAvailableAgents(env = process.env, options = {}) {
             id: detector.id,
             displayName: detector.displayName,
             binary: detector.binary,
+            deprecated: detector.deprecated === true ? true : undefined,
+            deprecationReason: detector.deprecationReason,
             hasBinary,
             hasAuthSignal,
             hasApiKeySignal,
@@ -418,6 +456,7 @@ function resolveRoleAgents(role, available) {
  */
 const ACCOUNT_PROVIDER_CLASSES = {
     "claude-code": "ClaudeCodeAgent",
+    "antigravity": "AntigravityAgent",
     "codex": "CodexAgent",
     "gemini": "GeminiAgent",
     "kimi": "KimiAgent",
@@ -434,6 +473,7 @@ const ACCOUNT_PROVIDER_CLASSES = {
 const ACCOUNT_PROVIDER_POOL = {
     "claude-code": "claude",
     "anthropic-api": "claude",
+    "antigravity": "antigravity",
     "codex": "codex",
     "openai-api": "codex",
     "gemini": "gemini",
@@ -448,6 +488,7 @@ const ACCOUNT_PROVIDER_POOL = {
 const ACCOUNT_PROVIDER_DEFAULT_MODEL = {
     "claude-code": "claude-opus-4-7",
     "anthropic-api": "claude-opus-4-7",
+    "antigravity": undefined,
     "codex": "gpt-5.4-codex",
     "openai-api": "gpt-5.4-codex",
     "gemini": "gemini-3.1-pro-preview",
@@ -600,12 +641,14 @@ function renderTierLine(tier, providerIds, comments) {
 
 /**
  * @param {NodeJS.ProcessEnv} [env]
- * @param {{ cwd?: string; preserveProviderIds?: Iterable<string> }} [options]
+ * @param {{ cwd?: string; preserveProviderIds?: Iterable<string>; scaffoldProviderIds?: Iterable<string> }} [options]
  */
 export function generateAgentsTs(env = process.env, options = {}) {
     const registeredAccounts = listAccounts(env);
     const detections = detectAvailableAgents(env, options);
-    const availableById = new Map(detections.filter((entry) => entry.usable).map((entry) => [entry.id, entry]));
+    const scaffoldProviderIds = new Set(options.scaffoldProviderIds ?? Object.keys(SCAFFOLDED_PROVIDERS));
+    const usesLocalScaffold = (providerId) => providerId in LOCAL_SCAFFOLDED_PROVIDERS && scaffoldProviderIds.has(providerId);
+    const availableById = new Map(detections.filter((entry) => entry.usable && !entry.deprecated).map((entry) => [entry.id, entry]));
     for (const providerId of options.preserveProviderIds ?? []) {
         const baseId = baseAgentIdForProviderId(providerId);
         const detector = detectorForId(baseId);
@@ -646,7 +689,7 @@ export function generateAgentsTs(env = process.env, options = {}) {
     // detection providers + every account class.
     const importNames = new Set();
     for (const provider of orderedProviders) {
-        if (!(provider.id in SCAFFOLDED_PROVIDERS)) {
+        if (!usesLocalScaffold(provider.id)) {
             importNames.add(CONSTRUCTORS[provider.id].importName);
         }
     }
@@ -665,10 +708,16 @@ export function generateAgentsTs(env = process.env, options = {}) {
     // Provider lines: detection base + variants + accounts (additive — `agent
     // add` must never silently delete a previously-emitted provider).
     const providerLines = [
-        ...orderedProviders.map((provider) => `  ${provider.id}: ${SCAFFOLDED_PROVIDERS[provider.id] ?? CONSTRUCTORS[provider.id].expr},`),
+        ...orderedProviders.map((provider) => `  ${provider.id}: ${usesLocalScaffold(provider.id) ? LOCAL_SCAFFOLDED_PROVIDERS[provider.id] : CONSTRUCTORS[provider.id].expr},`),
         ...activeVariants.map((variant) => `  ${variant.variantId}: ${variant.constructor.expr},`),
         ...registeredAccounts.map((account) => renderAccountProviderLine(account, homeDir)),
     ];
+    const scaffoldImportLines = orderedProviders
+        .filter((provider) => usesLocalScaffold(provider.id))
+        .map((provider) => `import { ${LOCAL_SCAFFOLDED_PROVIDERS[provider.id]} } from "./agents/${LOCAL_SCAFFOLDED_PROVIDER_FILES[provider.id]}";`);
+    const scaffoldExportLines = orderedProviders
+        .filter((provider) => usesLocalScaffold(provider.id))
+        .map((provider) => `export { ${LOCAL_SCAFFOLDED_PROVIDERS[provider.id]} } from "./agents/${LOCAL_SCAFFOLDED_PROVIDER_FILES[provider.id]}";`);
     // All known provider/variant IDs for tier resolution
     const allProviderIds = new Set([
         ...orderedProviders.map((p) => p.id),
@@ -702,14 +751,10 @@ export function generateAgentsTs(env = process.env, options = {}) {
         ...(hasAccounts ? ["// Account providers (camelCase labels) come from ~/.smithers/accounts.json — managed via `smithers agent add|list|remove`."] : []),
         ...(hasAccounts ? ['import { homedir } from "node:os";', 'import path from "node:path";'] : []),
         `import { ${smithersImportSpecifiers.join(", ")} } from "smithers-orchestrator";`,
-        'import { ClaudeCodeAgent } from "./agents/claude-code";',
-        'import { CodexAgent } from "./agents/codex";',
-        'import { GeminiAgent } from "./agents/gemini";',
+        ...scaffoldImportLines,
         "",
-        'export { ClaudeCodeAgent } from "./agents/claude-code";',
-        'export { CodexAgent } from "./agents/codex";',
-        'export { GeminiAgent } from "./agents/gemini";',
-        "",
+        ...scaffoldExportLines,
+        ...(scaffoldExportLines.length ? [""] : []),
         "export const providers = {",
         ...providerLines,
         "} as const;",

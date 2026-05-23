@@ -1,4 +1,5 @@
 import { hashCapabilityRegistry, normalizeCapabilityRegistry, } from "../capability-registry/index.js";
+import { createAntigravityCapabilityRegistry } from "../AntigravityAgent.js";
 import { createClaudeCodeCapabilityRegistry } from "../ClaudeCodeAgent.js";
 import { createCodexCapabilityRegistry } from "../CodexAgent.js";
 import { createGeminiCapabilityRegistry } from "../GeminiAgent.js";
@@ -17,6 +18,11 @@ const CLI_AGENT_CAPABILITY_ADAPTERS = [
         id: "codex",
         binary: "codex",
         buildRegistry: () => createCodexCapabilityRegistry(),
+    },
+    {
+        id: "antigravity",
+        binary: "agy",
+        buildRegistry: () => createAntigravityCapabilityRegistry(),
     },
     {
         id: "gemini",

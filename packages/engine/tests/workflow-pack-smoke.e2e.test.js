@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createExecutableDir, createTempRepo, runSmithers, writeFakeClaudeBinary, writeFakeCodexBinary, writeFakeGeminiBinary, } from "../../smithers/tests/e2e-helpers.js";
+import { createExecutableDir, createTempRepo, runSmithers, writeFakeAntigravityBinary, writeFakeClaudeBinary, writeFakeCodexBinary, } from "../../smithers/tests/e2e-helpers.js";
 const WORKFLOW_PACK_SMOKE_TIMEOUT_MS = 30_000;
 /**
  * @param {string} homeDir
@@ -8,13 +8,13 @@ function buildWorkflowPackEnv(homeDir) {
     const binDir = createExecutableDir();
     writeFakeClaudeBinary(binDir);
     writeFakeCodexBinary(binDir);
-    writeFakeGeminiBinary(binDir);
+    writeFakeAntigravityBinary(binDir);
     return {
         HOME: homeDir,
         PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`,
         ANTHROPIC_API_KEY: "",
         OPENAI_API_KEY: "test-openai-key",
-        GEMINI_API_KEY: "test-gemini-key",
+        GEMINI_API_KEY: "",
         GOOGLE_API_KEY: "",
     };
 }
@@ -22,8 +22,7 @@ function initWorkflowPack(repo = createTempRepo()) {
     const env = buildWorkflowPackEnv(repo.dir);
     repo.write(".claude/.credentials.json", "{}\n");
     repo.write(".codex/auth.json", "{}\n");
-    repo.write(".gemini/oauth_creds.json", "{}\n");
-    repo.write(".gemini/trustedFolders.json", JSON.stringify({ [repo.dir]: "TRUST_FOLDER" }) + "\n");
+    repo.write(".gemini/antigravity-cli/settings.json", "{}\n");
     const initResult = runSmithers(["init"], {
         cwd: repo.dir,
         format: "json",

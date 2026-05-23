@@ -76,6 +76,65 @@ test("hijack reopens the latest Claude Code session for a finished run", async (
         sqlite.close();
     }
 });
+test("hijack reopens Antigravity sessions with agy resume", async () => {
+    const repo = createTempRepo();
+    const { sqlite, adapter } = openRepoDb(repo);
+    const argsFile = repo.path("antigravity-hijack.json");
+    const binDir = createExecutableDir();
+    writeExecutable(binDir, "agy", [
+        "#!/usr/bin/env node",
+        'const fs = require("node:fs");',
+        'const target = process.env.ANTIGRAVITY_HIJACK_FILE;',
+        'if (target) fs.writeFileSync(target, JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2) }), "utf8");',
+        "process.exit(0);",
+        "",
+    ].join("\n"));
+    try {
+        await adapter.insertRun({
+            runId: "run-antigravity-hijack",
+            workflowName: "hijack-fixture",
+            workflowPath: repo.path("workflow.tsx"),
+            status: "finished",
+            createdAtMs: 1_000,
+            startedAtMs: 1_000,
+            finishedAtMs: 2_000,
+        });
+        await adapter.insertAttempt({
+            runId: "run-antigravity-hijack",
+            nodeId: "plan",
+            iteration: 0,
+            attempt: 1,
+            state: "finished",
+            startedAtMs: 1_100,
+            finishedAtMs: 1_800,
+            errorJson: null,
+            jjPointer: null,
+            jjCwd: repo.dir,
+            cached: false,
+            metaJson: JSON.stringify({
+                kind: "agent",
+                agentEngine: "antigravity",
+                agentResume: "agy-session-123",
+            }),
+            responseText: "done",
+        });
+        const result = runSmithers(["hijack", "run-antigravity-hijack"], {
+            cwd: repo.dir,
+            format: null,
+            env: {
+                ...prependPath(binDir),
+                ANTIGRAVITY_HIJACK_FILE: argsFile,
+            },
+        });
+        expect(result.exitCode).toBe(0);
+        const launched = JSON.parse(repo.read("antigravity-hijack.json"));
+        expect(launched.cwd).toBe(repo.dir);
+        expect(launched.args).toEqual(["--resume", "agy-session-123"]);
+    }
+    finally {
+        sqlite.close();
+    }
+});
 test("hijack exposes conversation-mode handoff details for SDK-backed runs", async () => {
     const repo = createTempRepo();
     const { sqlite, adapter } = openRepoDb(repo);

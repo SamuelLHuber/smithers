@@ -363,7 +363,7 @@ export function normalizeStructuredEventForFamily(agentFamily, parsed, rawType) 
         const normalized = normalizeClaudeStructuredEvent(parsed, rawType);
         if (normalized) return normalized;
     }
-    if (agentFamily === "gemini") {
+    if (agentFamily === "gemini" || agentFamily === "antigravity") {
         const normalized = normalizeGeminiStructuredEvent(parsed, rawType);
         if (normalized) return normalized;
     }

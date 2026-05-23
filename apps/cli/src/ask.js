@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { AntigravityAgent } from "@smithers-orchestrator/agents/AntigravityAgent";
 import { ClaudeCodeAgent } from "@smithers-orchestrator/agents/ClaudeCodeAgent";
 import { CodexAgent } from "@smithers-orchestrator/agents/CodexAgent";
 import { GeminiAgent } from "@smithers-orchestrator/agents/GeminiAgent";
@@ -20,7 +21,7 @@ import { describeUnavailableAgent, detectAvailableAgents, formatNoUsableAgentsMe
  */
 /** @typedef {import("@smithers-orchestrator/agents/agent-contract").SmithersToolSurface} SmithersToolSurface */
 
-const ASK_AGENT_IDS = ["claude", "codex", "kimi", "gemini", "pi"];
+const ASK_AGENT_IDS = ["claude", "codex", "kimi", "antigravity", "gemini", "pi"];
 const DEFAULT_SERVER_NAME = "smithers";
 /**
  * @param {AgentAvailability["id"]} value
@@ -52,6 +53,7 @@ function resolveBootstrapMode(agentId, noMcp = false) {
             return "mcp-config-inline";
         case "gemini":
             return "mcp-allow-list";
+        case "antigravity":
         case "pi":
             return "prompt-only";
     }
@@ -216,7 +218,7 @@ function selectAgent(agents, options) {
             selectionReason: "requested via --agent",
         };
     }
-    const usable = supported.filter((agent) => agent.usable);
+    const usable = supported.filter((agent) => agent.usable && !agent.deprecated);
     if (usable.length === 0) {
         throw noUsableAgentError(agents);
     }
@@ -366,6 +368,15 @@ function buildAgent(selection, bootstrap, systemPrompt, cwd) {
                         : undefined,
                     systemPrompt,
                     approvalMode: "yolo",
+                }),
+                cleanup() { },
+            };
+        case "antigravity":
+            return {
+                agent: new AntigravityAgent({
+                    cwd,
+                    systemPrompt,
+                    dangerouslySkipPermissions: true,
                 }),
                 cleanup() { },
             };

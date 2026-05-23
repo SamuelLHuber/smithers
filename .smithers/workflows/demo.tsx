@@ -1003,7 +1003,7 @@ store.setFact(ns, "code-style", { tabs: 2, semi: true }, 30 * 24 * 3600_000);`,
     subtitle: "Sandboxed tools, any agent CLI, OpenAPI generator, MCP server.",
     narration:
       "Smithers ships read, write, edit, bash, and grep tools with path containment — pass --root to set the sandbox boundary. " +
-      "Agents are pluggable: claude, codex, gemini, kimi, amp, forge, or anything that implements the Agent interface. " +
+      "Agents are pluggable: claude, codex, antigravity, kimi, amp, forge, or anything that implements the Agent interface. " +
       "Agent fallback lets you write agent equals an array — primary first, fallback on failure. " +
       "Smithers openapi generates AI SDK tools from an OpenAPI spec. " +
       "And smithers itself can run as an M C P server with smithers mcp add.",
@@ -1014,7 +1014,7 @@ store.setFact(ns, "code-style", { tabs: 2, semi: true }, 30 * 24 * 3600_000);`,
           "",
           `   ${C.cyan}Built-in tools${C.reset}     ${C.dim}read · write · edit · bash · grep · ls (path-contained)${C.reset}`,
           `   ${C.cyan}Agent fallback${C.reset}     ${C.dim}agent={[claude, codex]}  // claude first, codex on fail${C.reset}`,
-          `   ${C.cyan}Agent runtimes${C.reset}     ${C.dim}claude · codex · gemini · kimi · amp · forge · Effect-native${C.reset}`,
+          `   ${C.cyan}Agent runtimes${C.reset}     ${C.dim}claude · codex · antigravity · kimi · amp · forge · Effect-native${C.reset}`,
           `   ${C.cyan}MDX prompts${C.reset}        ${C.dim}prompt fragments with typed props · imports compose${C.reset}`,
           `   ${C.cyan}OpenAPI tools${C.reset}      ${C.dim}smithers openapi <spec> → typed AI SDK tool surface${C.reset}`,
           `   ${C.cyan}MCP server${C.reset}         ${C.dim}smithers mcp add  // call workflows from any MCP agent${C.reset}`,
@@ -1425,7 +1425,7 @@ const analyze = G.step("analyze", {
           "",
           `   ${C.cyan}3${C.reset} ${C.bold}Smithers GUI${C.reset}              ${C.dim}native macOS · download today${C.reset}`,
           `       embedded Ghostty terminal · time-travel scrubber`,
-          `       picks any agent CLI on PATH (claude / codex / gemini / kimi / amp / forge)`,
+          `       picks any agent CLI on PATH (claude / codex / antigravity / kimi / amp / forge)`,
           "",
         ],
         C.cyan,

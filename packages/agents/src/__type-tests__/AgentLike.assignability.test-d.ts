@@ -1,6 +1,7 @@
 import type {
   AgentLike,
   AmpAgent,
+  AntigravityAgent,
   AnthropicAgent,
   ClaudeCodeAgent,
   CodexAgent,
@@ -20,6 +21,7 @@ type _CustomNativeStructuredAgent = AssertAssignable<{
 
 type _ConcreteAgentsAreAgentLike = [
   AssertAssignable<AmpAgent>,
+  AssertAssignable<AntigravityAgent>,
   AssertAssignable<AnthropicAgent>,
   AssertAssignable<ClaudeCodeAgent>,
   AssertAssignable<CodexAgent>,

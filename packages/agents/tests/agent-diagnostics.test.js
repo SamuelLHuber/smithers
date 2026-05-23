@@ -65,6 +65,7 @@ describe("getDiagnosticStrategy", () => {
     test("returns strategy for known commands", () => {
         expect(getDiagnosticStrategy("claude")).not.toBeNull();
         expect(getDiagnosticStrategy("codex")).not.toBeNull();
+        expect(getDiagnosticStrategy("antigravity")).not.toBeNull();
         expect(getDiagnosticStrategy("gemini")).not.toBeNull();
         expect(getDiagnosticStrategy("pi")).not.toBeNull();
     });

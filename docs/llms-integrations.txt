@@ -121,7 +121,7 @@ export default smithers((ctx) => (
 agents[8]{class,cli,defaultModel,hijack,notes}:
   ClaudeCodeAgent,claude,claude-sonnet-4-20250514,native session id,Anthropic Claude Code CLI
   CodexAgent,codex,gpt-5.3-codex,native thread id,OpenAI Codex CLI (codex exec via stdin + JSON stream)
-  GeminiAgent,gemini,gemini-2.5-pro,native session id,Google Gemini CLI (falls back to gcloud auth)
+  AntigravityAgent,agy,CLI default,native session id,Google Antigravity CLI
   PiAgent,pi,gpt-5.2-codex,native session id,Pi CLI (text/json/rpc modes + extension UI hooks)
   KimiAgent,kimi,kimi-latest,native session id,Moonshot Kimi CLI (auto-isolates KIMI_SHARE_DIR)
   ForgeAgent,forge,anthropic/claude-sonnet-4-20250514,conversation id,Forge CLI (300+ models)
@@ -129,7 +129,7 @@ agents[8]{class,cli,defaultModel,hijack,notes}:
   OpenCodeAgent,opencode,provider/model string,not yet,OpenCode CLI (opencode run --format json)
 ```
 
-CLI binaries must be on `PATH`: `claude`, `codex`, `gemini`, `pi`, `kimi`, `forge`, `amp`, `opencode`.
+CLI binaries must be on `PATH`: `claude`, `codex`, `agy`, `pi`, `kimi`, `forge`, `amp`, `opencode`.
 
 ## Codex CLI Agent
 
@@ -237,14 +237,16 @@ new CodexAgent({
 ```
 
 ```ts
-import { GeminiAgent } from "smithers-orchestrator";
-new GeminiAgent({
-  sandbox?: boolean; approvalMode?: "default" | "auto_edit" | "yolo" | "plan";
-  allowedTools?: string[]; allowedMcpServerNames?: string[];
-  extensions?: string[]; resume?: string; includeDirectories?: string[];
-  experimentalAcp?: boolean; listExtensions?: boolean; listSessions?: boolean; deleteSession?: string;
-  configDir?: string; apiKey?: string; debug?: boolean; screenReader?: boolean;
+import { AntigravityAgent } from "smithers-orchestrator";
+new AntigravityAgent({
+  debug?: boolean; model?: string; sandbox?: boolean;
+  yolo?: boolean; dangerouslySkipPermissions?: boolean;
+  allowedMcpServerNames?: string[]; allowedTools?: string[];
+  extensions?: string[]; listExtensions?: boolean;
+  resume?: string; listSessions?: boolean; deleteSession?: string;
+  includeDirectories?: string[]; screenReader?: boolean;
   outputFormat?: "text" | "json" | "stream-json"; // default json
+  binary?: string; configDir?: string; geminiDir?: string; apiKey?: string;
 });
 ```
 
@@ -308,7 +310,7 @@ new OpenCodeAgent({
 
 ## Hijack handoff
 
-Most built-in CLI agents support `bunx smithers-orchestrator hijack <runId>`, which relaunches the agent in its native CLI session for interactive takeover. Smithers persists the native session id (or conversation id for Forge / thread id for Amp) on each task event; on hijack it waits for a safe boundary between blocking tool calls, then reopens the session via the vendor's resume flag (`claude --resume`, `codex resume`, `gemini --resume`, `pi --session`, `kimi --session`, `forge --conversation-id`, `amp threads continue`). On clean exit the workflow resumes in detached mode. OpenCode stream capture is documented above, but native `smithers hijack` support for OpenCode is not shipped yet. See [How it works → Durability and resume](/how-it-works#durability--resume).
+Most built-in CLI agents support `bunx smithers-orchestrator hijack <runId>`, which relaunches the agent in its native CLI session for interactive takeover. Smithers persists the native session id (or conversation id for Forge / thread id for Amp) on each task event; on hijack it waits for a safe boundary between blocking tool calls, then reopens the session via the vendor's resume flag (`claude --resume`, `codex resume`, `agy --resume`, `pi --session`, `kimi --session`, `forge --conversation-id`, `amp threads continue`). On clean exit the workflow resumes in detached mode. OpenCode stream capture is documented above, but native `smithers hijack` support for OpenCode is not shipped yet. See [How it works → Durability and resume](/how-it-works#durability--resume).
 
 ## Notes
 

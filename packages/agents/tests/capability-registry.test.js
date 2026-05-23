@@ -3,6 +3,7 @@ import React from "react";
 import { z } from "zod";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { Workflow, Task, runWorkflow } from "smithers-orchestrator";
+import { AntigravityAgent } from "../src/AntigravityAgent.js";
 import { ClaudeCodeAgent } from "../src/ClaudeCodeAgent.js";
 import { CodexAgent } from "../src/CodexAgent.js";
 import { GeminiAgent } from "../src/GeminiAgent.js";
@@ -82,6 +83,7 @@ describe("CLI adapter capability registries", () => {
     test("built-in CLI agents populate capabilities", () => {
         const claude = withMutedWarn(() => new ClaudeCodeAgent());
         const codex = new CodexAgent();
+        const antigravity = new AntigravityAgent();
         const gemini = new GeminiAgent();
         const kimi = new KimiAgent();
         const pi = new PiAgent();
@@ -107,6 +109,17 @@ describe("CLI adapter capability registries", () => {
             },
             skills: {
                 supportsSkills: false,
+            },
+        });
+        expect(antigravity.capabilities).toMatchObject({
+            version: 1,
+            engine: "antigravity",
+            mcp: {
+                bootstrap: "project-config",
+            },
+            skills: {
+                supportsSkills: true,
+                installMode: "plugin",
             },
         });
         expect(gemini.capabilities).toMatchObject({
@@ -239,6 +252,7 @@ describe("smithers agents capabilities", () => {
         expect(report.map((entry) => entry.id)).toEqual([
             "claude",
             "codex",
+            "antigravity",
             "gemini",
             "kimi",
             "opencode",

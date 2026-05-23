@@ -28,6 +28,7 @@ function parseAttemptMeta(metaJson) {
  */
 function asNativeHijackEngine(value) {
     return value === "claude-code" ||
+        value === "antigravity" ||
         value === "codex" ||
         value === "gemini" ||
         value === "pi" ||
@@ -156,6 +157,14 @@ export function buildHijackLaunchSpec(candidate) {
     if (candidate.engine === "gemini") {
         return {
             command: "gemini",
+            args: ["--resume", candidate.resume],
+            cwd: candidate.cwd,
+            env,
+        };
+    }
+    if (candidate.engine === "antigravity") {
+        return {
+            command: "agy",
             args: ["--resume", candidate.resume],
             cwd: candidate.cwd,
             env,

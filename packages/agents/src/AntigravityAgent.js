@@ -1,58 +1,56 @@
 import { BaseCliAgent, pushFlag, pushList, isRecord, asString, truncate, toolKindFromName, createSyntheticIdGenerator, } from "./BaseCliAgent/index.js";
 import { normalizeCapabilityStringList, } from "./capability-registry/index.js";
-/** @typedef {import("./BaseCliAgent/BaseCliAgentOptions.ts").BaseCliAgentOptions} BaseCliAgentOptions */
 /** @typedef {import("./capability-registry/AgentCapabilityRegistry.ts").AgentCapabilityRegistry} AgentCapabilityRegistry */
 /** @typedef {import("./BaseCliAgent/CliOutputInterpreter.ts").CliOutputInterpreter} CliOutputInterpreter */
-/** @typedef {import("./GeminiAgentOptions.ts").GeminiAgentOptions} GeminiAgentOptions */
+/** @typedef {import("./AntigravityAgentOptions.ts").AntigravityAgentOptions} AntigravityAgentOptions */
 
 /**
- * @param {GeminiAgentOptions} opts
+ * @param {AntigravityAgentOptions} opts
  */
-function resolveGeminiBuiltIns(opts) {
+function resolveAntigravityBuiltIns(opts) {
     return opts.allowedTools?.length
         ? normalizeCapabilityStringList(opts.allowedTools)
         : ["default"];
 }
+
 /**
- * @param {GeminiAgentOptions} [opts]
+ * @param {AntigravityAgentOptions} [opts]
  * @returns {AgentCapabilityRegistry}
  */
-export function createGeminiCapabilityRegistry(opts = {}) {
+export function createAntigravityCapabilityRegistry(opts = {}) {
     return {
         version: 1,
-        engine: "gemini",
+        engine: "antigravity",
         runtimeTools: {},
         mcp: {
-            bootstrap: "allow-list",
-            supportsProjectScope: false,
+            bootstrap: "project-config",
+            supportsProjectScope: true,
             supportsUserScope: true,
         },
         skills: {
-            supportsSkills: false,
+            supportsSkills: true,
+            installMode: "plugin",
             smithersSkillIds: [],
         },
         humanInteraction: {
             supportsUiRequests: false,
             methods: [],
         },
-        builtIns: resolveGeminiBuiltIns(opts),
+        builtIns: resolveAntigravityBuiltIns(opts),
     };
 }
-/**
- * @deprecated Use AntigravityAgent for new Google CLI integrations. GeminiAgent
- * remains for legacy and enterprise Gemini CLI setups.
- */
-export class GeminiAgent extends BaseCliAgent {
+
+export class AntigravityAgent extends BaseCliAgent {
     opts;
     capabilities;
-    cliEngine = "gemini";
+    cliEngine = "antigravity";
     /**
-   * @param {GeminiAgentOptions} [opts]
+   * @param {AntigravityAgentOptions} [opts]
    */
     constructor(opts = {}) {
         super(opts);
         this.opts = opts;
-        this.capabilities = createGeminiCapabilityRegistry(opts);
+        this.capabilities = createAntigravityCapabilityRegistry(opts);
     }
     /**
    * @returns {CliOutputInterpreter}
@@ -90,7 +88,7 @@ export class GeminiAgent extends BaseCliAgent {
                 return [{
                         type: "started",
                         engine: this.cliEngine,
-                        title: "Gemini CLI",
+                        title: "Antigravity CLI",
                         resume: sessionId,
                         detail: {
                             model: asString(payload.model),
@@ -112,7 +110,7 @@ export class GeminiAgent extends BaseCliAgent {
             }
             if (type === "TOOL_USE") {
                 const toolName = asString(payload.tool_name) ?? "tool";
-                const toolId = asString(payload.tool_id) ?? nextSyntheticId("gemini-tool");
+                const toolId = asString(payload.tool_id) ?? nextSyntheticId("antigravity-tool");
                 return [{
                         type: "action",
                         engine: this.cliEngine,
@@ -131,7 +129,7 @@ export class GeminiAgent extends BaseCliAgent {
                     }];
             }
             if (type === "TOOL_RESULT") {
-                const toolId = asString(payload.tool_id) ?? nextSyntheticId("gemini-tool");
+                const toolId = asString(payload.tool_id) ?? nextSyntheticId("antigravity-tool");
                 const ok = asString(payload.status) !== "error";
                 const error = isRecord(payload.error) ? asString(payload.error.message) : undefined;
                 const output = asString(payload.output);
@@ -161,7 +159,7 @@ export class GeminiAgent extends BaseCliAgent {
                         phase: "completed",
                         entryType: "thought",
                         action: {
-                            id: nextSyntheticId("gemini-warning"),
+                            id: nextSyntheticId("antigravity-warning"),
                             kind: "warning",
                             title: "warning",
                             detail: {
@@ -201,7 +199,7 @@ export class GeminiAgent extends BaseCliAgent {
                         engine: this.cliEngine,
                         ok: false,
                         answer: finalAnswer || undefined,
-                        error: result.stderr.trim() || `Gemini exited with code ${result.exitCode}`,
+                        error: result.stderr.trim() || `Antigravity exited with code ${result.exitCode}`,
                         resume: sessionId,
                     }];
             },
@@ -212,10 +210,7 @@ export class GeminiAgent extends BaseCliAgent {
    */
     async buildCommand(params) {
         const args = [];
-        const yoloEnabled = this.opts.yolo ?? this.yolo;
-        // Default to "json" output format to separate model responses from tool
-        // output text. With "text" format, tool call results (file contents etc.)
-        // are concatenated into the response, making JSON extraction unreliable.
+        const yoloEnabled = this.opts.dangerouslySkipPermissions ?? this.opts.yolo ?? this.yolo;
         const outputFormat = this.opts.outputFormat ??
             (params.options?.onEvent ? "stream-json" : "json");
         const resumeSession = typeof params.options?.resumeSession === "string"
@@ -226,14 +221,8 @@ export class GeminiAgent extends BaseCliAgent {
         pushFlag(args, "--model", this.opts.model ?? this.model);
         if (this.opts.sandbox)
             args.push("--sandbox");
-        if (this.opts.approvalMode) {
-            pushFlag(args, "--approval-mode", this.opts.approvalMode);
-        }
-        else if (yoloEnabled) {
-            args.push("--yolo");
-        }
-        if (this.opts.experimentalAcp)
-            args.push("--experimental-acp");
+        if (yoloEnabled)
+            args.push("--dangerously-skip-permissions");
         pushList(args, "--allowed-mcp-server-names", this.opts.allowedMcpServerNames);
         if (this.opts.allowedTools !== undefined) {
             if (this.opts.allowedTools.length === 0) {
@@ -253,26 +242,23 @@ export class GeminiAgent extends BaseCliAgent {
         pushList(args, "--include-directories", this.opts.includeDirectories);
         if (this.opts.screenReader)
             args.push("--screen-reader");
+        pushFlag(args, "--gemini_dir", this.opts.geminiDir ?? this.opts.configDir);
         pushFlag(args, "--output-format", outputFormat);
         if (this.extraArgs?.length)
             args.push(...this.extraArgs);
         const systemPrefix = params.systemPrompt
             ? `${params.systemPrompt}\n\n`
             : "";
-        // Reinforce raw JSON output requirement in the prompt for Gemini models
-        // which tend to forget structured output instructions on long responses.
         const jsonReminder = params.prompt?.includes("REQUIRED OUTPUT")
             ? "\n\nREMINDER: Your response MUST be ONLY the required raw JSON object. Do not include prose, markdown, or code fences. The first character must be `{` and the last character must be `}`.\n"
             : "";
         const fullPrompt = `${systemPrefix}${params.prompt ?? ""}${jsonReminder}`;
         args.push("--prompt", fullPrompt);
         const accountEnv = {};
-        if (this.opts.configDir)
-            accountEnv.GEMINI_DIR = this.opts.configDir;
         if (this.opts.apiKey)
             accountEnv.GEMINI_API_KEY = this.opts.apiKey;
         return {
-            command: "gemini",
+            command: this.opts.binary ?? "agy",
             args,
             outputFormat,
             env: Object.keys(accountEnv).length > 0 ? accountEnv : undefined,

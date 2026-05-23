@@ -12,6 +12,7 @@ export function detectAgentFamily(agent) {
     const name = constructorName && constructorName !== "object"
         ? `${constructorName} ${idName}`
         : idName;
+    if (name.includes("antigravity") || name.includes("agy")) return "antigravity";
     if (name.includes("codex")) return "codex";
     if (name.includes("claude")) return "claude-code";
     if (name.includes("gemini")) return "gemini";

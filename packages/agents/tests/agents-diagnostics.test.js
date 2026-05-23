@@ -16,6 +16,12 @@ describe("getDiagnosticStrategy", () => {
         expect(strategy).not.toBeNull();
         expect(strategy.agentId).toBe("codex");
     });
+    test("returns antigravity strategy for 'antigravity'", () => {
+        const strategy = getDiagnosticStrategy("antigravity");
+        expect(strategy).not.toBeNull();
+        expect(strategy.agentId).toBe("antigravity");
+        expect(strategy.command).toBe("agy");
+    });
     test("returns gemini strategy for 'gemini'", () => {
         const strategy = getDiagnosticStrategy("gemini");
         expect(strategy).not.toBeNull();

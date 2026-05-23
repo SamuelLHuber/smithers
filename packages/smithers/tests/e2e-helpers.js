@@ -254,3 +254,14 @@ export function writeFakeGeminiBinary(dir, response = FAKE_AGENT_RESPONSE) {
         "",
     ].join("\n"));
 }
+/**
+ * @param {string} dir
+ */
+export function writeFakeAntigravityBinary(dir, response = FAKE_AGENT_RESPONSE) {
+    return writeExecutable(dir, "agy", [
+        EXECUTABLE_SHEBANG,
+        "const payload = process.env.SMITHERS_FAKE_AGENT_RESPONSE ?? " + JSON.stringify(response) + ";",
+        'process.stdout.write(JSON.stringify({ text: "```json\\n" + payload + "\\n```\\n" }) + "\\n");',
+        "",
+    ].join("\n"));
+}

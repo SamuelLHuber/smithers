@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { ClaudeCodeAgent, CodexAgent, GeminiAgent } from "../src/index.js";
+import { AntigravityAgent, ClaudeCodeAgent, CodexAgent, GeminiAgent } from "../src/index.js";
 
 const originalPath = process.env.PATH ?? "";
 const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -34,6 +34,7 @@ async function makeFakeCliWithEnvDump(name, stdoutEmitter) {
         'const fs = require("node:fs");',
         "if (process.env.SMITHERS_ENV_DUMP_FILE) {",
         "  fs.writeFileSync(process.env.SMITHERS_ENV_DUMP_FILE, JSON.stringify({",
+        "    ARGS: process.argv.slice(2),",
         "    CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR ?? null,",
         "    CODEX_HOME: process.env.CODEX_HOME ?? null,",
         "    GEMINI_DIR: process.env.GEMINI_DIR ?? null,",
@@ -170,6 +171,35 @@ describe("GeminiAgent configDir/apiKey", () => {
             const dumped = await readEnvDump(dumpFile);
             expect(dumped.GEMINI_DIR).toBe("/tmp/smithers-test-gemini-work");
             expect(dumped.GEMINI_API_KEY).toBe("gemini-test-key");
+        }
+        finally {
+            await rm(fake.dir, { recursive: true, force: true });
+            await rm(dumpDir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("AntigravityAgent configDir/apiKey", () => {
+    test("configDir -> --gemini_dir, apiKey -> GEMINI_API_KEY", async () => {
+        const dumpDir = await mkdtemp(join(tmpdir(), "smithers-env-dump-"));
+        const dumpFile = join(dumpDir, "env.json");
+        const fake = await makeFakeCliWithEnvDump(
+            "agy",
+            'process.stdout.write(JSON.stringify({ text: "```json\\n{\\"summary\\":\\"ok\\"}\\n```\\n" }) + "\\n");',
+        );
+        try {
+            process.env.PATH = `${fake.dir}:${originalPath}`;
+            process.env.SMITHERS_ENV_DUMP_FILE = dumpFile;
+            const agent = new AntigravityAgent({
+                configDir: "/tmp/smithers-test-antigravity-work",
+                apiKey: "antigravity-test-key",
+                env: { PATH: process.env.PATH, SMITHERS_ENV_DUMP_FILE: dumpFile },
+            });
+            await agent.generate({ messages: [{ role: "user", content: "ping" }] });
+            const dumped = await readEnvDump(dumpFile);
+            expect(dumped.ARGS).toContain("--gemini_dir");
+            expect(dumped.ARGS).toContain("/tmp/smithers-test-antigravity-work");
+            expect(dumped.GEMINI_API_KEY).toBe("antigravity-test-key");
         }
         finally {
             await rm(fake.dir, { recursive: true, force: true });

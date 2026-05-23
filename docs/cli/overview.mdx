@@ -143,7 +143,7 @@ commands[62]:
   - name: chat-create
     purpose: Create and start a one-task auto-hijacked chat run
     flags[2]{name,short,type,default,desc}:
-      agent,,enum,,claude-code|codex|gemini
+      agent,,enum,,claude-code|codex|antigravity
       cwd,,string,.,Working directory for the chat session
   - name: hijack
     purpose: Hand off the latest resumable agent session or Smithers-managed conversation
@@ -341,7 +341,7 @@ commands[62]:
     args[1]{name,type,required,desc}:
       question,string,false,Question to ask
     flags[6]{name,short,type,default,desc}:
-      agent,,enum,,claude|codex|gemini|kimi|pi
+      agent,,enum,,claude|codex|antigravity|kimi|pi
       list-agents,,boolean,false,List detected agents and exit
       dump-prompt,,boolean,false,Print generated system prompt and exit
       tool-surface,,enum,semantic,semantic|raw
@@ -372,7 +372,7 @@ commands[62]:
   - name: agents.add
     purpose: Register a Smithers agent account, interactively or with flags
     flags[9]{name,short,type,default,desc}:
-      provider,,enum,,"claude-code|codex|gemini|kimi|anthropic-api|openai-api|gemini-api"
+      provider,,enum,,"claude-code|antigravity|codex|kimi|anthropic-api|openai-api|gemini-api"
       label,,string,,Unique account label
       config-dir,,string,,Per-account CLI config dir for subscription providers
       api-key,,string,,API key for API-key providers

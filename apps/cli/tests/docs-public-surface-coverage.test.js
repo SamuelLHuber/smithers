@@ -48,7 +48,7 @@ test("agent integration docs cover exported agent classes", () => {
     const documentedAgents = `${cliAgentDoc}\n${sdkAgentDoc}`;
     const exportedAgents = [...agentsIndex.matchAll(/export \{ ([A-Za-z]+Agent) \}/g)]
         .map((match) => match[1])
-        .filter((name) => name !== "BaseCliAgent");
+        .filter((name) => name !== "BaseCliAgent" && name !== "GeminiAgent");
 
     for (const agent of exportedAgents) {
         expect(documentedAgents).toContain(agent);
@@ -59,10 +59,10 @@ test("CLI agent docs mention current agent-specific option names", () => {
     const cliAgentDoc = readRepoFile("docs/integrations/cli-agents.mdx");
     const optionFiles = [
         "AmpAgentOptions.ts",
+        "AntigravityAgentOptions.ts",
         "ClaudeCodeAgentOptions.ts",
         "CodexAgentOptions.ts",
         "ForgeAgentOptions.ts",
-        "GeminiAgentOptions.ts",
         "KimiAgentOptions.ts",
         "PiAgentOptions.ts",
     ];

@@ -2,6 +2,7 @@ export type AgentFamily =
   | "pi"
   | "codex"
   | "claude-code"
+  | "antigravity"
   | "gemini"
   | "kimi"
   | "openai"

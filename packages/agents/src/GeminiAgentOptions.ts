@@ -1,5 +1,10 @@
 import type { BaseCliAgentOptions } from "./BaseCliAgent/BaseCliAgentOptions";
 
+/**
+ * @deprecated Use AntigravityAgentOptions with the Antigravity CLI (`agy`) for
+ * new Google CLI integrations. GeminiAgentOptions remains for legacy and
+ * enterprise Gemini CLI setups.
+ */
 export type GeminiAgentOptions = BaseCliAgentOptions & {
   debug?: boolean;
   model?: string;

@@ -12,6 +12,7 @@ import { regenerateAgentsTsIfPresent } from "./regenerateAgentsTsIfPresent.js";
  */
 const SUBSCRIPTION_LOGIN_BIN = {
     "claude-code": "claude",
+    "antigravity": "agy",
     "codex": "codex",
     "gemini": "gemini",
     "kimi": "kimi",
@@ -24,10 +25,11 @@ const SUBSCRIPTION_LOGIN_BIN = {
  * Subcommand args appended to the login command. Some CLIs use a dedicated
  * subcommand (`codex login`, `kimi login`); others authenticate via a slash
  * command inside the REPL (the user types /login after launching).
- * @type {Record<string, string[]>}
+ * @type {Record<string, string[] | ((configDir: string) => string[])>}
  */
 const SUBSCRIPTION_LOGIN_ARGS = {
     "claude-code": [],
+    "antigravity": (configDir) => ["--gemini_dir", configDir],
     "codex": ["login"],
     "gemini": [],
     "kimi": ["login"],
@@ -39,6 +41,7 @@ const SUBSCRIPTION_LOGIN_ARGS = {
  */
 const SUBSCRIPTION_DIR_ENV_VAR = {
     "claude-code": "CLAUDE_CONFIG_DIR",
+    "antigravity": "GEMINI_DIR",
     "codex": "CODEX_HOME",
     "gemini": "GEMINI_DIR",
     "kimi": "KIMI_SHARE_DIR",
@@ -46,6 +49,15 @@ const SUBSCRIPTION_DIR_ENV_VAR = {
     "openai-api": null,
     "gemini-api": null,
 };
+
+/**
+ * @param {string} provider
+ * @param {string} configDir
+ */
+function subscriptionLoginArgs(provider, configDir) {
+    const args = SUBSCRIPTION_LOGIN_ARGS[provider] ?? [];
+    return typeof args === "function" ? args(configDir) : args;
+}
 
 /**
  * @param {string} dir
@@ -94,7 +106,7 @@ export function runAgentAdd(input) {
         if (!populated && !input.skipLogin && !input.force) {
             const bin = SUBSCRIPTION_LOGIN_BIN[input.provider];
             const envVar = SUBSCRIPTION_DIR_ENV_VAR[input.provider];
-            const subArgs = SUBSCRIPTION_LOGIN_ARGS[input.provider] ?? [];
+            const subArgs = subscriptionLoginArgs(input.provider, configDir);
             const cmd = `${envVar}=${configDir} ${bin}${subArgs.length ? " " + subArgs.join(" ") : ""}`;
             const detail = `Config dir ${configDir} is empty. Run the following in another terminal to log in, then re-run \`smithers agents add\`:\n\n  ${cmd}\n\n(or pass --skip-login to register the empty dir, --force to register without verification)`;
             return { ok: false, reason: "login-required", detail, configDir };

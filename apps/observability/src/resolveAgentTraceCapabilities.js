@@ -37,7 +37,7 @@ export function resolveAgentTraceCapabilities(agentFamily, captureMode) {
             toolExecutionEnd: captureMode === "cli-json-stream",
         };
     }
-    if (agentFamily === "gemini") {
+    if (agentFamily === "gemini" || agentFamily === "antigravity") {
         return {
             ...base,
             assistantTextDeltas: captureMode === "cli-json-stream",

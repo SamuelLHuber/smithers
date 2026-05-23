@@ -321,7 +321,7 @@ const codexStrategy = {
     ],
 };
 // ---------------------------------------------------------------------------
-// Gemini strategy
+// Google CLI strategies
 // ---------------------------------------------------------------------------
 // Validate Google auth via GET /v1beta/models (free, no tokens)
 const googleAuthCheck = {
@@ -438,6 +438,37 @@ const geminiStrategy = {
         googleRateLimitCheck,
     ],
 };
+const antigravityAuthSkip = {
+    id: "api_key_valid",
+    run: async () => {
+        return {
+            id: "api_key_valid",
+            status: "skip",
+            message: "Antigravity CLI uses Google Sign-In/keyring auth; run `agy` to authenticate.",
+            durationMs: 0,
+        };
+    },
+};
+const antigravityRateLimitSkip = {
+    id: "rate_limit_status",
+    run: async () => {
+        return {
+            id: "rate_limit_status",
+            status: "skip",
+            message: "Antigravity CLI rate limits are checked by the CLI at runtime.",
+            durationMs: 0,
+        };
+    },
+};
+const antigravityStrategy = {
+    agentId: "antigravity",
+    command: "agy",
+    checks: [
+        checkCliInstalled("agy", "Antigravity CLI"),
+        antigravityAuthSkip,
+        antigravityRateLimitSkip,
+    ],
+};
 // ---------------------------------------------------------------------------
 // Pi strategy
 // ---------------------------------------------------------------------------
@@ -490,6 +521,8 @@ const ampStrategy = {
 const strategies = {
     claude: claudeStrategy,
     codex: codexStrategy,
+    antigravity: antigravityStrategy,
+    agy: antigravityStrategy,
     gemini: geminiStrategy,
     pi: piStrategy,
     amp: ampStrategy,

@@ -29,6 +29,7 @@ export { hashCapabilityRegistry } from "./capability-registry/index.js";
 export { AnthropicAgent } from "./AnthropicAgent.js";
 export { OpenAIAgent } from "./OpenAIAgent.js";
 export { AmpAgent } from "./AmpAgent.js";
+export { AntigravityAgent, createAntigravityCapabilityRegistry } from "./AntigravityAgent.js";
 export { ClaudeCodeAgent } from "./ClaudeCodeAgent.js";
 export { CodexAgent } from "./CodexAgent.js";
 export { GeminiAgent } from "./GeminiAgent.js";

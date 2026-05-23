@@ -1,9 +1,11 @@
 import type { AgentAvailabilityStatus } from "./AgentAvailabilityStatus.ts";
 
 export type AgentAvailability = {
-    id: "claude" | "codex" | "gemini" | "pi" | "kimi" | "amp";
+    id: "claude" | "codex" | "antigravity" | "gemini" | "pi" | "kimi" | "amp";
     displayName: string;
     binary: string;
+    deprecated?: boolean;
+    deprecationReason?: string;
     hasBinary: boolean;
     hasAuthSignal: boolean;
     hasApiKeySignal: boolean;

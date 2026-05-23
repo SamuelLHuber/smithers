@@ -56,7 +56,7 @@ import { WorkflowProps } from '@smithers-orchestrator/components/components/Work
 import * as _smithers_server_gateway from '@smithers-orchestrator/server/gateway';
 export { Gateway } from '@smithers-orchestrator/server/gateway';
 import * as _smithers_agents from '@smithers-orchestrator/agents';
-export { AmpAgent, AnthropicAgent, ClaudeCodeAgent, CodexAgent, ForgeAgent, GeminiAgent, KimiAgent, OpenAIAgent, OpenCodeAgent, PiAgent } from '@smithers-orchestrator/agents';
+export { AmpAgent, AntigravityAgent, AnthropicAgent, ClaudeCodeAgent, CodexAgent, ForgeAgent, GeminiAgent, KimiAgent, OpenAIAgent, OpenCodeAgent, PiAgent } from '@smithers-orchestrator/agents';
 import * as _smithers_scorers from '@smithers-orchestrator/scorers';
 export { aggregateScores, createScorer, faithfulnessScorer, latencyScorer, llmJudge, relevancyScorer, runScorersAsync, runScorersBatch, schemaAdherenceScorer, smithersScorers, toxicityScorer } from '@smithers-orchestrator/scorers';
 import * as _smithers_agents_capability_registry from '@smithers-orchestrator/agents/capability-registry';

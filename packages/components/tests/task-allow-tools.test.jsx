@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createSmithers } from "smithers-orchestrator";
 import { renderFrame } from "@smithers-orchestrator/engine";
 import { SmithersCtx } from "@smithers-orchestrator/react-reconciler/context";
+import { AntigravityAgent } from "@smithers-orchestrator/agents/AntigravityAgent";
 import { ClaudeCodeAgent } from "@smithers-orchestrator/agents/ClaudeCodeAgent";
 import { GeminiAgent } from "@smithers-orchestrator/agents/GeminiAgent";
 import { PiAgent } from "@smithers-orchestrator/agents/PiAgent";
@@ -86,6 +87,30 @@ describe("Task allowTools", () => {
         expect(command.args).toContain("--allowed-tools");
         const flagIndex = command.args.indexOf("--allowed-tools");
         expect(command.args[flagIndex + 1]).toBe("");
+    });
+    test("passes allowTools through to AntigravityAgent tasks", async () => {
+        const api = createSmithers({
+            output: z.object({ ok: z.boolean() }),
+        }, { dbPath: ":memory:" });
+        const workflow = api.smithers(() => (<api.Workflow name="antigravity-allow-tools">
+        <api.Task id="agent" output={api.outputs.output} agent={new AntigravityAgent()} allowTools={["read_file"]}>
+          prompt
+        </api.Task>
+      </api.Workflow>));
+        const frame = await Effect.runPromise(renderFrame(workflow, {
+            runId: "preview",
+            iteration: 0,
+            input: {},
+            outputs: {},
+        }));
+        const taskAgent = frame.tasks[0]?.agent;
+        const command = await taskAgent.buildCommand({
+            prompt: "prompt",
+            cwd: process.cwd(),
+            options: {},
+        });
+        expect(command.args).toContain("--allowed-tools");
+        expect(command.args).toContain("read_file");
     });
     test("applies explicit-only CLI tool defaults from runtime context", async () => {
         const api = createSmithers({

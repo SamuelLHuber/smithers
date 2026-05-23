@@ -2,11 +2,12 @@ import { describe, expect, onTestFinished, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createExecutableDir, writeFakeClaudeBinary, writeFakeCodexBinary, writeFakeGeminiBinary } from "../../../packages/smithers/tests/e2e-helpers.js";
+import { createExecutableDir, writeFakeAntigravityBinary, writeFakeClaudeBinary, writeFakeCodexBinary, writeFakeGeminiBinary } from "../../../packages/smithers/tests/e2e-helpers.js";
+import { ask } from "../src/ask.js";
 // We test the exported pure-logic functions by importing the module.
 // detectAvailableAgents calls spawnSync so we test the scoring/status logic
 // via generateAgentsTs with controlled env.
-import { detectAvailableAgents } from "../src/agent-detection.js";
+import { detectAvailableAgents, generateAgentsTs } from "../src/agent-detection.js";
 // We can't easily mock spawnSync, but we can test the detection logic
 // by verifying structure and scoring behavior with the real environment.
 describe("detectAvailableAgents", () => {
@@ -35,11 +36,12 @@ describe("detectAvailableAgents", () => {
         const ids = results.map((r) => r.id);
         expect(ids).toContain("claude");
         expect(ids).toContain("codex");
+        expect(ids).toContain("antigravity");
         expect(ids).toContain("gemini");
         expect(ids).toContain("pi");
         expect(ids).toContain("kimi");
         expect(ids).toContain("amp");
-        expect(results.length).toBe(6);
+        expect(results.length).toBe(7);
     });
     test("each result has required fields", () => {
         const results = detectAvailableAgents({});
@@ -110,6 +112,45 @@ describe("detectAvailableAgents", () => {
         const gemini = results.find((r) => r.id === "gemini");
         expect(gemini.hasApiKeySignal).toBe(true);
     });
+    test("Antigravity detects agy plus antigravity-cli config", () => {
+        const home = tempHome();
+        const binDir = createExecutableDir();
+        writeFakeAntigravityBinary(binDir);
+        mkdirSync(join(home, ".gemini", "antigravity-cli"), { recursive: true });
+        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), "{}\n");
+        const results = detectAvailableAgents(envWithPath(home, binDir));
+        const antigravity = results.find((r) => r.id === "antigravity");
+        expect(antigravity.hasBinary).toBe(true);
+        expect(antigravity.hasAuthSignal).toBe(true);
+        expect(antigravity.usable).toBe(true);
+    });
+    test("generated agents.ts can use Antigravity without a local scaffold file", () => {
+        const home = tempHome();
+        const binDir = createExecutableDir();
+        writeFakeAntigravityBinary(binDir);
+        mkdirSync(join(home, ".gemini", "antigravity-cli"), { recursive: true });
+        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), "{}\n");
+        const source = generateAgentsTs(envWithPath(home, binDir), {
+            cwd: home,
+            scaffoldProviderIds: ["claude", "codex"],
+        });
+        expect(source).toContain("AntigravityAgent as SmithersAntigravityAgent");
+        expect(source).toContain("antigravity: new SmithersAntigravityAgent");
+        expect(source).not.toContain("./agents/antigravity");
+    });
+    test("generated agents.ts preserves an existing legacy Gemini scaffold", () => {
+        const source = generateAgentsTs({
+            HOME: "/nonexistent-path-xyz",
+            PATH: "/usr/bin:/bin",
+        }, {
+            preserveProviderIds: ["gemini"],
+            scaffoldProviderIds: ["gemini"],
+        });
+        expect(source).toContain('import { GeminiAgent } from "./agents/gemini";');
+        expect(source).toContain('export { GeminiAgent } from "./agents/gemini";');
+        expect(source).toContain("gemini: GeminiAgent");
+        expect(source).not.toContain("gemini: new SmithersGeminiAgent");
+    });
     test("checks array includes binary check", () => {
         const results = detectAvailableAgents({});
         for (const result of results) {
@@ -168,6 +209,40 @@ describe("detectAvailableAgents", () => {
         const trustedGemini = trusted.find((r) => r.id === "gemini");
         expect(trustedGemini.hasProjectTrustSignal).toBe(true);
         expect(trustedGemini.usable).toBe(true);
+    });
+    test("smithers ask does not auto-select deprecated Gemini", async () => {
+        const home = tempHome();
+        const binDir = createExecutableDir();
+        writeFakeAntigravityBinary(binDir);
+        writeFakeGeminiBinary(binDir);
+        const cwd = join(home, "repo");
+        mkdirSync(cwd, { recursive: true });
+        mkdirSync(join(home, ".gemini", "antigravity-cli"), { recursive: true });
+        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), "{}\n");
+        writeFileSync(join(home, ".gemini", "oauth_creds.json"), "{}\n");
+        writeFileSync(join(home, ".gemini", "trustedFolders.json"), JSON.stringify({ [cwd]: "TRUST_FOLDER" }) + "\n");
+        const originalEnv = { ...process.env };
+        const originalWrite = process.stdout.write;
+        let stdout = "";
+        Object.assign(process.env, envWithPath(home, binDir));
+        process.stdout.write = ((chunk, ...args) => {
+            stdout += String(chunk);
+            const callback = args.find((arg) => typeof arg === "function");
+            if (callback)
+                callback();
+            return true;
+        });
+        try {
+            await ask(undefined, cwd, { listAgents: true });
+        }
+        finally {
+            process.stdout.write = originalWrite;
+            for (const key of Object.keys(process.env))
+                delete process.env[key];
+            Object.assign(process.env, originalEnv);
+        }
+        expect(stdout).toContain("* antigravity");
+        expect(stdout).not.toContain("* gemini");
     });
     test("kimi detects KIMI_SHARE_DIR as auth signal path", () => {
         const results = detectAvailableAgents({

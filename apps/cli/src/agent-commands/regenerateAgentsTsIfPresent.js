@@ -19,9 +19,19 @@ export function regenerateAgentsTsIfPresent(cwd = process.cwd()) {
     if (!existing.startsWith("// smithers-source: generated")) {
         return { rewritten: false, path, reason: "agents.ts has been edited by hand; not overwriting" };
     }
+    const scaffoldFiles = {
+        claude: "claude-code.ts",
+        codex: "codex.ts",
+        antigravity: "antigravity.ts",
+        gemini: "gemini.ts",
+    };
+    const scaffoldProviderIds = Object.entries(scaffoldFiles)
+        .filter(([, file]) => existsSync(join(cwd, ".smithers", "agents", file)))
+        .map(([providerId]) => providerId);
     const next = generateAgentsTs(process.env, {
         cwd,
         preserveProviderIds: extractGeneratedDetectionProviderIds(existing),
+        scaffoldProviderIds,
     });
     if (next === existing) {
         return { rewritten: false, path, reason: "no changes" };
