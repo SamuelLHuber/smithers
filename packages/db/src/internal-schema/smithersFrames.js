@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text, primaryKey, } from "drizzle-orm/sqlite-core";
+import { foreignKey, integer, sqliteTable, text, primaryKey, } from "drizzle-orm/sqlite-core";
+import { smithersRuns } from "./smithersRuns.js";
 export const smithersFrames = sqliteTable("_smithers_frames", {
     runId: text("run_id").notNull(),
     frameNo: integer("frame_no").notNull(),
@@ -11,4 +12,8 @@ export const smithersFrames = sqliteTable("_smithers_frames", {
     note: text("note"),
 }, (t) => ({
     pk: primaryKey({ columns: [t.runId, t.frameNo] }),
+    runFk: foreignKey({
+        columns: [t.runId],
+        foreignColumns: [smithersRuns.runId],
+    }).onDelete("cascade"),
 }));

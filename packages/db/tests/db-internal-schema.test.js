@@ -1,6 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { getTableName } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { smithersRuns, smithersNodes, smithersAttempts, smithersFrames, smithersApprovals, smithersCache, smithersNodeDiffs, smithersTimeTravelAudit, smithersSandboxes, smithersToolCalls, smithersEvents, smithersRalph, smithersCron, smithersScorers, } from "../src/internal-schema.js";
+import { smithersFrames as modularFrames, smithersNodeDiffs as modularNodeDiffs, smithersTimeTravelAudit as modularTimeTravelAudit, } from "../src/internal-schema/index.js";
+
+function hasRunCascadeForeignKey(table) {
+    return getTableConfig(table).foreignKeys.some((foreignKey) => {
+        const reference = foreignKey.reference();
+        return foreignKey.onDelete === "cascade" &&
+            reference.columns.some((column) => column.name === "run_id") &&
+            reference.foreignColumns.some((column) => column.name === "run_id") &&
+            getTableName(reference.foreignTable) === "_smithers_runs";
+    });
+}
+
 describe("internal schema table definitions", () => {
     test("smithersRuns table name is _smithers_runs", () => {
         expect(getTableName(smithersRuns)).toBe("_smithers_runs");
@@ -119,6 +132,11 @@ describe("internal schema table definitions", () => {
         expect(cols).toContain("timestampMs");
         expect(cols).toContain("result");
         expect(cols).toContain("durationMs");
+    });
+    test("modular run-owned schema keeps cascade foreign keys", () => {
+        expect(hasRunCascadeForeignKey(modularFrames)).toBe(true);
+        expect(hasRunCascadeForeignKey(modularNodeDiffs)).toBe(true);
+        expect(hasRunCascadeForeignKey(modularTimeTravelAudit)).toBe(true);
     });
     test("smithersScorers has scorer columns", () => {
         const cols = Object.keys(smithersScorers);

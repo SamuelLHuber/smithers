@@ -1,4 +1,5 @@
-import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { foreignKey, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { smithersRuns } from "./smithersRuns.js";
 export const smithersNodeDiffs = sqliteTable("_smithers_node_diffs", {
     runId: text("run_id").notNull(),
     nodeId: text("node_id").notNull(),
@@ -9,4 +10,8 @@ export const smithersNodeDiffs = sqliteTable("_smithers_node_diffs", {
     sizeBytes: integer("size_bytes").notNull(),
 }, (t) => ({
     pk: primaryKey({ columns: [t.runId, t.nodeId, t.iteration, t.baseRef] }),
+    runFk: foreignKey({
+        columns: [t.runId],
+        foreignColumns: [smithersRuns.runId],
+    }).onDelete("cascade"),
 }));

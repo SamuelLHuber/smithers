@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { foreignKey, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { smithersRuns } from "./smithersRuns.js";
 
 export const smithersTimeTravelAudit = sqliteTable("_smithers_time_travel_audit", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -9,4 +10,9 @@ export const smithersTimeTravelAudit = sqliteTable("_smithers_time_travel_audit"
   timestampMs: integer("timestamp_ms").notNull(),
   result: text("result").notNull(),
   durationMs: integer("duration_ms"),
-});
+}, (t) => ({
+  runFk: foreignKey({
+    columns: [t.runId],
+    foreignColumns: [smithersRuns.runId],
+  }).onDelete("cascade"),
+}));
