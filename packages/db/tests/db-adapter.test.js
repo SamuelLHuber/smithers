@@ -310,6 +310,7 @@ describe("SmithersDb adapter", () => {
     });
     test("insertFrame and getLastFrame", async () => {
         const { adapter } = createTestDb();
+        await adapter.insertRun(runRow("r1"));
         await adapter.insertFrame(frameRow("r1", 0));
         await adapter.insertFrame(frameRow("r1", 1));
         const last = await adapter.getLastFrame("r1");
@@ -318,6 +319,7 @@ describe("SmithersDb adapter", () => {
     });
     test("insertFrame delta-encodes frames and reconstructs on read", async () => {
         const { adapter, sqlite } = createTestDb();
+        await adapter.insertRun(runRow("r1"));
         const frame0 = workflowFrameXml("pending");
         const frame1 = workflowFrameXml("in-progress");
         const frame2 = workflowFrameXml("in-progress", true);
@@ -341,6 +343,7 @@ describe("SmithersDb adapter", () => {
     });
     test("insertFrame writes periodic keyframes", async () => {
         const { adapter, sqlite } = createTestDb();
+        await adapter.insertRun(runRow("r1"));
         for (let i = 0; i <= 50; i += 1) {
             await adapter.insertFrame(frameRow("r1", i, {
                 xmlJson: workflowFrameXml(i % 2 === 0 ? "pending" : "finished"),
@@ -354,6 +357,7 @@ describe("SmithersDb adapter", () => {
     });
     test("deleteFramesAfter removes later frames", async () => {
         const { adapter } = createTestDb();
+        await adapter.insertRun(runRow("r1"));
         await adapter.insertFrame(frameRow("r1", 0));
         await adapter.insertFrame(frameRow("r1", 1));
         await adapter.insertFrame(frameRow("r1", 2));
@@ -708,6 +712,7 @@ describe("SmithersDb adapter", () => {
     });
     test("listFrames returns frames with limit", async () => {
         const { adapter } = createTestDb();
+        await adapter.insertRun(runRow("r1"));
         for (let i = 0; i < 5; i++) {
             await adapter.insertFrame(frameRow("r1", i));
         }

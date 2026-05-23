@@ -99,6 +99,14 @@ describe("ensureSmithersTables", () => {
     test("adds frame encoding column for legacy databases", () => {
         const sqlite = new Database(":memory:");
         sqlite.exec(`
+      CREATE TABLE _smithers_runs (
+        run_id TEXT PRIMARY KEY,
+        workflow_name TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at_ms INTEGER NOT NULL
+      );
+      INSERT INTO _smithers_runs (run_id, workflow_name, status, created_at_ms)
+        VALUES ('legacy-run', 'wf', 'running', 1);
       CREATE TABLE _smithers_frames (
         run_id TEXT NOT NULL,
         frame_no INTEGER NOT NULL,

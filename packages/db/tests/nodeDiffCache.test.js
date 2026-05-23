@@ -11,6 +11,15 @@ function createDb() {
     const adapter = new SmithersDb(db);
     return { sqlite, adapter };
 }
+async function insertRun(adapter, runId) {
+    await adapter.insertRun({
+        runId,
+        workflowName: "node-diff-cache-test",
+        workflowHash: "hash",
+        status: "running",
+        createdAtMs: Date.now(),
+    });
+}
 const BUNDLE = {
     seq: 1,
     baseRef: "base",
@@ -33,6 +42,7 @@ describe("NodeDiffCache", () => {
             iteration: 0,
             baseRef: "base-1",
         };
+        await insertRun(adapter, key.runId);
         const cold = await cache.getOrCompute(key, async () => {
             computeCalls += 1;
             return BUNDLE;
@@ -59,6 +69,7 @@ describe("NodeDiffCache", () => {
             iteration: 0,
             baseRef: "base-2",
         };
+        await insertRun(adapter, key.runId);
         const all = await Promise.all(Array.from({ length: 10 }, () => cache.getOrCompute(key, async () => {
             computeCalls += 1;
             await Bun.sleep(25);
@@ -135,6 +146,7 @@ describe("NodeDiffCache", () => {
             iteration: 0,
             baseRef: "base-perf",
         };
+        await insertRun(adapter, key.runId);
         await cache.getOrCompute(key, async () => BUNDLE);
         const iterations = 50;
         const samples = [];
@@ -155,6 +167,7 @@ describe("NodeDiffCache", () => {
         const { sqlite, adapter } = createDb();
         const cache = new NodeDiffCache(adapter);
         const runId = "run-node-diff-invalidate";
+        await insertRun(adapter, runId);
         await adapter.insertFrame({
             runId,
             frameNo: 0,

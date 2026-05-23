@@ -4,6 +4,7 @@ import { SqlError } from "@effect/sql/SqlError";
 import * as Statement from "@effect/sql/Statement";
 import { Database } from "bun:sqlite";
 import { Context, Effect, Layer, ManagedRuntime, Scope } from "effect";
+import { runSmithersSchemaMigrations } from "./schema-migrations.js";
 import { camelToSnake } from "./utils/camelToSnake.js";
 /** @typedef {import("drizzle-orm/bun-sqlite").BunSQLiteDatabase} BunSQLiteDatabase */
 /** @typedef {import("./SqlMessageStorageEventHistoryQuery.ts").SqlMessageStorageEventHistoryQuery} SqlMessageStorageEventHistoryQuery */
@@ -73,7 +74,8 @@ const CREATE_TABLE_STATEMENTS = [
     mounted_task_ids_json TEXT,
     task_index_json TEXT,
     note TEXT,
-    PRIMARY KEY (run_id, frame_no)
+    PRIMARY KEY (run_id, frame_no),
+    FOREIGN KEY (run_id) REFERENCES _smithers_runs(run_id) ON DELETE CASCADE
   )`,
     `CREATE TABLE IF NOT EXISTS _smithers_approvals (
     run_id TEXT NOT NULL,
@@ -161,7 +163,8 @@ const CREATE_TABLE_STATEMENTS = [
     diff_json TEXT NOT NULL,
     computed_at_ms INTEGER NOT NULL,
     size_bytes INTEGER NOT NULL,
-    PRIMARY KEY (run_id, node_id, iteration, base_ref)
+    PRIMARY KEY (run_id, node_id, iteration, base_ref),
+    FOREIGN KEY (run_id) REFERENCES _smithers_runs(run_id) ON DELETE CASCADE
   )`,
     `CREATE TABLE IF NOT EXISTS _smithers_time_travel_audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -171,7 +174,8 @@ const CREATE_TABLE_STATEMENTS = [
     caller TEXT NOT NULL,
     timestamp_ms INTEGER NOT NULL,
     result TEXT NOT NULL,
-    duration_ms INTEGER
+    duration_ms INTEGER,
+    FOREIGN KEY (run_id) REFERENCES _smithers_runs(run_id) ON DELETE CASCADE
   )`,
     `CREATE TABLE IF NOT EXISTS _smithers_sandboxes (
     run_id TEXT NOT NULL,
@@ -323,47 +327,6 @@ const CREATE_INDEX_STATEMENTS = [
     ON _smithers_signals (run_id, signal_name, correlation_id, received_at_ms)`,
     `CREATE INDEX IF NOT EXISTS _smithers_time_travel_audit_lookup_idx
     ON _smithers_time_travel_audit (run_id, caller, timestamp_ms)`,
-];
-const MIGRATION_STATEMENTS = [
-    `ALTER TABLE _smithers_attempts ADD COLUMN response_text TEXT`,
-    `ALTER TABLE _smithers_attempts ADD COLUMN jj_cwd TEXT`,
-    `ALTER TABLE _smithers_attempts ADD COLUMN heartbeat_at_ms INTEGER`,
-    `ALTER TABLE _smithers_attempts ADD COLUMN heartbeat_data_json TEXT`,
-    `ALTER TABLE _smithers_attempts ADD COLUMN cached INTEGER DEFAULT 0`,
-    `ALTER TABLE _smithers_attempts ADD COLUMN meta_json TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN workflow_hash TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN heartbeat_at_ms INTEGER`,
-    `ALTER TABLE _smithers_runs ADD COLUMN runtime_owner_id TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN cancel_requested_at_ms INTEGER`,
-    `ALTER TABLE _smithers_runs ADD COLUMN hijack_requested_at_ms INTEGER`,
-    `ALTER TABLE _smithers_runs ADD COLUMN hijack_target TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN vcs_type TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN vcs_root TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN vcs_revision TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN parent_run_id TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN error_json TEXT`,
-    `ALTER TABLE _smithers_runs ADD COLUMN config_json TEXT`,
-    `ALTER TABLE _smithers_approvals ADD COLUMN request_json TEXT`,
-    `ALTER TABLE _smithers_approvals ADD COLUMN decision_json TEXT`,
-    `ALTER TABLE _smithers_approvals ADD COLUMN auto_approved INTEGER NOT NULL DEFAULT 0`,
-    `CREATE INDEX IF NOT EXISTS _smithers_runs_parent_idx ON _smithers_runs (parent_run_id)`,
-    // Ticket 0001: Alert model extensions
-    `ALTER TABLE _smithers_alerts ADD COLUMN fingerprint TEXT`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN node_id TEXT`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN iteration INTEGER`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN owner TEXT`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN runbook TEXT`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN labels_json TEXT`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN reaction_json TEXT`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN source_event_type TEXT`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN first_fired_at_ms INTEGER`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN last_fired_at_ms INTEGER`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN occurrence_count INTEGER DEFAULT 1`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN silenced_until_ms INTEGER`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN acknowledged_by TEXT`,
-    `ALTER TABLE _smithers_alerts ADD COLUMN resolved_by TEXT`,
-    `CREATE INDEX IF NOT EXISTS _smithers_alerts_fingerprint_idx ON _smithers_alerts (fingerprint)`,
-    `CREATE INDEX IF NOT EXISTS _smithers_alerts_run_status_idx ON _smithers_alerts (run_id, status)`,
 ];
 /**
  * @param {string} identifier
@@ -623,31 +586,10 @@ export class SqlMessageStorage {
     ensureSchemaEffect() {
         const sqlite = this.sqlite;
         return Effect.sync(() => {
-            for (const statement of CREATE_TABLE_STATEMENTS) {
-                sqlite.run(statement);
-            }
-            for (const statement of MIGRATION_STATEMENTS) {
-                try {
-                    sqlite.run(statement);
-                }
-                catch {
-                    // Ignore legacy migration failures for already-applied changes.
-                }
-            }
-            const frameColumns = sqlite
-                .query(`PRAGMA table_info("_smithers_frames")`)
-                .all();
-            if (!frameColumns.some((column) => column.name === "encoding")) {
-                try {
-                    sqlite.run(`ALTER TABLE _smithers_frames ADD COLUMN encoding TEXT NOT NULL DEFAULT 'full'`);
-                }
-                catch {
-                    // Ignore if another caller added it first.
-                }
-            }
-            for (const statement of CREATE_INDEX_STATEMENTS) {
-                sqlite.run(statement);
-            }
+            runSmithersSchemaMigrations(sqlite, {
+                createTableStatements: CREATE_TABLE_STATEMENTS,
+                createIndexStatements: CREATE_INDEX_STATEMENTS,
+            });
         });
     }
     /**

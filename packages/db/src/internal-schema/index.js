@@ -19,3 +19,4 @@ export { smithersMemoryThreads } from "./smithersMemoryThreads.js";
 export { smithersMemoryMessages } from "./smithersMemoryMessages.js";
 export { smithersVectors } from "./smithersVectors.js";
 export { smithersCron } from "./smithersCron.js";
+export { smithersSchemaMigrations } from "./smithersSchemaMigrations.js";
