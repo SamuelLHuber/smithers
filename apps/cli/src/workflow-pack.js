@@ -3510,6 +3510,7 @@ function renderTemplateFiles(versions, env, projectRoot) {
                 "executions/",
                 "runs/",
                 "sandboxes/",
+                "remote/",
                 "state/",
                 "tmp/",
                 "*.db",
