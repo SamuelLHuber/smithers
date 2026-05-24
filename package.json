@@ -31,6 +31,11 @@
     "./scorers": "./packages/scorers/src/index.js",
     "./memory": "./packages/memory/src/index.js",
     "./openapi": "./packages/openapi/src/index.js",
+    "./sandbox": {
+      "types": "./packages/sandbox/src/index.d.ts",
+      "import": "./packages/sandbox/src/index.js",
+      "default": "./packages/sandbox/src/index.js"
+    },
     "./control-plane": "./packages/smithers/src/control-plane.js"
   },
   "engines": {

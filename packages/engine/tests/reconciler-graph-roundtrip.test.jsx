@@ -9,7 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import { Effect } from "effect";
-import { Task, Workflow, runWorkflow } from "smithers-orchestrator";
+import { Sandbox, Task, Workflow, runWorkflow } from "smithers-orchestrator";
 import { SmithersRenderer } from "@smithers-orchestrator/react-reconciler/dom/renderer";
 import { extractFromHost } from "@smithers-orchestrator/graph/dom/extract";
 import { createTestSmithers } from "../../smithers/tests/helpers.js";
@@ -32,6 +32,55 @@ describe("reconciler→graph→engine pipeline", () => {
             const rows = await db.select().from(tables.outputA);
             expect(rows.length).toBe(1);
             expect(rows[0].value).toBe(42);
+        } finally {
+            cleanup();
+        }
+    }, 30_000);
+
+    test("executes a provider-backed sandbox through the public React pipeline", async () => {
+        const { smithers, outputs, tables, db, cleanup } = createTestSmithers({
+            result: z.object({ value: z.number() }),
+        });
+        const providerCalls = [];
+        const provider = {
+            id: "roundtrip-provider",
+            run: async (request) => {
+                providerCalls.push(request);
+                return {
+                    status: "finished",
+                    output: { value: 1 },
+                    runId: "remote-roundtrip",
+                    workspaceId: "workspace-roundtrip",
+                };
+            },
+        };
+        try {
+            const childWorkflow = { build: () => null };
+            const workflow = smithers(() => (
+                <Workflow name="rt-sandbox-provider">
+                    <Sandbox
+                        id="remote"
+                        provider={provider}
+                        workflow={childWorkflow}
+                        input={{ prompt: "ship it" }}
+                        output={outputs.result}
+                        reviewDiffs={false}
+                        retries={0}
+                    />
+                </Workflow>
+            ));
+
+            const result = await Effect.runPromise(runWorkflow(workflow, { input: {} }));
+
+            expect(result.status).toBe("finished");
+            expect(providerCalls).toHaveLength(1);
+            expect(providerCalls[0]).toMatchObject({
+                sandboxId: "remote",
+                input: { prompt: "ship it" },
+            });
+            const rows = await db.select().from(tables.result);
+            expect(rows).toHaveLength(1);
+            expect(rows[0].value).toBe(1);
         } finally {
             cleanup();
         }

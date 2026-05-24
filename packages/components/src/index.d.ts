@@ -316,10 +316,15 @@ type SandboxProps$2 = {
     /** Input passed to the child workflow. */
     input?: unknown;
     output: OutputTarget$1;
+    /** Injectable sandbox provider object or a provider id registered with the sandbox package. */
+    provider?: unknown;
+    /** @deprecated Prefer provider. Kept for legacy local transports. */
     runtime?: SandboxRuntime$1;
     allowNetwork?: boolean;
     reviewDiffs?: boolean;
     autoAcceptDiffs?: boolean;
+    /** Allow this sandbox to execute while already inside another sandbox. Disabled by default. */
+    allowNested?: boolean;
     image?: string;
     env?: Record<string, string>;
     ports?: Array<{
@@ -1201,10 +1206,12 @@ declare function Sandbox(props: SandboxProps$1): React.ReactElement<{
     id: string;
     key: string | undefined;
     output: OutputTarget$1;
-    runtime: SandboxRuntime$1;
+    provider: unknown;
+    runtime: SandboxRuntime$1 | undefined;
     allowNetwork: boolean | undefined;
     reviewDiffs: boolean | undefined;
     autoAcceptDiffs: boolean | undefined;
+    allowNested: boolean | undefined;
     image: string | undefined;
     env: Record<string, string> | undefined;
     ports: {
@@ -1230,9 +1237,11 @@ declare function Sandbox(props: SandboxProps$1): React.ReactElement<{
     needs: Record<string, string> | undefined;
     label: string;
     meta: Record<string, unknown> | undefined;
+    __smithersSandboxProvider: unknown;
     __smithersSandboxWorkflow: _smithers_driver.WorkflowDefinition<unknown> | undefined;
     __smithersSandboxInput: unknown;
-    __smithersSandboxRuntime: SandboxRuntime$1;
+    __smithersSandboxRuntime: SandboxRuntime$1 | undefined;
+    __smithersSandboxAllowNested: boolean | undefined;
     __smithersSandboxChildren: React.ReactNode;
 }, string | React.JSXElementConstructor<any>> | null;
 type SandboxProps$1 = SandboxProps$2;

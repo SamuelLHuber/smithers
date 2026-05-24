@@ -7,7 +7,7 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { withTaskRuntime } from "@smithers-orchestrator/driver/task-runtime";
-import { __executeSandboxInternals, executeSandbox } from "../src/execute.js";
+import { __executeSandboxInternals, executeSandbox, registerSandboxProvider } from "../src/execute.js";
 
 /**
  * @param {string} prefix
@@ -126,6 +126,20 @@ function writeChildLog(rootDir, childRunId, content = "{\"event\":\"child\"}\n")
     writeFileSync(join(logDir, "stream.ndjson"), content, "utf8");
 }
 
+function onePatchDiffBundle() {
+    return {
+        seq: 1,
+        baseRef: "HEAD",
+        patches: [
+            {
+                path: "src/app.ts",
+                operation: "modify",
+                diff: "diff --git a/src/app.ts b/src/app.ts\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1 +1 @@\n-old\n+new\n",
+            },
+        ],
+    };
+}
+
 describe("executeSandbox", () => {
     test("covers defensive helper branches used by sandbox execution", async () => {
         const root = tempDir("smithers-sandbox-execute-helper-");
@@ -241,6 +255,228 @@ describe("executeSandbox", () => {
                 "SandboxBundleReceived",
                 "SandboxCompleted",
             ]);
+        }
+        finally {
+            sqlite.close();
+        }
+    });
+
+    test("runs a registered provider, materializes its bundle, and applies accepted diff bundles", async () => {
+        const { adapter, db, sqlite } = createDb();
+        const rootDir = tempDir("smithers-sandbox-provider-");
+        const runtime = createRuntime(db, { runId: "run-provider" });
+        const providerRequests = [];
+        const applyCalls = [];
+        const unregister = registerSandboxProvider({
+            id: "remote-provider",
+            run: async (request) => {
+                providerRequests.push(request);
+                expect(request).toMatchObject({
+                    runId: "run-provider",
+                    sandboxId: "sandbox-provider",
+                    rootDir,
+                    allowNetwork: true,
+                    maxOutputBytes: 1024,
+                    toolTimeoutMs: 250,
+                    config: { region: "us-east-1" },
+                });
+                return {
+                    status: "finished",
+                    output: { answer: 42 },
+                    runId: "remote-run-1",
+                    workspaceId: "workspace-1",
+                    containerId: "container-1",
+                    diffBundle: onePatchDiffBundle(),
+                };
+            },
+        });
+        try {
+            const output = await runInRuntime(runtime, {
+                sandboxId: "sandbox-provider",
+                provider: "remote-provider",
+                runtime: undefined,
+                rootDir,
+                allowNetwork: true,
+                reviewDiffs: false,
+                config: { region: "us-east-1" },
+                applyDiffBundle: async (bundle, targetDir) => {
+                    applyCalls.push({ bundle, targetDir });
+                },
+            });
+
+            expect(output).toEqual({ answer: 42 });
+            expect(providerRequests).toHaveLength(1);
+            expect(applyCalls).toEqual([
+                {
+                    bundle: onePatchDiffBundle(),
+                    targetDir: rootDir,
+                },
+            ]);
+
+            const sandbox = await adapter.getSandbox("run-provider", "sandbox-provider");
+            expect(sandbox).toMatchObject({
+                runtime: "remote-provider",
+                remoteRunId: "remote-run-1",
+                workspaceId: "workspace-1",
+                containerId: "container-1",
+                status: "finished",
+            });
+            expect(JSON.parse(String(sandbox.configJson))).toMatchObject({
+                provider: "remote-provider",
+                selectedRuntime: "remote-provider",
+                allowNetwork: true,
+                region: "us-east-1",
+            });
+            const manifest = JSON.parse(readFileSync(join(String(sandbox.bundlePath), "README.md"), "utf8"));
+            expect(manifest).toMatchObject({
+                outputs: { answer: 42 },
+                status: "finished",
+                runId: "remote-run-1",
+                diffBundle: onePatchDiffBundle(),
+            });
+            expect(await eventTypes(adapter, "run-provider")).toEqual([
+                "SandboxCreated",
+                "SandboxShipped",
+                "SandboxBundleReceived",
+                "SandboxCompleted",
+            ]);
+        }
+        finally {
+            unregister();
+            sqlite.close();
+        }
+    });
+
+    test("provider diff bundles require review unless auto-accepted", async () => {
+        const { adapter, db, sqlite } = createDb();
+        const rootDir = tempDir("smithers-sandbox-provider-review-");
+        const runtime = createRuntime(db, { runId: "run-provider-review" });
+        let applied = false;
+        try {
+            await expect(
+                runInRuntime(runtime, {
+                    sandboxId: "sandbox-provider-review",
+                    provider: {
+                        id: "review-provider",
+                        run: async () => ({
+                            status: "finished",
+                            output: { changed: true },
+                            runId: "remote-review",
+                            diffBundle: onePatchDiffBundle(),
+                        }),
+                    },
+                    runtime: undefined,
+                    rootDir,
+                    reviewDiffs: true,
+                    autoAcceptDiffs: false,
+                    applyDiffBundle: async () => {
+                        applied = true;
+                    },
+                }),
+            ).rejects.toThrow("require review approval");
+
+            expect(applied).toBe(false);
+            expect(await adapter.getSandbox("run-provider-review", "sandbox-provider-review")).toMatchObject({
+                status: "failed",
+            });
+            expect(await eventTypes(adapter, "run-provider-review")).toEqual([
+                "SandboxCreated",
+                "SandboxShipped",
+                "SandboxBundleReceived",
+                "SandboxDiffReviewRequested",
+                "SandboxDiffRejected",
+                "SandboxFailed",
+            ]);
+        }
+        finally {
+            sqlite.close();
+        }
+    });
+
+    test("provider cleanup runs after provider result failures", async () => {
+        const { db, sqlite } = createDb();
+        const runtime = createRuntime(db, { runId: "run-provider-cleanup" });
+        const cleanupCalls = [];
+        try {
+            await expect(
+                runInRuntime(runtime, {
+                    sandboxId: "sandbox-provider-cleanup",
+                    provider: {
+                        id: "cleanup-provider",
+                        run: async () => ({ output: { missing: "status" } }),
+                        cleanup: async (request) => cleanupCalls.push(request.sandboxId),
+                    },
+                    runtime: undefined,
+                }),
+            ).rejects.toThrow("must include either bundlePath or status");
+
+            expect(cleanupCalls).toEqual(["sandbox-provider-cleanup"]);
+        }
+        finally {
+            sqlite.close();
+        }
+    });
+
+    test("rejects unknown providers before running sandbox work", async () => {
+        const { adapter, db, sqlite } = createDb();
+        const runtime = createRuntime(db, { runId: "run-provider-missing" });
+        try {
+            await expect(
+                runInRuntime(runtime, {
+                    provider: "missing-provider",
+                    runtime: undefined,
+                }),
+            ).rejects.toThrow('Sandbox provider "missing-provider" is not registered');
+            expect(await eventTypes(adapter, "run-provider-missing")).toEqual([]);
+        }
+        finally {
+            sqlite.close();
+        }
+    });
+
+    test("rejects nested sandbox execution by default and allows it explicitly", async () => {
+        const { adapter, db, sqlite } = createDb();
+        const rootDir = tempDir("smithers-sandbox-nested-");
+        const runtime = createRuntime(db, { runId: "run-nested" });
+        const parentContext = {
+            depth: 1,
+            sandboxId: "outer",
+            runId: "run-nested",
+            providerId: "outer-provider",
+        };
+        const provider = {
+            id: "inner-provider",
+            run: async () => ({ status: "finished", output: { nested: true }, runId: "inner-run" }),
+        };
+        try {
+            await expect(
+                __executeSandboxInternals.sandboxExecutionContext.run(parentContext, () =>
+                    runInRuntime(runtime, {
+                        sandboxId: "inner-blocked",
+                        provider,
+                        runtime: undefined,
+                        rootDir,
+                    }),
+                ),
+            ).rejects.toThrow("Nested <Sandbox> execution is disabled");
+
+            const output = await __executeSandboxInternals.sandboxExecutionContext.run(parentContext, () =>
+                runInRuntime(runtime, {
+                    sandboxId: "inner-allowed",
+                    provider,
+                    runtime: undefined,
+                    rootDir,
+                    allowNested: true,
+                }),
+            );
+
+            expect(output).toEqual({ nested: true });
+            expect(await adapter.getSandbox("run-nested", "inner-blocked")).toBeUndefined();
+            expect(await adapter.getSandbox("run-nested", "inner-allowed")).toMatchObject({
+                runtime: "inner-provider",
+                remoteRunId: "inner-run",
+                status: "finished",
+            });
         }
         finally {
             sqlite.close();

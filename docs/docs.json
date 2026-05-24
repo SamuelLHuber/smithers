@@ -234,7 +234,8 @@
             "pages": [
               "examples/generate-llms-txt",
               "examples/ci-workflow",
-              "examples/agents-md"
+              "examples/agents-md",
+              "examples/freestyle-sandbox-provider"
             ]
           },
           {

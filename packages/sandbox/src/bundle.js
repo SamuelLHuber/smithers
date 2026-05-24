@@ -75,6 +75,9 @@ function parseReadmeJson(readme) {
         patches: Array.isArray(manifest.patches)
             ? manifest.patches.filter((v) => typeof v === "string")
             : undefined,
+        diffBundle: manifest.diffBundle && typeof manifest.diffBundle === "object"
+            ? manifest.diffBundle
+            : undefined,
     };
 }
 /**
@@ -90,7 +93,7 @@ function assertPatchPathSafe(bundlePath, patchPath) {
     }
 }
 /**
- * @param {{ output: unknown; patches?: Array<{ path: string; content: string }>; artifacts?: Array<{ path: string; content: string }>; runId?: string; status: "finished" | "failed" | "cancelled"; streamLogPath?: string | null; }} params
+ * @param {{ output: unknown; patches?: Array<{ path: string; content: string }>; artifacts?: Array<{ path: string; content: string }>; runId?: string; status: "finished" | "failed" | "cancelled"; streamLogPath?: string | null; diffBundle?: unknown; }} params
  */
 async function estimateBundleWriteBytes(params) {
     const readmeBytes = Buffer.byteLength(JSON.stringify({
@@ -98,6 +101,7 @@ async function estimateBundleWriteBytes(params) {
         status: params.status,
         runId: params.runId,
         patches: (params.patches ?? []).map((patch) => patch.path),
+        diffBundle: params.diffBundle,
     }, null, 2), "utf8");
     const patchBytes = (params.patches ?? []).reduce((total, patch) => total + Buffer.byteLength(patch.content, "utf8"), 0);
     const artifactBytes = (params.artifacts ?? []).reduce((total, artifact) => total + Buffer.byteLength(artifact.content, "utf8"), 0);
@@ -107,7 +111,7 @@ async function estimateBundleWriteBytes(params) {
     return readmeBytes + patchBytes + artifactBytes + streamLogBytes;
 }
 /**
- * @param {{ bundlePath: string; output: unknown; status: "finished" | "failed" | "cancelled"; runId?: string; streamLogPath?: string | null; patches?: Array<{ path: string; content: string }>; artifacts?: Array<{ path: string; content: string }>; }} params
+ * @param {{ bundlePath: string; output: unknown; status: "finished" | "failed" | "cancelled"; runId?: string; streamLogPath?: string | null; patches?: Array<{ path: string; content: string }>; artifacts?: Array<{ path: string; content: string }>; diffBundle?: unknown; }} params
  */
 async function validateSandboxBundleWriteParams(params) {
     assertOptionalStringMaxLength("bundlePath", params.bundlePath, SANDBOX_BUNDLE_PATH_MAX_LENGTH);
@@ -181,7 +185,7 @@ export async function validateSandboxBundle(bundlePath) {
     };
 }
 /**
- * @param {{ bundlePath: string; output: unknown; status: "finished" | "failed" | "cancelled"; runId?: string; streamLogPath?: string | null; patches?: Array<{ path: string; content: string }>; artifacts?: Array<{ path: string; content: string }>; }} params
+ * @param {{ bundlePath: string; output: unknown; status: "finished" | "failed" | "cancelled"; runId?: string; streamLogPath?: string | null; patches?: Array<{ path: string; content: string }>; artifacts?: Array<{ path: string; content: string }>; diffBundle?: unknown; }} params
  */
 export async function writeSandboxBundle(params) {
     await validateSandboxBundleWriteParams(params);
@@ -208,5 +212,6 @@ export async function writeSandboxBundle(params) {
         status: params.status,
         runId: params.runId,
         patches: (params.patches ?? []).map((p) => p.path),
+        diffBundle: params.diffBundle,
     }, null, 2), "utf8");
 }

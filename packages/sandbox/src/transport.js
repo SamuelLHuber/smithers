@@ -6,10 +6,10 @@
 // @smithers-type-exports-end
 
 import { Context, Effect, Layer } from "effect";
+import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { CodeplaneSandboxExecutorLive, DockerSandboxExecutorLive, } from "./effect/http-runner.js";
 import { makeSandboxTransportServiceEffect, } from "./effect/sandbox-entity.js";
 import { BubblewrapSandboxExecutorLive } from "./effect/socket-runner.js";
-import {} from "@smithers-orchestrator/errors/SmithersError";
 /** @typedef {import("./SandboxRuntime.ts").SandboxRuntime} SandboxRuntime */
 
 const SandboxTransportTag = /** @type {Context.TagClass<SandboxTransport, "SandboxTransport", SandboxTransportService>} */ (
@@ -35,8 +35,11 @@ export function layerForSandboxRuntime(runtime) {
         case "codeplane":
             return makeSandboxTransportLayer(CodeplaneSandboxExecutorLive);
         case "bubblewrap":
-        default:
             return makeSandboxTransportLayer(BubblewrapSandboxExecutorLive);
+        default:
+            throw new SmithersError("INVALID_INPUT", `Unsupported sandbox runtime: ${String(runtime)}`, {
+                runtime,
+            });
     }
 }
 /**
@@ -44,8 +47,10 @@ export function layerForSandboxRuntime(runtime) {
  * @returns {SandboxRuntime}
  */
 export function resolveSandboxRuntime(requested) {
-    if (requested !== "docker")
-        return requested;
-    const hasDocker = typeof Bun !== "undefined" ? Boolean(Bun.which("docker")) : false;
-    return hasDocker ? "docker" : "bubblewrap";
+    if (requested !== "docker" && requested !== "codeplane" && requested !== "bubblewrap") {
+        throw new SmithersError("INVALID_INPUT", `Unsupported sandbox runtime: ${String(requested)}`, {
+            runtime: requested,
+        });
+    }
+    return requested;
 }

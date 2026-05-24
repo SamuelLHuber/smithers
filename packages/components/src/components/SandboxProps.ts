@@ -14,10 +14,15 @@ export type SandboxProps = {
 	/** Input passed to the child workflow. */
 	input?: unknown;
 	output: OutputTarget;
+	/** Injectable sandbox provider object or a provider id registered with the sandbox package. */
+	provider?: unknown;
+	/** @deprecated Prefer provider. Kept for legacy local transports. */
 	runtime?: SandboxRuntime;
 	allowNetwork?: boolean;
 	reviewDiffs?: boolean;
 	autoAcceptDiffs?: boolean;
+	/** Allow this sandbox to execute while already inside another sandbox. Disabled by default. */
+	allowNested?: boolean;
 	image?: string;
 	env?: Record<string, string>;
 	ports?: Array<{

@@ -7,6 +7,7 @@ type SandboxBundleManifest$1 = {
     status: "finished" | "failed" | "cancelled";
     runId?: string;
     patches?: string[];
+    diffBundle?: SandboxDiffBundleLike;
 };
 
 type ValidatedSandboxBundle$1 = {
@@ -39,6 +40,7 @@ declare function writeSandboxBundle(params: {
         path: string;
         content: string;
     }>;
+    diffBundle?: unknown;
 }): Promise<void>;
 /** @typedef {import("./SandboxBundleManifest.ts").SandboxBundleManifest} SandboxBundleManifest */
 /** @typedef {import("./ValidatedSandboxBundle.ts").ValidatedSandboxBundle} ValidatedSandboxBundle */
@@ -143,12 +145,71 @@ type ExecuteSandboxChildWorkflow = (parentWorkflow: SandboxWorkflow | undefined,
     status: string;
     output: unknown;
 }>;
+type SandboxBundleStatus = "finished" | "failed" | "cancelled";
+type SandboxDiffBundleLike = {
+    seq: number;
+    baseRef: string;
+    patches: Array<{
+        path: string;
+        operation: "add" | "modify" | "delete";
+        diff: string;
+        binaryContent?: string;
+    }>;
+};
+type SandboxProviderRequest = {
+    runId: string;
+    sandboxId: string;
+    input?: unknown;
+    rootDir: string;
+    requestBundlePath: string;
+    resultBundlePath: string;
+    workflow: SandboxChildWorkflowDefinition;
+    parentWorkflow?: SandboxWorkflow;
+    executeChildWorkflow: ExecuteSandboxChildWorkflow;
+    allowNetwork: boolean;
+    maxOutputBytes: number;
+    toolTimeoutMs: number;
+    config: Record<string, unknown>;
+    signal?: AbortSignal;
+    heartbeat: (data?: unknown) => void;
+};
+type SandboxProviderResult = {
+    bundlePath: string;
+    remoteRunId?: string;
+    workspaceId?: string;
+    containerId?: string;
+} | {
+    status: SandboxBundleStatus;
+    output?: unknown;
+    outputs?: unknown;
+    runId?: string;
+    remoteRunId?: string;
+    workspaceId?: string;
+    containerId?: string;
+    diffBundle?: SandboxDiffBundleLike;
+    patches?: Array<{
+        path: string;
+        content: string;
+    }>;
+    artifacts?: Array<{
+        path: string;
+        content: string;
+    }>;
+    streamLogPath?: string | null;
+};
+type SandboxProvider = {
+    id: string;
+    run: (request: SandboxProviderRequest) => Promise<SandboxProviderResult> | SandboxProviderResult;
+    cleanup?: (request: SandboxProviderRequest) => Promise<void> | void;
+};
 type ExecuteSandboxOptions$1 = {
     parentWorkflow?: SandboxWorkflow;
     sandboxId: string;
+    provider?: SandboxProvider | string;
     runtime?: SandboxRuntime$1;
     workflow: SandboxChildWorkflowDefinition;
     executeChildWorkflow: ExecuteSandboxChildWorkflow;
+    applyDiffBundle?: (bundle: SandboxDiffBundleLike, targetDir: string) => Promise<void>;
     input?: unknown;
     rootDir: string;
     allowNetwork: boolean;
@@ -156,8 +217,12 @@ type ExecuteSandboxOptions$1 = {
     toolTimeoutMs: number;
     reviewDiffs?: boolean;
     autoAcceptDiffs?: boolean;
+    allowNested?: boolean;
     config?: Record<string, unknown>;
 };
+
+declare function registerSandboxProvider(provider: SandboxProvider): () => void;
+declare function resolveSandboxProvider(value: unknown): SandboxProvider | undefined;
 
 /**
  * @param {ExecuteSandboxOptions} options
@@ -191,4 +256,4 @@ type SandboxBundleResult = SandboxBundleResult$1;
 type SandboxTransportConfig = SandboxTransportConfig$1;
 type SandboxRuntime = SandboxRuntime$1;
 
-export { type ExecuteSandboxOptions, SANDBOX_BUNDLE_OUTPUT_MAX_ARRAY_LENGTH, SANDBOX_BUNDLE_OUTPUT_MAX_DEPTH, SANDBOX_BUNDLE_OUTPUT_MAX_STRING_LENGTH, SANDBOX_BUNDLE_PATH_MAX_LENGTH, SANDBOX_BUNDLE_RUN_ID_MAX_LENGTH, SANDBOX_MAX_BUNDLE_BYTES, SANDBOX_MAX_PATCH_FILES, SANDBOX_MAX_README_BYTES, type SandboxBundleManifest, type SandboxBundleResult, SandboxTransport, type SandboxTransportConfig, type SmithersEvent, type ValidatedSandboxBundle, executeSandbox, layerForSandboxRuntime, makeSandboxTransportLayer, resolveSandboxRuntime, validateSandboxBundle, writeSandboxBundle };
+export { type ExecuteSandboxOptions, SANDBOX_BUNDLE_OUTPUT_MAX_ARRAY_LENGTH, SANDBOX_BUNDLE_OUTPUT_MAX_DEPTH, SANDBOX_BUNDLE_OUTPUT_MAX_STRING_LENGTH, SANDBOX_BUNDLE_PATH_MAX_LENGTH, SANDBOX_BUNDLE_RUN_ID_MAX_LENGTH, SANDBOX_MAX_BUNDLE_BYTES, SANDBOX_MAX_PATCH_FILES, SANDBOX_MAX_README_BYTES, type SandboxBundleManifest, type SandboxBundleResult, type SandboxBundleStatus, type SandboxDiffBundleLike, type SandboxProvider, type SandboxProviderRequest, type SandboxProviderResult, SandboxTransport, type SandboxTransportConfig, type SmithersEvent, type ValidatedSandboxBundle, executeSandbox, layerForSandboxRuntime, makeSandboxTransportLayer, registerSandboxProvider, resolveSandboxProvider, resolveSandboxRuntime, validateSandboxBundle, writeSandboxBundle };

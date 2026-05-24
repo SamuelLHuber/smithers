@@ -431,7 +431,7 @@ export function extractGraph(root, opts) {
             requireOutput(raw, nodeId, "Sandbox");
             const { retries, retryPolicy } = resolveRetryConfig(raw);
             const output = resolveOutput(raw);
-            const runtime = raw.__smithersSandboxRuntime ?? raw.runtime ?? "bubblewrap";
+            const runtime = raw.__smithersSandboxRuntime ?? raw.runtime;
             addDescriptor(raw, nodeId, {
                 ...common,
                 ...output,
@@ -452,7 +452,23 @@ export function extractGraph(root, opts) {
                         : {}),
                     __sandbox: true,
                     __sandboxRuntime: runtime,
+                    __sandboxProvider: raw.__smithersSandboxProvider ?? raw.provider,
+                    __sandboxWorkflow: raw.__smithersSandboxWorkflow ?? raw.workflow,
                     __sandboxInput: raw.__smithersSandboxInput ?? raw.input,
+                    __sandboxAllowNetwork: Boolean(raw.allowNetwork),
+                    __sandboxReviewDiffs: raw.reviewDiffs,
+                    __sandboxAutoAcceptDiffs: raw.autoAcceptDiffs,
+                    __sandboxAllowNested: raw.__smithersSandboxAllowNested ?? raw.allowNested,
+                    __sandboxConfig: {
+                        image: raw.image,
+                        env: raw.env,
+                        ports: raw.ports,
+                        volumes: raw.volumes,
+                        memoryLimit: raw.memoryLimit,
+                        cpuLimit: raw.cpuLimit,
+                        command: raw.command,
+                        workspace: raw.workspace,
+                    },
                 },
             });
             return;

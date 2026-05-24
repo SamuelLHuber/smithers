@@ -1,4 +1,5 @@
 import type { SandboxRuntime } from "./SandboxRuntime.ts";
+import type { SandboxDiffBundleLike, SandboxProvider } from "./SandboxProvider.ts";
 
 export type SandboxWorkflow = {
 	db?: unknown;
@@ -31,17 +32,20 @@ export type ExecuteSandboxChildWorkflow = (
 ) => Promise<{ runId: string; status: string; output: unknown }>;
 
 export type ExecuteSandboxOptions = {
-    parentWorkflow?: SandboxWorkflow;
-    sandboxId: string;
-    runtime?: SandboxRuntime;
-    workflow: SandboxChildWorkflowDefinition;
-    executeChildWorkflow: ExecuteSandboxChildWorkflow;
-    input?: unknown;
-    rootDir: string;
-    allowNetwork: boolean;
-    maxOutputBytes: number;
-    toolTimeoutMs: number;
-    reviewDiffs?: boolean;
-    autoAcceptDiffs?: boolean;
-    config?: Record<string, unknown>;
+	parentWorkflow?: SandboxWorkflow;
+	sandboxId: string;
+	provider?: SandboxProvider | string;
+	runtime?: SandboxRuntime;
+	workflow: SandboxChildWorkflowDefinition;
+	executeChildWorkflow: ExecuteSandboxChildWorkflow;
+	applyDiffBundle?: (bundle: SandboxDiffBundleLike, targetDir: string) => Promise<void>;
+	input?: unknown;
+	rootDir: string;
+	allowNetwork: boolean;
+	maxOutputBytes: number;
+	toolTimeoutMs: number;
+	reviewDiffs?: boolean;
+	autoAcceptDiffs?: boolean;
+	allowNested?: boolean;
+	config?: Record<string, unknown>;
 };

@@ -19,6 +19,7 @@ import {
     Panel,
     ReviewLoop,
     Runbook,
+    Sandbox,
     ScanFixVerify,
     Sequence,
     Subflow,
@@ -470,6 +471,19 @@ describe("composite component expansion coverage", () => {
         });
         expect(subflow.type).toBe("smithers:subflow");
         expect(subflow.props.__smithersSubflowMode).toBe("childRun");
+
+        const provider = { id: "remote", run: async () => ({ status: "finished", output: {} }) };
+        const sandbox = Sandbox({
+            id: "sandbox",
+            provider,
+            workflow: { build: () => null },
+            output: "sandbox_out",
+            allowNested: true,
+        });
+        expect(sandbox.type).toBe("smithers:sandbox");
+        expect(sandbox.props.runtime).toBeUndefined();
+        expect(sandbox.props.__smithersSandboxProvider).toBe(provider);
+        expect(sandbox.props.__smithersSandboxAllowNested).toBe(true);
 
         expect(SuperSmithers({ skipIf: true })).toBeNull();
         const dryRun = SuperSmithers({

@@ -39,6 +39,29 @@ describe("sandbox bundle", () => {
         expect(validated.patchFiles).toContain("patches/0001-change.patch");
         expect(validated.logsPath).toBe(join(bundlePath, "logs", "stream.ndjson"));
     });
+    test("round-trips diff bundles in the manifest", async () => {
+        const bundlePath = tempDir("smithers-sandbox-bundle-");
+        const diffBundle = {
+            seq: 7,
+            baseRef: "HEAD",
+            patches: [
+                {
+                    path: "src/app.ts",
+                    operation: "modify",
+                    diff: "diff --git a/src/app.ts b/src/app.ts\n",
+                },
+            ],
+        };
+        await writeSandboxBundle({
+            bundlePath,
+            output: { changed: true },
+            status: "finished",
+            diffBundle,
+        });
+        const validated = await validateSandboxBundle(bundlePath);
+        expect(validated.manifest.diffBundle).toEqual(diffBundle);
+        expect(validated.patchFiles).toEqual([]);
+    });
     test("rejects bundle without README", async () => {
         const bundlePath = tempDir("smithers-sandbox-bundle-");
         await expect(validateSandboxBundle(bundlePath)).rejects.toThrow("missing README.md");

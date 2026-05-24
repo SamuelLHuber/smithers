@@ -1,0 +1,56 @@
+---
+title: Freestyle sandbox provider
+description: Build a third-party Sandbox provider backed by Freestyle VMs.
+---
+
+This example mirrors `examples/freestyle/`. It is intentionally provider-based: the workflow does not set `runtime="docker"` or any other hardcoded runtime.
+
+## Provider shape
+
+```ts
+import { freestyle } from "freestyle";
+import { createFreestyleSandboxProvider } from "../../examples/freestyle/provider";
+
+const freestyleProvider = createFreestyleSandboxProvider({
+  freestyle,
+  command: "node /workspace/run-smithers-sandbox.js",
+  idleTimeoutSeconds: 60,
+  createOptions: {
+    additionalFiles: {
+      "/workspace/run-smithers-sandbox.js": {
+        content: `
+          const fs = require("node:fs");
+          const req = JSON.parse(fs.readFileSync("/workspace/smithers-request.json", "utf8"));
+          fs.writeFileSync("/workspace/smithers-result.json", JSON.stringify({
+            status: "finished",
+            output: { summary: "handled " + req.input.prompt },
+            runId: "freestyle:" + req.sandboxId
+          }));
+        `,
+      },
+    },
+  },
+});
+```
+
+## Workflow
+
+```tsx
+<Workflow name="freestyle-provider-example">
+  <Sandbox
+    id="remote-edit"
+    provider={freestyleProvider}
+    workflow={remoteChildWorkflow}
+    input={{ prompt: ctx.input.prompt }}
+    output={outputs.sandboxResult}
+    reviewDiffs
+    retries={0}
+  />
+</Workflow>
+```
+
+## Why this shape
+
+Freestyle VM creation supports shipping files at create time with `additionalFiles`, setting a `workdir`, cloning repositories, and running commands with `vm.exec()`. That maps cleanly to the Smithers provider contract: Smithers creates the request bundle, the provider moves enough context into the VM, the VM command writes a result JSON file, and Smithers validates/applies the result bundle.
+
+The provider should return `diffBundle` for file changes. That lets Smithers apply accepted changes through the same diff path used by other workflow features.

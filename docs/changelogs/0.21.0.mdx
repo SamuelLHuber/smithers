@@ -46,6 +46,13 @@ recordable keyboard-driven demo deck.
 
 ## CLI
 
+- **Antigravity CLI support landed for Google agent workflows.**
+  Smithers now includes `AntigravityAgent`, CLI detection, init templates,
+  hijack support, account-provider environment wiring, trace normalization,
+  and docs for the `agy` CLI. `GeminiAgent` and `GeminiAgentOptions` remain
+  available for legacy and enterprise Gemini CLI setups, but are now marked
+  deprecated in favor of Antigravity for new Google CLI integrations.
+
 - **JSON arguments are preflighted before workflow modules load.**
   Malformed `--input` and `--annotations` values now fail with Smithers
   errors instead of surfacing raw runtime stack traces.
@@ -87,6 +94,33 @@ recordable keyboard-driven demo deck.
 
 ## Sandbox
 
+- **`<Sandbox>` now supports injectable providers.** Workflow authors can
+  pass a provider object or registered provider id instead of hardcoding a
+  runtime such as Docker. Provider-backed sandboxes run remotely, return a
+  validated result bundle, and record the same sandbox lifecycle events as
+  built-in transports.
+
+- **Sandbox result bundles can carry `diffBundle`s.** Providers may return a
+  structured result with output, remote ids, artifacts, logs, and a
+  `diffBundle`; Smithers materializes the bundle, review-gates changes, and
+  applies accepted diffs through the engine diff-bundle path.
+
+- **Runtime selection now fails closed.** Unknown runtimes are rejected, and
+  Docker no longer silently falls back to bubblewrap when Docker is
+  unavailable. The legacy local transport path still defaults to bubblewrap
+  only when no provider and no runtime are supplied.
+
+- **Nested sandboxes are explicit.** Sandbox execution tracks parent sandbox
+  context and rejects nested sandboxes unless the nested component opts in
+  with `allowNested`, making diff-base, cleanup, quota, and secret-boundary
+  risks visible at the API boundary.
+
+- **Freestyle is documented as a third-party sandbox provider.** The new
+  `examples/freestyle/` adapter shows how a provider can create a Freestyle VM,
+  ship request files with `additionalFiles`, run `vm.exec()`, read a result
+  JSON file, and return a Smithers sandbox bundle. The sandbox docs now use
+  this as the provider-extension example.
+
 - **Process runner transport.** Sandbox execution can now use a
   process-backed runner with request/result bundle boundaries and persisted
   sandbox metadata.
@@ -127,4 +161,3 @@ recordable keyboard-driven demo deck.
 - **CI now runs the test gate on pull requests.** The GitHub workflow includes
   the repository test job, and agent timeout tests were hardened so idle
   timeout coverage is less timing-sensitive.
-

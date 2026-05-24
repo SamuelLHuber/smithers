@@ -45,6 +45,8 @@ import { hashCapabilityRegistry } from "@smithers-orchestrator/agents/capability
 import { cancelPendingTimersBridge, executeTaskBridgeEffect, isBridgeManagedTimerTask as isTimerTask, resolveDeferredTaskStateBridge, } from "./effect/workflow-bridge.js";
 import { AlertRuntime } from "./alert-runtime.js";
 import { executeChildWorkflow } from "./child-workflow.js";
+import { executeSandbox } from "@smithers-orchestrator/sandbox/execute";
+import { applyDiffBundle } from "./effect/diff-bundle.js";
 import { buildCacheScopeIdentity, isFreshCacheRow, normalizeCacheScope } from "./cache-policy.js";
 import { runWorkflowWithMakeBridge } from "./effect/workflow-make-bridge.js";
 import { createWorkflowVersioningRuntime, getWorkflowPatchDecisions, withWorkflowVersioningRuntime, } from "./effect/versioning.js";
@@ -1978,6 +1980,54 @@ function attachSubflowComputeFns(tasks, workflow, opts = {}) {
             return result.output;
         };
         const { __subflowWorkflow: _workflow, ...persistableMeta } = task.meta;
+        task.meta = persistableMeta;
+    }
+}
+/**
+ * @param {TaskDescriptor[]} tasks
+ * @param {SmithersWorkflow<any>} workflow
+ * @param {{ rootDir?: string; workflowPath?: string | null }} [opts]
+ */
+function attachSandboxComputeFns(tasks, workflow, opts = {}) {
+    for (const task of tasks) {
+        if (!task.meta?.__sandbox || task.computeFn)
+            continue;
+        const sandboxWorkflow = task.meta.__sandboxWorkflow;
+        if (!sandboxWorkflow)
+            continue;
+        const sandboxInput = task.meta.__sandboxInput;
+        const sandboxProvider = task.meta.__sandboxProvider;
+        const sandboxRuntime = task.meta.__sandboxRuntime;
+        const sandboxAllowNetwork = Boolean(task.meta.__sandboxAllowNetwork);
+        const sandboxReviewDiffs = task.meta.__sandboxReviewDiffs;
+        const sandboxAutoAcceptDiffs = task.meta.__sandboxAutoAcceptDiffs;
+        const sandboxAllowNested = Boolean(task.meta.__sandboxAllowNested);
+        const sandboxConfig = task.meta.__sandboxConfig && typeof task.meta.__sandboxConfig === "object"
+            ? task.meta.__sandboxConfig
+            : {};
+        task.computeFn = async () => executeSandbox({
+            parentWorkflow: workflow,
+            sandboxId: task.nodeId,
+            provider: sandboxProvider,
+            runtime: sandboxRuntime,
+            workflow: sandboxWorkflow,
+            executeChildWorkflow,
+            applyDiffBundle,
+            input: sandboxInput,
+            rootDir: task.worktreePath ?? opts.rootDir ?? process.cwd(),
+            allowNetwork: sandboxAllowNetwork,
+            maxOutputBytes: 200_000,
+            toolTimeoutMs: 60_000,
+            reviewDiffs: sandboxReviewDiffs,
+            autoAcceptDiffs: sandboxAutoAcceptDiffs,
+            allowNested: sandboxAllowNested,
+            config: sandboxConfig,
+        });
+        const {
+            __sandboxWorkflow: _workflow,
+            __sandboxProvider: _provider,
+            ...persistableMeta
+        } = task.meta;
         task.meta = persistableMeta;
     }
 }
@@ -4163,6 +4213,10 @@ async function renderFrameAsync(workflow, ctx, opts) {
         rootDir: opts?.baseRootDir,
         workflowPath: opts?.workflowPath,
     });
+    attachSandboxComputeFns(tasks, workflow, {
+        rootDir: opts?.baseRootDir,
+        workflowPath: opts?.workflowPath,
+    });
     return { runId: ctx.runId, frameNo: 0, xml: result.xml, tasks };
 }
 /**
@@ -5300,10 +5354,14 @@ async function runWorkflowBodyDriver(workflow, opts) {
                 const graph = await withWorkflowVersioningRuntime(workflowVersioning, () => renderer.render(element, renderOpts));
                 await workflowVersioning.flush();
                 resolveTaskOutputs(graph.tasks, workflowRef);
-                attachSubflowComputeFns(graph.tasks, workflowRef, {
-                    rootDir,
-                    workflowPath: resolvedWorkflowPath ?? opts.workflowPath,
-                });
+            attachSubflowComputeFns(graph.tasks, workflowRef, {
+                rootDir,
+                workflowPath: resolvedWorkflowPath ?? opts.workflowPath,
+            });
+            attachSandboxComputeFns(graph.tasks, workflowRef, {
+                rootDir,
+                workflowPath: resolvedWorkflowPath ?? opts.workflowPath,
+            });
                 lastGraph = graph;
                 descriptorMap = buildDescriptorMap(graph.tasks);
                 workflowName = getWorkflowNameFromXml(graph.xml);
@@ -6376,6 +6434,10 @@ async function runWorkflowBodyLegacy(workflow, opts) {
             // Resolve output tasks: ZodObject references via zodToKeyName, string keys via schemaRegistry
             resolveTaskOutputs(tasks, workflow);
             attachSubflowComputeFns(tasks, workflow, {
+                rootDir,
+                workflowPath: resolvedWorkflowPath ?? opts.workflowPath,
+            });
+            attachSandboxComputeFns(tasks, workflow, {
                 rootDir,
                 workflowPath: resolvedWorkflowPath ?? opts.workflowPath,
             });

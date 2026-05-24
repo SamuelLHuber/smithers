@@ -433,15 +433,11 @@ describe("sandbox transport runners", () => {
         expect(layerForSandboxRuntime("docker")).toBeDefined();
         expect(layerForSandboxRuntime("codeplane")).toBeDefined();
         expect(layerForSandboxRuntime("bubblewrap")).toBeDefined();
-        expect(layerForSandboxRuntime("unknown-runtime")).toBeDefined();
-
-        await withBunWhich((command) => (command === "docker" ? "/usr/bin/docker" : null), async () => {
-            expect(resolveSandboxRuntime("docker")).toBe("docker");
-        });
-        await withBunWhich(() => null, async () => {
-            expect(resolveSandboxRuntime("docker")).toBe("bubblewrap");
-            expect(resolveSandboxRuntime("codeplane")).toBe("codeplane");
-        });
+        expect(() => layerForSandboxRuntime("unknown-runtime")).toThrow("Unsupported sandbox runtime");
+        expect(resolveSandboxRuntime("docker")).toBe("docker");
+        expect(resolveSandboxRuntime("codeplane")).toBe("codeplane");
+        expect(resolveSandboxRuntime("bubblewrap")).toBe("bubblewrap");
+        expect(() => resolveSandboxRuntime("unknown-runtime")).toThrow("Unsupported sandbox runtime");
     });
 
     test("local sandbox command args enforce network defaults and mount request/result paths", () => {

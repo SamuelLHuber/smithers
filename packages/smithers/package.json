@@ -25,6 +25,11 @@
       "import": "./src/gateway-react.js",
       "default": "./src/gateway-react.js"
     },
+    "./sandbox": {
+      "types": "./src/sandbox.d.ts",
+      "import": "./src/sandbox.js",
+      "default": "./src/sandbox.js"
+    },
     "./control-plane": {
       "types": "./src/control-plane.d.ts",
       "import": "./src/control-plane.js",

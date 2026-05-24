@@ -258,11 +258,15 @@ describe("extractFromHost", () => {
         expect(result.tasks[0].parallelMaxConcurrency).toBeUndefined();
     });
     test("extracts sandbox as an isolated task", () => {
+        const provider = { id: "remote", run: async () => ({ status: "finished", output: {} }) };
         const root = hostEl("smithers:workflow", {}, [
             hostEl("smithers:sandbox", {
                 id: "safe",
                 output: "sandbox_out",
                 runtime: "docker",
+                provider,
+                allowNested: true,
+                image: "node:22-slim",
                 __smithersSandboxWorkflow: { build: () => null },
             }, [
                 hostEl("smithers:task", { id: "inside", output: "inner_out" }),
@@ -274,6 +278,21 @@ describe("extractFromHost", () => {
         expect(result.tasks[0].outputTableName).toBe("sandbox_out");
         expect(result.tasks[0].meta?.__sandbox).toBe(true);
         expect(result.tasks[0].meta?.__sandboxRuntime).toBe("docker");
+        expect(result.tasks[0].meta?.__sandboxProvider).toBe(provider);
+        expect(result.tasks[0].meta?.__sandboxAllowNested).toBe(true);
+        expect(result.tasks[0].meta?.__sandboxConfig).toMatchObject({ image: "node:22-slim" });
+    });
+    test("sandbox runtime is optional for provider-backed sandboxes", () => {
+        const provider = { id: "remote", run: async () => ({ status: "finished", output: {} }) };
+        const root = hostEl("smithers:sandbox", {
+            id: "safe",
+            output: "sandbox_out",
+            provider,
+            __smithersSandboxWorkflow: { build: () => null },
+        });
+        const task = extractFromHost(root).tasks[0];
+        expect(task.meta?.__sandboxRuntime).toBeUndefined();
+        expect(task.meta?.__sandboxProvider).toBe(provider);
     });
     test("sandbox missing output throws", () => {
         const root = hostEl("smithers:sandbox", { id: "safe" });

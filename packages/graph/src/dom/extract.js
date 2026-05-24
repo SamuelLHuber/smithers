@@ -398,7 +398,8 @@ export function extractFromHost(root, opts) {
                 : undefined;
             const parallelGroup = nextParallelStack[nextParallelStack.length - 1];
             const topWorktree = nextWorktreeStack[nextWorktreeStack.length - 1];
-            const runtime = raw.__smithersSandboxRuntime ?? raw.runtime ?? "bubblewrap";
+            const runtime = raw.__smithersSandboxRuntime ?? raw.runtime;
+            const provider = raw.__smithersSandboxProvider ?? raw.provider;
             const workflowDef = raw.__smithersSandboxWorkflow ??
                 raw.workflow;
             const descriptor = {
@@ -431,23 +432,27 @@ export function extractFromHost(root, opts) {
                     const [
                         { executeSandbox },
                         { executeChildWorkflow },
+                        { applyDiffBundle },
                     ] = await Promise.all([
                         loadRuntimeModule("@smithers-orchestrator/sandbox/execute"),
                         loadRuntimeModule("@smithers-orchestrator/engine/child-workflow"),
+                        loadRuntimeModule("@smithers-orchestrator/engine/effect/diff-bundle"),
                     ]);
                     if (!workflowDef) {
                         throw new SmithersError("INVALID_INPUT", `Sandbox ${nodeId} is missing workflow definition.`, { nodeId });
                     }
                     return executeSandbox({
-                        parentWorkflow: workflowDef && typeof workflowDef === "object" && "build" in workflowDef
-                            ? workflowDef
-                            : undefined,
+                        parentWorkflow: undefined,
                         sandboxId: nodeId,
-                        runtime: runtime === "docker" || runtime === "codeplane" || runtime === "bubblewrap"
+                        provider,
+                        runtime: runtime === undefined || runtime === "docker" || runtime === "codeplane" || runtime === "bubblewrap"
                             ? runtime
-                            : "bubblewrap",
+                            : (() => {
+                                throw new SmithersError("INVALID_INPUT", `Unsupported sandbox runtime: ${String(runtime)}`, { runtime });
+                            })(),
                         workflow: workflowDef,
                         executeChildWorkflow,
+                        applyDiffBundle,
                         input: raw.__smithersSandboxInput ?? raw.input,
                         rootDir: topWorktree?.path ?? process.cwd(),
                         allowNetwork: Boolean(raw.allowNetwork),
@@ -455,6 +460,7 @@ export function extractFromHost(root, opts) {
                         toolTimeoutMs: 60_000,
                         reviewDiffs: raw.reviewDiffs,
                         autoAcceptDiffs: raw.autoAcceptDiffs,
+                        allowNested: Boolean(raw.__smithersSandboxAllowNested ?? raw.allowNested),
                         config: {
                             image: raw.image,
                             env: raw.env,
@@ -472,7 +478,23 @@ export function extractFromHost(root, opts) {
                     ...raw.meta,
                     __sandbox: true,
                     __sandboxRuntime: runtime,
+                    __sandboxProvider: provider,
+                    __sandboxWorkflow: workflowDef,
                     __sandboxInput: raw.__smithersSandboxInput ?? raw.input,
+                    __sandboxAllowNetwork: Boolean(raw.allowNetwork),
+                    __sandboxReviewDiffs: raw.reviewDiffs,
+                    __sandboxAutoAcceptDiffs: raw.autoAcceptDiffs,
+                    __sandboxAllowNested: raw.__smithersSandboxAllowNested ?? raw.allowNested,
+                    __sandboxConfig: {
+                        image: raw.image,
+                        env: raw.env,
+                        ports: raw.ports,
+                        volumes: raw.volumes,
+                        memoryLimit: raw.memoryLimit,
+                        cpuLimit: raw.cpuLimit,
+                        command: raw.command,
+                        workspace: raw.workspace,
+                    },
                 },
                 parallelGroupId: parallelGroup?.id,
                 parallelMaxConcurrency: parallelGroup?.max,
