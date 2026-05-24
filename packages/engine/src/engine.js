@@ -30,14 +30,13 @@ import { Cause, Chunk, Duration, Effect, Exit, Fiber, Metric, Queue, Schedule } 
 import { attemptDuration, cacheHits, cacheMisses, nodeDuration, promptSizeBytes, responseSizeBytes, runDuration, runsResumedTotal, schedulerConcurrencyUtilization, schedulerQueueDepth, schedulerWaitDuration, trackEvent, } from "@smithers-orchestrator/observability/metrics";
 import { runScorersAsync } from "@smithers-orchestrator/scorers/run-scorers";
 import { dirname, resolve } from "node:path";
-import { existsSync, statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { logDebug, logError, logInfo, logWarning } from "@smithers-orchestrator/observability/logging";
 import { isPidAlive, parseRuntimeOwnerPid } from "./runtime-owner.js";
 import { HotWorkflowController } from "./hot/index.js";
 import { spawn as nodeSpawn } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { platform } from "node:os";
 import { annotateSmithersTrace, smithersSpanNames, withSmithersSpan, } from "@smithers-orchestrator/observability";
 import { withTaskRuntime } from "@smithers-orchestrator/driver/task-runtime";
@@ -51,6 +50,7 @@ import { buildCacheScopeIdentity, isFreshCacheRow, normalizeCacheScope } from ".
 import { runWorkflowWithMakeBridge } from "./effect/workflow-make-bridge.js";
 import { createWorkflowVersioningRuntime, getWorkflowPatchDecisions, withWorkflowVersioningRuntime, } from "./effect/versioning.js";
 import { runWithCorrelationContext, updateCurrentCorrelationContext, withCorrelationContext, } from "@smithers-orchestrator/observability/correlation";
+import { extractWorkflowImportSpecifiers, getWorkflowImportScanLoader, readWorkflowEntryHash, readWorkflowGraphHash, resolveWorkflowImport, sha256Hex, } from "./workflow-hash.js";
 /** @typedef {import("@smithers-orchestrator/graph/GraphSnapshot").GraphSnapshot} GraphSnapshot */
 /** @typedef {import("./HijackState.ts").HijackState} HijackState */
 /** @typedef {import("@smithers-orchestrator/driver/RunOptions").RunOptions} RunOptions */
@@ -64,13 +64,6 @@ import { runWithCorrelationContext, updateCurrentCorrelationContext, withCorrela
 /** @typedef {import("drizzle-orm/bun-sqlite").BunSQLiteDatabase<Record<string, unknown>>} BunSQLiteDatabase */
 /** @typedef {import("drizzle-orm/sqlite-core").SQLiteTable} SQLiteTable */
 
-/**
- * @param {string} input
- * @returns {string}
- */
-function sha256Hex(input) {
-    return createHash("sha256").update(input).digest("hex");
-}
 /**
  * Track which worktree paths have already been created this run so we don't
  * re-create them for every task sharing the same worktree.
@@ -1347,143 +1340,6 @@ function resolveLogDir(rootDir, runId, logDir) {
         return resolve(rootDir, logDir);
     }
     return resolve(rootDir, ".smithers", "executions", runId, "logs");
-}
-const STATIC_IMPORT_RE = /\b(?:import|export)\s+(?:[^"'`]*?\s+from\s*)?["']([^"']+)["']/g;
-const DYNAMIC_IMPORT_RE = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
-const WORKFLOW_IMPORT_EXTENSIONS = [
-    "",
-    ".ts",
-    ".tsx",
-    ".mts",
-    ".cts",
-    ".js",
-    ".jsx",
-    ".mjs",
-    ".cjs",
-];
-/**
- * @param {string | null | undefined} sourcePath
- */
-function getWorkflowImportScanLoader(sourcePath) {
-    const lower = sourcePath?.toLowerCase() ?? "";
-    if (lower.endsWith(".tsx"))
-        return "tsx";
-    if (lower.endsWith(".jsx"))
-        return "jsx";
-    if (lower.endsWith(".ts") ||
-        lower.endsWith(".mts") ||
-        lower.endsWith(".cts")) {
-        return "ts";
-    }
-    return "js";
-}
-/**
- * @param {string | null} workflowPath
- * @returns {Promise<string | null>}
- */
-async function readWorkflowEntryHash(workflowPath) {
-    if (!workflowPath)
-        return null;
-    try {
-        const raw = await readFile(workflowPath, "utf8");
-        return sha256Hex(raw);
-    }
-    catch {
-        return null;
-    }
-}
-/**
- * @param {string} source
- * @param {string | null} [sourcePath]
- * @returns {string[]}
- */
-function extractWorkflowImportSpecifiers(source, sourcePath) {
-    if (typeof Bun !== "undefined" && typeof Bun.Transpiler === "function") {
-        try {
-            const scanned = new Bun.Transpiler({
-                loader: getWorkflowImportScanLoader(sourcePath),
-            }).scanImports(source);
-            const specifiers = new Set();
-            for (const entry of scanned) {
-                const specifier = entry?.path?.trim();
-                if (specifier?.startsWith(".")) {
-                    specifiers.add(specifier);
-                }
-            }
-            return [...specifiers];
-        }
-        catch {
-            // Fall back to regex scanning if Bun's parser cannot handle the source.
-        }
-    }
-    const specifiers = new Set();
-    for (const pattern of [STATIC_IMPORT_RE, DYNAMIC_IMPORT_RE]) {
-        pattern.lastIndex = 0;
-        let match;
-        while ((match = pattern.exec(source)) !== null) {
-            const specifier = match[1]?.trim();
-            if (!specifier?.startsWith("."))
-                continue;
-            specifiers.add(specifier);
-        }
-    }
-    return [...specifiers];
-}
-/**
- * @param {string} baseFile
- * @param {string} specifier
- * @returns {string | null}
- */
-function resolveWorkflowImport(baseFile, specifier) {
-    const basePath = resolve(dirname(baseFile), specifier);
-    const candidates = [
-        ...WORKFLOW_IMPORT_EXTENSIONS.map((ext) => `${basePath}${ext}`),
-        ...WORKFLOW_IMPORT_EXTENSIONS
-            .filter((ext) => ext.length > 0)
-            .map((ext) => resolve(basePath, `index${ext}`)),
-    ];
-    for (const candidate of candidates) {
-        if (existsSync(candidate) && statSync(candidate).isFile()) {
-            return resolve(candidate);
-        }
-    }
-    return null;
-}
-/**
- * @param {string} workflowPath
- * @returns {Promise<string[]>}
- */
-async function collectWorkflowModuleHashEntries(workflowPath, visited = new Set()) {
-    const resolvedPath = resolve(workflowPath);
-    if (visited.has(resolvedPath)) {
-        return [];
-    }
-    visited.add(resolvedPath);
-    const source = await readFile(resolvedPath, "utf8");
-    const entries = [`${resolvedPath}:${sha256Hex(source)}`];
-    for (const specifier of extractWorkflowImportSpecifiers(source, resolvedPath)) {
-        const importedPath = resolveWorkflowImport(resolvedPath, specifier);
-        if (!importedPath) {
-            throw new SmithersError("WORKFLOW_HASH_RESOLUTION_FAILED", `Unable to resolve workflow import "${specifier}" from ${resolvedPath}.`, { workflowPath: resolvedPath, specifier });
-        }
-        entries.push(...(await collectWorkflowModuleHashEntries(importedPath, visited)));
-    }
-    return entries;
-}
-/**
- * @param {string | null} workflowPath
- * @returns {Promise<string | null>}
- */
-async function readWorkflowGraphHash(workflowPath) {
-    if (!workflowPath)
-        return null;
-    try {
-        const entries = await collectWorkflowModuleHashEntries(workflowPath);
-        return sha256Hex(entries.sort().join("|"));
-    }
-    catch {
-        return null;
-    }
 }
 /**
  * @param {string} cwd
