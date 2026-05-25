@@ -1,5 +1,7 @@
 # Freestyle sandbox provider example
 
+[Freestyle VMs](https://docs.freestyle.sh/v2/vms) are extremely powerful sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer, not a code runner.
+
 This example shows the sandbox-provider shape for a Freestyle VM integration.
 
 `provider.ts` exports `createFreestyleSandboxProvider()`, which implements the Smithers `SandboxProvider` contract. It creates a Freestyle VM, ships a request file with `additionalFiles`, runs a command with `vm.exec()`, reads a result JSON file, and returns a Smithers sandbox result bundle.
