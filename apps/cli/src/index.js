@@ -55,6 +55,7 @@ import {
 } from "./eval-suite.js";
 import { initOptions, runInitCommand } from "./init-command.js";
 import { startersArgs, startersOptions, runStartersCommand } from "./starter-gallery-command.js";
+import { optimizeOptions, runOptimizeCommand, withOptimizationArtifactEnv } from "./optimize-command.js";
 import { ask } from "./ask.js";
 import { runScheduler } from "./scheduler.js";
 import { resumeRunDetached } from "./resume-detached.js";
@@ -1258,6 +1259,7 @@ const evalOptions = z.object({
     allowNetwork: z.boolean().default(false).describe("Allow bash tool network requests"),
     maxOutputBytes: z.number().int().min(1).optional().describe("Max bytes a single tool call can return"),
     toolTimeoutMs: z.number().int().min(1).optional().describe("Max wall-clock time per tool call in ms"),
+    optimization: z.string().optional().describe("Apply a Smithers optimization artifact while running the eval suite"),
 });
 const superviseOptions = z.object({
     dryRun: z.boolean().default(false).describe("Show which stale runs would be resumed, without acting"),
@@ -2657,7 +2659,7 @@ const cli = Cli.create({
             const logDir = c.options.log ? c.options.logDir : null;
             const abort = setupAbortSignal();
             const startedAtMs = Date.now();
-            const results = await runWithLimit(plan.cases, c.options.concurrency, async (testCase) => {
+            const results = await withOptimizationArtifactEnv(c.options.optimization, () => runWithLimit(plan.cases, c.options.concurrency, async (testCase) => {
                 const caseStartedAtMs = Date.now();
                 process.stderr.write(`[eval:${plan.suiteId}] ${testCase.id} -> ${testCase.runId}\n`);
                 try {
@@ -2717,7 +2719,7 @@ const cli = Cli.create({
                         metadata: testCase.metadata,
                     };
                 }
-            });
+            }));
             const finishedAtMs = Date.now();
             let report = buildEvalReport({
                 plan,
@@ -2743,6 +2745,28 @@ const cli = Cli.create({
             }
             return fail({ code: "EVAL_FAILED", message: err?.message ?? String(err), exitCode: 1 });
         }
+    },
+})
+    // =========================================================================
+    // smithers optimize <workflow>
+    // =========================================================================
+    .command("optimize", {
+    description: "Run GEPA prompt optimization over a workflow eval suite and write an optimized prompt artifact.",
+    args: workflowArgs,
+    options: optimizeOptions,
+    alias: { cases: "c", suite: "s", provider: "p", model: "m", artifact: "a", concurrency: "j" },
+    async run(c) {
+        return runOptimizeCommand(c, {
+            defaultEvalRunLabel,
+            formatRequestedJsonOutput,
+            loadWorkflow,
+            resolveWorkflowPathForEval,
+            setupAbortSignal,
+            setupSqliteCleanup,
+            setCommandExitOverride: (exitCode) => {
+                commandExitOverride = exitCode;
+            },
+        });
     },
 })
     // =========================================================================
