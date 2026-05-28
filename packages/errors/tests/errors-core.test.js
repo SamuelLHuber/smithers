@@ -196,9 +196,16 @@ describe("SmithersError", () => {
     expect(error).toBeInstanceOf(SmithersError);
   });
 
-  test("isSmithersError accepts Smithers-style objects", () => {
-    expect(isSmithersError({ code: "X", message: "Y" })).toBe(true);
+  test("isSmithersError accepts genuine SmithersErrors", () => {
+    expect(isSmithersError(new SmithersError("INVALID_INPUT", "Bad input"))).toBe(true);
+    expect(isSmithersError({ code: "INVALID_INPUT", message: "Y" })).toBe(true);
     expect(isSmithersError(new Error("plain"))).toBe(false);
+  });
+
+  test("isSmithersError rejects foreign errors and arbitrary objects", () => {
+    expect(isSmithersError({ code: "X", message: "Y" })).toBe(false);
+    expect(isSmithersError({ code: "ENOENT", message: "no such file" })).toBe(false);
+    expect(isSmithersError(Object.assign(new Error("fs"), { code: "ENOENT" }))).toBe(false);
   });
 });
 
@@ -366,6 +373,32 @@ describe("toSmithersError", () => {
     expect(wrapped.code).toBe("INTERNAL_ERROR");
     expect(wrapped.summary).toBe("boom");
     expect(wrapped.cause).toBe(cause);
+  });
+
+  test("wraps Node-style error objects instead of returning them unwrapped", () => {
+    // Regression: a Node system error like { code: "ENOENT", message } must not
+    // be mistaken for a SmithersError. It should be wrapped, not returned as-is,
+    // and the foreign libuv code must not leak into the SmithersError code.
+    const foreign = { code: "ENOENT", message: "no such file" };
+    const wrapped = toSmithersError(foreign);
+    expect(wrapped).not.toBe(foreign);
+    expect(wrapped).toBeInstanceOf(SmithersError);
+    expect(wrapped.code).toBe("INTERNAL_ERROR");
+    expect(isKnownSmithersErrorCode(wrapped.code)).toBe(true);
+    expect(wrapped.cause).toBe(foreign);
+  });
+
+  test("wraps Node Error instances carrying an errno code", () => {
+    const foreign = Object.assign(new Error("connect ECONNREFUSED"), {
+      code: "ECONNREFUSED",
+    });
+    const wrapped = toSmithersError(foreign, "connect");
+    expect(wrapped).not.toBe(foreign);
+    expect(wrapped).toBeInstanceOf(SmithersError);
+    expect(wrapped.code).toBe("INTERNAL_ERROR");
+    expect(isKnownSmithersErrorCode(wrapped.code)).toBe(true);
+    expect(wrapped.summary).toBe("connect: connect ECONNREFUSED");
+    expect(wrapped.cause).toBe(foreign);
   });
 
   test("primitive causes are stringified", () => {
