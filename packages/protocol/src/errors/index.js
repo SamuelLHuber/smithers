@@ -6,7 +6,7 @@
 /** @typedef {import("./ProtocolError.ts").ProtocolError} ProtocolError */
 // @smithers-type-exports-end
 
-export const DEVTOOLS_ERROR_CODES = [
+export const DEVTOOLS_ERROR_CODES = /** @type {const} */ ([
     "RunNotFound",
     "InvalidRunId",
     "FrameOutOfRange",
@@ -14,8 +14,8 @@ export const DEVTOOLS_ERROR_CODES = [
     "BackpressureDisconnect",
     "Unauthorized",
     "InvalidDelta",
-];
-export const NODE_OUTPUT_ERROR_CODES = [
+]);
+export const NODE_OUTPUT_ERROR_CODES = /** @type {const} */ ([
     "InvalidRunId",
     "InvalidNodeId",
     "InvalidIteration",
@@ -26,8 +26,8 @@ export const NODE_OUTPUT_ERROR_CODES = [
     "SchemaConversionError",
     "MalformedOutputRow",
     "PayloadTooLarge",
-];
-export const NODE_DIFF_ERROR_CODES = [
+]);
+export const NODE_DIFF_ERROR_CODES = /** @type {const} */ ([
     "InvalidRunId",
     "InvalidNodeId",
     "InvalidIteration",
@@ -38,8 +38,8 @@ export const NODE_DIFF_ERROR_CODES = [
     "VcsError",
     "WorkingTreeDirty",
     "DiffTooLarge",
-];
-export const JUMP_TO_FRAME_ERROR_CODES = [
+]);
+export const JUMP_TO_FRAME_ERROR_CODES = /** @type {const} */ ([
     "InvalidRunId",
     "InvalidFrameNo",
     "RunNotFound",
@@ -51,4 +51,4 @@ export const JUMP_TO_FRAME_ERROR_CODES = [
     "RewindFailed",
     "RateLimited",
     "Unauthorized",
-];
+]);
