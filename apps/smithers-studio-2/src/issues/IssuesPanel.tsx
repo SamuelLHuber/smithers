@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import "./issues.css";
 import {
   listJjhubIssues,
   getJjhubIssue,
@@ -8,7 +9,7 @@ import {
   loadJjhubAuthStatus,
   type WorkspaceIssue,
   type WorkspaceJjhubAuthStatus,
-} from "./workspaceApi";
+} from "../workspaceApi";
 
 type IssuesStateFilter = "all" | "open" | "closed";
 
@@ -152,7 +153,7 @@ export function IssuesPanel() {
 
   if (!authStatus?.loggedIn) {
     return (
-      <div className="view-container">
+      <div className="view-container issues-surface">
         <div className="view-header">
           <h2>Issues</h2>
         </div>
@@ -169,7 +170,7 @@ export function IssuesPanel() {
   }
 
   return (
-    <div className="view-container">
+    <div className="view-container issues-surface">
       <div className="view-header">
         <h2>Issues</h2>
         <div className="view-controls">

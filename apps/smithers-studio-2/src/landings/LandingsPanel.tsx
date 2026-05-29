@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import "./landings.css";
 import {
   listJjhubLandings,
   getJjhubLanding,
@@ -12,7 +13,7 @@ import {
   type WorkspaceLanding,
   type WorkspaceLandingConflicts,
   type WorkspaceJjhubAuthStatus,
-} from "./workspaceApi";
+} from "../workspaceApi";
 
 type LandingStateFilter = "all" | "open" | "closed" | "draft" | "merged";
 type LandingDetailTab = "info" | "diff" | "checks" | "conflicts";
@@ -259,7 +260,7 @@ export function LandingsPanel() {
 
   if (!authStatus?.loggedIn) {
     return (
-      <div className="view-container">
+      <div className="view-container landings-surface">
         <div className="view-header">
           <h2>Landings</h2>
         </div>
@@ -276,7 +277,7 @@ export function LandingsPanel() {
   }
 
   return (
-    <div className="view-container">
+    <div className="view-container landings-surface">
       <div className="view-header">
         <h2>Landings</h2>
         <div className="view-controls">

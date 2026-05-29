@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import "./workspaces.css";
 import {
   listCloudWorkspaces,
   createCloudWorkspace,
@@ -17,7 +18,7 @@ import {
   type WorkspaceCloudSnapshot,
   type WorkspaceLocalRecent,
   type WorkspaceJjhubAuthStatus,
-} from "./workspaceApi";
+} from "../workspaceApi";
 
 type WorkspacesMode = "workspaces" | "snapshots" | "local";
 
@@ -306,7 +307,7 @@ export function WorkspacesPanel() {
 
   if (mode !== "local" && !authStatus?.loggedIn) {
     return (
-      <div className="view-container">
+      <div className="view-container workspaces-surface">
         <div className="view-header">
           <h2>Workspaces</h2>
           <div className="view-controls">
@@ -330,7 +331,7 @@ export function WorkspacesPanel() {
   }
 
   return (
-    <div className="view-container">
+    <div className="view-container workspaces-surface">
       <div className="view-header">
         <h2>Workspaces</h2>
         <div className="view-controls">
