@@ -5124,6 +5124,94 @@ const cli = Cli.create({
     },
 })
     // =========================================================================
+    // smithers ui [runId]
+    // Attach to a previously started run and open its workflow's custom UI in
+    // the browser. The Gateway serves workflow UIs at <uiPath> and is the
+    // authoritative source for which workflows have one (listWorkflows.uiPath),
+    // so this resolves the run -> workflow -> uiPath against a running Gateway
+    // and opens <gateway><uiPath>?runId=<runId>.
+    // =========================================================================
+    .command("ui", {
+    description: "Open the custom UI for a workflow run in your browser.",
+    args: z.object({
+        runId: z.string().optional().describe("Run to open. Defaults to the most recent run."),
+    }),
+    options: z.object({
+        gateway: z.string().optional().describe("Gateway base URL (default http://127.0.0.1:<port>)."),
+        port: z.number().int().min(1).max(65535).default(7331).describe("Gateway port when --gateway is not set."),
+        workflow: z.string().optional().describe("Open this workflow's UI directly, skipping run lookup."),
+        open: z.boolean().default(true).describe("Open a browser. Use --no-open to just print the URL."),
+    }),
+    alias: { gateway: "g", workflow: "w" },
+    async run(c) {
+        const base = (c.options.gateway ?? `http://127.0.0.1:${c.options.port}`).replace(/\/+$/, "");
+        const fail = (code, message) => c.error({ code, message, exitCode: 1 });
+        // The Gateway serves the UI and owns the uiPath mapping, so it must be up.
+        const reachable = await fetch(`${base}/health`).then((r) => r.ok, () => false);
+        if (!reachable) {
+            return fail("GATEWAY_UNREACHABLE", `No Smithers Gateway reachable at ${base}. Start one with \`smithers gateway\`, or pass --gateway <url>.`);
+        }
+        const rpc = async (method, params = {}) => {
+            const res = await fetch(`${base}/v1/rpc/${method}`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(params),
+            });
+            const frame = await res.json().catch(() => null);
+            if (!frame || frame.type !== "res") {
+                throw new Error(`Gateway returned an invalid RPC frame for ${method}.`);
+            }
+            if (!frame.ok) {
+                throw new Error(frame.error?.message ?? `Gateway RPC ${method} failed.`);
+            }
+            return frame.payload;
+        };
+        const openInBrowser = (url) => {
+            const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
+            const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+            const proc = spawn(cmd, args, { stdio: "ignore", detached: true });
+            proc.unref();
+            proc.on("error", () => {});
+        };
+        try {
+            const workflows = await rpc("listWorkflows", {});
+            const byKey = new Map((Array.isArray(workflows) ? workflows : []).map((w) => [w.key, w]));
+            let workflowKey = c.options.workflow;
+            let runId = c.args.runId;
+            if (!workflowKey) {
+                if (!runId) {
+                    // No run named: attach to the most recently started run.
+                    const runs = await rpc("listRuns", {});
+                    const latest = Array.isArray(runs) ? runs[0] : undefined;
+                    if (!latest) {
+                        return fail("NO_RUNS", "No runs found. Start one with `smithers up` or `smithers workflow <name>`.");
+                    }
+                    runId = latest.runId ? String(latest.runId) : undefined;
+                    workflowKey = latest.workflowKey ? String(latest.workflowKey) : undefined;
+                }
+                if (!workflowKey && runId) {
+                    const run = await rpc("getRun", { runId });
+                    workflowKey = run?.workflowKey ? String(run.workflowKey) : undefined;
+                }
+            }
+            if (!workflowKey) {
+                return fail("WORKFLOW_UNRESOLVED", runId ? `Could not resolve a workflow for run ${runId}.` : "Could not resolve a workflow to open.");
+            }
+            const summary = byKey.get(workflowKey);
+            if (!summary || !summary.hasUi || !summary.uiPath) {
+                return fail("NO_UI", `Workflow "${workflowKey}" has no UI mounted on the Gateway at ${base}.`);
+            }
+            const url = `${base}${summary.uiPath}${runId ? `?runId=${encodeURIComponent(runId)}` : ""}`;
+            if (c.options.open) openInBrowser(url);
+            console.log(`${c.options.open ? "Opening" : "UI URL:"} ${url}`);
+            return c.ok({ opened: c.options.open, url, runId: runId ?? null, workflow: workflowKey });
+        }
+        catch (err) {
+            return fail("UI_OPEN_FAILED", err?.message ?? String(err));
+        }
+    },
+})
+    // =========================================================================
     // smithers docs / smithers docs-full
     // Print the published llms.txt / llms-full.txt from smithers.sh.
     // =========================================================================
