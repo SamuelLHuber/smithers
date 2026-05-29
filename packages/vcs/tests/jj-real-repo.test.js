@@ -149,6 +149,75 @@ describeIfJj("revertToJjPointer with abandoned change", () => {
     }, 30_000);
 });
 
+describeIfJj("workspaceAdd / workspaceList / workspaceClose against real jj", () => {
+    test("add creates a workspace, list parses it, close forgets it", async () => {
+        const repo = await makeRepo();
+        // Sibling dir for the extra workspace so we don't nest it inside the repo.
+        const wsPath = path.join(path.dirname(repo.dir), `ws-extra-${process.pid}-${Date.now()}`);
+        try {
+            await commitFile(repo, "a.txt", "hello\n", "seed");
+
+            // Baseline: a fresh repo has exactly the "default" workspace.
+            const before = await vcs.workspaceList(repo.dir);
+            expect(Array.isArray(before)).toBe(true);
+            expect(before.some((w) => w.name === "default")).toBe(true);
+            expect(before.some((w) => w.name === "extra")).toBe(false);
+
+            // Add a second workspace and confirm jj actually materialized it.
+            const added = await vcs.workspaceAdd("extra", wsPath, { cwd: repo.dir });
+            expect(added.success).toBe(true);
+            const wsExists = await fs.stat(wsPath).then((s) => s.isDirectory()).catch(() => false);
+            expect(wsExists).toBe(true);
+
+            // List now parses real jj output and must include both workspaces.
+            const after = await vcs.workspaceList(repo.dir);
+            const names = after.map((w) => w.name).sort();
+            expect(names).toContain("default");
+            expect(names).toContain("extra");
+
+            // Close (forget) the workspace; jj drops it from its metadata.
+            const closed = await vcs.workspaceClose("extra", { cwd: repo.dir });
+            expect(closed.success).toBe(true);
+            const afterClose = await vcs.workspaceList(repo.dir);
+            expect(afterClose.some((w) => w.name === "extra")).toBe(false);
+        } finally {
+            await repo.cleanup();
+            await fs.rm(wsPath, { recursive: true, force: true }).catch(() => {});
+        }
+    }, 30_000);
+
+    test("close of a non-existent workspace is a no-op success (jj forget is idempotent)", async () => {
+        const repo = await makeRepo();
+        try {
+            await commitFile(repo, "a.txt", "hello\n", "seed");
+            const result = await vcs.workspaceClose("does-not-exist", { cwd: repo.dir });
+            // `jj workspace forget <missing>` exits 0 with a warning, so our
+            // wrapper reports success rather than a spurious failure.
+            expect(result.success).toBe(true);
+        } finally {
+            await repo.cleanup();
+        }
+    }, 30_000);
+
+    test("add fails with a useful error when the target dir cannot be created", async () => {
+        const repo = await makeRepo();
+        try {
+            await commitFile(repo, "a.txt", "hello\n", "seed");
+            // Make the would-be parent of the workspace path a regular file so
+            // neither our pre-create mkdir nor jj can place a workspace there.
+            const blocker = path.join(repo.dir, "blocker");
+            await fs.writeFile(blocker, "not a dir\n");
+            const badPath = path.join(blocker, "sub");
+            const result = await vcs.workspaceAdd("bad", badPath, { cwd: repo.dir });
+            expect(result.success).toBe(false);
+            expect(typeof result.error).toBe("string");
+            expect((result.error ?? "").length).toBeGreaterThan(0);
+        } finally {
+            await repo.cleanup();
+        }
+    }, 30_000);
+});
+
 describeIfJj("shell-metacharacter safety in args (no injection)", () => {
     test("workspace names with /, -, $, ;, spaces, Unicode are forwarded as opaque argv", async () => {
         const repo = await makeRepo();
