@@ -367,6 +367,11 @@ export function WorkspacesPanel() {
 
         {mode === "local" ? (
           <div className="local-workspaces-list">
+            {localWorkspaces.length === 0 && (
+              <div className="empty-state">
+                <p>No recent local workspaces.</p>
+              </div>
+            )}
             {localWorkspaces.map((workspace) => (
               <div key={workspace.path} className="workspace-item">
                 <div className="workspace-info">
@@ -400,6 +405,11 @@ export function WorkspacesPanel() {
           <div className="cloud-workspaces">
             {mode === "workspaces" ? (
               <div className="workspaces-list">
+                {!loading && workspaces.length === 0 && (
+                  <div className="empty-state">
+                    <p>No cloud workspaces yet.</p>
+                  </div>
+                )}
                 {workspaces.map((workspace) => (
                   <div
                     key={workspace.id}
@@ -452,6 +462,11 @@ export function WorkspacesPanel() {
               </div>
             ) : (
               <div className="snapshots-list">
+                {!loading && snapshots.length === 0 && (
+                  <div className="empty-state">
+                    <p>No snapshots yet.</p>
+                  </div>
+                )}
                 {snapshots.map((snapshot) => (
                   <div
                     key={snapshot.id}

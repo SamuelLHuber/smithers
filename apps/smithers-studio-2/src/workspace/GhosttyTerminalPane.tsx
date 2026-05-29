@@ -294,6 +294,7 @@ export function GhosttyTerminalPane({
         className={`terminal-status terminal-status-${status}`}
         data-status={status}
         data-testid="terminal-status"
+        role="status"
       >
         {terminalStatusLabel(status)}
       </div>

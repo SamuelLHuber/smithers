@@ -55,7 +55,9 @@ export function WorkflowDetail({
           <button
             type="button"
             role="tab"
+            id="wf-detail-tab-launch"
             aria-selected={detail.tab === "launch"}
+            aria-controls="wf-detail-panel"
             className={`wf-detail-tab${detail.tab === "launch" ? " wf-detail-tab--active" : ""}`}
             data-testid="wf.detail.tab.launch"
             onClick={() => detail.setTab("launch")}
@@ -65,7 +67,9 @@ export function WorkflowDetail({
           <button
             type="button"
             role="tab"
+            id="wf-detail-tab-source"
             aria-selected={detail.tab === "source"}
+            aria-controls="wf-detail-panel"
             className={`wf-detail-tab${detail.tab === "source" ? " wf-detail-tab--active" : ""}`}
             data-testid="wf.detail.tab.source"
             onClick={() => detail.setTab("source")}
@@ -75,7 +79,14 @@ export function WorkflowDetail({
         </nav>
       ) : null}
 
-      <div className="wf-detail-body">
+      <div
+        className="wf-detail-body"
+        id={showSource ? "wf-detail-panel" : undefined}
+        role={showSource ? "tabpanel" : undefined}
+        aria-labelledby={
+          showSource ? (detail.tab === "source" ? "wf-detail-tab-source" : "wf-detail-tab-launch") : undefined
+        }
+      >
         {detail.tab === "source" && showSource ? (
           <div className="wf-source" data-testid="wf.detail.source">
             {detail.loadingDetail ? (
@@ -102,7 +113,12 @@ export function WorkflowDetail({
               onFreeformChange={detail.setFreeform}
             />
             {detail.launchMessage ? (
-              <div className="wf-launch-message" data-testid="wf.launch.message">
+              <div
+                className={`wf-launch-message${detail.launchError ? " wf-launch-message--error" : ""}`}
+                data-testid="wf.launch.message"
+                role="status"
+                aria-live="polite"
+              >
                 {detail.launchMessage}
               </div>
             ) : null}

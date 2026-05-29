@@ -99,24 +99,7 @@ export class SmithersGatewayConnection {
     method: Method,
     params: GatewayRpcParams<Method>,
   ): Promise<GatewayRpcPayload<Method>> {
-    if (this.closed) {
-      return Promise.reject(new Error("Gateway WebSocket is closed"));
-    }
-    const id = randomId(method);
-    const frame = { type: "req", id, method, params };
-    return new Promise((resolve, reject) => {
-      this.pending.set(id, {
-        method,
-        resolve: (payload) => resolve(payload as GatewayRpcPayload<Method>),
-        reject,
-      });
-      try {
-        this.ws.send(JSON.stringify(frame));
-      } catch (cause) {
-        this.pending.delete(id);
-        reject(cause instanceof Error ? cause : new Error(String(cause)));
-      }
-    });
+    return this.requestRaw(method, params) as Promise<GatewayRpcPayload<Method>>;
   }
 
   requestRaw(method: string, params?: unknown): Promise<unknown> {

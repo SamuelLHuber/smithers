@@ -70,11 +70,14 @@ function renderProse(text: string): ReactNode {
 }
 
 /**
- * Inline pass: `code`, **bold**, *italic*, and [label](url) links.
+ * Inline pass: `code`, ***bold-italic***, **bold**, *italic*, and [label](url)
+ * links.
  *
  * Scans left-to-right and, at each position, tries the earliest token. Each
  * branch is anchored at the cursor (`^`) so a literal `*` inside ordinary prose
- * never starts a phantom emphasis run. Bold/italic spans accept ANY inner
+ * never starts a phantom emphasis run. The `***triple***` rule runs before bold
+ * so the bold rule can't swallow the leading `**` and strand the third `*`.
+ * Bold/italic spans accept ANY inner
  * character (including other delimiters) and the inner text is rendered
  * RECURSIVELY, so nested (`**bold *and italic* back**`) and adjacent
  * (`*a**b**c*`) tokens tokenize correctly instead of the old `[^*]+` runs that
@@ -124,6 +127,21 @@ function renderInline(text: string): ReactNode[] {
         nodes.push(<Fragment key={key++}>{renderInline(label)}</Fragment>);
       }
       rest = rest.slice(link[0].length);
+      continue;
+    }
+
+    // Bold+italic (`***text***`) before bold/italic, else the bold rule eats the
+    // leading `**` and strands the third `*` (rendering `***x***` as a broken
+    // `<strong>*x</strong>*`). Rendered as em-wrapped strong, body recursed.
+    const boldItalic = /^\*\*\*([\s\S]+?)\*\*\*/.exec(rest);
+    if (boldItalic) {
+      flushPending();
+      nodes.push(
+        <em key={key++}>
+          <strong>{renderInline(boldItalic[1])}</strong>
+        </em>,
+      );
+      rest = rest.slice(boldItalic[0].length);
       continue;
     }
 

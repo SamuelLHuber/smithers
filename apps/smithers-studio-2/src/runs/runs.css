@@ -216,6 +216,14 @@
   color: var(--accent);
 }
 
+/* Poll-only fallback indicator: a quiet tertiary cue (not a saturated signal —
+   "still watching" is not a state change), so the eye is reserved for live. */
+.runs-toolbar-polling {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-sm);
+  color: var(--text-tertiary);
+}
+
 .runs-toolbar-actions {
   display: flex;
   gap: var(--space-3);

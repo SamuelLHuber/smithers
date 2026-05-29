@@ -208,6 +208,11 @@ export function IssuesPanel() {
           <div className="split-sidebar">
             <div className="status-message">{message}</div>
             <div className="issues-list">
+              {!loading && issues.length === 0 && (
+                <div className="empty-state">
+                  <p>{stateFilter === "all" ? "No issues yet." : `No ${stateFilter} issues.`}</p>
+                </div>
+              )}
               {issues.map((issue) => (
                 <div
                   key={issue.id}

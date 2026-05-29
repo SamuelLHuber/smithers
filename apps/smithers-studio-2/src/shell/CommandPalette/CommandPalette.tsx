@@ -72,12 +72,24 @@ export function CommandPalette({ registry }: CommandPaletteProps) {
 
   let lastSection: string | null = null;
 
+  // Stable per-row DOM id so the input can point aria-activedescendant at the
+  // arrow-selected row — screen readers announce the active option without the
+  // focus ever leaving the text input.
+  const rowId = (id: string) => `palette-row-${id}`;
+  const activeItem = items[selectedPaletteIndex] ?? items[0];
+
   return (
     <div
       className="palette-backdrop"
       onMouseDown={(event) => event.target === event.currentTarget && closePalette()}
     >
-      <div aria-label="Command palette" className="command-palette" data-testid="command-palette" role="dialog">
+      <div
+        aria-label="Command palette"
+        aria-modal="true"
+        className="command-palette"
+        data-testid="command-palette"
+        role="dialog"
+      >
         <div className="palette-input-row">
           {parsed.prefix ? (
             <span className="palette-prefix-pill">
@@ -86,8 +98,14 @@ export function CommandPalette({ registry }: CommandPaletteProps) {
             </span>
           ) : null}
           <input
+            aria-activedescendant={activeItem ? rowId(activeItem.id) : undefined}
+            aria-autocomplete="list"
+            aria-controls="palette-listbox"
+            aria-label="Command palette query"
             autoFocus
             className="palette-input"
+            role="combobox"
+            aria-expanded={items.length > 0}
             onChange={(event) => setPaletteQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Escape") closePalette();
@@ -109,7 +127,7 @@ export function CommandPalette({ registry }: CommandPaletteProps) {
           />
         </div>
 
-        <div className="palette-list">
+        <div aria-label="Command palette results" className="palette-list" id="palette-listbox" role="listbox">
           {items.length === 0 ? (
             <div className="palette-empty">
               <span className="palette-empty-glyph" aria-hidden>
@@ -131,6 +149,7 @@ export function CommandPalette({ registry }: CommandPaletteProps) {
                     item={item}
                     onHover={() => setSelectedPaletteIndex(index)}
                     onRun={() => run(index)}
+                    rowId={rowId(item.id)}
                     selected={index === selectedPaletteIndex}
                   />
                 </div>

@@ -43,7 +43,7 @@ function newSession(root: string): ChatSession {
   };
 }
 
-function coerceSession(value: unknown, root: string): ChatSession | null {
+export function coerceSession(value: unknown, root: string): ChatSession | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }

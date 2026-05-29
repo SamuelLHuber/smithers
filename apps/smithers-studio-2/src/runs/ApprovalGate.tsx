@@ -38,7 +38,12 @@ export function ApprovalGate(props: {
   };
 
   return (
-    <div className="runs-gate" data-testid="runs.approvalGate">
+    <div
+      className="runs-gate"
+      data-testid="runs.approvalGate"
+      role="region"
+      aria-label="Approval required"
+    >
       <div className="runs-gate-header">
         <span className="runs-gate-badge">Approval required</span>
         <span className="runs-gate-title">{approval.requestTitle ?? approval.nodeId}</span>

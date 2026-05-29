@@ -153,7 +153,11 @@ export function Runs() {
             </>
           ) : (
             <div className="runs-empty" data-testid="runs.empty">
-              {data.loadingList ? "Loading runs…" : "No run selected. Pick a run from the list."}
+              {data.loadingList
+                ? "Loading runs…"
+                : data.runs.length === 0
+                  ? "No runs yet. Launch a workflow to start one."
+                  : "No run selected. Pick a run from the list."}
             </div>
           )}
         </div>

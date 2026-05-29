@@ -25,6 +25,7 @@ export type WorkflowDetailState = {
   fieldErrors: Record<string, string>;
   launching: boolean;
   launchMessage: string | null;
+  launchError: boolean;
   launch: () => Promise<{ runId: string; workflowKey: string } | null>;
 };
 
@@ -44,6 +45,7 @@ export function useWorkflowDetail(entry: WorkflowEntry | null): WorkflowDetailSt
   const [freeform, setFreeform] = useState("{}");
   const [launching, setLaunching] = useState(false);
   const [launchMessage, setLaunchMessage] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState(false);
 
   const supportsSource = entry?.segment === "local" || entry?.segment === "remote";
   const entryKey = entry?.key ?? null;
@@ -56,6 +58,7 @@ export function useWorkflowDetail(entry: WorkflowEntry | null): WorkflowDetailSt
     setFieldValues({});
     setFreeform("{}");
     setLaunchMessage(null);
+    setLaunchError(false);
     if (!entryKey || !supportsSource) {
       setLoadingDetail(false);
       return;
@@ -86,6 +89,7 @@ export function useWorkflowDetail(entry: WorkflowEntry | null): WorkflowDetailSt
   const setFieldValue = useCallback((key: string, value: string) => {
     setFieldValues((current) => ({ ...current, [key]: value }));
     setLaunchMessage(null);
+    setLaunchError(false);
   }, []);
 
   const fieldErrors = useMemo(
@@ -99,20 +103,24 @@ export function useWorkflowDetail(entry: WorkflowEntry | null): WorkflowDetailSt
     try {
       input = fields.length > 0 ? buildLaunchInput(fields, fieldValues) : parseFreeformInput(freeform);
     } catch (error) {
+      setLaunchError(true);
       setLaunchMessage(error instanceof Error ? error.message : String(error));
       return null;
     }
     if (fields.length > 0 && Object.keys(fieldErrors).length > 0) {
+      setLaunchError(true);
       setLaunchMessage("Fix the highlighted fields before launching.");
       return null;
     }
     setLaunching(true);
+    setLaunchError(false);
     setLaunchMessage(`Launching ${entry.name}…`);
     try {
       const result = await launchWorkflowRun(entry.key, input);
       setLaunchMessage(`Launched run ${result.runId}.`);
       return { runId: result.runId, workflowKey: result.workflow };
     } catch (error) {
+      setLaunchError(true);
       setLaunchMessage(error instanceof Error ? error.message : String(error));
       return null;
     } finally {
@@ -134,6 +142,7 @@ export function useWorkflowDetail(entry: WorkflowEntry | null): WorkflowDetailSt
     fieldErrors,
     launching,
     launchMessage,
+    launchError,
     launch,
   };
 }

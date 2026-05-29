@@ -2,6 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChatBlockView } from "./ChatBlockView";
 import { useAgentChat } from "./useAgentChat";
 
+// Treat the viewer as "at the bottom" within this many pixels, so sub-pixel
+// rounding and a final streamed line never break the auto-pin.
+const AUTOSCROLL_THRESHOLD_PX = 40;
+
 /**
  * The agent-chat half of the Workspace surface. A message list with
  * markdown/code rendering, a model/mode indicator, streaming responses, and a
@@ -13,12 +17,24 @@ export function AgentChat({ active }: { active: boolean }) {
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // True while the viewer is parked at the bottom of the transcript. Starts true
+  // so the first populated render lands at the newest block.
+  const pinnedRef = useRef(true);
 
-  // Pin to the newest block as the transcript grows or streams.
+  // Pin to the newest block as the transcript grows or streams — but only when
+  // the viewer is already at the bottom. If they've scrolled up to read earlier
+  // turns mid-stream, don't yank them back down (a calm console, per docs/UX.md).
   useLayoutEffect(() => {
     const list = listRef.current;
-    if (list) list.scrollTop = list.scrollHeight;
+    if (list && pinnedRef.current) list.scrollTop = list.scrollHeight;
   }, [blocks]);
+
+  function handleListScroll() {
+    const list = listRef.current;
+    if (!list) return;
+    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+    pinnedRef.current = distanceFromBottom <= AUTOSCROLL_THRESHOLD_PX;
+  }
 
   useEffect(() => {
     if (active) textareaRef.current?.focus();
@@ -54,14 +70,14 @@ export function AgentChat({ active }: { active: boolean }) {
         )}
       </div>
 
-      <div className="ws-chat-list" data-testid="chat-list" ref={listRef}>
+      <div className="ws-chat-list" data-testid="chat-list" onScroll={handleListScroll} ref={listRef}>
         {status === "loading" && (
-          <p className="ws-chat-state" data-testid="chat-loading">
+          <p className="ws-chat-state" data-testid="chat-loading" role="status">
             Connecting to the agent runtime…
           </p>
         )}
         {status === "error" && (
-          <p className="ws-chat-state ws-chat-state--error" data-testid="chat-error">
+          <p className="ws-chat-state ws-chat-state--error" data-testid="chat-error" role="alert">
             {error ?? "The agent runtime is unavailable."}
           </p>
         )}

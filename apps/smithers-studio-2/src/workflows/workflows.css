@@ -384,6 +384,11 @@
   color: var(--text-secondary);
 }
 
+.wf-launch-message--error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 @media (max-width: 800px) {
   .wf-body {
     grid-template-columns: 1fr;

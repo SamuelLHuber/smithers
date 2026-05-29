@@ -78,6 +78,7 @@ export function SqlBrowser() {
             <textarea
               className="sql-input"
               data-testid="sql.query-input"
+              aria-label="SQL query"
               value={query}
               spellCheck={false}
               placeholder="SELECT * FROM ... LIMIT 100;"
@@ -119,7 +120,11 @@ export function SqlBrowser() {
               result.rows.length === 0 ? (
                 <div className="sql-results-empty">0 rows.</div>
               ) : (
-                <table className="sql-table">
+                <>
+                  <div className="sql-results-count" data-testid="sql.results-count">
+                    {result.rows.length === 1 ? "1 row" : `${result.rows.length.toLocaleString()} rows`}
+                  </div>
+                  <table className="sql-table">
                   <thead>
                     <tr>
                       {result.columns.map((column) => (
@@ -136,7 +141,8 @@ export function SqlBrowser() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                  </table>
+                </>
               )
             ) : (
               <div className="sql-results-placeholder">Run a query to see results.</div>

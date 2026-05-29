@@ -3,17 +3,22 @@ import type { PaletteItem } from "./PaletteItem";
 export type PaletteRowProps = {
   item: PaletteItem;
   selected: boolean;
+  /** DOM id wired to the input's aria-activedescendant so SR announces selection. */
+  rowId: string;
   onHover: () => void;
   onRun: () => void;
 };
 
 /** A palette result row: 16px icon + title + subtitle + optional shortcut pill. */
-export function PaletteRow({ item, selected, onHover, onRun }: PaletteRowProps) {
+export function PaletteRow({ item, selected, rowId, onHover, onRun }: PaletteRowProps) {
   return (
     <button
+      aria-selected={selected}
       className={`palette-row${selected ? " palette-row--selected" : ""}`}
+      id={rowId}
       onClick={onRun}
       onMouseEnter={onHover}
+      role="option"
       type="button"
     >
       <span aria-hidden className="palette-row-icon">

@@ -50,6 +50,7 @@ export function WorkflowLaunchForm({
         const raw = launchFieldRawValue(field, values);
         const error = errors[field.key];
         const inputId = `wf-field-${field.key}`;
+        const errorId = error ? `${inputId}-error` : undefined;
         return (
           <div className="wf-field" key={field.key}>
             <label className="wf-field-label" htmlFor={inputId}>
@@ -62,6 +63,8 @@ export function WorkflowLaunchForm({
                 id={inputId}
                 className="wf-field-input"
                 data-testid={`wf.launch.field.${field.key}`}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={errorId}
                 value={["true", "1", "yes", "on"].includes(raw.trim().toLowerCase()) ? "true" : "false"}
                 onChange={(event) => onFieldChange(field.key, event.target.value)}
               >
@@ -73,6 +76,8 @@ export function WorkflowLaunchForm({
                 id={inputId}
                 className="wf-field-textarea"
                 data-testid={`wf.launch.field.${field.key}`}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={errorId}
                 spellCheck={false}
                 value={raw}
                 placeholder={kind === "array" ? "[]" : kind === "object" ? "{}" : "JSON value"}
@@ -83,13 +88,19 @@ export function WorkflowLaunchForm({
                 id={inputId}
                 className="wf-field-input"
                 data-testid={`wf.launch.field.${field.key}`}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={errorId}
                 type={kind === "number" ? "number" : "text"}
                 value={raw}
                 onChange={(event) => onFieldChange(field.key, event.target.value)}
               />
             )}
             {error ? (
-              <span className="wf-field-error" data-testid={`wf.launch.field-error.${field.key}`}>
+              <span
+                id={errorId}
+                className="wf-field-error"
+                data-testid={`wf.launch.field-error.${field.key}`}
+              >
                 {error}
               </span>
             ) : null}

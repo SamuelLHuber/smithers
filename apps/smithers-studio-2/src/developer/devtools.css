@@ -114,6 +114,12 @@
   background: var(--fill-hover);
 }
 
+.devtools-row:focus-visible {
+  outline: none;
+  background: var(--fill-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .devtools-row-selected {
   background: var(--fill-selected);
 }

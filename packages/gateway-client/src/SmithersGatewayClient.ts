@@ -351,18 +351,20 @@ export class SmithersGatewayClient {
           }
           yield frame;
         }
-      } catch (cause) {
-        if (signal?.aborted) {
+        // The inner stream ended without throwing. A graceful end is only a clean
+        // stop when the run actually completed or the caller aborted; otherwise it
+        // is a silent socket drop (close code 1006) and we reconnect + resume.
+        if (reachedTerminal) {
           return;
         }
-        await sleepWithSignal(gatewayBackoffDelay(attempt, options.backoff), signal);
-        attempt += 1;
-        continue;
+      } catch {
+        // A thrown drop (error frame, invalid frame, connect failure). Fall
+        // through to the shared backoff + reconnect below unless aborted.
       }
-      // The inner stream ended without throwing. A graceful end is only a clean
-      // stop when the run actually completed or the caller aborted; otherwise it
-      // is a silent socket drop (close code 1006) and we reconnect + resume.
-      if (reachedTerminal || signal?.aborted) {
+      // Either the stream threw or ended silently with the run still live. Stop
+      // if the caller aborted; otherwise back off and reconnect (resuming from
+      // the last observed seq).
+      if (signal?.aborted) {
         return;
       }
       await sleepWithSignal(gatewayBackoffDelay(attempt, options.backoff), signal);

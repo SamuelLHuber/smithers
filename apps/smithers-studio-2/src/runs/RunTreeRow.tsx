@@ -44,6 +44,12 @@ export function RunTreeRow(props: {
       aria-expanded={hasChildren ? expanded : undefined}
       tabIndex={selected ? 0 : -1}
       onClick={() => onSelect(node.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(node.id);
+        }
+      }}
     >
       <span className="runs-tree-indent" style={{ width: depth * INDENT_PER_DEPTH }} />
       {hasChildren ? (

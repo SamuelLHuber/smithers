@@ -28,7 +28,12 @@ export function ChatBlockView({ block }: { block: ChatBlock }) {
       </div>
       <div className="ws-chat-block-body">
         {empty && block.pending ? (
-          <span className="ws-chat-typing" data-testid="chat-typing">
+          <span
+            aria-label="Agent is responding"
+            className="ws-chat-typing"
+            data-testid="chat-typing"
+            role="status"
+          >
             <i />
             <i />
             <i />

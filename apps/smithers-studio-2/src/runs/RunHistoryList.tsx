@@ -80,7 +80,9 @@ export function RunHistoryList(props: {
         })}
       </div>
       {visible.length === 0 ? (
-        <div className="runs-history-empty">No runs match this filter.</div>
+        <div className="runs-history-empty">
+          {runs.length === 0 ? "No runs yet." : "No runs match this filter."}
+        </div>
       ) : (
         <ul className="runs-history-list">
           {visible.map((run) => {

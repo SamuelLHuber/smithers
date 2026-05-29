@@ -1,6 +1,5 @@
 import type { PromptInput } from "./promptInputs";
-import type { StudioRpcSchema } from "./desktopRpc";
-import type { WorkspaceBackendRequest, WorkspaceBackendResponse, WorkspaceStatus } from "./workspaceProtocol";
+import type { WorkspaceStatus } from "./workspaceProtocol";
 
 export type WorkspacePrompt = {
   id: string;
@@ -567,68 +566,6 @@ export type WorkspaceSqlResult = {
   rows: string[][];
 };
 
-type StudioDesktopRpc = {
-  request: {
-    workspaceStatus: (params?: undefined) => Promise<WorkspaceStatus>;
-    workspaceRequest: (params: WorkspaceBackendRequest) => Promise<WorkspaceBackendResponse>;
-  };
-  // Electrobun owns this method; Studio only needs it present for Electroview wiring.
-  setTransport: (transport: any) => void;
-};
-
-let desktopRpcPromise: Promise<StudioDesktopRpc | null> | null = null;
-let desktopElectroview: unknown = null;
-
-function hasDesktopBridge() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  const bridgeWindow = window as typeof window & {
-    __electrobun?: unknown;
-    __electrobunBunBridge?: unknown;
-    __electrobunRpcSocketPort?: number;
-    __electrobunWebviewId?: number;
-  };
-  return Boolean(bridgeWindow.__electrobun) ||
-    Boolean(bridgeWindow.__electrobunBunBridge) ||
-    Boolean(bridgeWindow.__electrobunRpcSocketPort) ||
-    Boolean(bridgeWindow.__electrobunWebviewId);
-}
-
-async function getDesktopRpc() {
-  // Simplified for Studio v2 - no desktop RPC support yet
-  return null;
-}
-
-function bodyFromRequestInit(init?: RequestInit) {
-  if (typeof init?.body !== "string" || !init.body.trim()) {
-    return undefined;
-  }
-  return JSON.parse(init.body) as unknown;
-}
-
-function backendRequestFromPath(path: string, init?: RequestInit): WorkspaceBackendRequest {
-  const url = new URL(path, "http://smithers-studio.local");
-  return {
-    method: init?.method ?? "GET",
-    path: url.pathname,
-    query: Object.fromEntries(url.searchParams.entries()),
-    body: bodyFromRequestInit(init),
-  };
-}
-
-export async function loadWorkspaceStatus() {
-  const response = await fetch("/__smithers_studio/workspace");
-  const payload = await response.json().catch(() => undefined) as unknown;
-  if (!response.ok) {
-    const message = payload && typeof payload === "object" && "error" in payload
-      ? String((payload as { error: unknown }).error)
-      : `Workspace probe failed with HTTP ${response.status}`;
-    throw new Error(message);
-  }
-  return payload as WorkspaceStatus;
-}
-
 async function workspaceJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/__smithers_studio/api${path}`, {
     ...init,
@@ -1138,17 +1075,6 @@ export async function stopWorkspaceTerminalSession(sessionId: string) {
     { method: "DELETE" },
   );
   return payload.session;
-}
-
-export async function requestApplicationFullScreenToggle() {
-  return {
-    requested: false,
-    fullScreen: typeof document !== "undefined" ? Boolean(document.fullscreenElement) : false,
-  };
-}
-
-export async function requestApplicationQuit() {
-  return false;
 }
 
 export async function createWorkspaceBookmark(name: string, changeID: string) {

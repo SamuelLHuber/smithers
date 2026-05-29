@@ -36,6 +36,7 @@ export function Logs() {
           className="logs-search"
           data-testid="logs.search"
           type="search"
+          aria-label="Filter logs by text"
           placeholder="Filter logs…"
           value={filters.query}
           onChange={(event) => setQuery(event.target.value)}
@@ -43,6 +44,7 @@ export function Logs() {
         <select
           className="logs-level"
           data-testid="logs.level"
+          aria-label="Filter logs by level"
           value={filters.level ?? ""}
           onChange={(event) => setLevel(event.target.value || null)}
         >
@@ -56,6 +58,7 @@ export function Logs() {
         <select
           className="logs-category"
           data-testid="logs.category"
+          aria-label="Filter logs by category"
           value={filters.category ?? ""}
           onChange={(event) => setCategory(event.target.value || null)}
         >

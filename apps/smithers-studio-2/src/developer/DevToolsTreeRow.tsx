@@ -29,7 +29,14 @@ export function DevToolsTreeRow({ node, selectedId, expanded, onSelect, onToggle
         data-testid={`devtools.row.${node.id}`}
         style={{ paddingLeft: `${node.depth * INDENT_PER_DEPTH + 8}px` }}
         onClick={() => onSelect(node)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onSelect(node);
+          }
+        }}
         role="treeitem"
+        tabIndex={0}
         aria-selected={isSelected}
         aria-expanded={hasChildren ? isOpen : undefined}
       >

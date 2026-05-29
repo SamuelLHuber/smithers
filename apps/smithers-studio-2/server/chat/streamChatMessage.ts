@@ -2,7 +2,7 @@ import type { ServerResponse } from "node:http";
 import type { ChatBlock, ChatSession } from "./ChatSession";
 import type { ChatStreamDelta } from "./ChatStreamDelta";
 import { createChatAgent } from "./createChatAgent";
-import { chatSessionPath, detectChatAgentId, loadChatSession, saveChatSession } from "./loadChatSession";
+import { chatSessionPath, coerceSession, detectChatAgentId, loadChatSession, saveChatSession } from "./loadChatSession";
 import { resolveChatWorkspaceRoot } from "./resolveChatWorkspaceRoot";
 import { existsSync, readFileSync } from "node:fs";
 
@@ -18,9 +18,15 @@ function writeDelta(res: ServerResponse, delta: ChatStreamDelta): void {
 function loadSessionById(root: string, sessionId: string): ChatSession {
   const path = chatSessionPath(root);
   if (existsSync(path)) {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as ChatSession;
-    if (parsed.sessionId === sessionId) {
-      return parsed;
+    try {
+      const parsed = coerceSession(JSON.parse(readFileSync(path, "utf8")) as unknown, root);
+      if (parsed && parsed.sessionId === sessionId) {
+        return parsed;
+      }
+    } catch {
+      // Corrupt/partial transcript on disk: fall back to the active session
+      // below instead of throwing mid-stream (the ndjson response has already
+      // started, so a thrown error could not be surfaced cleanly).
     }
   }
   return loadChatSession();

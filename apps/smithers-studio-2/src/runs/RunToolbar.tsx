@@ -50,7 +50,19 @@ export function RunToolbar(props: {
         >
           {stateLabel(run.state)}
         </span>
-        {streaming ? <span className="runs-toolbar-live">live</span> : null}
+        {streaming ? (
+          <span className="runs-toolbar-live" title="Receiving live events over the run socket">
+            live
+          </span>
+        ) : !terminal ? (
+          <span
+            className="runs-toolbar-polling"
+            title="No live socket — polling this run's state every 2s"
+            data-testid="runs.toolbar.polling"
+          >
+            polling
+          </span>
+        ) : null}
       </div>
       <div className="runs-toolbar-actions">
         {customUiAvailable ? (
@@ -85,6 +97,7 @@ export function RunToolbar(props: {
             type="button"
             className="runs-toolbar-btn runs-toolbar-btn--danger"
             disabled={busy}
+            title={busy ? "Working…" : "Halt this run's agents and finalize it as cancelled"}
             data-testid="runs.toolbar.cancel"
             onClick={() => void guarded(() => actions.cancelRun(run.runId))}
           >
@@ -95,6 +108,7 @@ export function RunToolbar(props: {
             type="button"
             className="runs-toolbar-btn"
             disabled={busy}
+            title={busy ? "Working…" : "Re-enter this finished run and continue execution"}
             data-testid="runs.toolbar.resume"
             onClick={() => void guarded(() => actions.resumeRun(run.runId))}
           >
@@ -106,6 +120,7 @@ export function RunToolbar(props: {
             type="button"
             className="runs-toolbar-btn"
             disabled={busy}
+            title={busy ? "Working…" : `Rewind to frame ${frameCount - 1} of ${frameCount} (time-travel)`}
             data-testid="runs.toolbar.rewind"
             onClick={() => void guarded(() => actions.rewindRun(run.runId, frameCount - 1))}
           >

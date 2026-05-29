@@ -316,6 +316,11 @@ export function LandingsPanel() {
           <div className="split-sidebar">
             <div className="status-message">{message}</div>
             <div className="landings-list">
+              {!loading && landings.length === 0 && (
+                <div className="empty-state">
+                  <p>{stateFilter === "all" ? "No landings yet." : `No ${stateFilter} landings.`}</p>
+                </div>
+              )}
               {landings.map((landing) => (
                 <div
                   key={landing.id}
