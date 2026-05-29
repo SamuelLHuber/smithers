@@ -2,7 +2,44 @@ import { create } from "zustand";
 
 type TerminalTab = { id: string; title: string; createdAt: Date };
 
-type ViewId = "terminal" | "issues" | "landings" | "workspaces";
+/**
+ * Every navigable surface id. Detail (run -> node -> tab, workflow segments,
+ * sidebar section expansion) is colocated in each surface's own folder, NOT
+ * added here — this union is only the top-level "which surface is mounted."
+ */
+export type ViewId =
+  | "home"
+  | "runs"
+  | "workspace"
+  | "workflows"
+  | "issues"
+  | "landings"
+  | "workspaces"
+  | "memory"
+  | "scores"
+  | "search"
+  | "devtools"
+  | "sql"
+  | "logs";
+
+/**
+ * Backwards-compatible alias: the original app used view id "terminal". The
+ * terminal now lives inside the Workspace surface, so "terminal" resolves to
+ * "workspace". Hotkeys/tests that target "terminal" keep working.
+ */
+const TERMINAL_VIEW_ALIAS: ViewId = "workspace";
+
+const DEVELOPER_MODE_STORAGE_KEY = "studio.developerMode";
+
+function readDeveloperMode(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY) === "true";
+}
+
+function persistDeveloperMode(value: boolean): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, value ? "true" : "false");
+}
 
 function createTerminal(index: number): TerminalTab {
   return { id: crypto.randomUUID(), title: `Terminal ${index}`, createdAt: new Date() };
@@ -15,12 +52,13 @@ const firstTerminal: TerminalTab = {
 };
 
 type StudioState = {
-  // Terminal state
+  // Terminal state (lives in the Workspace surface)
   tabs: TerminalTab[];
   activeTabId: string;
 
-  // View state
+  // Nav state
   activeView: ViewId;
+  developerMode: boolean;
 
   // Command palette state
   paletteOpen: boolean;
@@ -32,8 +70,9 @@ type StudioState = {
   closeTerminal: (tabId: string) => void;
   setActiveTabId: (id: string) => void;
 
-  // View actions
-  setActiveView: (view: ViewId) => void;
+  // Nav actions
+  setActiveView: (view: ViewId | "terminal") => void;
+  toggleDeveloperMode: () => void;
 
   // Palette actions
   openPalette: () => void;
@@ -45,7 +84,8 @@ type StudioState = {
 export const useStudioStore = create<StudioState>((set, get) => ({
   tabs: [firstTerminal],
   activeTabId: firstTerminal.id,
-  activeView: "terminal",
+  activeView: "home",
+  developerMode: readDeveloperMode(),
   paletteOpen: false,
   paletteQuery: "",
   selectedPaletteIndex: 0,
@@ -56,9 +96,9 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     set({
       tabs: [...tabs, next],
       activeTabId: next.id,
-      activeView: "terminal",
+      activeView: "workspace",
       paletteOpen: false,
-      paletteQuery: ""
+      paletteQuery: "",
     });
   },
 
@@ -72,7 +112,19 @@ export const useStudioStore = create<StudioState>((set, get) => ({
 
   setActiveTabId: (id: string) => set({ activeTabId: id }),
 
-  setActiveView: (view: ViewId) => set({ activeView: view, paletteOpen: false }),
+  setActiveView: (view) =>
+    set({ activeView: view === "terminal" ? TERMINAL_VIEW_ALIAS : view, paletteOpen: false }),
+
+  toggleDeveloperMode: () =>
+    set((state) => {
+      const next = !state.developerMode;
+      persistDeveloperMode(next);
+      // If the active surface was a developer surface, fall back to Home so we
+      // never strand the user on an unregistered route.
+      const developerViews: ViewId[] = ["devtools", "sql", "logs"];
+      const activeView = !next && developerViews.includes(state.activeView) ? "home" : state.activeView;
+      return { developerMode: next, activeView };
+    }),
 
   openPalette: () => set({ paletteOpen: true }),
 
