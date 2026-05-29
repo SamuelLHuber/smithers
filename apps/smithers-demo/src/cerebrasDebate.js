@@ -145,7 +145,12 @@ export async function callProviderChat({
     if (!response.ok) {
       throw new Error(`Claude request failed (${response.status}): ${responseText}`);
     }
-    const parsed = JSON.parse(responseText);
+    let parsed;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      throw new Error("Invalid JSON response from Claude");
+    }
     const content = parsed?.content?.find((part) => part?.type === "text")?.text;
     if (typeof content !== "string" || content.length === 0) {
       throw new Error("Claude response did not include text content");
@@ -174,7 +179,14 @@ export async function callProviderChat({
     throw new Error(`${PROVIDER_OPTIONS[selectedProvider].label} request failed (${response.status}): ${responseText}`);
   }
 
-  return extractContent(JSON.parse(responseText), selectedProvider);
+  let parsed;
+  try {
+    parsed = JSON.parse(responseText);
+  } catch {
+    throw new Error(`Invalid JSON response from ${PROVIDER_OPTIONS[selectedProvider].label}`);
+  }
+
+  return extractContent(parsed, selectedProvider);
 }
 
 export const callCerebrasChat = (args) => callProviderChat({ ...args, provider: "cerebras" });
