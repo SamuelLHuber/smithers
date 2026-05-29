@@ -54,4 +54,32 @@ test.describe('PTY Server', () => {
 
     ws.close();
   });
+
+  test('PTY WebSocket refuses a cross-origin upgrade', async () => {
+    // A malicious page the developer visits would connect with its own Origin.
+    // Browsers always send Origin on a WebSocket and cannot strip it, so the
+    // server must refuse any non-loopback Origin before spawning a shell.
+    const { request: httpRequest } = await import('node:http');
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = httpRequest({
+        host: '127.0.0.1',
+        port: 7401,
+        path: '/terminal/ws',
+        headers: {
+          Connection: 'Upgrade',
+          Upgrade: 'websocket',
+          'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==',
+          'Sec-WebSocket-Version': '13',
+          Origin: 'https://evil.example',
+        },
+      });
+      // A refused upgrade comes back as a normal HTTP response (403), never 101.
+      req.on('response', (res) => resolve(res.statusCode ?? 0));
+      req.on('upgrade', () => reject(new Error('server accepted a cross-origin upgrade')));
+      req.on('error', reject);
+      setTimeout(() => reject(new Error('timeout')), 5000);
+      req.end();
+    });
+    expect(status).toBe(403);
+  });
 });

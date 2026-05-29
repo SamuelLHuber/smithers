@@ -77,6 +77,36 @@ const sessions = new Map<string, Session>();
 const host = process.env.PTY_SERVER_HOST ?? "127.0.0.1";
 const port = parseInt(process.env.PTY_SERVER_PORT ?? "7342");
 
+// Loopback hostnames whose web origin may open a terminal. The server binds to
+// 127.0.0.1, but browsers do NOT enforce same-origin policy on WebSockets, so a
+// malicious page the developer visits could otherwise connect to
+// ws://127.0.0.1:<port>/terminal/ws and spawn a shell (local RCE). We gate the
+// upgrade on a loopback Origin; PTY_ALLOWED_ORIGINS extends it (e.g. the
+// Electrobun `views://` origin once the desktop terminal is wired).
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+const EXTRA_ALLOWED_ORIGINS = new Set(
+  (process.env.PTY_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean),
+);
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  // The threat is a browser drive-by: a malicious page the developer visits
+  // opens this WebSocket. Browsers ALWAYS attach an Origin to a WebSocket and
+  // cannot strip it, so that attack always presents Origin: https://evil.com,
+  // which fails the loopback check below. A MISSING Origin only comes from a
+  // non-browser client (curl, a local script), which is already local code with
+  // shell access — not a new vector — so we allow it (and protocol tooling).
+  if (!origin) return true;
+  if (EXTRA_ALLOWED_ORIGINS.has(origin)) return true;
+  try {
+    return LOOPBACK_HOSTS.has(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Number.isFinite(n) ? n : min));
 }
@@ -313,6 +343,14 @@ const server = createHttpServer((req, res) => {
 
 server.on("upgrade", (req, socket) => {
   if (req.url !== "/terminal/ws") {
+    socket.destroy();
+    return;
+  }
+  const origin = req.headers["origin"];
+  if (!isAllowedOrigin(typeof origin === "string" ? origin : undefined)) {
+    // Cross-origin connection attempt (e.g. a malicious page) — refuse before
+    // any shell is spawned.
+    socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
     socket.destroy();
     return;
   }
