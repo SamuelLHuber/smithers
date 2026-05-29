@@ -527,22 +527,43 @@ function formatOffset(ms) {
   return `+${m}m${rem}s`;
 }
 
+function makeEl(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text != null) el.textContent = text;
+  return el;
+}
+
 function renderFeed(events) {
   const el = document.getElementById('chronicle');
-  let html = '';
+  el.replaceChildren();
   for (const ev of events) {
-    if (ev.isFrame) html += `<div class="feed-frame-header"><span class="frame-no">frame ${ev.frameNo}</span> ${formatOffset(ev.offsetMs)}</div>`;
+    if (ev.isFrame) {
+      const frameHeader = makeEl('div', 'feed-frame-header');
+      frameHeader.append(makeEl('span', 'frame-no', `frame ${ev.frameNo}`), ` ${formatOffset(ev.offsetMs)}`);
+      el.append(frameHeader);
+    }
     const iconClass = ev.status==='success'?'success':ev.status==='running'?'running':ev.status==='failed'?'failed':ev.status==='retrying'?'retrying':'dim';
-    html += `<div class="feed-item" data-seq="${ev.seq}" data-node="${ev.nodeId||''}">
-      <div class="feed-seq">#${ev.seq}</div><div class="feed-rail ${ev.status}"></div>
-      <div class="feed-content"><div class="feed-main-line">
-        <span class="feed-icon ${iconClass}">${ev.icon}</span>
-        <span class="feed-type">${ev.type}</span>
-        <span class="feed-summary">${ev.summary}</span>
-        <span class="feed-offset">${formatOffset(ev.offsetMs)}</span>
-      </div>${ev.detail?`<div class="feed-detail">${ev.detail}</div>`:''}</div></div>`;
+
+    const item = makeEl('div', 'feed-item');
+    item.dataset.seq = ev.seq;
+    item.dataset.node = ev.nodeId || '';
+
+    item.append(makeEl('div', 'feed-seq', `#${ev.seq}`));
+    item.append(makeEl('div', `feed-rail ${ev.status}`));
+
+    const content = makeEl('div', 'feed-content');
+    const mainLine = makeEl('div', 'feed-main-line');
+    mainLine.append(makeEl('span', `feed-icon ${iconClass}`, ev.icon));
+    mainLine.append(makeEl('span', 'feed-type', ev.type));
+    mainLine.append(makeEl('span', 'feed-summary', ev.summary));
+    mainLine.append(makeEl('span', 'feed-offset', formatOffset(ev.offsetMs)));
+    content.append(mainLine);
+    if (ev.detail) content.append(makeEl('div', 'feed-detail', ev.detail));
+    item.append(content);
+
+    el.append(item);
   }
-  el.innerHTML = html;
   el.querySelectorAll('.feed-item').forEach(item => {
     item.addEventListener('click', () => {
       el.querySelectorAll('.feed-item').forEach(i => i.classList.remove('selected'));
@@ -552,32 +573,133 @@ function renderFeed(events) {
   });
 }
 
+function makeKv(label, value) {
+  const kv = makeEl('div', 'inspector-kv');
+  kv.append(makeEl('span', 'inspector-kv-label', label));
+  kv.append(makeEl('span', 'inspector-kv-value', value));
+  return kv;
+}
+
+function makeSection(title) {
+  const section = makeEl('div', 'inspector-section');
+  section.append(makeEl('div', 'inspector-section-title', title));
+  return section;
+}
+
 function renderInspector(nodeId, seq) {
   const el = document.getElementById('inspector');
   const ev = EVENTS.find(e => e.seq === seq);
   let detail = NODE_DETAILS[nodeId];
+  el.replaceChildren();
+
   if (!detail) {
-    el.innerHTML = `<div class="inspector-header"><div class="inspector-node-title"><span class="inspector-node-name">${ev?ev.type:'Event'}</span></div><div class="inspector-subtitle">${ev?ev.summary:''}</div></div><div class="inspector-body"><div class="inspector-section"><div class="inspector-section-title">Event</div><div class="inspector-kv"><span class="inspector-kv-label">seq</span><span class="inspector-kv-value">${ev?.seq}</span></div><div class="inspector-kv"><span class="inspector-kv-label">type</span><span class="inspector-kv-value">${ev?.type}</span></div><div class="inspector-kv"><span class="inspector-kv-label">offset</span><span class="inspector-kv-value">${ev?formatOffset(ev.offsetMs):''}</span></div>${ev?.nodeId?`<div class="inspector-kv"><span class="inspector-kv-label">nodeId</span><span class="inspector-kv-value">${ev.nodeId}</span></div>`:''}</div></div>`;
+    const header = makeEl('div', 'inspector-header');
+    const title = makeEl('div', 'inspector-node-title');
+    title.append(makeEl('span', 'inspector-node-name', ev ? ev.type : 'Event'));
+    header.append(title);
+    header.append(makeEl('div', 'inspector-subtitle', ev ? ev.summary : ''));
+
+    const body = makeEl('div', 'inspector-body');
+    const section = makeSection('Event');
+    section.append(makeKv('seq', ev?.seq));
+    section.append(makeKv('type', ev?.type));
+    section.append(makeKv('offset', ev ? formatOffset(ev.offsetMs) : ''));
+    if (ev?.nodeId) section.append(makeKv('nodeId', ev.nodeId));
+    body.append(section);
+
+    el.append(header, body);
     return;
   }
-  const toolsHtml = detail.tools.map(t=>`<div class="tool-row"><span class="tool-icon ${t.ok?'ok':'err'}">${t.ok?'✓':'✗'}</span><span class="tool-name">${t.name}</span><span class="tool-detail">${t.detail}</span><span class="tool-dur">${t.dur}</span></div>`).join('');
+
+  const header = makeEl('div', 'inspector-header');
+  const title = makeEl('div', 'inspector-node-title');
+  title.append(makeEl('span', 'inspector-node-name', detail.name));
+  title.append(makeEl('span', `inspector-node-status ${detail.status}`, detail.status));
+  header.append(title);
+  header.append(makeEl('div', 'inspector-subtitle', `iteration ${detail.iteration} · attempt ${detail.attempt} · output: ${detail.outputTable}`));
+
+  const tabs = makeEl('div', 'inspector-tabs');
+  tabs.append(makeEl('div', 'inspector-tab active', 'Summary'));
+  tabs.append(makeEl('div', 'inspector-tab', 'Output'));
+  tabs.append(makeEl('div', 'inspector-tab', 'Tools'));
+  tabs.append(makeEl('div', 'inspector-tab', 'Connections'));
+
+  const body = makeEl('div', 'inspector-body');
+
+  const nodeSection = makeSection('Node');
+  nodeSection.append(makeKv('nodeId', detail.nodeId));
+  nodeSection.append(makeKv('duration', detail.duration));
+  nodeSection.append(makeKv('agent', detail.agent || '(static)'));
+  nodeSection.append(makeKv('outputTable', detail.outputTable));
+  body.append(nodeSection);
+
+  if (detail.tokens) {
+    const tokSection = makeSection('Tokens');
+
+    const inputRow = makeEl('div', 'token-row');
+    inputRow.append(makeEl('span', 'token-label', 'input'));
+    const inputBar = makeEl('div', 'token-bar');
+    const inputFill = makeEl('div', 'token-bar-fill input');
+    inputFill.style.width = `${Math.min(100, detail.tokens.input / 80)}%`;
+    inputBar.append(inputFill);
+    inputRow.append(inputBar);
+    inputRow.append(makeEl('span', null, `${(detail.tokens.input / 1000).toFixed(1)}k`));
+    tokSection.append(inputRow);
+
+    const outputRow = makeEl('div', 'token-row');
+    outputRow.style.marginTop = '4px';
+    outputRow.append(makeEl('span', 'token-label', 'output'));
+    const outputBar = makeEl('div', 'token-bar');
+    const outputFill = makeEl('div', 'token-bar-fill output');
+    outputFill.style.width = `${Math.min(100, detail.tokens.output / 30)}%`;
+    outputBar.append(outputFill);
+    outputRow.append(outputBar);
+    outputRow.append(makeEl('span', null, `${(detail.tokens.output / 1000).toFixed(1)}k`));
+    tokSection.append(outputRow);
+
+    const cost = makeEl('div', null, `cost: $${detail.tokens.cost.toFixed(3)}`);
+    cost.style.cssText = 'font-size:10px;color:var(--text-dim);margin-top:4px;font-family:var(--font-mono)';
+    tokSection.append(cost);
+
+    body.append(tokSection);
+  }
+
+  if (detail.tools.length) {
+    const toolsSection = makeSection(`Tool calls (${detail.tools.length})`);
+    for (const t of detail.tools) {
+      const row = makeEl('div', 'tool-row');
+      row.append(makeEl('span', `tool-icon ${t.ok ? 'ok' : 'err'}`, t.ok ? '✓' : '✗'));
+      row.append(makeEl('span', 'tool-name', t.name));
+      row.append(makeEl('span', 'tool-detail', t.detail));
+      row.append(makeEl('span', 'tool-dur', t.dur));
+      toolsSection.append(row);
+    }
+    body.append(toolsSection);
+  }
+
+  const depSection = makeSection('Dependency chain');
   const chain = [...detail.upstream.map(u=>({label:u,status:'done'})),{label:detail.nodeId,status:'done'},...detail.downstream.map(d=>({label:d,status:'pending'}))];
-  const depHtml = chain.map((n,i)=>`<span class="dep-node ${n.status}">${n.label}</span>${i<chain.length-1?'<span class="dep-arrow">→</span>':''}`).join('');
-  el.innerHTML = `<div class="inspector-header"><div class="inspector-node-title"><span class="inspector-node-name">${detail.name}</span><span class="inspector-node-status ${detail.status}">${detail.status}</span></div><div class="inspector-subtitle">iteration ${detail.iteration} · attempt ${detail.attempt} · output: ${detail.outputTable}</div></div>
-  <div class="inspector-tabs"><div class="inspector-tab active">Summary</div><div class="inspector-tab">Output</div><div class="inspector-tab">Tools</div><div class="inspector-tab">Connections</div></div>
-  <div class="inspector-body">
-    <div class="inspector-section"><div class="inspector-section-title">Node</div>
-      <div class="inspector-kv"><span class="inspector-kv-label">nodeId</span><span class="inspector-kv-value">${detail.nodeId}</span></div>
-      <div class="inspector-kv"><span class="inspector-kv-label">duration</span><span class="inspector-kv-value">${detail.duration}</span></div>
-      <div class="inspector-kv"><span class="inspector-kv-label">agent</span><span class="inspector-kv-value">${detail.agent||'(static)'}</span></div>
-      <div class="inspector-kv"><span class="inspector-kv-label">outputTable</span><span class="inspector-kv-value">${detail.outputTable}</span></div>
-    </div>
-    ${detail.tokens?`<div class="inspector-section"><div class="inspector-section-title">Tokens</div><div class="token-row"><span class="token-label">input</span><div class="token-bar"><div class="token-bar-fill input" style="width:${Math.min(100,detail.tokens.input/80)}%"></div></div><span>${(detail.tokens.input/1000).toFixed(1)}k</span></div><div class="token-row" style="margin-top:4px"><span class="token-label">output</span><div class="token-bar"><div class="token-bar-fill output" style="width:${Math.min(100,detail.tokens.output/30)}%"></div></div><span>${(detail.tokens.output/1000).toFixed(1)}k</span></div><div style="font-size:10px;color:var(--text-dim);margin-top:4px;font-family:var(--font-mono)">cost: $${detail.tokens.cost.toFixed(3)}</div></div>`:''}
-    ${toolsHtml?`<div class="inspector-section"><div class="inspector-section-title">Tool calls (${detail.tools.length})</div>${toolsHtml}</div>`:''}
-    <div class="inspector-section"><div class="inspector-section-title">Dependency chain</div><div class="dep-chain">${depHtml}</div></div>
-    <div class="inspector-section"><div class="inspector-section-title">Output (validated)</div><div class="output-preview">${detail.output}</div></div>
-    <div class="inspector-section"><div class="inspector-section-title">Actions</div><div class="inspector-actions"><button class="action-btn">↻ Retry</button><button class="action-btn">◁ Revert</button><button class="action-btn">⊟ Diff</button><button class="action-btn">⎘ Copy ID</button></div></div>
-  </div>`;
+  const depChain = makeEl('div', 'dep-chain');
+  chain.forEach((n, i) => {
+    depChain.append(makeEl('span', `dep-node ${n.status}`, n.label));
+    if (i < chain.length - 1) depChain.append(makeEl('span', 'dep-arrow', '→'));
+  });
+  depSection.append(depChain);
+  body.append(depSection);
+
+  const outputSection = makeSection('Output (validated)');
+  outputSection.append(makeEl('div', 'output-preview', detail.output));
+  body.append(outputSection);
+
+  const actionsSection = makeSection('Actions');
+  const actions = makeEl('div', 'inspector-actions');
+  ['↻ Retry', '◁ Revert', '⊟ Diff', '⎘ Copy ID'].forEach(label => {
+    actions.append(makeEl('button', 'action-btn', label));
+  });
+  actionsSection.append(actions);
+  body.append(actionsSection);
+
+  el.append(header, tabs, body);
 }
 
 function renderTimeline() {
@@ -589,16 +711,41 @@ function renderTimeline() {
     { label:'review-*', bars:[{start:64200,end:78000,st:'success'},{start:64300,end:80000,st:'success'},{start:78100,end:96000,st:'failed'},{start:80100,end:94000,st:'success'},{start:132200,end:148000,st:'success'}] },
     { label:'board', bars:[{start:148300,end:148400,st:'success'}] },
   ];
-  let html = `<div class="timeline-header"><span class="timeline-label">Timeline</span><span class="timeline-elapsed">0:00 → 2:28</span></div>`;
+  el.replaceChildren();
+
+  const tlHeader = makeEl('div', 'timeline-header');
+  tlHeader.append(makeEl('span', 'timeline-label', 'Timeline'));
+  tlHeader.append(makeEl('span', 'timeline-elapsed', '0:00 → 2:28'));
+  el.append(tlHeader);
+
   for (const t of tracks) {
-    let bh = t.bars.map(b=>`<div class="tbar ${b.st}" style="left:${(b.start/totalMs*100).toFixed(2)}%;width:${Math.max(0.5,(b.end-b.start)/totalMs*100).toFixed(2)}%"></div>`).join('');
-    html += `<div class="timeline-track"><span class="timeline-track-label">${t.label}</span><div class="timeline-track-bg">${bh}</div></div>`;
+    const track = makeEl('div', 'timeline-track');
+    track.append(makeEl('span', 'timeline-track-label', t.label));
+    const bg = makeEl('div', 'timeline-track-bg');
+    for (const b of t.bars) {
+      const bar = makeEl('div', `tbar ${b.st}`);
+      bar.style.left = `${(b.start/totalMs*100).toFixed(2)}%`;
+      bar.style.width = `${Math.max(0.5,(b.end-b.start)/totalMs*100).toFixed(2)}%`;
+      bg.append(bar);
+    }
+    track.append(bg);
+    el.append(track);
   }
+
   const frames=[0,18500,64100,96200,132100,148200];
-  let eh = frames.map(f=>`<div class="tmarker frame-dot" style="left:${(f/totalMs*100).toFixed(1)}%"></div>`).join('');
-  eh += `<div class="tmarker loop-dot" style="left:${(96200/totalMs*100).toFixed(1)}%"></div>`;
-  html += `<div class="timeline-track"><span class="timeline-track-label">events</span><div class="timeline-track-bg timeline-events-track">${eh}</div></div>`;
-  el.innerHTML = html;
+  const eventsTrack = makeEl('div', 'timeline-track');
+  eventsTrack.append(makeEl('span', 'timeline-track-label', 'events'));
+  const eventsBg = makeEl('div', 'timeline-track-bg timeline-events-track');
+  for (const f of frames) {
+    const dot = makeEl('div', 'tmarker frame-dot');
+    dot.style.left = `${(f/totalMs*100).toFixed(1)}%`;
+    eventsBg.append(dot);
+  }
+  const loopDot = makeEl('div', 'tmarker loop-dot');
+  loopDot.style.left = `${(96200/totalMs*100).toFixed(1)}%`;
+  eventsBg.append(loopDot);
+  eventsTrack.append(eventsBg);
+  el.append(eventsTrack);
 }
 
 function applyFilter(f) {
