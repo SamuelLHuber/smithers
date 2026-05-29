@@ -1585,7 +1585,11 @@ export class Gateway {
         if (!connection) {
             return true;
         }
-        if (!connection.subscribedRuns || connection.subscribedRuns.size === 0) {
+        // Two-state filter: a null/undefined `subscribedRuns` means no filter
+        // was ever provided (unrestricted, backward compatible). A Set means a
+        // `subscribe` filter WAS provided at connect time — the runId must be in
+        // it. An explicitly-empty Set therefore denies every run.
+        if (!connection.subscribedRuns) {
             return true;
         }
         return connection.subscribedRuns.has(runId);

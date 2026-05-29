@@ -105,7 +105,7 @@ class GatewayClient {
   }
 }
 
-async function connectGateway(port: number, token: string) {
+async function connectGateway(port: number, token: string, subscribe?: string[]) {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       const ws = new WebSocket(`ws://127.0.0.1:${port}`);
@@ -122,6 +122,7 @@ async function connectGateway(port: number, token: string) {
         maxProtocol: 1,
         client: { id: "devtools-test", version: "1.0.0", platform: "bun-test" },
         auth: { token },
+        ...(subscribe ? { subscribe } : {}),
       });
       expect(hello.ok).toBe(true);
       return client;
@@ -448,6 +449,100 @@ describe("Gateway getDevToolsSnapshot RPC", () => {
     expect(response.payload.version).toBe(1);
     expect(response.payload.runId).toBe(runId);
     expect(response.payload.root.name).toBe("rpc-workflow");
+    await client.close();
+  });
+
+  async function startAuthGateway() {
+    const { smithers, Workflow, Task } = createSmithers(
+      { out: z.object({ value: z.number() }) },
+      { dbPath },
+    );
+    const workflow = smithers(() => (
+      <Workflow name="gateway-devtools-auth">
+        <Task id="task-a">{{ value: 1 }}</Task>
+      </Workflow>
+    ));
+    gateway = new Gateway({
+      protocol: 1,
+      auth: {
+        mode: "token",
+        tokens: {
+          "op-token": {
+            role: "operator",
+            scopes: ["*"],
+            userId: "user:test",
+          },
+        },
+      },
+    });
+    gateway.register("wf", workflow);
+    server = await gateway.listen({ port: 0, host: "127.0.0.1" });
+    const port = (server.address() as any).port as number;
+    const adapter = new SmithersDb(workflow.db);
+    for (const runId of ["run-x", "run-y"]) {
+      await adapter.insertRun({
+        runId,
+        workflowName: "wf",
+        status: "running",
+        createdAtMs: now(),
+      });
+      await adapter.insertFrame({
+        runId,
+        frameNo: 0,
+        createdAtMs: now(),
+        xmlJson: xmlFrame(runId, "v"),
+        xmlHash: `hash-${runId}`,
+        mountedTaskIdsJson: "[]",
+        taskIndexJson: "[]",
+        note: "frame-0",
+      });
+    }
+    return port;
+  }
+
+  test("denies devtools snapshot for an explicitly-empty subscribe filter", async () => {
+    const port = await startAuthGateway();
+    const client = await connectGateway(port, "op-token", []);
+    for (const runId of ["run-x", "run-y"]) {
+      const response = await client.request("getDevToolsSnapshot", {
+        runId,
+        frameNo: 0,
+      });
+      expect(response.ok).toBe(false);
+      expect(response.error.code).toBe("Unauthorized");
+    }
+    await client.close();
+  });
+
+  test("scopes devtools snapshot to the subscribed run", async () => {
+    const port = await startAuthGateway();
+    const client = await connectGateway(port, "op-token", ["run-x"]);
+    const allowed = await client.request("getDevToolsSnapshot", {
+      runId: "run-x",
+      frameNo: 0,
+    });
+    expect(allowed.ok).toBe(true);
+    expect(allowed.payload.runId).toBe("run-x");
+    const denied = await client.request("getDevToolsSnapshot", {
+      runId: "run-y",
+      frameNo: 0,
+    });
+    expect(denied.ok).toBe(false);
+    expect(denied.error.code).toBe("Unauthorized");
+    await client.close();
+  });
+
+  test("retains unrestricted devtools access with no subscribe filter", async () => {
+    const port = await startAuthGateway();
+    const client = await connectGateway(port, "op-token");
+    for (const runId of ["run-x", "run-y"]) {
+      const response = await client.request("getDevToolsSnapshot", {
+        runId,
+        frameNo: 0,
+      });
+      expect(response.ok).toBe(true);
+      expect(response.payload.runId).toBe(runId);
+    }
     await client.close();
   });
 });
