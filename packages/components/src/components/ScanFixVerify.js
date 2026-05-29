@@ -53,6 +53,7 @@ export function ScanFixVerify(props) {
     const reportTask = React.createElement(Task, {
         id: `${prefix}-report`,
         output: props.reportOutput,
+        agent: props.verifier,
         dependsOn: [`${prefix}-verify`],
         children: "Produce a final summary report of all scan-fix-verify cycles, including what was found, what was fixed, and the final verification status.",
     });

@@ -45,3 +45,27 @@ describe("Supervisor final summary task (finding 1)", () => {
 		expect(final.computeFn).toBeUndefined();
 	});
 });
+
+describe("ScanFixVerify report task (finding 3)", () => {
+	test("report runs on an agent, not as a static task", async () => {
+		const result = await render(
+			<ScanFixVerify
+				id="sfv"
+				scanner={scanner}
+				fixer={fixer}
+				verifier={verifier}
+				scanOutput="scan_out"
+				fixOutput="fix_out"
+				verifyOutput="verify_out"
+				reportOutput="report_out"
+			/>,
+		);
+		const report = result.tasks.find((task) => task.nodeId === "sfv-report");
+		expect(report).toBeDefined();
+		expect(report.agent).toBe(verifier);
+		expect(typeof report.prompt).toBe("string");
+		expect(report.prompt).toContain("summary report");
+		expect(report.staticPayload).toBeUndefined();
+		expect(report.computeFn).toBeUndefined();
+	});
+});
