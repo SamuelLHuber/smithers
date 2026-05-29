@@ -1,4 +1,4 @@
-export type CachePolicy<Ctx = any> = {
+export type CachePolicy<Ctx = unknown> = {
   by?: (ctx: Ctx) => unknown;
   version?: string;
   key?: string;
