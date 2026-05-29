@@ -3028,33 +3028,90 @@ export class Gateway {
    * @returns {SmithersDb}
    */
     adapterForWorkflow(workflow) {
-        return new SmithersDb(workflow.db);
+        // Cache by the underlying DB so workflows that SHARE a database (the
+        // common case once many workflows are registered on one gateway, e.g.
+        // a whole init pack) resolve to the SAME adapter instance. That identity
+        // is what lets the cross-workflow readers below iterate each DB once
+        // instead of once per registered workflow.
+        if (!this.adapterCache) {
+            this.adapterCache = new Map();
+        }
+        let adapter = this.adapterCache.get(workflow.db);
+        if (!adapter) {
+            adapter = new SmithersDb(workflow.db);
+            this.adapterCache.set(workflow.db, adapter);
+        }
+        return adapter;
+    }
+    /**
+   * Resolve the true gateway workflow key for a stored run row. A run started
+   * THROUGH the gateway records its key in config; a run started elsewhere (e.g.
+   * the CLI) does not, so we fall back to the row's own `workflowName` when that
+   * matches a registered key, and only then to the adapter's first owner. This
+   * is what keeps runs correctly attributed when many workflows share one DB —
+   * the adapter that finds a row is no longer assumed to own it.
+   * @param {{ configJson?: string; workflowName?: string }} row
+   * @param {Set<string>} registeredKeys
+   * @param {string} fallbackKey
+   * @returns {string}
+   */
+    resolveRunWorkflowKey(row, registeredKeys, fallbackKey) {
+        const config = parseJson(row.configJson);
+        const fromConfig = asString(config?.gatewayWorkflowKey);
+        if (fromConfig) {
+            return fromConfig;
+        }
+        const fromName = asString(row.workflowName);
+        if (fromName && registeredKeys.has(fromName)) {
+            return fromName;
+        }
+        return fallbackKey;
     }
     /**
    * @param {string} [status]
    */
     async listRunsAcrossWorkflows(limit = 50, status) {
-        const results = [];
+        const registeredKeys = new Set(this.workflows.keys());
+        const seenAdapters = new Set();
+        const byRunId = new Map();
         for (const entry of this.workflows.values()) {
             const adapter = this.adapterForWorkflow(entry.workflow);
+            // Shared-DB workflows share an adapter; query each DB exactly once so
+            // a single run isn't returned once per registered workflow.
+            if (seenAdapters.has(adapter)) {
+                continue;
+            }
+            seenAdapters.add(adapter);
             const rows = await adapter.listRuns(limit, status);
             for (const row of rows) {
-                const config = parseJson(row.configJson);
-                results.push({
+                if (byRunId.has(row.runId)) {
+                    continue;
+                }
+                byRunId.set(row.runId, {
                     ...row,
-                    workflowKey: asString(config?.gatewayWorkflowKey) ?? entry.key,
+                    workflowKey: this.resolveRunWorkflowKey(row, registeredKeys, entry.key),
                 });
             }
         }
+        const results = [...byRunId.values()];
         results.sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0));
         return results.slice(0, limit);
     }
     async listPendingApprovals() {
         const approvals = [];
+        const registeredKeys = new Set(this.workflows.keys());
+        const seenAdapters = new Set();
         for (const entry of this.workflows.values()) {
             const adapter = this.adapterForWorkflow(entry.workflow);
+            // One pass per DB: shared-DB workflows share an adapter, so iterating
+            // them all would surface each pending gate (and mis-key it) N times.
+            if (seenAdapters.has(adapter)) {
+                continue;
+            }
+            seenAdapters.add(adapter);
             const runs = await adapter.listRuns(1_000);
             for (const run of runs) {
+                const workflowKey = this.resolveRunWorkflowKey(run, registeredKeys, entry.key);
                 const pending = await adapter.listPendingApprovals(run.runId);
                 const nodes = await adapter.listNodes(run.runId);
                 const nodeByKey = new Map();
@@ -3066,7 +3123,7 @@ export class Gateway {
                     const request = parseApprovalRequest(parseJson(approval.requestJson), node?.label ?? approval.nodeId);
                     approvals.push({
                         runId: approval.runId,
-                        workflowKey: entry.key,
+                        workflowKey,
                         nodeId: approval.nodeId,
                         iteration: approval.iteration ?? 0,
                         requestTitle: request.title ?? node?.label ?? approval.nodeId,
@@ -3131,14 +3188,26 @@ export class Gateway {
                 adapter: this.adapterForWorkflow(active.workflow),
             };
         }
+        const registeredKeys = new Set(this.workflows.keys());
+        const seenAdapters = new Set();
         for (const entry of this.workflows.values()) {
             const adapter = this.adapterForWorkflow(entry.workflow);
+            if (seenAdapters.has(adapter)) {
+                continue;
+            }
+            seenAdapters.add(adapter);
             const run = await adapter.getRun(runId);
             if (run) {
+                // Attribute the run to its TRUE workflow (from its stored key /
+                // workflowName), not whichever adapter happened to find the row —
+                // critical once workflows share a DB. Resolve the owning entry by
+                // that key so the returned workflow/adapter are the right ones.
+                const workflowKey = this.resolveRunWorkflowKey(run, registeredKeys, entry.key);
+                const owner = this.workflows.get(workflowKey) ?? entry;
                 return {
-                    workflowKey: entry.key,
-                    workflow: entry.workflow,
-                    adapter,
+                    workflowKey,
+                    workflow: owner.workflow,
+                    adapter: this.adapterForWorkflow(owner.workflow),
                 };
             }
         }
