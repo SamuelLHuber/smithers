@@ -213,7 +213,7 @@ describe("composite component expansion coverage", () => {
         expect(result.tasks[2].prompt).toContain("## web");
     });
 
-    test("CheckSuite handles array and object checks with strategy prompts", async () => {
+    test("CheckSuite handles array and object checks with a compute verdict", async () => {
         expect(CheckSuite({ skipIf: true })).toBeNull();
 
         const arrayResult = await render(
@@ -232,7 +232,13 @@ describe("composite component expansion coverage", () => {
             "checks-tests",
             "checks-verdict",
         ]);
-        expect(arrayResult.tasks[2].staticPayload).toContain("MAJORITY");
+        const verdict = arrayResult.tasks[2];
+        expect(typeof verdict.computeFn).toBe("function");
+        expect(verdict.staticPayload).toBeUndefined();
+        expect(verdict.agent).toBeUndefined();
+        expect(new Set(verdict.dependsOn)).toEqual(
+            new Set(["checks-types", "checks-tests"]),
+        );
 
         const objectResult = await render(
             <CheckSuite
@@ -242,7 +248,8 @@ describe("composite component expansion coverage", () => {
                 checks={{ lint: { command: "pnpm lint" } }}
             />,
         );
-        expect(objectResult.tasks[1].staticPayload).toContain("ANY single check");
+        expect(typeof objectResult.tasks[1].computeFn).toBe("function");
+        expect(objectResult.tasks[1].dependsOn).toEqual(["quick-lint"]);
     });
 
     test("Panel covers direct agent/config panelists and moderation strategies", async () => {

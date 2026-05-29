@@ -69,3 +69,94 @@ describe("ScanFixVerify report task (finding 3)", () => {
 		expect(report.computeFn).toBeUndefined();
 	});
 });
+
+describe("CheckSuite verdict task (finding 2)", () => {
+	test("verdict is a compute task that depends on every check", async () => {
+		const result = await render(
+			<CheckSuite
+				id="checks"
+				strategy="all-pass"
+				verdictOutput="verdict_out"
+				checks={[
+					{ id: "types", command: "pnpm typecheck" },
+					{ id: "tests", agent: worker, label: "Tests" },
+				]}
+			/>,
+		);
+		const verdict = result.tasks.find((task) => task.nodeId === "checks-verdict");
+		expect(verdict).toBeDefined();
+		// Compute task — not static, not agent.
+		expect(typeof verdict.computeFn).toBe("function");
+		expect(verdict.agent).toBeUndefined();
+		expect(verdict.staticPayload).toBeUndefined();
+		// Depends on every check (deps mechanism Task.js honors, not the ignored "needs").
+		expect(new Set(verdict.dependsOn)).toEqual(
+			new Set(["checks-types", "checks-tests"]),
+		);
+	});
+
+	/**
+	 * Render the CheckSuite inside a real Workflow + seeded SmithersCtx so the
+	 * verdict compute closure reads the actual per-check outputs, then invoke it.
+	 * @param {"all-pass" | "majority" | "any-pass"} strategy
+	 * @param {boolean[]} checkResults pass/fail per check, in declared order
+	 */
+	async function computeVerdict(strategy, checkResults) {
+		const { smithers, Workflow, outputs, cleanup } = createTestSmithers({
+			verdict: z.object({ passed: z.boolean(), passCount: z.number(), total: z.number() }),
+		});
+		const checks = checkResults.map((_, i) => ({ id: `c${i}`, agent: worker }));
+		const workflow = smithers(() => (
+			<Workflow name="checksuite-verdict">
+				<CheckSuite id="cs" strategy={strategy} verdictOutput={outputs.verdict} checks={checks} />
+			</Workflow>
+		));
+		const seededOutputs = {};
+		seededOutputs.verdict = checkResults.map((passed, i) => ({
+			runId: "verdict-run",
+			nodeId: `cs-c${i}`,
+			iteration: 0,
+			passed,
+			passCount: 0,
+			total: 0,
+		}));
+		const frame = await Effect.runPromise(
+			renderFrame(
+				workflow,
+				new SmithersCtx({
+					runId: "verdict-run",
+					iteration: 0,
+					input: {},
+					outputs: seededOutputs,
+					zodToKeyName: workflow.zodToKeyName,
+				}),
+			),
+		);
+		const verdict = frame.tasks.find((task) => task.nodeId === "cs-verdict");
+		expect(verdict).toBeDefined();
+		expect(typeof verdict.computeFn).toBe("function");
+		const value = await verdict.computeFn();
+		cleanup();
+		return value;
+	}
+
+	test("all-pass: fails when any check fails, passes when all pass", async () => {
+		expect((await computeVerdict("all-pass", [true, true, true])).passed).toBe(true);
+		const mixed = await computeVerdict("all-pass", [true, false, true]);
+		expect(mixed.passed).toBe(false);
+		expect(mixed.passCount).toBe(2);
+		expect(mixed.total).toBe(3);
+	});
+
+	test("any-pass: passes when at least one check passes", async () => {
+		expect((await computeVerdict("any-pass", [false, false, true])).passed).toBe(true);
+		expect((await computeVerdict("any-pass", [false, false, false])).passed).toBe(false);
+	});
+
+	test("majority: passes only when more than half pass", async () => {
+		expect((await computeVerdict("majority", [true, true, false])).passed).toBe(true);
+		expect((await computeVerdict("majority", [true, false, false])).passed).toBe(false);
+		// Exactly half is not a majority.
+		expect((await computeVerdict("majority", [true, false])).passed).toBe(false);
+	});
+});
