@@ -183,7 +183,12 @@ async function connectLive(port: number, runId: string): Promise<LiveCollector> 
     },
   };
   ws.on("message", (raw) => {
-    const frame = JSON.parse(String(raw)) as ServerFrame;
+    let frame: ServerFrame;
+    try {
+      frame = JSON.parse(String(raw)) as ServerFrame;
+    } catch {
+      return;
+    }
     if (frame.type !== "event") return;
     if (frame.seq !== collector.lastSeq + 1) collector.gaps += 1;
     collector.lastSeq = frame.seq;

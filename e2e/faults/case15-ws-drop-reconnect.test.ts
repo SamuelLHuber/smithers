@@ -249,7 +249,12 @@ async function connectAuthedAndStream(
   });
   let connected = false;
   ws.on("message", (raw) => {
-    const frame = JSON.parse(String(raw)) as ServerFrame;
+    let frame: ServerFrame;
+    try {
+      frame = JSON.parse(String(raw)) as ServerFrame;
+    } catch {
+      return;
+    }
     frames.push(frame);
     if (frame.type === "connect.ack" && !connected) {
       connected = true;
@@ -387,7 +392,12 @@ describe("case 15: drop authenticated streamRunEvents mid-stream, reconnect with
       });
       const errPromise = new Promise<ConnectErrorFrame>((resolve) => {
         ws!.on("message", (raw) => {
-          const frame = JSON.parse(String(raw)) as ServerFrame;
+          let frame: ServerFrame;
+          try {
+            frame = JSON.parse(String(raw)) as ServerFrame;
+          } catch {
+            return;
+          }
           if (frame.type === "connect.error") resolve(frame);
         });
       });

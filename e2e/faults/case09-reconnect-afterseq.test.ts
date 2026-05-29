@@ -153,7 +153,12 @@ async function connectAndSubscribe(
     resolveStop = res;
   });
   ws.on("message", (raw) => {
-    const frame = JSON.parse(String(raw)) as ServerFrame;
+    let frame: ServerFrame;
+    try {
+      frame = JSON.parse(String(raw)) as ServerFrame;
+    } catch {
+      return;
+    }
     frames.push(frame);
     if (frame.type === "end") {
       resolveStop();
