@@ -20,10 +20,42 @@
  *     session_exited  { sessionId, exitCode, signal }
  */
 
+import { createHash } from "node:crypto";
+import { chmodSync, constants, statSync } from "node:fs";
+import { createServer as createHttpServer } from "node:http";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import * as pty from "node-pty";
 
 const SCROLLBACK_LIMIT = 256 * 1024; // 256 KiB, matches zmux attach_replay_max_bytes
 const VERSION = "0.1.0";
+
+/**
+ * node-pty ships a prebuilt `spawn-helper` binary on macOS/Linux that it execs
+ * to fork the PTY. Some installers (notably pnpm's content-addressable store)
+ * drop the execute bit when materializing the prebuild, which makes every
+ * `pty.spawn` fail with "posix_spawnp failed." Restore the bit on startup so a
+ * fresh install always yields a working PTY server.
+ */
+function ensureSpawnHelperExecutable(): void {
+  if (process.platform === "win32") return;
+  try {
+    const require = createRequire(import.meta.url);
+    const ptyPkg = require.resolve("node-pty/package.json");
+    const arch = `${process.platform}-${process.arch}`;
+    const helper = join(dirname(ptyPkg), "prebuilds", arch, "spawn-helper");
+    const stat = statSync(helper);
+    const wantExec = constants.S_IXUSR | constants.S_IXGRP | constants.S_IXOTH;
+    if ((stat.mode & wantExec) !== wantExec) {
+      chmodSync(helper, stat.mode | wantExec);
+    }
+  } catch {
+    // If the prebuild layout differs (e.g. a locally compiled build), node-pty
+    // resolves its own binary; don't block startup on this best-effort fixup.
+  }
+}
+
+ensureSpawnHelperExecutable();
 
 type Session = {
   id: string;
@@ -41,8 +73,6 @@ type Session = {
 };
 
 const sessions = new Map<string, Session>();
-
-type WsData = { id: string };
 
 const host = process.env.PTY_SERVER_HOST ?? "127.0.0.1";
 const port = parseInt(process.env.PTY_SERVER_PORT ?? "7342");
@@ -233,45 +263,154 @@ function handleRequest(id: unknown, method: string, params: Record<string, unkno
   return jsonRpcError(id, -32601, "method not found");
 }
 
-Bun.serve<WsData>({
-  hostname: host,
-  port,
-  fetch(req, server) {
-    const url = new URL(req.url);
-    if (url.pathname === "/health") return new Response("ok");
-    if (url.pathname === "/terminal/ws") {
-      const id = Math.random().toString(36).slice(2);
-      if (server.upgrade(req, { data: { id } })) return undefined;
-      return new Response("WebSocket upgrade failed", { status: 400 });
-    }
-    return new Response("Not Found", { status: 404 });
-  },
-  websocket: {
-    open(ws) {
-      connectedClients.add({ ws: ws as any });
-    },
-    message(ws, raw) {
-      try {
-        const text = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
-        const msg = JSON.parse(text);
-        const id = msg.id ?? null;
-        const method = typeof msg.method === "string" ? msg.method : "";
-        const params = (typeof msg.params === "object" && msg.params !== null) ? msg.params : {};
-        const response = handleRequest(id, method, params);
-        ws.sendText(response);
-      } catch {
-        ws.sendText(jsonRpcError(null, -32700, "parse error"));
-      }
-    },
-    close(ws) {
-      for (const client of connectedClients) {
-        if ((client.ws as any) === ws) {
-          connectedClients.delete(client);
-          break;
-        }
-      }
-    },
-  },
+/**
+ * Transport layer.
+ *
+ * node-pty's native read loop only delivers data reliably under Node — under
+ * Bun the PTY file descriptor is closed before `onData`/`onExit` ever fire
+ * (intermittent zero-byte reads and `ioctl EBADF` on resize). So this server
+ * runs under Node and implements the small slice of RFC 6455 it needs (text
+ * frames over an HTTP Upgrade) with zero extra dependencies, instead of relying
+ * on `Bun.serve`'s built-in WebSocket support.
+ */
+
+const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+type WsConn = {
+  sendText(s: string): void;
+  readyState: number;
+};
+
+function encodeTextFrame(text: string): Buffer {
+  const payload = Buffer.from(text, "utf8");
+  const len = payload.length;
+  let header: Buffer;
+  if (len < 126) {
+    header = Buffer.from([0x81, len]);
+  } else if (len < 65536) {
+    header = Buffer.alloc(4);
+    header[0] = 0x81;
+    header[1] = 126;
+    header.writeUInt16BE(len, 2);
+  } else {
+    header = Buffer.alloc(10);
+    header[0] = 0x81;
+    header[1] = 127;
+    header.writeBigUInt64BE(BigInt(len), 2);
+  }
+  return Buffer.concat([header, payload]);
+}
+
+const server = createHttpServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("ok");
+    return;
+  }
+  res.writeHead(404, { "content-type": "text/plain" });
+  res.end("Not Found");
 });
 
-console.log(`[pty] Listening on http://${host}:${port}`);
+server.on("upgrade", (req, socket) => {
+  if (req.url !== "/terminal/ws") {
+    socket.destroy();
+    return;
+  }
+  const key = req.headers["sec-websocket-key"];
+  if (typeof key !== "string") {
+    socket.destroy();
+    return;
+  }
+  const accept = createHash("sha1")
+    .update(key + WS_GUID)
+    .digest("base64");
+  socket.write(
+    "HTTP/1.1 101 Switching Protocols\r\n" +
+      "Upgrade: websocket\r\n" +
+      "Connection: Upgrade\r\n" +
+      `Sec-WebSocket-Accept: ${accept}\r\n\r\n`,
+  );
+
+  const conn: WsConn = {
+    readyState: 1,
+    sendText(text: string) {
+      if (socket.writable) socket.write(encodeTextFrame(text));
+    },
+  };
+  const client = { ws: conn };
+  connectedClients.add(client);
+
+  let buffer = Buffer.alloc(0);
+
+  function dispatch(text: string) {
+    try {
+      const msg = JSON.parse(text);
+      const id = msg.id ?? null;
+      const method = typeof msg.method === "string" ? msg.method : "";
+      const params =
+        typeof msg.params === "object" && msg.params !== null ? msg.params : {};
+      // Notifications (no id) get processed but produce no reply frame.
+      const response = handleRequest(id, method, params);
+      if (msg.id != null) conn.sendText(response);
+    } catch {
+      conn.sendText(jsonRpcError(null, -32700, "parse error"));
+    }
+  }
+
+  socket.on("data", (chunk) => {
+    buffer = Buffer.concat([buffer, chunk]);
+    // Parse as many complete frames as are buffered.
+    while (buffer.length >= 2) {
+      const opcode = buffer[0] & 0x0f;
+      const masked = (buffer[1] & 0x80) !== 0;
+      let len = buffer[1] & 0x7f;
+      let offset = 2;
+      if (len === 126) {
+        if (buffer.length < 4) break;
+        len = buffer.readUInt16BE(2);
+        offset = 4;
+      } else if (len === 127) {
+        if (buffer.length < 10) break;
+        len = Number(buffer.readBigUInt64BE(2));
+        offset = 10;
+      }
+      let maskKey: Buffer | null = null;
+      if (masked) {
+        if (buffer.length < offset + 4) break;
+        maskKey = buffer.subarray(offset, offset + 4);
+        offset += 4;
+      }
+      if (buffer.length < offset + len) break;
+      const payload = buffer.subarray(offset, offset + len);
+      const decoded = Buffer.from(payload);
+      if (maskKey) {
+        for (let i = 0; i < decoded.length; i++) {
+          decoded[i] ^= maskKey[i % 4];
+        }
+      }
+      buffer = buffer.subarray(offset + len);
+
+      if (opcode === 0x8) {
+        // close frame
+        conn.readyState = 3;
+        socket.end();
+        return;
+      }
+      if (opcode === 0x1) {
+        dispatch(decoded.toString("utf8"));
+      }
+      // ping/pong/continuation frames are ignored for this protocol.
+    }
+  });
+
+  function cleanup() {
+    conn.readyState = 3;
+    connectedClients.delete(client);
+  }
+  socket.on("close", cleanup);
+  socket.on("error", cleanup);
+});
+
+server.listen(port, host, () => {
+  console.log(`[pty] Listening on http://${host}:${port}`);
+});

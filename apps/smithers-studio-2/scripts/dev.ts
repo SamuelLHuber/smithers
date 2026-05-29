@@ -113,7 +113,10 @@ async function main() {
   await waitForHttpOk(`${gatewayUrl}/health`);
 
   console.log(`[dev] Starting PTY Server on ${ptyUrl}`);
-  spawnManaged("pty", ["bun", "apps/smithers-studio-2/scripts/pty-server.ts"], {
+  // Run the PTY server under Node, not Bun: node-pty's native read loop closes
+  // the PTY fd before any data is delivered under Bun (zero-byte reads, ioctl
+  // EBADF on resize), so the terminal would attach but show no output.
+  spawnManaged("pty", ["node", "apps/smithers-studio-2/scripts/pty-server.ts"], {
     PTY_SERVER_HOST: host,
     PTY_SERVER_PORT: String(ptyPort),
   });
