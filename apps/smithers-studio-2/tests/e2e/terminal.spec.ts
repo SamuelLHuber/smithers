@@ -3,6 +3,7 @@ import { test, expect, Page } from '@playwright/test';
 test.describe('Terminal Integration', () => {
   test('creates PTY session and displays shell output', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Wait for terminal to initialize and connect
     await page.waitForSelector('.ghostty-terminal', { timeout: 10000 });
@@ -22,6 +23,7 @@ test.describe('Terminal Integration', () => {
 
   test('handles PTY session lifecycle correctly', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Wait for terminal connection
     await page.waitForSelector('.ghostty-terminal');
@@ -38,6 +40,7 @@ test.describe('Terminal Integration', () => {
 
   test('handles terminal resize properly', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Wait for terminal to load
     await page.waitForSelector('.ghostty-terminal');
@@ -68,47 +71,63 @@ test.describe('Terminal Integration', () => {
 
   test('handles multiple terminal tabs with isolation', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Wait for first terminal
     await page.waitForSelector('.ghostty-terminal');
     await expect(page.locator('[data-testid="terminal-status"]')).toHaveText(/attached|connected/i, { timeout: 5000 });
 
-    // Open command palette to create new terminal
+    // Open command palette to create new terminal (focus its input before
+    // typing so the keystrokes are not dropped before autofocus settles).
     await page.keyboard.press('Meta+k'); // Or Ctrl+k on Linux
     await page.waitForSelector('[data-testid="command-palette"]', { timeout: 3000 });
+    await page.locator('.palette-input').click();
     await page.keyboard.type('New Terminal');
     await page.keyboard.press('Enter');
 
     // Should now have 2 terminal tabs
     await expect(page.locator('[data-testid="terminal-tab"]')).toHaveCount(2);
 
-    // Type different commands in each tab to verify isolation
-    await page.locator('.ghostty-terminal').click();
+    // The panes are a stacked overlay (one visible at a time); target the active
+    // pane and switch tabs via the sidebar terminal tablist. Wait for the active
+    // pane to actually take keyboard focus (wterm adds the "focused" class)
+    // before typing, so input is delivered to the intended session and not the
+    // one that held focus before the palette closed.
+    const activeTerminal = page.locator('[data-testid="terminal-tab"].active .ghostty-terminal');
+    const sidebarTabs = page.locator('.sidebar-terminals [role="tab"]');
+
+    await activeTerminal.click();
+    await expect(activeTerminal).toHaveClass(/focused/);
     await page.keyboard.type('echo "tab2"');
     await page.keyboard.press('Enter');
-    await expect(page.locator('.ghostty-terminal')).toContainText('tab2', { timeout: 3000 });
+    await expect(activeTerminal).toContainText('tab2', { timeout: 3000 });
 
-    // Switch to first tab
-    await page.locator('[data-testid="terminal-tab"]').first().click();
-    await page.locator('.ghostty-terminal').click();
+    // Switch to the first tab via the sidebar, then type into its pane
+    await sidebarTabs.first().click();
+    await expect(page.locator('[data-testid="terminal-tab"]').first()).toHaveClass(/active/);
+    await activeTerminal.click();
+    await expect(activeTerminal).toHaveClass(/focused/);
     await page.keyboard.type('echo "tab1"');
     await page.keyboard.press('Enter');
-    await expect(page.locator('.ghostty-terminal')).toContainText('tab1', { timeout: 3000 });
+    await expect(activeTerminal).toContainText('tab1', { timeout: 3000 });
 
-    // Verify first tab doesn't show content from second tab
-    await expect(page.locator('.ghostty-terminal')).not.toContainText('tab2');
+    // The first tab must not show the second tab's output (session isolation)
+    await expect(activeTerminal).not.toContainText('tab2');
   });
 
   test('handles terminal close and cleanup', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Wait for terminal
     await page.waitForSelector('.ghostty-terminal');
     await expect(page.locator('[data-testid="terminal-status"]')).toHaveText(/attached|connected/i, { timeout: 5000 });
 
-    // Create a second terminal so we can close one
+    // Create a second terminal so we can close one (focus the palette input
+    // before typing so the keystrokes are not dropped before autofocus settles).
     await page.keyboard.press('Meta+k');
     await page.waitForSelector('[data-testid="command-palette"]', { timeout: 3000 });
+    await page.locator('.palette-input').click();
     await page.keyboard.type('New Terminal');
     await page.keyboard.press('Enter');
 
@@ -130,6 +149,7 @@ test.describe('Terminal Integration', () => {
 
   test('displays process exit status correctly', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Wait for terminal
     await page.waitForSelector('.ghostty-terminal');
@@ -148,13 +168,16 @@ test.describe('Terminal Integration', () => {
   });
 
   test('handles PTY server unavailable gracefully', async ({ page }) => {
-    // This test simulates the PTY server being unavailable
-    // by intercepting the WebSocket connection
-    await page.route('**/terminal/ws', route => {
-      route.abort('connectionrefused');
+    // Simulate the PTY server being unavailable. page.route does NOT intercept
+    // WebSocket handshakes, so use routeWebSocket and close the socket before it
+    // connects to the backend — the client sees a close without a successful
+    // attach, exactly like a refused PTY server.
+    await page.routeWebSocket('**/terminal/ws', ws => {
+      ws.close();
     });
 
     await page.goto('/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Should show PTY server unavailable message
     await expect(page.locator('.terminal-status')).toContainText(/PTY server unavailable/, { timeout: 5000 });
@@ -165,6 +188,7 @@ test.describe('Terminal Integration', () => {
 
   test('maintains scrollback across session', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Wait for terminal
     await page.waitForSelector('.ghostty-terminal');

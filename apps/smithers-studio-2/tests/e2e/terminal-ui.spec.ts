@@ -2,14 +2,18 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Terminal UI', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the terminal WebSocket to avoid PTY server dependency
-    await page.route('**/terminal/ws', route => {
-      route.abort('connectionrefused');
+    // Mock the terminal WebSocket to avoid a PTY server dependency. page.route
+    // does not intercept WebSocket handshakes, so use routeWebSocket and close
+    // the socket immediately — the terminal then renders its "PTY server
+    // unavailable" state deterministically, independent of any live PTY server.
+    await page.routeWebSocket('**/terminal/ws', ws => {
+      ws.close();
     });
   });
 
   test('displays terminal interface correctly', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Should show the terminal component
     await expect(page.locator('.terminal-pane')).toBeVisible();
@@ -23,6 +27,7 @@ test.describe('Terminal UI', () => {
 
   test('shows terminal tab management UI', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Should show at least one terminal tab
     await expect(page.locator('[data-testid="terminal-tab"]')).toHaveCount(1);
@@ -34,6 +39,7 @@ test.describe('Terminal UI', () => {
 
   test('opens command palette with keyboard shortcut', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Command palette should not be visible initially
     await expect(page.locator('[data-testid="command-palette"]')).not.toBeVisible();
@@ -44,12 +50,16 @@ test.describe('Terminal UI', () => {
     // Command palette should now be visible
     await expect(page.locator('[data-testid="command-palette"]')).toBeVisible();
 
-    // Should show "New Terminal" option
-    await expect(page.locator('text=New Terminal')).toBeVisible();
+    // Should show the "New Terminal" command row inside the palette (scoped to
+    // the palette so it does not collide with the sidebar's "+ New terminal").
+    await expect(
+      page.locator('[data-testid="command-palette"] .palette-row-title', { hasText: 'New Terminal' }),
+    ).toBeVisible();
   });
 
   test('can create new terminal tab via command palette', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Start with 1 tab
     await expect(page.locator('[data-testid="terminal-tab"]')).toHaveCount(1);
@@ -71,9 +81,14 @@ test.describe('Terminal UI', () => {
 
   test('can close terminal tabs', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
-    // Create a second terminal tab
+    // Create a second terminal tab (wait for the palette to mount, then focus
+    // its input before typing so the keystrokes are not dropped before autofocus
+    // has settled).
     await page.keyboard.press('Meta+p');
+    await expect(page.locator('[data-testid="command-palette"]')).toBeVisible();
+    await page.locator('.palette-input').click();
     await page.keyboard.type('New Terminal');
     await page.keyboard.press('Enter');
 
@@ -92,9 +107,14 @@ test.describe('Terminal UI', () => {
 
   test('can switch between terminal tabs', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
-    // Create a second terminal tab
+    // Create a second terminal tab (wait for the palette to mount, then focus
+    // its input before typing so the keystrokes are not dropped before autofocus
+    // has settled).
     await page.keyboard.press('Meta+p');
+    await expect(page.locator('[data-testid="command-palette"]')).toBeVisible();
+    await page.locator('.palette-input').click();
     await page.keyboard.type('New Terminal');
     await page.keyboard.press('Enter');
 
@@ -105,17 +125,22 @@ test.describe('Terminal UI', () => {
     const secondTab = page.locator('[data-testid="terminal-tab"]').nth(1);
     await expect(secondTab).toHaveClass(/active/);
 
-    // Click first tab to switch
-    const firstTab = page.locator('[data-testid="terminal-tab"]').first();
-    await firstTab.click();
+    // Switch tabs via the sidebar terminal tablist (the panes themselves are a
+    // stacked, single-visible overlay; the sidebar is the switch affordance).
+    // Scope to .sidebar-terminals so the Terminal/Chat segment tablist (also
+    // role="tab") is not matched.
+    const sidebarTabs = page.locator('.sidebar-terminals [role="tab"]');
+    await sidebarTabs.first().click();
 
-    // First tab should now be active
+    // First terminal pane should now be the active one
+    const firstTab = page.locator('[data-testid="terminal-tab"]').first();
     await expect(firstTab).toHaveClass(/active/);
     await expect(secondTab).not.toHaveClass(/active/);
   });
 
   test('creates new terminal with hotkey', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Start with 1 tab
     await expect(page.locator('[data-testid="terminal-tab"]')).toHaveCount(1);
@@ -129,6 +154,7 @@ test.describe('Terminal UI', () => {
 
   test('handles terminal component lifecycle correctly', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
     // Terminal should initialize and show unavailable status
     await expect(page.locator('[data-testid="terminal-status"]')).toHaveText('PTY server unavailable — start with: bun scripts/dev.ts');
@@ -142,6 +168,7 @@ test.describe('Terminal UI', () => {
 
   test('shows loading state during terminal initialization', async ({ page }) => {
     await page.goto('http://127.0.0.1:5500/');
+    await page.getByTestId("nav.Workspace").click();
 
     // The Suspense fallback should appear briefly during Ghostty core loading
     // Since this is very fast, we mainly test that the structure is correct

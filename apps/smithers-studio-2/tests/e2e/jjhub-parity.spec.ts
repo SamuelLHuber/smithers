@@ -135,6 +135,7 @@ async function handleApi(route: Route, state: ApiState) {
 test("issues use real workspace routes for auth, list, create, detail, close, reopen, and refresh", async ({ page }) => {
   await installWorkspaceApi(page, defaultState());
   await page.goto("/");
+  await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("button", { name: "Issues" }).click();
   await expect(page.getByText("Fix panel refresh")).toBeVisible();
 
@@ -157,6 +158,7 @@ test("issues use real workspace routes for auth, list, create, detail, close, re
 test("landings expose filters, detail tabs, unified diffs, checks, conflicts, review, and land actions", async ({ page }) => {
   await installWorkspaceApi(page, defaultState());
   await page.goto("/");
+  await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("button", { name: "Landings" }).click();
   await page.getByRole("combobox").selectOption("open");
   await expect(page.locator(".landing-row", { hasText: "Ship parity panels" })).toBeVisible();
@@ -180,6 +182,7 @@ test("landings expose filters, detail tabs, unified diffs, checks, conflicts, re
 test("workspaces support CRUD, suspend/resume, fork, snapshot, delete, and restore naming with snapshot selection", async ({ page }) => {
   await installWorkspaceApi(page, defaultState());
   await page.goto("/");
+  await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("button", { name: "Workspaces" }).click();
   await expect(page.getByText("studio-main")).toBeVisible();
 
@@ -264,6 +267,7 @@ test("JJHub missing-token states are visible", async ({ page }) => {
   state.auth = { loggedIn: false, tokenSet: false };
   await installWorkspaceApi(page, state);
   await page.goto("/");
+  await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("button", { name: "Issues" }).click();
   await expect(page.getByText("JJHub Authentication Required")).toBeVisible();
   await expect(page.getByText("Please authenticate with JJHub to access issues.")).toBeVisible();
