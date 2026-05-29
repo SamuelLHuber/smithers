@@ -1,6 +1,9 @@
 # dependencies (bun install)
 node_modules
 
+# local gstack artifacts (security reports, analytics) — keep out of the repo
+.gstack/
+
 # output
 out
 dist
