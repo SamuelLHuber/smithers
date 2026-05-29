@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { parseDevToolsSnapshot } from "../devtools/parseDevToolsSnapshot";
 import { runsGatewayClient } from "./runsGatewayClient";
 import {
   parseApprovals,
   parseRunState,
   parseRunSummaries,
 } from "./parseRunPayloads";
+import { snapshotToRunTree } from "./snapshotToRunTree";
 import type {
   ApprovalSummary,
   RunStateView,
@@ -40,6 +42,9 @@ export function useRunsData(): RunsData {
   const [loadingRun, setLoadingRun] = useState(false);
   const [error, setError] = useState<string>();
   const runGenerationRef = useRef(0);
+  // The latest approvals, read inside loadRun without re-binding the callback,
+  // so the merged tree marks pending-approval nodes consistently with the list.
+  const approvalsRef = useRef<ApprovalSummary[]>([]);
 
   const loadList = useCallback(async () => {
     setLoadingList(true);
@@ -48,8 +53,10 @@ export function useRunsData(): RunsData {
         client.rpc("listRuns", {}),
         client.rpc("listApprovals", {}),
       ]);
+      const parsedApprovals = parseApprovals(approvalsPayload);
+      approvalsRef.current = parsedApprovals;
       setRuns(parseRunSummaries(runsPayload));
-      setApprovals(parseApprovals(approvalsPayload));
+      setApprovals(parsedApprovals);
       setError(undefined);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -67,9 +74,25 @@ export function useRunsData(): RunsData {
       const generation = ++runGenerationRef.current;
       setLoadingRun(true);
       try {
-        const payload = await client.rpc("getRun", { runId });
+        // The run-level state comes from getRun; the live node TREE comes from
+        // the separate getDevToolsSnapshot RPC (getRun carries no tree). Fetch
+        // both and merge the snapshot tree into the run-level view.
+        const [runPayload, snapshotResult] = await Promise.all([
+          client.rpc("getRun", { runId }),
+          client.rpc("getDevToolsSnapshot", { runId }).then(
+            (payload) => parseDevToolsSnapshot(payload),
+            () => null,
+          ),
+        ]);
         if (generation !== runGenerationRef.current) return;
-        setRunState(parseRunState(payload));
+        const runStateView = parseRunState(runPayload);
+        const pendingApprovalNodeIds = new Set(
+          approvalsRef.current
+            .filter((approval) => approval.runId === runId)
+            .map((approval) => approval.nodeId),
+        );
+        runStateView.tree = snapshotToRunTree(snapshotResult, pendingApprovalNodeIds);
+        setRunState(runStateView);
         setError(undefined);
       } catch (cause) {
         if (generation !== runGenerationRef.current) return;

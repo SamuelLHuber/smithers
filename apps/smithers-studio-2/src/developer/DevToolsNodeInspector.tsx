@@ -1,4 +1,4 @@
-import type { DevToolsNode } from "./DevToolsNode";
+import type { DevToolsNode } from "../devtools/DevToolsNode";
 
 export type DevToolsNodeInspectorProps = {
   node: DevToolsNode | null;

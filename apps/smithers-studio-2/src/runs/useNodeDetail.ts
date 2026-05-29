@@ -20,15 +20,21 @@ function parseOutput(payload: unknown): NodeOutput {
 function parseDiff(payload: unknown): NodeDiff {
   const record = asRecord(payload);
   const summary = asRecord(record.summary);
-  const files = Array.isArray(record.files)
-    ? record.files.map((entry) => {
-        const file = asRecord(entry);
-        return {
-          path: String(file.path ?? file.filePath ?? "file"),
-          patch: typeof file.patch === "string" ? file.patch : undefined,
-        };
-      })
-    : [];
+  // The real gateway getNodeDiff returns a DiffBundle ({seq, baseRef, patches:
+  // [{path, diff}]}); the stat variant returns {summary, files}. Accept either:
+  // prefer `files`, else fold `patches`.
+  const rawFiles = Array.isArray(record.files)
+    ? record.files
+    : Array.isArray(record.patches)
+      ? record.patches
+      : [];
+  const files = rawFiles.map((entry) => {
+    const file = asRecord(entry);
+    return {
+      path: String(file.path ?? file.filePath ?? "file"),
+      patch: typeof file.patch === "string" ? file.patch : typeof file.diff === "string" ? file.diff : undefined,
+    };
+  });
   return {
     summary: { filesChanged: typeof summary.filesChanged === "number" ? summary.filesChanged : files.length },
     files,
@@ -70,9 +76,11 @@ export function useNodeDetail(
     setLoading(true);
     setError(undefined);
     void (async () => {
+      // The gateway requires an explicit iteration (it rejects undefined as
+      // InvalidIteration); the surface inspects the first iteration.
       const [outputResult, diffResult] = await Promise.allSettled([
-        client.rpc("getNodeOutput", { runId, nodeId }),
-        client.rpc("getNodeDiff", { runId, nodeId }),
+        client.rpc("getNodeOutput", { runId, nodeId, iteration: 0 }),
+        client.rpc("getNodeDiff", { runId, nodeId, iteration: 0 }),
       ]);
       if (generation !== generationRef.current) return;
       setOutput(outputResult.status === "fulfilled" ? parseOutput(outputResult.value) : undefined);

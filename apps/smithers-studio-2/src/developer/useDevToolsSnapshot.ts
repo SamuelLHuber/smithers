@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+import { parseDevToolsSnapshot } from "../devtools/parseDevToolsSnapshot";
 import { devGatewayClient } from "./devGatewayClient";
 import type { DevRunSummary } from "./DevRunSummary";
-import type { DevToolsSnapshot } from "./DevToolsSnapshot";
+import type { DevToolsSnapshot } from "../devtools/DevToolsSnapshot";
 
 export type DevToolsSnapshotState = {
   runs: DevRunSummary[];
@@ -76,7 +77,7 @@ export function useDevToolsSnapshot(): DevToolsSnapshotState {
       .rpcRaw("getDevToolsSnapshot", { runId: selectedRunId })
       .then((payload) => {
         if (cancelled) return;
-        setSnapshot((payload ?? null) as DevToolsSnapshot | null);
+        setSnapshot(parseDevToolsSnapshot(payload));
       })
       .catch((cause: unknown) => {
         if (cancelled) return;

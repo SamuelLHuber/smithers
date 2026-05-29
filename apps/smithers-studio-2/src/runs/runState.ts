@@ -33,13 +33,22 @@ export type RunNode = {
   children: RunNode[];
 };
 
-/** Full state of one run, as returned by getRun (RunStateView + tree). */
+/**
+ * Run-level state of one run, as returned by the gateway `getRun` RPC. The real
+ * gateway's getRun returns run metadata + `summary` + a `runState`
+ * ({runId,state,blocked,unhealthy,computedAt}) and carries NO node tree — the
+ * tree comes from the separate `getDevToolsSnapshot` RPC and is merged in by the
+ * data layer (see {@link snapshotToRunTree}).
+ */
 export type RunStateView = {
   runId: string;
   workflowKey?: string;
   state: RunNodeState;
   createdAtMs?: number;
+  /** The live node tree, merged in from the DevTools snapshot. */
   tree: RunNode | null;
+  /** Logical id of the node a paused run is blocked on, from runState.blocked. */
+  blockedNodeId?: string;
   /** Latest committed frame number, for the time-travel scrubber. */
   currentFrame?: number;
   frameCount?: number;

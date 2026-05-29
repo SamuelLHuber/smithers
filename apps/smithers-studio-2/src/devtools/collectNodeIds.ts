@@ -2,7 +2,7 @@ import type { DevToolsNode } from "./DevToolsNode";
 
 /**
  * Collect every node id in a DevTools subtree. Used to expand the whole tree by
- * default — the developer surface is intentionally unfiltered.
+ * default — the snapshot tree is intentionally shown unfiltered.
  */
 export function collectNodeIds(node: DevToolsNode, into: Set<number> = new Set()): Set<number> {
   into.add(node.id);

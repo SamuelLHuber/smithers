@@ -3,8 +3,8 @@ import "./devtools.css";
 import { useDevToolsSnapshot } from "./useDevToolsSnapshot";
 import { DevToolsTreeRow } from "./DevToolsTreeRow";
 import { DevToolsNodeInspector } from "./DevToolsNodeInspector";
-import { collectNodeIds } from "./collectNodeIds";
-import type { DevToolsNode } from "./DevToolsNode";
+import { collectNodeIds } from "../devtools/collectNodeIds";
+import type { DevToolsNode } from "../devtools/DevToolsNode";
 
 /**
  * DevTools — raw, unfiltered DevTools snapshot tree + node props. Developer-gated

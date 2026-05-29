@@ -44,6 +44,7 @@ function isResponseFrame(value: unknown): value is GatewayResponseFrame {
 export type RunsRpcMethod =
   | "listRuns"
   | "getRun"
+  | "getDevToolsSnapshot"
   | "listApprovals"
   | "getNodeOutput"
   | "getNodeDiff"
