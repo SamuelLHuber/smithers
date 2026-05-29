@@ -78,6 +78,7 @@ export function Supervisor(props) {
     const finalTask = React.createElement(Task, {
         id: `${prefix}-final`,
         output: props.finalOutput,
+        agent: props.boss,
         needs: { review: `${prefix}-review`, plan: `${prefix}-plan` },
         label: "Supervisor summary",
         children: "Summarize the overall results from all delegation cycles.",
