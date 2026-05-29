@@ -409,6 +409,27 @@ describe("createWorkspaceApiServer (real backend over HTTP)", () => {
     expect(body.runId).toBeUndefined();
   });
 
+  test("POST with an oversized body is rejected with 413 (DoS guard), normal body still works", async () => {
+    // Memory-exhaustion guard: readJsonBody must abort once the accumulated
+    // body exceeds the cap instead of buffering arbitrarily large payloads.
+    // Build a JSON body comfortably over the 32MB cap.
+    const huge = "x".repeat(40 * 1024 * 1024);
+    const res = await fetch(`${baseUrl}${API}/sql/query`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: huge }),
+    });
+    expect(res.status).toBe(413);
+    expect(String((await res.json()).error)).toMatch(/too large/i);
+
+    // A normal-sized body on the same route still succeeds.
+    const ok = await postJson(`${API}/sql/query`, {
+      query: "SELECT id FROM runs WHERE id = 'run-1'",
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.result.rows).toEqual([["run-1"]]);
+  });
+
   test("POST /chat/message with empty content streams a clear error delta (no agent faked)", async () => {
     // Documented fault path that needs no agent binary: an empty turn surfaces a
     // real `{type:"error"}` ndjson delta rather than fabricating a reply.
