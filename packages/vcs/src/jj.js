@@ -147,7 +147,11 @@ export function workspaceAdd(name, path, opts = {}) {
                 fs.mkdirSync(parentDir, { recursive: true });
             }
         }
-        catch { }
+        catch (error) {
+            // Best-effort cleanup: do not abort workspace creation if it fails,
+            // but log a warning so cleanup failures are diagnosable rather than silent.
+            yield* Effect.logWarning(`jj workspace pre-create cleanup failed at ${path}: ${error instanceof Error ? error.message : String(error)}`);
+        }
         let lastErr = "";
         for (const args of attempts) {
             const res = yield* runJj(args, { cwd: opts.cwd });
