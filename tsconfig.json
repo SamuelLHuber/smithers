@@ -239,9 +239,6 @@
   },
   "include": [
     "packages/smithers/src/**/*",
-    "packages/smithers/tests/**/*",
-    "packages/smithers-cli/src/**/*",
-    "packages/react/src/**/*",
-    "packages/react/tests/**/*"
+    "packages/smithers/tests/**/*"
   ]
 }
