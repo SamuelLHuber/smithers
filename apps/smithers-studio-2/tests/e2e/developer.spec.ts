@@ -49,8 +49,10 @@ test("DevTools lists the seeded runs and renders the real snapshot root", async 
     await expect(select.locator("option", { hasText: runId })).toHaveCount(1);
   }
 
-  // The tree renders the real snapshot root returned by getDevToolsSnapshot.
-  // Seeded runs carry no frames, so the Gateway returns the empty root (id 0).
+  // Select a DB-seeded run (no execution frames) and assert the real empty root
+  // the Gateway returns for frame-less runs (id 0, "(empty)"). The fixture's
+  // live approval run has a real populated tree, so this targets a seeded run.
+  await select.selectOption("run-build-succeeded");
   await expect(page.getByTestId("devtools.row.0")).toContainText("(empty)");
 
   // The root auto-selects, so the inspector reflects the real root node: a
@@ -65,11 +67,15 @@ test("DevTools switches the snapshot when a different seeded run is picked", asy
 
   await page.getByTestId("nav.DevTools").click();
   await expect(page.getByTestId("view.devtools")).toBeVisible();
-  await expect(page.getByTestId("devtools.row.0")).toBeVisible();
 
-  // Selecting another seeded run issues a real getDevToolsSnapshot for it; the
-  // root row re-renders for the newly-selected run.
-  await page.getByTestId("devtools.run-select").selectOption("run-approve-waiting");
+  // Pick a DB-seeded run (no frames → real empty root), then switch to another
+  // DB-seeded run and confirm the snapshot re-renders. (The auto-selected run is
+  // the fixture's LIVE executed run with a real populated tree, so this test
+  // drives the picker explicitly between two frame-less seeded runs.)
+  await page.getByTestId("devtools.run-select").selectOption("run-test-failed");
+  await expect(page.getByTestId("devtools.row.0")).toContainText("(empty)");
+
+  await page.getByTestId("devtools.run-select").selectOption("run-build-succeeded");
   await expect(page.getByTestId("devtools.row.0")).toContainText("(empty)");
 });
 

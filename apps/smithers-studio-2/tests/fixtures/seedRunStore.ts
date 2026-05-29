@@ -1,16 +1,14 @@
 import { Database } from "bun:sqlite";
-import {
-  SEEDED_APPROVALS,
-  SEEDED_NODES,
-  SEEDED_RUNS,
-} from "./seededData";
+import { DB_SEEDED_RUNS } from "./seededData";
 
 /**
- * Seed the Gateway's SQLite run store with the deterministic runs, nodes, and
- * approvals from {@link ./seededData}. The schema mirrors the real
+ * Seed the Gateway's SQLite run store with the deterministic, inert run rows
+ * from {@link ./seededData} ({@link DB_SEEDED_RUNS} — every seeded run except
+ * the live approval run, which the gateway fixture EXECUTES so it has a real
+ * tree + pending approval). The schema mirrors the real
  * `@smithers-orchestrator/db` table definitions exactly, so the live Gateway's
- * `listRuns` / `listApprovals` / `getRun` RPCs read these rows verbatim — the
- * UI then renders them over the real `/v1/rpc` path with no mocking.
+ * `listRuns` / `getRun` RPCs read these rows verbatim — the UI then renders them
+ * over the real `/v1/rpc` path with no mocking.
  *
  * Must run under Bun (uses `bun:sqlite`), like the Gateway fixture itself.
  */
@@ -75,7 +73,7 @@ export function seedRunStore(dbPath: string): void {
         (run_id, workflow_name, status, created_at_ms, started_at_ms, finished_at_ms, heartbeat_at_ms, error_json)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    for (const run of SEEDED_RUNS) {
+    for (const run of DB_SEEDED_RUNS) {
       insertRun.run(
         run.runId,
         run.workflowName,
@@ -87,39 +85,9 @@ export function seedRunStore(dbPath: string): void {
         run.errorJson,
       );
     }
-
-    const insertNode = db.query(`
-      INSERT OR REPLACE INTO _smithers_nodes
-        (run_id, node_id, iteration, state, updated_at_ms, output_table, label)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const node of SEEDED_NODES) {
-      insertNode.run(
-        node.runId,
-        node.nodeId,
-        node.iteration,
-        node.state,
-        node.runId === "run-approve-waiting" ? 1 : 1,
-        node.outputTable,
-        node.label,
-      );
-    }
-
-    const insertApproval = db.query(`
-      INSERT OR REPLACE INTO _smithers_approvals
-        (run_id, node_id, iteration, status, requested_at_ms, request_json)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    for (const approval of SEEDED_APPROVALS) {
-      insertApproval.run(
-        approval.runId,
-        approval.nodeId,
-        approval.iteration,
-        approval.status,
-        approval.requestedAtMs,
-        approval.requestJson,
-      );
-    }
+    // Nodes + approvals for the live approval run are NOT seeded here — they are
+    // produced by executing the workflow in the gateway fixture (a real tree +
+    // a real pending gate). The DB-seeded runs intentionally carry no nodes.
   } finally {
     db.close();
   }

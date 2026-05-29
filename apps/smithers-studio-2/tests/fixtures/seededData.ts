@@ -93,43 +93,119 @@ export const SEEDED_RUNS: SeededRun[] = [
   },
 ];
 
-/** Nodes seeded for the approval-waiting run so its tree has labelled rows. */
+/**
+ * The id of the run the fixture EXECUTES live (rather than seeding as inert DB
+ * rows) so it has a real populated DevTools tree and a real pending approval
+ * gate. The gateway builds node trees from execution frames, and DB rows alone
+ * produce none — so the run-detail flows (tree rows, inspector tabs, the inline
+ * approval gate) need a genuinely-executed run. The fixture launches a workflow
+ * that pauses at this run's approval node; everything below describes what that
+ * live run produces so the specs assert on it without magic constants.
+ */
+export const LIVE_APPROVAL_RUN = {
+  runId: "run-approve-waiting",
+  workflowKey: "studio-approval",
+  /** The two task nodes the executed workflow renders, in order. */
+  planNodeId: "plan",
+  approvalNodeId: "approve-deploy",
+  approvalTitle: "Approve studio deploy",
+  approvalSummary: "Ship studio build 42 to production?",
+  /** The plan task's deterministic output row, asserted on the Output tab. */
+  planOutput: { summary: "ship build 42" },
+} as const;
+
+/**
+ * Run ids for the DEDICATED live approval runs the fixture executes so that the
+ * MUTATING approval specs (approve / deny) act on their own isolated run — never
+ * on the canonical {@link LIVE_APPROVAL_RUN}, which the read-only
+ * tree/inspector/narrow specs share. Each is a real execution of the same
+ * `studio-approval` workflow paused at the same `approve-deploy` gate, so they
+ * carry the same node ids/labels/output as {@link LIVE_APPROVAL_RUN}.
+ */
+export const LIVE_MUTABLE_RUN_IDS = {
+  approve: "run-approve-decide",
+  deny: "run-deny-decide",
+} as const;
+
+/**
+ * Every approval run id the fixture EXECUTES live to a pending gate (canonical
+ * read-only run + the approve/deny runs). The cancel run is NOT here: a run
+ * parked at an approval gate is no longer in the gateway's active set, so the
+ * real `cancelRun` RPC rejects it (RUN_NOT_ACTIVE). The cancel spec instead
+ * targets {@link LIVE_CANCEL_RUN}, an actively-executing run.
+ */
+export const LIVE_APPROVAL_RUN_IDS = [
+  LIVE_APPROVAL_RUN.runId,
+  LIVE_MUTABLE_RUN_IDS.approve,
+  LIVE_MUTABLE_RUN_IDS.deny,
+] as const;
+
+/**
+ * The live run the cancel spec targets: a real execution of a long-running
+ * `studio-long` workflow that STAYS actively running (so it is in the gateway's
+ * active set and the real `cancelRun` RPC genuinely cancels it). It runs on its
+ * own SQLite DB and its own workflow registration so it never duplicates the
+ * approval-DB runs in `listRuns` (the gateway lists runs per registered adapter;
+ * separate DBs keep each run in exactly one adapter).
+ */
+export const LIVE_CANCEL_RUN = {
+  runId: "run-cancel-live",
+  workflowKey: "studio-long",
+  taskNodeId: "long-task",
+} as const;
+
+/**
+ * Nodes the live approval run renders. These are NOT seeded as DB rows — they
+ * are produced by executing the workflow — but the shape is kept here so the
+ * run-detail specs assert on stable ids/labels.
+ */
 export const SEEDED_NODES: SeededNode[] = [
   {
-    runId: "run-approve-waiting",
-    nodeId: "plan",
+    runId: LIVE_APPROVAL_RUN.runId,
+    nodeId: LIVE_APPROVAL_RUN.planNodeId,
     iteration: 0,
     state: "finished",
-    outputTable: "result",
+    outputTable: "plan",
     label: "plan",
   },
   {
-    runId: "run-approve-waiting",
-    nodeId: "approve-deploy",
+    runId: LIVE_APPROVAL_RUN.runId,
+    nodeId: LIVE_APPROVAL_RUN.approvalNodeId,
     iteration: 0,
     state: "waiting-approval",
     outputTable: "approval",
-    label: "Approve studio deploy",
+    label: LIVE_APPROVAL_RUN.approvalTitle,
   },
 ];
 
-/** The pending approval gate the Runs approvals filter + inline gate surface. */
+/**
+ * The pending approval gate the Runs approvals filter + inline gate surface.
+ * This is produced by the LIVE executed run (not inserted as a DB row); the
+ * shape mirrors exactly what the live `listApprovals` RPC returns for it.
+ */
 export const SEEDED_APPROVALS: SeededApproval[] = [
   {
-    runId: "run-approve-waiting",
-    nodeId: "approve-deploy",
+    runId: LIVE_APPROVAL_RUN.runId,
+    nodeId: LIVE_APPROVAL_RUN.approvalNodeId,
     iteration: 0,
     status: "requested",
     requestedAtMs: SEED_NOW_MS - 29_000,
     requestJson: JSON.stringify({
-      title: "Approve studio deploy",
-      summary: "Ship studio build 42 to production?",
+      title: LIVE_APPROVAL_RUN.approvalTitle,
+      summary: LIVE_APPROVAL_RUN.approvalSummary,
     }),
   },
 ];
 
 /** The names a converted spec can assert appear in the runs history. */
 export const SEEDED_RUN_IDS = SEEDED_RUNS.map((run) => run.runId);
+
+/**
+ * The runs that ARE inserted as inert DB rows by `seedRunStore` — every seeded
+ * run EXCEPT the live approval run, which the gateway fixture executes instead
+ * (a DB row and a live run cannot share a primary key).
+ */
+export const DB_SEEDED_RUNS = SEEDED_RUNS.filter((run) => run.runId !== LIVE_APPROVAL_RUN.runId);
 
 /** JJHub state served by the workspace-API server (issues/landings/workspaces). */
 export const SEEDED_JJHUB_STATE = {
