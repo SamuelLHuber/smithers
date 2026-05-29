@@ -43,6 +43,17 @@ describe("accountsRoot / accountsFilePath / defaultConfigDir", () => {
         const env = { HOME: "/tmp/home" };
         expect(accountsRoot(env)).toBe("/tmp/home/.smithers");
     });
+    test("rejects path-traversal labels", () => {
+        const env = { SMITHERS_HOME: "/tmp/x" };
+        for (const bad of ["../../../../etc", "..", "../foo", "foo/bar", "foo\\bar", "/abs", "", "  ", "a b", "a;b"]) {
+            expect(() => defaultConfigDir(bad, env)).toThrow();
+        }
+    });
+    test("accepts wizard-valid labels and keeps them under the smithers root", () => {
+        const env = { SMITHERS_HOME: "/tmp/x" };
+        expect(defaultConfigDir("claude-work", env)).toBe("/tmp/x/accounts/claude-work");
+        expect(defaultConfigDir("Acct.1_2-3", env)).toBe("/tmp/x/accounts/Acct.1_2-3");
+    });
 });
 
 describe("parseAccountsFile", () => {
