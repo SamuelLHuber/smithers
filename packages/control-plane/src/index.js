@@ -768,7 +768,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             observedAtMs,
             JSON.stringify(metadata),
         );
-        const id = this.sqlite.query("SELECT last_insert_rowid() AS id").get().id;
+        const idRow = this.sqlite.query("SELECT last_insert_rowid() AS id").get();
+        if (!idRow) {
+            throw new Error("control-plane: failed to read last_insert_rowid() after inserting usage event");
+        }
+        const id = idRow.id;
         const row = this.sqlite.query(`
 SELECT id, org_id AS orgId, project_id AS projectId, run_id AS runId, metric, quantity, unit, observed_at_ms AS observedAtMs, metadata_json AS metadataJson
 FROM _smithers_cp_usage_events
@@ -990,7 +994,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             occurredAtMs,
             JSON.stringify(metadata),
         );
-        const id = this.sqlite.query("SELECT last_insert_rowid() AS id").get().id;
+        const idRow = this.sqlite.query("SELECT last_insert_rowid() AS id").get();
+        if (!idRow) {
+            throw new Error("control-plane: failed to read last_insert_rowid() after inserting audit event");
+        }
+        const id = idRow.id;
         const row = this.sqlite.query(`
 SELECT id, org_id AS orgId, project_id AS projectId, actor_id AS actorId, action, target_type AS targetType, target_id AS targetId, occurred_at_ms AS occurredAtMs, metadata_json AS metadataJson
 FROM _smithers_cp_audit_events
