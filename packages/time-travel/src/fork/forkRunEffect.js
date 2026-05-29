@@ -5,6 +5,7 @@ import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { smithersBranches, smithersSnapshots } from "../schema.js";
 import { loadSnapshot } from "../snapshot/loadSnapshotEffect.js";
 import { parseSnapshot } from "../snapshot/parseSnapshot.js";
+import { parseSnapshotJson } from "../snapshot/parseSnapshotJson.js";
 import { runForksCreated } from "../runForksCreated.js";
 import { expandResetSet } from "./_helpers.js";
 /** @typedef {import("../BranchInfo.ts").BranchInfo} BranchInfo */
@@ -39,13 +40,31 @@ export function forkRun(adapter, params) {
         let nodesJson = source.nodesJson;
         let inputJson = source.inputJson;
         if (inputOverrides) {
-            const existingInput = JSON.parse(source.inputJson);
+            const existingInput = yield* Effect.try({
+                try: () => parseSnapshotJson(source.inputJson, "inputJson", { runId: parentRunId, frameNo }),
+                catch: (cause) => toSmithersError(cause, "parse snapshot input", {
+                    code: "DB_QUERY_FAILED",
+                    details: { runId: parentRunId, frameNo, field: "inputJson" },
+                }),
+            });
             inputJson = JSON.stringify({ ...existingInput, ...inputOverrides });
         }
         if (resetNodes && resetNodes.length > 0) {
-            const parsed = parseSnapshot(source);
+            const parsed = yield* Effect.try({
+                try: () => parseSnapshot(source),
+                catch: (cause) => toSmithersError(cause, "parse snapshot", {
+                    code: "DB_QUERY_FAILED",
+                    details: { runId: parentRunId, frameNo },
+                }),
+            });
             const keysToReset = expandResetSet(parsed.nodes, resetNodes);
-            const nodesArr = JSON.parse(source.nodesJson);
+            const nodesArr = yield* Effect.try({
+                try: () => parseSnapshotJson(source.nodesJson, "nodesJson", { runId: parentRunId, frameNo }),
+                catch: (cause) => toSmithersError(cause, "parse snapshot nodes", {
+                    code: "DB_QUERY_FAILED",
+                    details: { runId: parentRunId, frameNo, field: "nodesJson" },
+                }),
+            });
             const updatedNodes = nodesArr.map((n) => {
                 const key = `${n.nodeId}::${n.iteration}`;
                 if (keysToReset.includes(key) || resetNodes.includes(n.nodeId)) {
