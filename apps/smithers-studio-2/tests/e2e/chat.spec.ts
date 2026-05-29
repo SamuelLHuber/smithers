@@ -1,67 +1,47 @@
 import { expect, test } from "@playwright/test";
-import { mockGateway } from "./support/mockGateway";
+import { SEEDED_CHAT_REPLY, SEEDED_CHAT_SESSION } from "../fixtures/seededData";
 
 /**
- * Workspace chat half. Mocks the NETWORK at the route layer (like
- * jjhub-parity.spec.ts) so the REAL AgentChat + useAgentChat + chatApi code
- * runs against stubbed HTTP. Terminal routes are aborted so the PTY/terminal
- * half degrades gracefully without affecting chat.
+ * REAL-BACKEND Workspace chat. No `page.route`, no `mockGateway`. The chat half
+ * drives the live workspace-API server over the real `/__smithers_studio/api/chat/*`
+ * HTTP seam (vite proxies `/__smithers_studio` to the workspaceApiServer fixture),
+ * which serves a deterministic seeded session and replays a fixed assistant turn
+ * as ndjson — the same "seed the events, serve them from the real backend"
+ * contract as the rest of the suite, with no live LLM.
+ *
+ * The terminal half runs against the real PTY server (vite proxies /terminal/ws),
+ * so the terminal testids are present for real — they are asserted, never weakened.
  */
 
-const SESSION = {
-  sessionId: "chat-1",
-  model: "claude-opus-4",
-  mode: "default",
-  blocks: [
-    { id: "seed-1", role: "system", content: "Workspace agent ready.", timestampMs: 1_700_000_000_000 },
-  ],
-};
+const SEED_SYSTEM_BLOCK = SEEDED_CHAT_SESSION.blocks[0];
 
-/** The ordered deltas the mocked runtime replays for one assistant turn. */
-const DELTAS = [
-  { type: "block", block: { id: "a1", role: "assistant", content: "", timestampMs: 1_700_000_001_000, pending: true } },
-  { type: "delta", id: "a1", content: "Here is a plan:\n\n" },
-  { type: "delta", id: "a1", content: "```ts\nconst x = 1;\n```\n" },
-  { type: "delta", id: "a1", content: "Done with **bold** and `code`." },
-  { type: "done", id: "a1" },
-];
-
-async function installChat(page: import("@playwright/test").Page) {
-  await page.route("**/terminal/ws", (route) => route.abort("connectionrefused"));
-  await mockGateway(page, {
-    // Returning a JSON-able value lets the helper fulfill it; chatApi's message
-    // endpoint accepts a `{ deltas }` envelope as the non-streaming path.
-    extraRoutes: {
-      "/chat/session": () => ({ session: SESSION }),
-      "/chat/message": () => ({ deltas: DELTAS }),
-    },
-  });
+async function openChat(page: import("@playwright/test").Page) {
+  await page.goto("/");
+  await page.getByTestId("nav.Workspace").click();
+  await page.getByTestId("ws-segment-chat").click();
 }
 
-test.describe("Workspace agent chat", () => {
+test.describe("Workspace agent chat (real backend)", () => {
   test("swaps to chat and renders the seeded session with model/mode", async ({ page }) => {
-    await installChat(page);
     await page.goto("/");
     await page.getByTestId("nav.Workspace").click();
 
-    // Terminal is the default segment; its testids stay present.
+    // Terminal is the default segment; its testids are present (real PTY server).
     await expect(page.getByTestId("terminal-tab")).toHaveCount(1);
     await expect(page.getByTestId("close-terminal")).toBeVisible();
 
     await page.getByTestId("ws-segment-chat").click();
 
     await expect(page.getByTestId("agent-chat")).toBeVisible();
-    await expect(page.getByTestId("chat-model")).toContainText("claude-opus-4");
-    await expect(page.getByTestId("chat-mode")).toContainText("default");
+    await expect(page.getByTestId("chat-model")).toContainText(SEEDED_CHAT_SESSION.model);
+    await expect(page.getByTestId("chat-mode")).toContainText(SEEDED_CHAT_SESSION.mode);
     await expect(page.getByTestId("chat-block")).toHaveCount(1);
-    await expect(page.getByTestId("chat-list")).toContainText("Workspace agent ready.");
+    await expect(page.getByTestId("chat-list")).toContainText(SEED_SYSTEM_BLOCK.content);
   });
 
-  test("sends a message and streams the assistant reply with markdown", async ({ page }) => {
-    await installChat(page);
-    await page.goto("/");
-    await page.getByTestId("nav.Workspace").click();
-    await page.getByTestId("ws-segment-chat").click();
+  test("sends a message and streams the seeded assistant reply with markdown", async ({ page }) => {
+    await openChat(page);
+    await expect(page.getByTestId("chat-model")).toContainText(SEEDED_CHAT_SESSION.model);
 
     const input = page.getByTestId("chat-input");
     await input.fill("Write a plan");
@@ -70,15 +50,16 @@ test.describe("Workspace agent chat", () => {
     // User block appears immediately.
     await expect(page.getByTestId("chat-block").filter({ hasText: "Write a plan" })).toBeVisible();
 
-    // Streamed assistant block lands with rendered markdown (code + bold + inline code).
+    // The assistant block streamed from the real backend lands with rendered
+    // markdown (code block + bold + inline code) — these are the seeded values.
     const assistant = page.locator('[data-testid="chat-block"][data-role="assistant"]');
-    await expect(assistant).toContainText("Here is a plan:");
-    await expect(assistant.locator(".ws-md-code")).toContainText("const x = 1;");
-    await expect(assistant.locator("strong")).toContainText("bold");
-    await expect(assistant.locator(".ws-md-inline-code")).toContainText("code");
+    await expect(assistant).toContainText(SEEDED_CHAT_REPLY.intro);
+    await expect(assistant.locator(".ws-md-code")).toContainText(SEEDED_CHAT_REPLY.codeLine);
+    await expect(assistant.locator("strong")).toContainText(SEEDED_CHAT_REPLY.boldWord);
+    await expect(assistant.locator(".ws-md-inline-code")).toContainText(SEEDED_CHAT_REPLY.inlineCodeWord);
 
-    // Composer clears and the send button leaves its "Sending…" state (it stays
-    // disabled only because the draft is now empty, which is the desired idle).
+    // Composer clears and the send button leaves its "Sending…" state once the
+    // real stream completes; re-typing re-enables it.
     await expect(input).toHaveValue("");
     await expect(page.getByTestId("chat-send")).toHaveText("Send");
     await input.fill("ping");
@@ -86,10 +67,8 @@ test.describe("Workspace agent chat", () => {
   });
 
   test("Enter sends, Shift+Enter inserts a newline", async ({ page }) => {
-    await installChat(page);
-    await page.goto("/");
-    await page.getByTestId("nav.Workspace").click();
-    await page.getByTestId("ws-segment-chat").click();
+    await openChat(page);
+    await expect(page.getByTestId("chat-model")).toContainText(SEEDED_CHAT_SESSION.model);
 
     const input = page.getByTestId("chat-input");
     await input.click();
@@ -103,27 +82,22 @@ test.describe("Workspace agent chat", () => {
     await expect(page.getByTestId("chat-block").filter({ hasText: "line one" })).toBeVisible();
   });
 
-  test("surfaces an error state when the runtime is unavailable", async ({ page }) => {
-    await page.route("**/terminal/ws", (route) => route.abort("connectionrefused"));
-    await mockGateway(page);
-    // A more specific route registered after the helper wins in Playwright, so
-    // the session probe gets a 503 and the hook flips to its error state.
-    await page.route("**/__smithers_studio/api/chat/session", (route) =>
-      route.fulfill({ status: 503, json: { error: "agent runtime offline" } }),
-    );
-    await page.goto("/");
-    await page.getByTestId("nav.Workspace").click();
-    await page.getByTestId("ws-segment-chat").click();
+  test("surfaces the error state when the real backend reports the runtime offline", async ({ page, request }) => {
+    // Arm a single real session fault on the live workspace-API server (a real
+    // HTTP POST to the same backend the browser uses — NOT a route mock). The
+    // next session load returns a genuine 503 and the hook flips to its error
+    // state.
+    const armed = await request.post("/__smithers_studio/api/chat/session-fault");
+    expect(armed.ok()).toBeTruthy();
+
+    await openChat(page);
 
     await expect(page.getByTestId("chat-error")).toContainText("agent runtime offline");
     await expect(page.getByTestId("chat-input")).toBeDisabled();
   });
 
   test("switching back to terminal keeps terminal testids intact", async ({ page }) => {
-    await installChat(page);
-    await page.goto("/");
-    await page.getByTestId("nav.Workspace").click();
-    await page.getByTestId("ws-segment-chat").click();
+    await openChat(page);
     await expect(page.getByTestId("agent-chat")).toBeVisible();
 
     await page.getByTestId("ws-segment-terminal").click();

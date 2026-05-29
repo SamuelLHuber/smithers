@@ -1,141 +1,102 @@
 import { expect, test } from "@playwright/test";
-import { mockGateway } from "./support/mockGateway";
+import {
+  SEEDED_MEMORY_FACTS,
+  SEEDED_SCORES,
+  SEEDED_JJHUB_STATE,
+} from "../fixtures/seededData";
 
 /**
- * Discovery surfaces: Memory, Scores, Search. Route-mocked at the network layer
- * (the real components + workspaceApi fetch code run; only fetch is stubbed).
- * Each test renders the surface from the live nav and exercises one interaction.
+ * Discovery surfaces: Memory, Scores, Search. REAL backend — no `page.route`,
+ * no `mockGateway`. The browser makes real same-origin fetches to the booted
+ * workspace-API server (vite proxies `/__smithers_studio` → workspaceApiServer),
+ * which serves the deterministic memory / scores / search state from
+ * `tests/fixtures/seededData.ts`. Assertions are on those exact seeded values.
  */
+
+/** Resolve a seeded memory fact's human-readable value (the JSON `fact` field). */
+function memoryFactText(key: string): string {
+  const fact = SEEDED_MEMORY_FACTS.find((entry) => entry.key === key);
+  if (!fact) throw new Error(`No seeded memory fact for key ${key}`);
+  return (JSON.parse(fact.valueJson) as { fact: string }).fact;
+}
+
+const DEPLOY_FACT = SEEDED_MEMORY_FACTS[0]; // key: deploy-window
+const OWNER_FACT = SEEDED_MEMORY_FACTS[1]; // key: owner
 
 async function openMoreSurface(page: import("@playwright/test").Page, label: string) {
   await page.goto("/");
+  // The More section is collapsed by default; expand it, then click the row.
   await page.getByRole("button", { name: "More" }).click();
-  await page.getByRole("button", { name: label }).click();
+  await page.getByTestId(`nav.${label}`).click();
 }
 
-test("Memory lists facts and filters via search against the real endpoint", async ({ page }) => {
-  await mockGateway(page);
-
-  // The /memory route carries query params; a later, more specific route wins.
-  const facts = [
-    { namespace: "project", key: "build.command", valueJson: "\"pnpm build\"", schemaSig: null, createdAtMs: 1716800000000, updatedAtMs: 1716800000000, ttlMs: null },
-    { namespace: "user", key: "preferred.editor", valueJson: "\"vim\"", schemaSig: null, createdAtMs: 1716700000000, updatedAtMs: 1716900000000, ttlMs: null },
-  ];
-  await page.route("**/__smithers_studio/api/memory?**", (route) => {
-    const url = new URL(route.request().url());
-    const query = (url.searchParams.get("query") ?? "").toLowerCase();
-    const filtered = query
-      ? facts.filter((fact) => `${fact.namespace} ${fact.key}`.toLowerCase().includes(query))
-      : facts;
-    return route.fulfill({ json: { facts: filtered, dbPath: "/tmp/studio/.smithers/memory.db" } });
-  });
-
+test("Memory lists seeded facts and filters via the real /memory endpoint", async ({ page }) => {
   await openMoreSurface(page, "Memory");
 
   await expect(page.getByTestId("view.memory")).toBeVisible();
-  await expect(page.getByText("build.command")).toBeVisible();
-  await expect(page.getByText("preferred.editor")).toBeVisible();
+  // Both seeded facts render from the real backend.
+  await expect(page.getByTestId("memory.row")).toHaveCount(SEEDED_MEMORY_FACTS.length);
+  await expect(page.getByText(DEPLOY_FACT.key, { exact: true })).toBeVisible();
+  await expect(page.getByText(OWNER_FACT.key, { exact: true })).toBeVisible();
 
-  // Interaction: filter the list via the server-backed search box.
-  await page.getByTestId("memory.search").fill("editor");
-  await expect(page.getByText("preferred.editor")).toBeVisible();
-  await expect(page.getByText("build.command")).toHaveCount(0);
+  // Interaction: the search box re-queries the server; "owner" matches only the
+  // owner fact's key (deploy-window's key/value contain no "owner").
+  await page.getByTestId("memory.search").fill(OWNER_FACT.key);
+  await expect(page.getByText(OWNER_FACT.key, { exact: true })).toBeVisible();
+  await expect(page.getByText(DEPLOY_FACT.key, { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("memory.row")).toHaveCount(1);
 
-  // Interaction: select a fact and confirm its detail value renders.
+  // Interaction: select the surviving fact and confirm its real value renders.
   await page.getByTestId("memory.row").first().click();
-  await expect(page.getByTestId("memory.detail")).toContainText("vim");
+  await expect(page.getByTestId("memory.detail")).toContainText(memoryFactText(OWNER_FACT.key));
 });
 
-test("Scores renders aggregates and rows from the real endpoint and filters by run", async ({ page }) => {
-  await mockGateway(page);
-
-  const scoreRow = (id: string, runId: string, score: number) => ({
-    id,
-    runId,
-    nodeId: "node-1",
-    iteration: 0,
-    attempt: 0,
-    scorerId: "accuracy",
-    scorerName: "Accuracy",
-    source: "llm",
-    score,
-    reason: "looks good",
-    metaJson: null,
-    inputJson: null,
-    outputJson: null,
-    latencyMs: 120,
-    scoredAtMs: 1716800000000,
-    durationMs: 100,
-  });
-  const allRows = [scoreRow("s-1", "run-aaaa1111", 0.92), scoreRow("s-2", "run-bbbb2222", 0.4)];
-
-  await page.route("**/__smithers_studio/api/scores?**", (route) => {
-    const url = new URL(route.request().url());
-    const runId = url.searchParams.get("runId");
-    const scores = runId ? allRows.filter((row) => row.runId === runId) : allRows;
-    return route.fulfill({
-      json: {
-        scores,
-        aggregates: [
-          { scorerId: "accuracy", scorerName: "Accuracy", count: scores.length, mean: 0.66, min: 0.4, max: 0.92, p50: 0.66, stddev: 0.26 },
-        ],
-        runs: [
-          { runId: "run-aaaa1111", count: 1, latestScoredAtMs: 1716800000000 },
-          { runId: "run-bbbb2222", count: 1, latestScoredAtMs: 1716800000000 },
-        ],
-        tokenMetrics: { totalTokens: 0, totalInputTokens: 0, totalOutputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, byPeriod: [] },
-        latencyMetrics: { count: 0, meanMs: 0, minMs: 0, p50Ms: 0, p95Ms: 0, maxMs: 0, byPeriod: [] },
-        costReport: { totalCostUSD: 0, inputCostUSD: 0, outputCostUSD: 0, runCount: 0, byPeriod: [] },
-        dbPath: "/tmp/studio/.smithers/scores.db",
-      },
-    });
-  });
-
+test("Scores renders seeded aggregates and rows from the real /scores endpoint", async ({ page }) => {
   await openMoreSurface(page, "Scores");
 
   await expect(page.getByTestId("view.scores")).toBeVisible();
-  await expect(page.getByTestId("scores.aggregates")).toContainText("Accuracy");
-  await expect(page.getByTestId("scores.row")).toHaveCount(2);
 
-  // Interaction: scope to a single run.
-  await page.getByTestId("scores.runfilter").selectOption("run-aaaa1111");
-  await expect(page.getByTestId("scores.row")).toHaveCount(1);
+  // The two seeded scorers aggregate by scorerId — Faithfulness + Relevancy.
+  const scorerNames = [...new Set(SEEDED_SCORES.map((row) => row.scorerName))];
+  for (const name of scorerNames) {
+    await expect(page.getByTestId("scores.aggregates")).toContainText(name);
+  }
+  await expect(page.getByTestId("scores.row")).toHaveCount(SEEDED_SCORES.length);
+
+  // Interaction: scope to the one seeded run. Every seeded score belongs to that
+  // run, so the filtered row count equals the total.
+  const seededRunId = SEEDED_SCORES[0].runId;
+  const runsWithScores = [...new Set(SEEDED_SCORES.map((row) => row.runId))];
+  await page.getByTestId("scores.runfilter").selectOption(seededRunId);
+  const expectedRows = SEEDED_SCORES.filter((row) => row.runId === seededRunId).length;
+  await expect(page.getByTestId("scores.row")).toHaveCount(expectedRows);
+  // Sanity: only one run produced scores in the seed, so this filter is real.
+  expect(runsWithScores).toEqual([seededRunId]);
 });
 
-test("Search queries the real endpoint and supports scope switching", async ({ page }) => {
-  await mockGateway(page);
-
-  await page.route("**/__smithers_studio/api/search?**", (route) => {
-    const url = new URL(route.request().url());
-    const scope = url.searchParams.get("scope");
-    const query = url.searchParams.get("query") ?? "";
-    return route.fulfill({
-      json: {
-        results: [
-          {
-            id: `${scope}-1`,
-            title: `${scope} hit for ${query}`,
-            description: `Matched in ${scope}`,
-            snippet: null,
-            filePath: scope === "code" ? "src/app.ts" : null,
-            lineNumber: scope === "code" ? 42 : null,
-            kind: scope,
-          },
-        ],
-      },
-    });
-  });
-
+test("Search queries the real /search endpoint and supports scope switching", async ({ page }) => {
   await openMoreSurface(page, "Search");
 
   await expect(page.getByTestId("view.search")).toBeVisible();
 
-  // Interaction: type a query and confirm code-scope results render.
-  await page.getByTestId("search.input").fill("refresh");
-  await expect(page.getByTestId("search.result")).toContainText("code hit for refresh");
-  await expect(page.getByText("src/app.ts:42")).toBeVisible();
+  // Code scope searches seeded memory keys; "deploy" matches only deploy-window
+  // (the owner fact's key contains no "deploy"), so exactly one real result.
+  await page.getByTestId("search.input").fill("deploy");
+  await expect(page.getByTestId("search.result")).toHaveCount(1);
+  await expect(page.getByTestId("search.result")).toContainText(DEPLOY_FACT.key);
 
-  // Interaction: switch scope to issues and confirm the re-query swaps results.
+  // Interaction: switch to issues scope; "studio" matches both seeded JJHub issue
+  // titles, and the re-query swaps in exactly those real issue results.
   await page.getByTestId("search.scope.issues").click();
-  await expect(page.getByTestId("search.result")).toContainText("issues hit for refresh");
+  await page.getByTestId("search.input").fill("studio");
+  const studioIssueTitles = SEEDED_JJHUB_STATE.issues
+    .filter((issue) => issue.title.toLowerCase().includes("studio"))
+    .map((issue) => issue.title);
+  expect(studioIssueTitles.length).toBeGreaterThan(0);
+  await expect(page.getByTestId("search.result")).toHaveCount(studioIssueTitles.length);
+  for (const title of studioIssueTitles) {
+    await expect(
+      page.getByTestId("search.result").filter({ hasText: title }),
+    ).toHaveCount(1);
+  }
 });
