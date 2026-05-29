@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { listWorkspaceApprovalHistory } from "../workspaceApi";
+import { runsGatewayClient } from "../runs/runsGatewayClient";
+import { parseApprovals, parseRunSummaries } from "../runs/parseRunPayloads";
 import { useStudioStore } from "../useStudioStore";
 
 type OperationsCounts = {
@@ -11,23 +12,41 @@ type OperationsCounts = {
 const EMPTY_COUNTS: OperationsCounts = { running: 0, waiting: 0, pendingApproval: 0 };
 
 /**
- * Live "what's running now" strip. Phase-1 derives the pending-approval count
- * from the workspace HTTP approval history as a fallback; the phase-2 Runs
- * agent replaces this with gateway-client listRuns/listApprovals streaming.
- * Each tile deep-links into the (pre-filtered) Runs surface.
+ * Live "what's running now" strip. Derives its counts from the same Gateway RPCs
+ * the Runs surface uses (listRuns + listApprovals): `running` counts runs whose
+ * lifecycle state is actively executing, `waiting` counts runs blocked on an
+ * event/timer, and `pendingApproval` is the live approval-gate count. Each tile
+ * deep-links into the (pre-filtered) Runs surface.
  */
 export function OperationsStrip() {
   const setActiveView = useStudioStore((s) => s.setActiveView);
   const [counts, setCounts] = useState<OperationsCounts>(EMPTY_COUNTS);
 
   useEffect(() => {
+    const client = runsGatewayClient();
     let cancelled = false;
     void (async () => {
       try {
-        const history = await listWorkspaceApprovalHistory({ limit: 100 });
+        const [runsPayload, approvalsPayload] = await Promise.all([
+          client.rpc("listRuns", {}),
+          client.rpc("listApprovals", {}),
+        ]);
         if (cancelled) return;
-        const pending = history.decisions.filter((entry) => entry.status === "pending").length;
-        setCounts({ ...EMPTY_COUNTS, pendingApproval: pending });
+        const runs = parseRunSummaries(runsPayload);
+        const approvals = parseApprovals(approvalsPayload);
+        let running = 0;
+        let waiting = 0;
+        for (const run of runs) {
+          if (run.status === "running") running += 1;
+          else if (
+            run.status === "waiting-approval" ||
+            run.status === "waiting-event" ||
+            run.status === "waiting-timer"
+          ) {
+            waiting += 1;
+          }
+        }
+        setCounts({ running, waiting, pendingApproval: approvals.length });
       } catch {
         if (!cancelled) setCounts(EMPTY_COUNTS);
       }

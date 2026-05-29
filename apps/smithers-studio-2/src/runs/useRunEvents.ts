@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { RunEventLine } from "./runState";
 
 const MAX_LINES = 500;
@@ -21,15 +21,23 @@ export function useRunEvents(runId: string | undefined): {
   lines: RunEventLine[];
   lastLogByNode: Map<string, string>;
   streaming: boolean;
+  /**
+   * Monotonic counter bumped once per ingested `run.event` frame. The data
+   * layer watches this to debounce-refresh getRun/getDevToolsSnapshot, so new
+   * approvals, state transitions, and completion appear live without the user
+   * re-selecting the run. Resets to 0 when the run changes.
+   */
+  eventEpoch: number;
 } {
   const [lines, setLines] = useState<RunEventLine[]>([]);
   const [streaming, setStreaming] = useState(false);
-  const lastLogRef = useRef<Map<string, string>>(new Map());
-  const [, bumpVersion] = useState(0);
+  const [lastLogByNode, setLastLogByNode] = useState<Map<string, string>>(new Map());
+  const [eventEpoch, setEventEpoch] = useState(0);
 
   useEffect(() => {
-    lastLogRef.current = new Map();
+    setLastLogByNode(new Map());
     setLines([]);
+    setEventEpoch(0);
     if (!runId || typeof WebSocket === "undefined" || typeof location === "undefined") {
       setStreaming(false);
       return;
@@ -70,13 +78,20 @@ export function useRunEvents(runId: string | undefined): {
         atMs: Date.now(),
       };
       if (nodeId && message) {
-        lastLogRef.current.set(nodeId, message);
-        bumpVersion((v) => v + 1);
+        // Replace the map with a fresh instance so React sees a new reference
+        // and the tree's running-cursor last-log re-renders; mutating the old
+        // map in place left consumers reading a stale render.
+        setLastLogByNode((current) => {
+          const next = new Map(current);
+          next.set(nodeId, message);
+          return next;
+        });
       }
       setLines((current) => {
         const next = [...current, line];
         return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
       });
+      setEventEpoch((epoch) => epoch + 1);
     };
 
     socket.addEventListener("open", () => setStreaming(true));
@@ -96,5 +111,5 @@ export function useRunEvents(runId: string | undefined): {
     };
   }, [runId]);
 
-  return { lines, lastLogByNode: lastLogRef.current, streaming };
+  return { lines, lastLogByNode, streaming, eventEpoch };
 }

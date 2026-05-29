@@ -17,6 +17,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Whether an issue belongs in the list under the active state filter. */
+function issueMatchesFilter(issue: WorkspaceIssue, filter: IssuesStateFilter): boolean {
+  if (filter === "all") return true;
+  return issue.state === filter;
+}
+
 export function IssuesPanel() {
   const [issues, setIssues] = useState<WorkspaceIssue[]>([]);
   const [stateFilter, setStateFilter] = useState<IssuesStateFilter>("open");
@@ -86,9 +92,20 @@ export function IssuesPanel() {
   };
 
   const upsertIssue = (issue: WorkspaceIssue) => {
-    setIssues((current) => [issue, ...current.filter((entry) => entry.id !== issue.id)]);
-    setSelectedId(issue.id);
-    setSelectedIssue(issue);
+    const withoutOld = (current: WorkspaceIssue[]) => current.filter((entry) => entry.id !== issue.id);
+    // After a mutation (close/reopen/create) the item may no longer match the
+    // active state filter — e.g. closing an issue while "Open" is selected.
+    // Keep it visible only when it still matches; otherwise drop it from the
+    // list so the surface mirrors what a fresh server query would return.
+    if (issueMatchesFilter(issue, stateFilter)) {
+      setIssues((current) => [issue, ...withoutOld(current)]);
+      setSelectedId(issue.id);
+      setSelectedIssue(issue);
+    } else {
+      setIssues(withoutOld);
+      setSelectedId((current) => (current === issue.id ? null : current));
+      setSelectedIssue((current) => (current?.id === issue.id ? null : current));
+    }
   };
 
   const createIssue = async () => {

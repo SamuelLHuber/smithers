@@ -3,17 +3,27 @@ import { isTerminalState, type RunStateView } from "./runState";
 import { stateColor, stateLabel } from "./stateColor";
 import { useRunActions } from "./useRunActions";
 
+/** Which view the live run is showing: the workflow's own UI, or the default tree/inspector. */
+export type RunViewMode = "workflow" | "default";
+
 /**
  * The selected-run toolbar: workflow + state, plus the lifecycle actions that
  * make sense for the current state (cancel a live run, resume a terminal one)
  * and a frame scrubber for time-travel rewind when the run reports frames.
+ *
+ * When the run's workflow ships its own UI, the toolbar also carries the
+ * view toggle that swaps between that UI and the default tree/inspector view.
  */
 export function RunToolbar(props: {
   run: RunStateView;
   streaming: boolean;
   onChanged: () => void;
+  /** Whether the run's workflow ships a custom UI (controls toggle visibility). */
+  customUiAvailable: boolean;
+  viewMode: RunViewMode;
+  onViewModeChange: (mode: RunViewMode) => void;
 }) {
-  const { run, streaming, onChanged } = props;
+  const { run, streaming, onChanged, customUiAvailable, viewMode, onViewModeChange } = props;
   const actions = useRunActions();
   const [busy, setBusy] = useState(false);
   const terminal = isTerminalState(run.state);
@@ -43,6 +53,33 @@ export function RunToolbar(props: {
         {streaming ? <span className="runs-toolbar-live">live</span> : null}
       </div>
       <div className="runs-toolbar-actions">
+        {customUiAvailable ? (
+          <div
+            className="runs-view-toggle"
+            role="group"
+            aria-label="Run view"
+            data-testid="runs.toolbar.viewToggle"
+          >
+            <button
+              type="button"
+              className="runs-view-toggle-btn"
+              aria-pressed={viewMode === "workflow"}
+              data-testid="runs.toolbar.viewToggle.workflow"
+              onClick={() => onViewModeChange("workflow")}
+            >
+              Workflow UI
+            </button>
+            <button
+              type="button"
+              className="runs-view-toggle-btn"
+              aria-pressed={viewMode === "default"}
+              data-testid="runs.toolbar.viewToggle.default"
+              onClick={() => onViewModeChange("default")}
+            >
+              Default
+            </button>
+          </div>
+        ) : null}
         {!terminal ? (
           <button
             type="button"

@@ -77,21 +77,35 @@ export function useAgentChat(active: boolean): AgentChatState {
         case "delta": {
           const index = current.findIndex((block) => block.id === delta.id);
           if (index === -1) {
+            // Only a freshly-created streaming block starts pending. Appending to
+            // an existing block must NOT force pending back on — a late delta
+            // after `done` (or against an already-finalized block) would
+            // otherwise re-mark it as still streaming.
             return [
               ...current,
               { id: delta.id, role: "assistant", content: delta.content, timestampMs: Date.now(), pending: true },
             ];
           }
           const next = current.slice();
-          next[index] = { ...next[index], content: next[index].content + delta.content, pending: true };
+          next[index] = { ...next[index], content: next[index].content + delta.content };
           return next;
         }
         case "done": {
-          const index = current.findIndex((block) => block.id === delta.id);
-          if (index === -1) return current;
-          const next = current.slice();
-          next[index] = { ...next[index], pending: false };
-          return next;
+          // Finalize the named block AND any leftover synthetic "stream" block.
+          // Non-JSON stream lines are emitted under the id "stream" (see
+          // chatApi.emitLine), but the runtime's `done` carries its real block
+          // id — so without also clearing "stream" that synthetic block would
+          // stay pending forever.
+          const ids = new Set([delta.id, "stream"]);
+          let changed = false;
+          const next = current.map((block) => {
+            if (ids.has(block.id) && block.pending) {
+              changed = true;
+              return { ...block, pending: false };
+            }
+            return block;
+          });
+          return changed ? next : current;
         }
         case "error":
           return current;

@@ -46,9 +46,32 @@ export function useWorkflowList(segment: WorkflowSegment): WorkflowListState {
     }
   }, [segment]);
 
+  // Auto-load on segment change with a cancellation guard (mirrors
+  // useWorkflowDetail) so a slow in-flight load for the previous segment cannot
+  // land its entries after the user has switched segments. We inline the load
+  // here rather than calling `refresh` so the guard can suppress the stale
+  // state writes.
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    LOADERS[segment]()
+      .then((next) => {
+        if (cancelled) return;
+        setEntries(Array.isArray(next) ? next : []);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setEntries([]);
+        setError(caught instanceof Error ? caught.message : String(caught));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [segment]);
 
   return { entries, loading, error, refresh };
 }

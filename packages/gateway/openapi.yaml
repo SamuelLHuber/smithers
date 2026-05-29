@@ -6842,7 +6842,7 @@ paths:
                           - InvalidRequest
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -6897,7 +6897,7 @@ paths:
                           - InvalidRequest
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -6952,7 +6952,7 @@ paths:
                           - InvalidRequest
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -6970,7 +6970,7 @@ paths:
                       refresh:
                         type: string
         404:
-          description: "The run does not exist."
+          description: "The cron schedule does not exist."
           content:
             application/json:
               schema:
@@ -7007,7 +7007,7 @@ paths:
                           - InvalidRequest
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -7062,7 +7062,7 @@ paths:
                           - InvalidRequest
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -7224,7 +7224,7 @@ paths:
                           - InvalidInput
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -7280,7 +7280,7 @@ paths:
                           - InvalidInput
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -7336,7 +7336,7 @@ paths:
                           - InvalidInput
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -7354,7 +7354,7 @@ paths:
                       refresh:
                         type: string
         404:
-          description: "The run does not exist."
+          description: "The cron schedule does not exist."
           content:
             application/json:
               schema:
@@ -7392,7 +7392,7 @@ paths:
                           - InvalidInput
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -7448,7 +7448,7 @@ paths:
                           - InvalidInput
                           - Unauthorized
                           - Forbidden
-                          - RunNotFound
+                          - CronNotFound
                           - Internal
                       message:
                         type: string
@@ -7493,6 +7493,7 @@ components:
         - Unauthorized
         - Forbidden
         - RunNotFound
+        - CronNotFound
         - NodeNotFound
         - IterationNotFound
         - NodeHasNoOutput

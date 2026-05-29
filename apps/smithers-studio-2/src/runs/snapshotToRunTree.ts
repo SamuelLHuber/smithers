@@ -74,6 +74,7 @@ function mapNode(
     name: runNodeName(node),
     state: runNodeState(node, isRoot, runLevelState, blockedNodeId, pendingApprovalNodeIds),
     keyProps: runNodeKeyProps(node),
+    iteration: node.task?.iteration,
     children: node.children.map((child) =>
       mapNode(child, false, runLevelState, blockedNodeId, pendingApprovalNodeIds),
     ),

@@ -3,6 +3,7 @@ import { GatewayRpcError } from "./GatewayRpcError.ts";
 import type { GatewayEventFrame } from "./GatewayEventFrame.ts";
 import type { GatewayResponseFrame } from "./GatewayResponseFrame.ts";
 import type { GatewayUiBootConfig } from "./GatewayUiBootConfig.ts";
+import { gatewayBackoffDelay, type GatewayBackoffOptions } from "./gatewayBackoffDelay.ts";
 import { SmithersGatewayConnection } from "./SmithersGatewayConnection.ts";
 import type { SmithersGatewayClientOptions } from "./SmithersGatewayClientOptions.ts";
 import type { GatewayRpcParams, GatewayRpcPayload } from "./GatewayRpcTypeMap.ts";
@@ -90,6 +91,54 @@ function invalidGatewayResponse(method: string, status: number | undefined, deta
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sleepWithSignal(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function raceSignal<T>(promise: Promise<T>, signal: AbortSignal | undefined, message: string): Promise<T> {
+  if (!signal) {
+    return promise;
+  }
+  if (signal.aborted) {
+    return Promise.reject(new Error(message));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(new Error(message));
+    };
+    const cleanup = () => {
+      signal.removeEventListener("abort", onAbort);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
 }
 
 function isGatewayResponseFrame(value: unknown): value is GatewayResponseFrame {
@@ -215,13 +264,17 @@ export class SmithersGatewayClient {
     });
     const connection = new SmithersGatewayConnection(ws);
     try {
-      await connection.requestRaw("connect", {
-        minProtocol: 1,
-        maxProtocol: 1,
-        client: this.client,
-        ...(this.token ? { auth: { token: this.token } } : {}),
-        ...(options.subscribe ? { subscribe: options.subscribe } : {}),
-      });
+      await raceSignal(
+        connection.requestRaw("connect", {
+          minProtocol: 1,
+          maxProtocol: 1,
+          client: this.client,
+          ...(this.token ? { auth: { token: this.token } } : {}),
+          ...(options.subscribe ? { subscribe: options.subscribe } : {}),
+        }),
+        options.signal,
+        "Gateway WebSocket open aborted.",
+      );
     } catch (error) {
       connection.close();
       throw error;
@@ -236,6 +289,9 @@ export class SmithersGatewayClient {
     const connection = await this.connect({ subscribe: [params.runId], signal: options.signal });
     try {
       const subscribed = await connection.request("streamRunEvents", params);
+      if (!isObject(subscribed) || typeof subscribed.streamId !== "string") {
+        throw invalidGatewayResponse("streamRunEvents", undefined, subscribed);
+      }
       for await (const frame of connection.events(options.signal)) {
         if (
           (frame.event === "run.event" ||
@@ -252,6 +308,45 @@ export class SmithersGatewayClient {
       }
     } finally {
       connection.close();
+    }
+  }
+
+  /**
+   * Streams run events with automatic reconnection. On an unexpected drop the
+   * stream reconnects with exponential backoff + jitter and resumes from the
+   * last per-run `seq` it observed, leaning on the gateway's `afterSeq` /
+   * `run.gap_resync` replay semantics. Aborting the signal stops reconnection.
+   */
+  async *streamRunEventsResilient(
+    params: GatewayRpcParams<"streamRunEvents">,
+    options: { signal?: AbortSignal; backoff?: GatewayBackoffOptions } = {},
+  ): AsyncGenerator<GatewayEventFrame<StreamRunEventPayload>> {
+    const signal = options.signal;
+    let lastSeq = typeof params.afterSeq === "number" ? params.afterSeq : undefined;
+    let attempt = 0;
+    while (!signal?.aborted) {
+      try {
+        for await (const frame of this.streamRunEvents(
+          { runId: params.runId, ...(typeof lastSeq === "number" ? { afterSeq: lastSeq } : {}) },
+          { signal },
+        )) {
+          attempt = 0;
+          const seq = isObject(frame.payload) && typeof frame.payload.seq === "number"
+            ? frame.payload.seq
+            : undefined;
+          if (typeof seq === "number") {
+            lastSeq = seq;
+          }
+          yield frame;
+        }
+        return;
+      } catch (cause) {
+        if (signal?.aborted) {
+          return;
+        }
+        await sleepWithSignal(gatewayBackoffDelay(attempt, options.backoff), signal);
+        attempt += 1;
+      }
     }
   }
 

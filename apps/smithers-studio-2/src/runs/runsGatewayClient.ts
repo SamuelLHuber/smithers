@@ -43,6 +43,7 @@ function isResponseFrame(value: unknown): value is GatewayResponseFrame {
 /** All RPC methods the Runs surface invokes. */
 export type RunsRpcMethod =
   | "listRuns"
+  | "listWorkflows"
   | "getRun"
   | "getDevToolsSnapshot"
   | "listApprovals"

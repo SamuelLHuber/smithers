@@ -98,6 +98,15 @@ export function Scores() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className="scores-refresh"
+          data-testid="scores.refresh"
+          onClick={() => void load(runFilter)}
+          disabled={status === "loading"}
+        >
+          {status === "loading" ? "Refreshing…" : "Refresh"}
+        </button>
       </header>
 
       <div className="scores-statusbar">

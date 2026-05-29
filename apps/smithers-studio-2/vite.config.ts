@@ -21,6 +21,11 @@ if (gatewayTarget) {
   // RPC over HTTP plus the Gateway's run-event websocket (subscribe=<runId>).
   proxy["/v1/rpc"] = { target: gatewayTarget, changeOrigin: true };
   proxy["/health"] = { target: gatewayTarget, changeOrigin: true };
+  // Workflow-mounted custom UIs (and their assets) are served by the Gateway at
+  // /workflows/<key>; the Runs surface embeds them same-origin via an iframe, so
+  // proxy that prefix through too. The studio SPA never owns a /workflows URL
+  // (its nav is in-app, not route-based), so this can't shadow an app route.
+  proxy["/workflows"] = { target: gatewayTarget, changeOrigin: true };
 }
 
 if (workspaceApiTarget) {

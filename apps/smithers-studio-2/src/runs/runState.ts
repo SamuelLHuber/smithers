@@ -28,8 +28,13 @@ export type RunNode = {
   state: RunNodeState;
   /** Key props summarized 11px mono after the node tag. */
   keyProps?: string;
-  /** Most recent log line, shown by the running cursor on running leaves. */
-  lastLog?: string;
+  /**
+   * The task's current iteration, from the snapshot's `task.iteration`. The
+   * gateway's getNodeOutput/getNodeDiff require an explicit iteration (they
+   * reject undefined as InvalidIteration); the inspector threads this through
+   * so it reads the node's REAL iteration rather than assuming 0.
+   */
+  iteration?: number;
   children: RunNode[];
 };
 

@@ -58,7 +58,13 @@ type RpcCallbacks = {
   reject: (error: Error) => void;
 };
 
-function usePtySession(tabId: string, write: (data: string) => void) {
+type Dims = { cols: number; rows: number };
+
+function usePtySession(
+  tabId: string,
+  write: (data: string) => void,
+  getDims: () => Dims,
+) {
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const pendingRef = useRef<Map<number, RpcCallbacks>>(new Map());
@@ -66,6 +72,11 @@ function usePtySession(tabId: string, write: (data: string) => void) {
   // StrictMode's mount/unmount/mount cycle) so the resulting onclose is not
   // mistaken for a failed PTY connection.
   const closingRef = useRef(false);
+  // Keep the latest dimension reader in a ref so the connect effect can call it
+  // at session.create time without listing getDims as a dependency (which would
+  // tear down and rebuild the socket whenever the measured size changed).
+  const getDimsRef = useRef(getDims);
+  getDimsRef.current = getDims;
   const [status, setStatus] = useState<PtyStatus>("connecting");
 
   const rpcCall = useCallback(
@@ -96,9 +107,14 @@ function usePtySession(tabId: string, write: (data: string) => void) {
     ws.onopen = async () => {
       setStatus("creating");
       try {
+        // Spawn the PTY at the terminal's actual measured size (Ghostty's
+        // autoResize has already sized the grid to the pane) rather than a
+        // hardcoded 80x24, so the very first frame the shell renders matches the
+        // viewport instead of reflowing on the first resize.
+        const { cols, rows } = getDimsRef.current();
         const result = (await rpcCall("session.create", {
-          cols: 80,
-          rows: 24,
+          cols,
+          rows,
         })) as { sessionId: string; scrollback?: string };
         sessionIdRef.current = result.sessionId;
         if (result.scrollback) write(result.scrollback);
@@ -221,7 +237,21 @@ export function GhosttyTerminalPane({
   // the Suspense and StrictMode mount/unmount cycles — otherwise `use` would
   // suspend forever on an ever-new promise.
   const result = use(terminalCoreFor(tab.id));
-  const { status, sendInput, sendResize } = usePtySession(tab.id, write);
+  // Read the terminal's live measured grid size off the WTerm instance. When
+  // the pane hasn't been measured yet (instance not mounted) fall back to the
+  // conventional 80x24; the first onResize after layout corrects it.
+  const getDims = useCallback((): Dims => {
+    const wt = ref.current?.instance;
+    if (wt && wt.cols > 0 && wt.rows > 0) {
+      return { cols: wt.cols, rows: wt.rows };
+    }
+    return { cols: 80, rows: 24 };
+  }, [ref]);
+  const { status, sendInput, sendResize } = usePtySession(
+    tab.id,
+    write,
+    getDims,
+  );
 
   const handleData = useCallback(
     (data: string) => {

@@ -3,6 +3,7 @@ import {
   LIVE_APPROVAL_RUN,
   LIVE_CANCEL_RUN,
   LIVE_MUTABLE_RUN_IDS,
+  LIVE_UI_RUN,
   SEEDED_RUNS,
 } from "../fixtures/seededData";
 
@@ -239,6 +240,56 @@ test.describe("Runs surface — live run detail (real gateway)", () => {
         { timeout: 20_000 },
       )
       .not.toContain("Running");
+  });
+
+  test("a run whose workflow ships a UI defaults to the embedded workflow UI", async ({ page }) => {
+    await page.setViewportSize(WIDE_VIEWPORT);
+    await openRuns(page);
+    await selectRun(page, LIVE_UI_RUN.runId);
+
+    // The Gateway-served custom UI is embedded as the default view, scoped to
+    // this run via ?runId=. The default tree/inspector layout is NOT rendered.
+    await expect(page.getByTestId("runs.workflowUi")).toBeVisible();
+    await expect(page.getByTestId("liveRun.layout.wide")).toHaveCount(0);
+
+    // The iframe loads the real bundle the Gateway built from workflowUiEntry.ts
+    // (proxied same-origin under /workflows), booted with this run's id.
+    const frame = page.frameLocator('[data-testid="runs.workflowUi.frame"]');
+    const root = frame.getByTestId("fixtureWorkflowUi.root");
+    await expect(root).toBeVisible();
+    await expect(root).toHaveAttribute("data-run-id", LIVE_UI_RUN.runId);
+    await expect(root).toContainText(LIVE_UI_RUN.workflowKey);
+  });
+
+  test("the view toggle switches a workflow-UI run back to the default view and back", async ({ page }) => {
+    await page.setViewportSize(WIDE_VIEWPORT);
+    await openRuns(page);
+    await selectRun(page, LIVE_UI_RUN.runId);
+
+    await expect(page.getByTestId("runs.workflowUi")).toBeVisible();
+
+    // Switching to Default swaps the iframe for the generic tree/inspector view.
+    await page.getByTestId("runs.toolbar.viewToggle.default").click();
+    await expect(page.getByTestId("runs.workflowUi")).toHaveCount(0);
+    await expect(page.getByTestId("liveRun.layout.wide")).toBeVisible();
+    await expect(page.getByTestId(`tree.row.${LIVE_UI_RUN.taskNodeId}`)).toBeVisible();
+
+    // And back to the workflow's own UI.
+    await page.getByTestId("runs.toolbar.viewToggle.workflow").click();
+    await expect(page.getByTestId("runs.workflowUi")).toBeVisible();
+    await expect(page.getByTestId("liveRun.layout.wide")).toHaveCount(0);
+  });
+
+  test("a run whose workflow has no UI shows the default view with no toggle", async ({ page }) => {
+    await page.setViewportSize(WIDE_VIEWPORT);
+    await openRuns(page);
+    await selectRun(page, LIVE_APPROVAL_RUN.runId);
+
+    // No custom UI registered for studio-approval: the default layout renders and
+    // the workflow/default view toggle is absent entirely.
+    await expect(page.getByTestId("liveRun.layout.wide")).toBeVisible();
+    await expect(page.getByTestId("runs.workflowUi")).toHaveCount(0);
+    await expect(page.getByTestId("runs.toolbar.viewToggle")).toHaveCount(0);
   });
 
   test("narrow viewport opens the inspector as a modal sheet over a dimmer", async ({ page }) => {

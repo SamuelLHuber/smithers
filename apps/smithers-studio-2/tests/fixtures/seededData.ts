@@ -162,6 +162,21 @@ export const LIVE_CANCEL_RUN = {
 } as const;
 
 /**
+ * The live run whose workflow ships its OWN custom UI. The fixture registers
+ * `studio-ui` with a Gateway-served UI (see `workflowUiEntry.ts`) and executes
+ * one run of it, so the Runs surface defaults this run into the embedded
+ * workflow UI — and the view toggle can swap it back to the default tree. It
+ * runs on its own SQLite DB so its run never duplicates the other adapters'
+ * runs in `listRuns`. `uiPath` is the Gateway's default mount for the key.
+ */
+export const LIVE_UI_RUN = {
+  runId: "run-ui-live",
+  workflowKey: "studio-ui",
+  taskNodeId: "ui-task",
+  uiPath: "/workflows/studio-ui",
+} as const;
+
+/**
  * Nodes the live approval run renders. These are NOT seeded as DB rows — they
  * are produced by executing the workflow — but the shape is kept here so the
  * run-detail specs assert on stable ids/labels.

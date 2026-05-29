@@ -1,3 +1,4 @@
+export { gatewayBackoffDelay, type GatewayBackoffOptions } from "./gatewayBackoffDelay.ts";
 export { GatewayRpcError } from "./GatewayRpcError.ts";
 export { SmithersGatewayClient } from "./SmithersGatewayClient.ts";
 export { SmithersGatewayConnection } from "./SmithersGatewayConnection.ts";

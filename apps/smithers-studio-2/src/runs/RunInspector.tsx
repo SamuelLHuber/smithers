@@ -37,7 +37,7 @@ export function RunInspector(props: {
 }) {
   const { runId, node, approval, events, onApprovalResolved, onClose } = props;
   const [tab, setTab] = useState<InspectorTab>("logs");
-  const detail = useNodeDetail(runId, node.id);
+  const detail = useNodeDetail(runId, node.id, node.iteration);
 
   const nodeLogs = events.filter((line) => !line.nodeId || line.nodeId === node.id);
 

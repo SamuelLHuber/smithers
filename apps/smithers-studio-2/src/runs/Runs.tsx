@@ -1,10 +1,11 @@
 import "./runs.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveRunLayout } from "./LiveRunLayout";
 import { RunHistoryList } from "./RunHistoryList";
 import { RunInspector } from "./RunInspector";
-import { RunToolbar } from "./RunToolbar";
+import { RunToolbar, type RunViewMode } from "./RunToolbar";
 import { RunTree } from "./RunTree";
+import { WorkflowRunUi } from "./WorkflowRunUi";
 import { findNode } from "./findNode";
 import { useRunEvents } from "./useRunEvents";
 import { useRunsBadgeStore } from "./runsBadgeStore";
@@ -22,17 +23,46 @@ export function Runs() {
   const setPendingApprovals = useRunsBadgeStore((s) => s.setPendingApprovals);
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<RunViewMode>("workflow");
+
+  // The mounted custom-UI path for the selected run's workflow, if it ships one.
+  const customUiPath = data.runState?.workflowKey
+    ? data.workflowUiPaths[data.runState.workflowKey]
+    : undefined;
 
   // Keep the nav badge in sync with the live pending-approval count.
   useEffect(() => {
     setPendingApprovals(data.approvals.length);
   }, [data.approvals.length, setPendingApprovals]);
 
+  // Live event -> data refresh: every WS run.event frame bumps events.eventEpoch.
+  // Debounce a refresh of the run + lists so a burst of log frames collapses
+  // into a single getRun/getDevToolsSnapshot + listRuns/listApprovals round
+  // trip, surfacing new approvals, state, and completion without re-selecting.
+  // (Polling in useRunsData is the floor when no WS is connected.)
+  const refreshRef = useRef({ refresh: data.refresh, refreshRun: data.refreshRun });
+  refreshRef.current = { refresh: data.refresh, refreshRun: data.refreshRun };
+  useEffect(() => {
+    if (events.eventEpoch === 0) return;
+    const timer = setTimeout(() => {
+      refreshRef.current.refresh();
+      refreshRef.current.refreshRun();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [events.eventEpoch]);
+
   // Reset node selection when the run changes; default to the run root.
   useEffect(() => {
     setSelectedNodeId(data.runState?.tree?.id);
     setSheetOpen(false);
   }, [data.runState?.runId, data.runState?.tree?.id]);
+
+  // When the selected run changes, default the view to the workflow's own UI
+  // whenever it ships one; otherwise fall back to the default tree/inspector.
+  // A run lacking a custom UI never shows the workflow view.
+  useEffect(() => {
+    setViewMode(customUiPath ? "workflow" : "default");
+  }, [data.runState?.runId, customUiPath]);
 
   const selectedNode = useMemo(
     () => findNode(data.runState?.tree ?? null, selectedNodeId),
@@ -85,34 +115,41 @@ export function Runs() {
                   data.refresh();
                   data.refreshRun();
                 }}
+                customUiAvailable={Boolean(customUiPath)}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
               />
-              <LiveRunLayout
-                hasSelection={Boolean(selectedNode)}
-                sheetOpen={sheetOpen}
-                onCloseSheet={() => setSheetOpen(false)}
-                tree={
-                  <RunTree
-                    tree={data.runState.tree}
-                    selectedNodeId={selectedNodeId}
-                    lastLogByNode={events.lastLogByNode}
-                    onSelectNode={onSelectNode}
-                  />
-                }
-                inspector={
-                  selectedNode ? (
-                    <RunInspector
-                      runId={data.selectedRunId}
-                      node={selectedNode}
-                      approval={nodeApproval}
-                      events={events.lines}
-                      onApprovalResolved={onApprovalResolved}
-                      onClose={() => setSheetOpen(false)}
+              {customUiPath && viewMode === "workflow" ? (
+                <WorkflowRunUi uiPath={customUiPath} runId={data.selectedRunId} />
+              ) : (
+                <LiveRunLayout
+                  hasSelection={Boolean(selectedNode)}
+                  sheetOpen={sheetOpen}
+                  onCloseSheet={() => setSheetOpen(false)}
+                  tree={
+                    <RunTree
+                      tree={data.runState.tree}
+                      selectedNodeId={selectedNodeId}
+                      lastLogByNode={events.lastLogByNode}
+                      onSelectNode={onSelectNode}
                     />
-                  ) : (
-                    <div className="runs-inspector-empty">Select a node to inspect it.</div>
-                  )
-                }
-              />
+                  }
+                  inspector={
+                    selectedNode ? (
+                      <RunInspector
+                        runId={data.selectedRunId}
+                        node={selectedNode}
+                        approval={nodeApproval}
+                        events={events.lines}
+                        onApprovalResolved={onApprovalResolved}
+                        onClose={() => setSheetOpen(false)}
+                      />
+                    ) : (
+                      <div className="runs-inspector-empty">Select a node to inspect it.</div>
+                    )
+                  }
+                />
+              )}
             </>
           ) : (
             <div className="runs-empty" data-testid="runs.empty">

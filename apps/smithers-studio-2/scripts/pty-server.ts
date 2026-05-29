@@ -30,6 +30,24 @@ import * as pty from "node-pty";
 const SCROLLBACK_LIMIT = 256 * 1024; // 256 KiB, matches zmux attach_replay_max_bytes
 const VERSION = "0.1.0";
 
+// Cap on concurrent live PTYs. A terminal pane is a real OS process plus a
+// pseudo-terminal; without a ceiling a buggy (or hostile) client could spawn
+// shells until the machine runs out of file descriptors / process slots.
+const MAX_SESSIONS = parseInt(process.env.PTY_MAX_SESSIONS ?? "32");
+
+// Largest WebSocket frame we will buffer/decode. Frames are JSON-RPC control
+// messages (or keystroke `session.input`), so a megabyte is already generous;
+// anything larger is a bug or an attempt to exhaust memory before we ever parse
+// a length, so we close the connection instead of growing the buffer unbounded.
+const MAX_FRAME_BYTES = 1024 * 1024; // 1 MiB
+
+// Orphan reaper: a session whose owning socket dies should be killed promptly,
+// but the close handler already does that synchronously. This is a backstop for
+// sessions that somehow lose their owner (e.g. owner cleared but socket lingered)
+// and for already-exited sessions whose scrollback we keep briefly for re-attach.
+const ORPHAN_TTL_MS = parseInt(process.env.PTY_ORPHAN_TTL_MS ?? "60000");
+const REAPER_INTERVAL_MS = 15_000;
+
 /**
  * node-pty ships a prebuilt `spawn-helper` binary on macOS/Linux that it execs
  * to fork the PTY. Some installers (notably pnpm's content-addressable store)
@@ -57,6 +75,11 @@ function ensureSpawnHelperExecutable(): void {
 
 ensureSpawnHelperExecutable();
 
+type WsConn = {
+  sendText(s: string): void;
+  readyState: number;
+};
+
 type Session = {
   id: string;
   pty: pty.IPty;
@@ -70,6 +93,14 @@ type Session = {
   exited: boolean;
   exitCode: number | null;
   signal: number | null;
+  // Connections currently watching this session's output. pane_output and
+  // session_exited notifications are unicast to these clients only — never
+  // broadcast to every connected socket (which would leak one pane's shell
+  // output, including secrets, into unrelated terminals).
+  subscribers: Set<WsConn>;
+  // When the session has no live subscribers, the wall-clock time it became
+  // orphaned. The reaper kills sessions that stay orphaned past ORPHAN_TTL_MS.
+  orphanedAt: number | null;
 };
 
 const sessions = new Map<string, Session>();
@@ -138,17 +169,30 @@ function jsonRpcNotification(method: string, params: unknown) {
   return JSON.stringify({ jsonrpc: "2.0", method, params });
 }
 
-const connectedClients = new Set<{ ws: { sendText(s: string): void; readyState: number } }>();
-
-function broadcast(message: string) {
-  for (const client of connectedClients) {
+// Kill the PTY and forget the session. Safe to call more than once.
+function destroySession(session: Session) {
+  if (!session.exited) {
     try {
-      client.ws.sendText(message);
+      session.pty.kill();
+    } catch {}
+  }
+  sessions.delete(session.id);
+}
+
+function notifySession(session: Session, message: string) {
+  for (const conn of session.subscribers) {
+    try {
+      conn.sendText(message);
     } catch {}
   }
 }
 
-function createSession(params: Record<string, unknown>): Session {
+function createSession(params: Record<string, unknown>, owner: WsConn): Session {
+  if (sessions.size >= MAX_SESSIONS) {
+    throw new Error(
+      `session limit reached (${MAX_SESSIONS}); close an existing terminal first`,
+    );
+  }
   const shell = typeof params.shell === "string" ? params.shell : defaultShell();
   const cwd = typeof params.cwd === "string" ? params.cwd : (process.env.HOME || process.cwd());
   const cols = clamp(typeof params.cols === "number" ? params.cols : 80, 1, 500);
@@ -176,36 +220,49 @@ function createSession(params: Record<string, unknown>): Session {
     exited: false,
     exitCode: null,
     signal: null,
+    subscribers: new Set([owner]),
+    orphanedAt: null,
   };
 
   ptyProcess.onData((data) => {
     appendScrollback(session, data);
-    broadcast(jsonRpcNotification("pane_output", { sessionId: session.id, data }));
+    notifySession(
+      session,
+      jsonRpcNotification("pane_output", { sessionId: session.id, data }),
+    );
   });
 
   ptyProcess.onExit(({ exitCode, signal }) => {
     session.exited = true;
     session.exitCode = exitCode;
     session.signal = signal;
-    broadcast(jsonRpcNotification("session_exited", {
-      sessionId: session.id,
-      exitCode,
-      signal,
-    }));
+    notifySession(
+      session,
+      jsonRpcNotification("session_exited", {
+        sessionId: session.id,
+        exitCode,
+        signal,
+      }),
+    );
   });
 
   sessions.set(id, session);
   return session;
 }
 
-function handleRequest(id: unknown, method: string, params: Record<string, unknown>) {
+function handleRequest(
+  id: unknown,
+  method: string,
+  params: Record<string, unknown>,
+  conn: WsConn,
+) {
   if (method === "daemon.ping") {
     return jsonRpcResult(id, { version: VERSION, sessions: sessions.size });
   }
 
   if (method === "session.create") {
     try {
-      const session = createSession(params);
+      const session = createSession(params, conn);
       return jsonRpcResult(id, {
         sessionId: session.id,
         pid: session.pid,
@@ -223,6 +280,10 @@ function handleRequest(id: unknown, method: string, params: Record<string, unkno
     const sessionId = typeof params.sessionId === "string" ? params.sessionId : null;
     const session = sessionId ? sessions.get(sessionId) : null;
     if (!session) return jsonRpcError(id, -32000, "session not found");
+    // The attaching connection now watches this session and re-takes ownership,
+    // so output is unicast to it and the orphan reaper leaves it alone.
+    session.subscribers.add(conn);
+    session.orphanedAt = null;
     if (typeof params.cols === "number" && typeof params.rows === "number") {
       const cols = clamp(params.cols, 1, 500);
       const rows = clamp(params.rows, 1, 200);
@@ -268,10 +329,8 @@ function handleRequest(id: unknown, method: string, params: Record<string, unkno
     const sessionId = typeof params.sessionId === "string" ? params.sessionId : null;
     const session = sessionId ? sessions.get(sessionId) : null;
     if (!session) return jsonRpcError(id, -32000, "session not found");
-    if (!session.exited) {
-      try { session.pty.kill(); } catch {}
-    }
-    sessions.delete(sessionId!);
+    session.subscribers.delete(conn);
+    destroySession(session);
     return jsonRpcResult(id, { ok: true });
   }
 
@@ -305,11 +364,6 @@ function handleRequest(id: unknown, method: string, params: Record<string, unkno
  */
 
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-
-type WsConn = {
-  sendText(s: string): void;
-  readyState: number;
-};
 
 function encodeTextFrame(text: string): Buffer {
   const payload = Buffer.from(text, "utf8");
@@ -375,10 +429,26 @@ server.on("upgrade", (req, socket) => {
       if (socket.writable) socket.write(encodeTextFrame(text));
     },
   };
-  const client = { ws: conn };
-  connectedClients.add(client);
 
   let buffer = Buffer.alloc(0);
+  // Tracks whether we have already begun tearing the socket down so the parser
+  // loop and the close/error handlers don't fight over it.
+  let closed = false;
+
+  function closeSocket(code: number, reason: string) {
+    if (closed) return;
+    closed = true;
+    conn.readyState = 3;
+    // RFC 6455 close frame: FIN + opcode 0x8, 2-byte big-endian status code.
+    const body = Buffer.alloc(2 + Buffer.byteLength(reason));
+    body.writeUInt16BE(code, 0);
+    body.write(reason, 2);
+    const header = Buffer.from([0x88, body.length]);
+    try {
+      if (socket.writable) socket.write(Buffer.concat([header, body]));
+    } catch {}
+    socket.end();
+  }
 
   function dispatch(text: string) {
     try {
@@ -388,7 +458,7 @@ server.on("upgrade", (req, socket) => {
       const params =
         typeof msg.params === "object" && msg.params !== null ? msg.params : {};
       // Notifications (no id) get processed but produce no reply frame.
-      const response = handleRequest(id, method, params);
+      const response = handleRequest(id, method, params, conn);
       if (msg.id != null) conn.sendText(response);
     } catch {
       conn.sendText(jsonRpcError(null, -32700, "parse error"));
@@ -396,9 +466,11 @@ server.on("upgrade", (req, socket) => {
   }
 
   socket.on("data", (chunk) => {
+    if (closed) return;
     buffer = Buffer.concat([buffer, chunk]);
     // Parse as many complete frames as are buffered.
-    while (buffer.length >= 2) {
+    while (buffer.length >= 2 && !closed) {
+      const fin = (buffer[0] & 0x80) !== 0;
       const opcode = buffer[0] & 0x0f;
       const masked = (buffer[1] & 0x80) !== 0;
       let len = buffer[1] & 0x7f;
@@ -409,45 +481,120 @@ server.on("upgrade", (req, socket) => {
         offset = 4;
       } else if (len === 127) {
         if (buffer.length < 10) break;
-        len = Number(buffer.readBigUInt64BE(2));
+        const big = buffer.readBigUInt64BE(2);
+        // A 64-bit length we will never honor; bail before we coerce to a lossy
+        // Number or try to allocate gigabytes.
+        if (big > BigInt(MAX_FRAME_BYTES)) {
+          closeSocket(1009, "frame too large");
+          return;
+        }
+        len = Number(big);
         offset = 10;
       }
-      let maskKey: Buffer | null = null;
-      if (masked) {
-        if (buffer.length < offset + 4) break;
-        maskKey = buffer.subarray(offset, offset + 4);
-        offset += 4;
+      // Reject oversized frames before waiting to buffer their whole payload, so
+      // a hostile length can't make us accumulate memory unbounded.
+      if (len > MAX_FRAME_BYTES) {
+        closeSocket(1009, "frame too large");
+        return;
       }
+      // RFC 6455 §5.1: every frame from a client MUST be masked. An unmasked
+      // client frame is a protocol violation (or a non-browser client probing
+      // us); refuse it rather than guessing.
+      if (!masked) {
+        closeSocket(1002, "unmasked client frame");
+        return;
+      }
+      if (buffer.length < offset + 4) break;
+      const maskKey = buffer.subarray(offset, offset + 4);
+      offset += 4;
       if (buffer.length < offset + len) break;
       const payload = buffer.subarray(offset, offset + len);
       const decoded = Buffer.from(payload);
-      if (maskKey) {
-        for (let i = 0; i < decoded.length; i++) {
-          decoded[i] ^= maskKey[i % 4];
-        }
+      for (let i = 0; i < decoded.length; i++) {
+        decoded[i] ^= maskKey[i % 4];
       }
       buffer = buffer.subarray(offset + len);
 
       if (opcode === 0x8) {
         // close frame
-        conn.readyState = 3;
-        socket.end();
+        closeSocket(1000, "bye");
+        return;
+      }
+      // We speak only whole text frames of JSON-RPC; this protocol never
+      // fragments a message. A non-final text/binary frame (or a continuation
+      // frame) means the peer is fragmenting — reject rather than misassemble.
+      if (opcode === 0x0) {
+        closeSocket(1003, "fragmentation unsupported");
         return;
       }
       if (opcode === 0x1) {
+        if (!fin) {
+          closeSocket(1003, "fragmentation unsupported");
+          return;
+        }
         dispatch(decoded.toString("utf8"));
       }
-      // ping/pong/continuation frames are ignored for this protocol.
+      // ping/pong (0x9/0xa) and binary (0x2) frames are ignored for this
+      // protocol; they carry no JSON-RPC payload we act on.
     }
   });
 
   function cleanup() {
     conn.readyState = 3;
-    connectedClients.delete(client);
+    closed = true;
+    // Abrupt disconnect: drop this connection from every session it watched and
+    // tear down any session that is now orphaned. Without this the PTY (a real
+    // shell process) leaks for the life of the server.
+    for (const session of sessions.values()) {
+      if (!session.subscribers.delete(conn)) continue;
+      if (session.subscribers.size === 0) {
+        // No one is watching anymore. Kill it now rather than waiting for the
+        // reaper — a closed terminal pane has no reason to keep a shell alive.
+        destroySession(session);
+      }
+    }
   }
   socket.on("close", cleanup);
   socket.on("error", cleanup);
 });
+
+// Orphan reaper backstop: kill any session that has had no subscribers for
+// longer than ORPHAN_TTL_MS. The socket close handler already kills sessions
+// synchronously on disconnect; this catches sessions that lost their last
+// subscriber some other way (e.g. a session created then never re-attached).
+const reaper = setInterval(() => {
+  const now = Date.now();
+  for (const session of sessions.values()) {
+    if (session.subscribers.size > 0) {
+      session.orphanedAt = null;
+      continue;
+    }
+    if (session.orphanedAt == null) {
+      session.orphanedAt = now;
+      continue;
+    }
+    if (now - session.orphanedAt >= ORPHAN_TTL_MS) {
+      destroySession(session);
+    }
+  }
+}, REAPER_INTERVAL_MS);
+// Don't let the reaper timer hold the process open on its own.
+reaper.unref?.();
+
+function shutdown(signal: string) {
+  console.log(`[pty] ${signal} received, shutting down`);
+  clearInterval(reaper);
+  // Kill every live shell so we never leave orphaned PTYs behind.
+  for (const session of [...sessions.values()]) {
+    destroySession(session);
+  }
+  server.close(() => process.exit(0));
+  // Don't hang forever if a socket refuses to close.
+  setTimeout(() => process.exit(0), 2000).unref?.();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 server.listen(port, host, () => {
   console.log(`[pty] Listening on http://${host}:${port}`);

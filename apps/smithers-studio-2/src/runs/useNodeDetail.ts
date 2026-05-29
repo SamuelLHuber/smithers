@@ -57,6 +57,7 @@ export type NodeDetail = {
 export function useNodeDetail(
   runId: string | undefined,
   nodeId: string | undefined,
+  iteration: number | undefined,
 ): NodeDetail {
   const client = runsGatewayClient();
   const [output, setOutput] = useState<NodeOutput>();
@@ -75,12 +76,15 @@ export function useNodeDetail(
     const generation = ++generationRef.current;
     setLoading(true);
     setError(undefined);
+    // The gateway requires an explicit iteration (it rejects undefined as
+    // InvalidIteration). Use the node's REAL current iteration from the
+    // snapshot; only fall back to 0 for structural nodes that carry no task
+    // iteration at all (where the first iteration is the only one).
+    const targetIteration = typeof iteration === "number" ? iteration : 0;
     void (async () => {
-      // The gateway requires an explicit iteration (it rejects undefined as
-      // InvalidIteration); the surface inspects the first iteration.
       const [outputResult, diffResult] = await Promise.allSettled([
-        client.rpc("getNodeOutput", { runId, nodeId, iteration: 0 }),
-        client.rpc("getNodeDiff", { runId, nodeId, iteration: 0 }),
+        client.rpc("getNodeOutput", { runId, nodeId, iteration: targetIteration }),
+        client.rpc("getNodeDiff", { runId, nodeId, iteration: targetIteration }),
       ]);
       if (generation !== generationRef.current) return;
       setOutput(outputResult.status === "fulfilled" ? parseOutput(outputResult.value) : undefined);
@@ -90,7 +94,7 @@ export function useNodeDetail(
       }
       setLoading(false);
     })();
-  }, [client, runId, nodeId]);
+  }, [client, runId, nodeId, iteration]);
 
   return { output, diff, loading, error };
 }

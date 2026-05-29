@@ -19,6 +19,25 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+/**
+ * Parse a `listWorkflows` payload into a `workflowKey → uiPath` map, keeping
+ * only workflows that actually mount a custom UI (`hasUi` + a non-empty
+ * `uiPath`). This is the authoritative source for "does this run's workflow ship
+ * its own UI, and where is it served" — the Runs surface keys off `workflowKey`
+ * to decide whether to default a live run into the workflow's own UI.
+ */
+export function parseWorkflowUiPaths(payload: unknown): Record<string, string> {
+  if (!Array.isArray(payload)) return {};
+  const paths: Record<string, string> = {};
+  for (const raw of payload) {
+    const record = asRecord(raw);
+    const key = asString(record.key);
+    const uiPath = asString(record.uiPath);
+    if (key && record.hasUi === true && uiPath) paths[key] = uiPath;
+  }
+  return paths;
+}
+
 /** Parse a listRuns payload (array of run summaries) into RunSummary rows. */
 export function parseRunSummaries(payload: unknown): RunSummary[] {
   if (!Array.isArray(payload)) return [];
@@ -40,7 +59,9 @@ export function parseRunSummaries(payload: unknown): RunSummary[] {
  * reads only run-level fields. `state` is taken from `runState.state` (the
  * computed lifecycle state) when present, falling back to the raw row `status`;
  * `tree` is left null here and merged in by the data layer from the separate
- * `getDevToolsSnapshot` RPC.
+ * `getDevToolsSnapshot` RPC. Frame fields (`currentFrame`/`frameCount`) are
+ * likewise left undefined here — getRun carries no frame ledger; they are
+ * derived from the snapshot's `frameNo` by the data layer.
  */
 export function parseRunState(payload: unknown): RunStateView {
   const record = asRecord(payload);
@@ -54,8 +75,6 @@ export function parseRunState(payload: unknown): RunStateView {
     createdAtMs: asNumber(record.createdAtMs),
     tree: null,
     blockedNodeId: asString(blocked.nodeId),
-    currentFrame: asNumber(record.currentFrame),
-    frameCount: asNumber(record.frameCount),
   } satisfies RunStateView;
 }
 

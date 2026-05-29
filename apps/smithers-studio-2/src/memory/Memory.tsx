@@ -92,6 +92,15 @@ export function Memory() {
           data-testid="memory.search"
           aria-label="Search memory facts"
         />
+        <button
+          type="button"
+          className="memory-refresh"
+          data-testid="memory.refresh"
+          onClick={() => void load(query)}
+          disabled={status === "loading"}
+        >
+          {status === "loading" ? "Refreshing…" : "Refresh"}
+        </button>
       </header>
 
       <div className="memory-statusbar" data-testid="memory.status">

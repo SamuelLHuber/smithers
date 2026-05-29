@@ -30,7 +30,9 @@ export function RunTreeRow(props: {
   const running = isRunningState(node.state);
   const showCursor = running && isLeaf;
   const failedBelow = hasChildren && hasFailedDescendant(node);
-  const log = lastLog ?? node.lastLog;
+  // The snapshot tree carries no per-node log, so the running cursor's last-log
+  // line comes solely from the live event stream (lastLogByNode).
+  const log = lastLog;
 
   return (
     <div

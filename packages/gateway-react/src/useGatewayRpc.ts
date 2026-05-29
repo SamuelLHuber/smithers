@@ -14,12 +14,6 @@ export function useGatewayRpc<Method extends GatewayRpcMethod>(
   const paramsKey = useMemo(() => JSON.stringify(params ?? {}), [params]);
   const deps = options.deps ?? [paramsKey];
   const paramsRef = useRef(params);
-  const previousEffectRef = useRef<{
-    client: typeof client;
-    enabled: boolean;
-    method: Method;
-    deps: readonly unknown[];
-  } | undefined>(undefined);
   paramsRef.current = params;
   const generationRef = useRef(0);
   const [data, setData] = useState<GatewayRpcPayload<Method>>();
@@ -50,24 +44,14 @@ export function useGatewayRpc<Method extends GatewayRpcMethod>(
   }, [client, enabled, method]);
 
   useEffect(() => {
-    const previous = previousEffectRef.current;
-    const changed = !previous ||
-      previous.client !== client ||
-      previous.enabled !== enabled ||
-      previous.method !== method ||
-      previous.deps.length !== deps.length ||
-      deps.some((dep, index) => !Object.is(dep, previous.deps[index]));
-    previousEffectRef.current = { client, enabled, method, deps: [...deps] };
-    if (changed) {
-      void refetch();
-    }
-  });
-
-  useEffect(() => {
+    void refetch();
     return () => {
       generationRef.current += 1;
     };
-  }, []);
+    // `refetch` is keyed on [client, enabled, method]; `deps` (defaulting to the
+    // serialized params) covers param changes. Spreading them keeps the effect
+    // declarative instead of hand-rolling dependency diffing.
+  }, [client, enabled, method, paramsKey, refetch, ...deps]);
 
   return { data, error, loading, refetch };
 }

@@ -42,6 +42,7 @@ function createRpcClient() {
       return Promise.resolve({ ok: true });
     },
     streamRunEvents: async function* () {},
+    streamRunEventsResilient: async function* () {},
   } as unknown as SmithersGatewayClient;
   return { client, calls };
 }
@@ -54,6 +55,7 @@ function createRejectingRpcClient(cause: unknown) {
       return Promise.reject(cause);
     },
     streamRunEvents: async function* () {},
+    streamRunEventsResilient: async function* () {},
   } as unknown as SmithersGatewayClient;
   return { client, calls };
 }

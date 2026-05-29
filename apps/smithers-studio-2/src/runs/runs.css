@@ -245,6 +245,49 @@
   border-color: rgba(248, 113, 113, 0.35);
 }
 
+/* Segmented toggle: workflow's own UI vs the default tree/inspector view. */
+.runs-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.runs-view-toggle-btn {
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--text-label);
+  transition: background var(--motion-fast) var(--ease);
+}
+
+.runs-view-toggle-btn + .runs-view-toggle-btn {
+  border-left: 1px solid var(--border);
+}
+
+.runs-view-toggle-btn:hover {
+  background: var(--fill-hover);
+}
+
+.runs-view-toggle-btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--surface-1);
+}
+
+/* Embedded workflow UI fills the live-run area below the toolbar. */
+.runs-workflow-ui {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.runs-workflow-ui-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--surface-1);
+}
+
 /* ---- layout ---- */
 
 .runs-layout {

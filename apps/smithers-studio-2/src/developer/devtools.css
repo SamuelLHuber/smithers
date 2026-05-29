@@ -245,3 +245,19 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.devtools-prop-expand {
+  display: inline-block;
+  margin-top: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-sm);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.devtools-prop-expand:hover {
+  text-decoration: underline;
+}

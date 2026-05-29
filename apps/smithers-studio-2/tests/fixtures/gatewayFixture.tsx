@@ -1,11 +1,17 @@
 /** @jsxImportSource smithers-orchestrator */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { createSmithers, Gateway } from "smithers-orchestrator";
 import { z } from "zod";
 import { seedRunStore } from "./seedRunStore";
-import { LIVE_APPROVAL_RUN, LIVE_APPROVAL_RUN_IDS, LIVE_CANCEL_RUN } from "./seededData";
+import {
+  LIVE_APPROVAL_RUN,
+  LIVE_APPROVAL_RUN_IDS,
+  LIVE_CANCEL_RUN,
+  LIVE_UI_RUN,
+} from "./seededData";
 
 /**
  * Boots a REAL Smithers Gateway (no mocking) for the studio-2 e2e suite.
@@ -31,6 +37,8 @@ import { LIVE_APPROVAL_RUN, LIVE_APPROVAL_RUN_IDS, LIVE_CANCEL_RUN } from "./see
 const tempDir = mkdtempSync(join(tmpdir(), "studio2-gateway-"));
 const dbPath = join(tempDir, "runs.db");
 const longDbPath = join(tempDir, "long.db");
+const uiDbPath = join(tempDir, "ui.db");
+const workflowUiEntry = fileURLToPath(new URL("./workflowUiEntry.ts", import.meta.url));
 
 const { smithers, Workflow, Task, Approval, outputs } = createSmithers(
   {
@@ -41,6 +49,12 @@ const { smithers, Workflow, Task, Approval, outputs } = createSmithers(
 );
 
 const long = createSmithers({ done: z.object({ ok: z.boolean() }) }, { dbPath: longDbPath });
+
+// A workflow that ships its own custom UI. Registered with a Gateway-served UI
+// (`workflowUiEntry.ts`) and executed once so the Runs surface defaults its run
+// into the embedded workflow UI. Owns its own DB for the same reason as
+// `studio-long`: one run per adapter, no `listRuns` duplication.
+const ui = createSmithers({ done: z.object({ ok: z.boolean() }) }, { dbPath: uiDbPath });
 
 // The approval workflow. It is EXECUTED to a real pending approval gate so the
 // run-detail flows have a real tree + gate. Its node ids + approval
@@ -80,12 +94,23 @@ const longWorkflow = long.smithers(() => (
   </long.Workflow>
 ));
 
+// The UI-bearing workflow: a single task that settles immediately, so the run
+// completes and the Runs surface still defaults it into the workflow UI.
+const uiWorkflow = ui.smithers(() => (
+  <ui.Workflow name={LIVE_UI_RUN.workflowKey}>
+    <ui.Task id={LIVE_UI_RUN.taskNodeId} output={ui.outputs.done}>
+      {async () => ({ ok: true })}
+    </ui.Task>
+  </ui.Workflow>
+));
+
 // Seed AFTER createSmithers so we control the rows the Gateway will read.
 seedRunStore(dbPath);
 
 const gateway = new Gateway({ heartbeatMs: 250 });
 gateway.register(LIVE_APPROVAL_RUN.workflowKey, approvalWorkflow);
 gateway.register(LIVE_CANCEL_RUN.workflowKey, longWorkflow);
+gateway.register(LIVE_UI_RUN.workflowKey, uiWorkflow, { ui: { entry: workflowUiEntry } });
 
 const auth = { triggeredBy: "fixture", scopes: ["*"], role: "operator", tokenId: null };
 
@@ -100,6 +125,7 @@ for (const runId of LIVE_APPROVAL_RUN_IDS) {
   await gateway.startRun(LIVE_APPROVAL_RUN.workflowKey, {}, auth, runId, { resume: false });
 }
 await gateway.startRun(LIVE_CANCEL_RUN.workflowKey, {}, auth, LIVE_CANCEL_RUN.runId, { resume: false });
+await gateway.startRun(LIVE_UI_RUN.workflowKey, {}, auth, LIVE_UI_RUN.runId, { resume: false });
 
 const pendingRunIds = new Set<string>(LIVE_APPROVAL_RUN_IDS);
 let allGatesReady = false;

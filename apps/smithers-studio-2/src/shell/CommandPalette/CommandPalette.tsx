@@ -3,7 +3,6 @@ import { useStudioStore } from "../../useStudioStore";
 import type { NavItem } from "../navRegistry";
 import { buildPaletteItems } from "./buildPaletteItems";
 import { filterPaletteItems } from "./filterPaletteItems";
-import { useDebouncedItems } from "./useDebouncedItems";
 import { parseQuery } from "./parseQuery";
 import { PaletteRow } from "./PaletteRow";
 import { PaletteSectionHeader } from "./PaletteSectionHeader";
@@ -42,27 +41,30 @@ export function CommandPalette({ registry }: CommandPaletteProps) {
     [registry, developerMode, setActiveView, openTerminal, toggleDeveloperMode],
   );
 
-  const items = useDebouncedItems(allItems, paletteQuery);
+  // Filter synchronously off the current query so the rendered list, the arrow
+  // navigation, and the Enter handler always agree. Filtering is pure and the
+  // item set is tiny, so debouncing bought nothing but a race: a fast
+  // type-then-Enter (within the old 80ms window) ran the stale first row
+  // (e.g. "Go to Home") instead of the command the user just typed.
+  const items = useMemo(() => filterPaletteItems(allItems, paletteQuery), [allItems, paletteQuery]);
   const parsed = parseQuery(paletteQuery);
 
   // Whenever the filtered list identity changes (a keystroke narrowed or
   // reordered the results), snap the selection back to the best match at the
   // top. Without this, a stale index — e.g. 0 still pointing at the first
   // "Go to" nav row while the user typed a command name — makes Enter run the
-  // wrong item (and, when filtering is still mid-debounce, navigate away from
-  // the surface the command was meant to act on).
+  // wrong item.
   useEffect(() => {
     setSelectedPaletteIndex(() => 0);
   }, [items, setSelectedPaletteIndex]);
 
   const run = (index: number) => {
-    // Resolve the live match list rather than trusting the debounced `items`,
-    // which can lag a keystroke behind the query. Running against what was
-    // actually typed (falling back to the best match at index 0 if the stale
-    // index is out of range) means Enter never fires a phantom command — e.g.
-    // a "Go to" nav row while the user typed a command name.
-    const liveItems = filterPaletteItems(allItems, paletteQuery);
-    const item = liveItems[index] ?? liveItems[0];
+    // Resolve Enter against the rendered `items` — the exact list the user is
+    // looking at and that the arrow keys navigate. Filtering is synchronous, so
+    // this list already reflects the current query. Fall back to the best match
+    // at index 0 if the selection index is stale (out of range after a
+    // narrowing keystroke).
+    const item = items[index] ?? items[0];
     if (!item) return;
     item.run();
     closePalette();

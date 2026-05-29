@@ -21,9 +21,13 @@ export const useRunsBadgeStore = create<RunsBadgeState>((set) => ({
 }));
 
 /**
- * Synchronous snapshot for navRegistry.badge(). The nav row is re-rendered by
- * the shell on store changes; this returns the latest committed count.
+ * Reactive badge accessor for navRegistry.badge(). It is wired as the "runs"
+ * nav item's `badge` callback, which the shell invokes inside the NavRow render
+ * body — so this is a React hook that *subscribes* to the store. Returning a
+ * bare `getState()` snapshot (the old behavior) read the count once and never
+ * re-rendered, leaving the badge dead; subscribing makes the nav row re-render
+ * whenever the Runs surface writes a new pending-approval count.
  */
 export function runsApprovalsBadge(): number {
-  return useRunsBadgeStore.getState().pendingApprovals;
+  return useRunsBadgeStore((state) => state.pendingApprovals);
 }

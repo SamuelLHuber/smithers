@@ -90,7 +90,12 @@ export function SqlBrowser() {
               }}
             />
             <div className="sql-editor-actions">
-              <span className="sql-readonly-note">read-only</span>
+              <span
+                className="sql-readonly-note"
+                title="Writes (INSERT/UPDATE/DELETE/DDL) are rejected by the backend."
+              >
+                read-only
+              </span>
               <button
                 type="button"
                 className="sql-run"

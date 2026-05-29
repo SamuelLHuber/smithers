@@ -85,6 +85,7 @@ export function useSqlBrowser(): SqlBrowserState {
   const runQuery = useCallback(() => {
     const trimmed = query.trim();
     if (!trimmed) {
+      setResult(null);
       setError("Enter a query to run.");
       return;
     }
@@ -94,6 +95,9 @@ export function useSqlBrowser(): SqlBrowserState {
       .then((payload) => setResult(payload.result))
       .catch((cause: unknown) => {
         setResult(null);
+        // The backend rejects writes (INSERT/UPDATE/DELETE/DDL) and surfaces a
+        // read-only error here; pass its message through verbatim so the surface
+        // reflects the real enforcement rather than a generic failure.
         setError(cause instanceof Error ? cause.message : "Query failed.");
       })
       .finally(() => setRunning(false));

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { ViewId } from "../useStudioStore";
 import { Home } from "../home/Home";
 import { Runs } from "../runs/Runs";
+import { runsApprovalsBadge } from "../runs/runsBadgeStore";
 import { Workspace } from "../workspace/Workspace";
 import { Workflows } from "../workflows/Workflows";
 import { IssuesPanel } from "../issues/IssuesPanel";
@@ -45,7 +46,7 @@ export type NavRegistryFlags = {
 export function buildNavRegistry(flags: NavRegistryFlags): NavItem[] {
   const items: NavItem[] = [
     { id: "home", label: "Home", tier: "primary", icon: "\u{1F528}", render: () => <Home /> },
-    { id: "runs", label: "Runs", tier: "primary", icon: "▶", render: () => <Runs /> },
+    { id: "runs", label: "Runs", tier: "primary", icon: "▶", badge: runsApprovalsBadge, render: () => <Runs /> },
     { id: "workspace", label: "Workspace", tier: "primary", icon: "⌨", render: () => <Workspace /> },
     { id: "workflows", label: "Workflows", tier: "primary", icon: "⚙", render: () => <Workflows /> },
 

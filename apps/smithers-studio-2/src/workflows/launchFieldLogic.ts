@@ -81,6 +81,10 @@ export function buildLaunchInput(
     if (kind === "string") {
       input[field.key] = rawValue;
     } else if (kind === "number") {
+      // An optional number the user cleared must NOT submit as 0. `Number("")`
+      // is 0, so an empty optional number field is omitted entirely regardless
+      // of whether the field declared a default — the absence is the signal.
+      if (!trimmed && !field.required) continue;
       input[field.key] = Number(trimmed);
     } else if (kind === "boolean") {
       if (!field.required && field.defaultValue === null && !hasCurrentValue) continue;

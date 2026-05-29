@@ -22,21 +22,26 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function visibleLandingsForFilter(landings: WorkspaceLanding[], filter: LandingStateFilter): WorkspaceLanding[] {
+/** Whether a single landing belongs in the list under the active state filter. */
+function landingMatchesFilter(landing: WorkspaceLanding, filter: LandingStateFilter): boolean {
   switch (filter) {
     case "all":
-      return landings;
+      return true;
     case "open":
-      return landings.filter(l => l.state === "open" || l.state === "draft");
+      return landing.state === "open" || landing.state === "draft";
     case "closed":
-      return landings.filter(l => l.state === "closed");
+      return landing.state === "closed";
     case "draft":
-      return landings.filter(l => l.state === "draft");
+      return landing.state === "draft";
     case "merged":
-      return landings.filter(l => l.state === "merged");
+      return landing.state === "merged";
     default:
-      return landings;
+      return true;
   }
+}
+
+function visibleLandingsForFilter(landings: WorkspaceLanding[], filter: LandingStateFilter): WorkspaceLanding[] {
+  return landings.filter((landing) => landingMatchesFilter(landing, filter));
 }
 
 function landingRequestState(filter: LandingStateFilter): string | null {
@@ -184,9 +189,20 @@ export function LandingsPanel() {
   }, [detailTab, effectiveSelectedLanding, diffText, checksText, conflicts]);
 
   const upsertLanding = (landing: WorkspaceLanding) => {
-    setLandings((current) => [landing, ...current.filter((entry) => entry.id !== landing.id)]);
-    setSelectedId(landing.id);
-    setSelectedLanding(landing);
+    const withoutOld = (current: WorkspaceLanding[]) => current.filter((entry) => entry.id !== landing.id);
+    // A review/land/create can move a landing out of the active filter (e.g.
+    // landing a PR while "Open" is selected flips it to "merged"). Keep it
+    // visible only while it still matches; otherwise drop it so the list mirrors
+    // what a fresh server query for this filter would return.
+    if (landingMatchesFilter(landing, stateFilter)) {
+      setLandings((current) => [landing, ...withoutOld(current)]);
+      setSelectedId(landing.id);
+      setSelectedLanding(landing);
+    } else {
+      setLandings(withoutOld);
+      setSelectedId((current) => (current === landing.id ? null : current));
+      setSelectedLanding((current) => (current?.id === landing.id ? null : current));
+    }
   };
 
   const createLanding = async () => {

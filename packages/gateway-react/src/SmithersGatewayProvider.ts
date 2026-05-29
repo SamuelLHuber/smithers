@@ -7,9 +7,13 @@ export function SmithersGatewayProvider(props: {
   options?: SmithersGatewayClientOptions;
   children?: ReactNode;
 }) {
+  const provided = props.client;
+  const options = props.options;
   const client = useMemo(
-    () => props.client ?? new SmithersGatewayClient(props.options),
-    [props.client, props.options],
+    () => provided ?? new SmithersGatewayClient(options),
+    // Memoize on primitive identity so an inline `options` object literal does
+    // not re-create the client (and trigger a reconnect storm) every render.
+    [provided, options?.baseUrl, options?.token],
   );
   return createElement(SmithersGatewayContext.Provider, { value: client }, props.children);
 }

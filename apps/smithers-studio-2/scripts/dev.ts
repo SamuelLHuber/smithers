@@ -3,12 +3,18 @@ import { exit } from "node:process";
 
 type ManagedProcess = { name: string; process: Bun.Subprocess<"ignore", "pipe", "pipe"> };
 
-// Studio 2's two backend contracts are served by the same fixture servers the
-// e2e suite boots (a real seeded Gateway + a workspace-API server). They serve
-// deterministic DEMO data, not your real workspace — wiring the production
-// workspace backend (the original app's ~4.5k-line workspaceBackend) is a
-// separate effort. This lets `bun dev` bring every surface up populated today.
+// `bun dev` boots the REAL workspace-API backend (server/) by default: it serves
+// /__smithers_studio/api/* by calling the real Smithers packages and local CLIs
+// (jj/jjhub, the SQLite store, the agent runtime) against the workspace at
+// SMITHERS_STUDIO_WORKSPACE (default: the repo root). The Playwright e2e
+// fixtures (tests/fixtures/*) serve deterministic DEMO data and are now opt-in:
+// set SMITHERS_DEV_USE_FIXTURES=1 to boot them instead (e.g. to dogfood the
+// seeded surfaces the e2e suite asserts on).
 const APP_DIR = "apps/smithers-studio-2";
+const useFixtures = process.env.SMITHERS_DEV_USE_FIXTURES === "1";
+// The workspace the real backend operates on. Defaults to the monorepo root so
+// `bun dev` comes up populated against this repo's real .smithers + smithers.db.
+const workspaceRoot = process.env.SMITHERS_STUDIO_WORKSPACE ?? process.cwd();
 const host = process.env.SMITHERS_STUDIO_2_HOST ?? "127.0.0.1";
 const gatewayStartPort = numberFromEnv("SMITHERS_GATEWAY_PORT", 7331);
 const workspaceApiStartPort = numberFromEnv("SMITHERS_WORKSPACE_API_PORT", 7410);
@@ -126,11 +132,21 @@ async function main() {
   await waitForHttpOk(`${gatewayUrl}/health`, 60_000);
 
   // Workspace-API server (serves /__smithers_studio/api/* for Home recents,
-  // Workflows, Issues, Landings, Workspaces, Memory, Scores), seeded demo data.
-  console.log(`[dev] Starting Workspace API on ${workspaceApiUrl}`);
-  spawnManaged("workspace-api", ["bun", "tests/fixtures/workspaceApiServer.ts"], {
-    SMITHERS_STUDIO_WORKSPACE_API_PORT: String(workspaceApiPort),
-  }, APP_DIR);
+  // Workflows, Issues, Landings, Workspaces, Memory, Scores, SQL, Logs, Chat).
+  // Default: the REAL backend (server/) against the real workspace. Opt-in:
+  // SMITHERS_DEV_USE_FIXTURES=1 swaps in the seeded e2e fixture.
+  if (useFixtures) {
+    console.log(`[dev] Starting Workspace API (e2e fixture, seeded demo data) on ${workspaceApiUrl}`);
+    spawnManaged("workspace-api", ["bun", "tests/fixtures/workspaceApiServer.ts"], {
+      SMITHERS_STUDIO_WORKSPACE_API_PORT: String(workspaceApiPort),
+    }, APP_DIR);
+  } else {
+    console.log(`[dev] Starting Workspace API (real backend) on ${workspaceApiUrl}`);
+    spawnManaged("workspace-api", ["bun", "server/startWorkspaceApiServer.ts"], {
+      SMITHERS_STUDIO_WORKSPACE_API_PORT: String(workspaceApiPort),
+      SMITHERS_STUDIO_WORKSPACE: workspaceRoot,
+    }, APP_DIR);
+  }
   await waitForHttpOk(`${workspaceApiUrl}/health`);
 
   console.log(`[dev] Starting PTY Server on ${ptyUrl}`);
@@ -158,7 +174,12 @@ async function main() {
   console.log(`[dev] Gateway:       ${gatewayUrl}`);
   console.log(`[dev] Workspace API: ${workspaceApiUrl}`);
   console.log(`[dev] PTY:           ${ptyUrl}`);
-  console.log("[dev] Surfaces are populated with seeded demo data. Press Ctrl+C to stop.");
+  if (useFixtures) {
+    console.log("[dev] Workspace API: e2e fixture (seeded demo data). Press Ctrl+C to stop.");
+  } else {
+    console.log(`[dev] Workspace API: real backend against ${workspaceRoot}. Press Ctrl+C to stop.`);
+    console.log("[dev] (Set SMITHERS_DEV_USE_FIXTURES=1 to boot the seeded e2e fixture instead.)");
+  }
   await Promise.race(children.map((child) => child.process.exited));
 }
 

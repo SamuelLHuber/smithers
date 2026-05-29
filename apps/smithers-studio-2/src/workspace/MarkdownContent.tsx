@@ -69,44 +69,91 @@ function renderProse(text: string): ReactNode {
   ));
 }
 
-/** Inline pass: `code`, **bold**, *italic*, and [label](url) links. */
-function renderInline(line: string): ReactNode[] {
-  const token = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)]+\))/g;
+/**
+ * Inline pass: `code`, **bold**, *italic*, and [label](url) links.
+ *
+ * Scans left-to-right and, at each position, tries the earliest token. Each
+ * branch is anchored at the cursor (`^`) so a literal `*` inside ordinary prose
+ * never starts a phantom emphasis run. Bold/italic spans accept ANY inner
+ * character (including other delimiters) and the inner text is rendered
+ * RECURSIVELY, so nested (`**bold *and italic* back**`) and adjacent
+ * (`*a**b**c*`) tokens tokenize correctly instead of the old `[^*]+` runs that
+ * bailed at the first inner `*`. Code spans are matched first and rendered
+ * verbatim — never recursed — so backticked text can't smuggle markup.
+ */
+function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  let lastIndex = 0;
+  let rest = text;
+  let pending = "";
   let key = 0;
-  let match: RegExpExecArray | null;
-  while ((match = token.exec(line)) !== null) {
-    if (match.index > lastIndex) nodes.push(line.slice(lastIndex, match.index));
-    const piece = match[0];
-    if (piece.startsWith("`")) {
+
+  const flushPending = () => {
+    if (pending) {
+      nodes.push(pending);
+      pending = "";
+    }
+  };
+
+  while (rest.length > 0) {
+    // Code span: literal, highest precedence, no recursion into its body.
+    const code = /^`([^`]+)`/.exec(rest);
+    if (code) {
+      flushPending();
       nodes.push(
         <code className="ws-md-inline-code" key={key++}>
-          {piece.slice(1, -1)}
+          {code[1]}
         </code>,
       );
-    } else if (piece.startsWith("**")) {
-      nodes.push(<strong key={key++}>{piece.slice(2, -2)}</strong>);
-    } else if (piece.startsWith("*")) {
-      nodes.push(<em key={key++}>{piece.slice(1, -1)}</em>);
-    } else {
-      const linkMatch = /\[([^\]]+)\]\(([^)]+)\)/.exec(piece);
-      if (linkMatch && isSafeHref(linkMatch[2])) {
+      rest = rest.slice(code[0].length);
+      continue;
+    }
+
+    // Link: [label](href). Label is rendered recursively; unsafe schemes degrade
+    // to the plain label text (XSS mitigation preserved).
+    const link = /^\[([^\]]+)\]\(([^)]+)\)/.exec(rest);
+    if (link) {
+      flushPending();
+      const [, label, href] = link;
+      if (isSafeHref(href)) {
         nodes.push(
-          <a className="ws-md-link" href={linkMatch[2]} key={key++} rel="noreferrer" target="_blank">
-            {linkMatch[1]}
+          <a className="ws-md-link" href={href} key={key++} rel="noreferrer" target="_blank">
+            {renderInline(label)}
           </a>,
         );
-      } else if (linkMatch) {
-        // Unsafe scheme (e.g. javascript:) in agent/LLM output — render the
-        // label as plain text rather than a clickable code-executing link.
-        nodes.push(linkMatch[1]);
       } else {
-        nodes.push(piece);
+        nodes.push(<Fragment key={key++}>{renderInline(label)}</Fragment>);
       }
+      rest = rest.slice(link[0].length);
+      continue;
     }
-    lastIndex = token.lastIndex;
+
+    // Bold before italic so `**` is not mis-read as two italic markers. Inner
+    // content is non-greedy and may contain any char, then is rendered
+    // recursively for nesting.
+    const bold = /^\*\*([\s\S]+?)\*\*/.exec(rest);
+    if (bold) {
+      flushPending();
+      nodes.push(<strong key={key++}>{renderInline(bold[1])}</strong>);
+      rest = rest.slice(bold[0].length);
+      continue;
+    }
+
+    // Italic content may embed whole `**bold**` chunks, so its body is a run of
+    // either a balanced bold pair or a non-`*` char; the trailing single `*`
+    // closes it. (Bold is tried above, so `rest` here never opens with `**`.)
+    const italic = /^\*((?:\*\*[\s\S]*?\*\*|[^*])+)\*/.exec(rest);
+    if (italic) {
+      flushPending();
+      nodes.push(<em key={key++}>{renderInline(italic[1])}</em>);
+      rest = rest.slice(italic[0].length);
+      continue;
+    }
+
+    // No token at the cursor: consume one char into the pending text buffer.
+    pending += rest[0];
+    rest = rest.slice(1);
   }
-  if (lastIndex < line.length) nodes.push(line.slice(lastIndex));
+
+  flushPending();
   return nodes;
 }

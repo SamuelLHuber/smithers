@@ -1,32 +1,27 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Terminal UI', () => {
-  test.beforeEach(async ({ page }) => {
-    // Mock the terminal WebSocket to avoid a PTY server dependency. page.route
-    // does not intercept WebSocket handshakes, so use routeWebSocket and close
-    // the socket immediately — the terminal then renders its "PTY server
-    // unavailable" state deterministically, independent of any live PTY server.
-    await page.routeWebSocket('**/terminal/ws', ws => {
-      ws.close();
-    });
-  });
+  // No WebSocket mocking: playwright.config.ts boots the real node-pty server
+  // (scripts/pty-server.ts) and vite proxies /terminal/ws to it, so these specs
+  // drive the live PTY just like terminal.spec.ts. The legitimate
+  // PTY-unavailable failure-injection case lives in terminal.spec.ts.
 
   test('displays terminal interface correctly', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
     // Should show the terminal component
     await expect(page.locator('.terminal-pane')).toBeVisible();
 
-    // Should show PTY server unavailable message
-    await expect(page.locator('.terminal-status')).toContainText(/PTY server unavailable/, { timeout: 5000 });
+    // The real PTY server attaches a session — status reflects the live socket.
+    await expect(page.locator('.terminal-status')).toHaveText(/attached|connected/i, { timeout: 10000 });
 
-    // Should still show the Ghostty terminal component structure
+    // Should show the Ghostty terminal component structure
     await expect(page.locator('.ghostty-terminal')).toBeVisible();
   });
 
   test('shows terminal tab management UI', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
     // Should show at least one terminal tab
@@ -38,7 +33,7 @@ test.describe('Terminal UI', () => {
   });
 
   test('opens command palette with keyboard shortcut', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
     // Command palette should not be visible initially
@@ -58,7 +53,7 @@ test.describe('Terminal UI', () => {
   });
 
   test('can create new terminal tab via command palette', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
     // Start with 1 tab
@@ -68,9 +63,15 @@ test.describe('Terminal UI', () => {
     await page.keyboard.press('Meta+p');
     await expect(page.locator('[data-testid="command-palette"]')).toBeVisible();
 
-    // Type to filter for new terminal
+    // Type to filter for the New Terminal command, then run it by clicking the
+    // filtered row. Clicking the row (rather than pressing Enter immediately
+    // after typing) avoids racing the palette's 80ms result debounce, which can
+    // otherwise resolve Enter against the unfiltered list.
+    await page.locator('.palette-input').click();
     await page.keyboard.type('New Terminal');
-    await page.keyboard.press('Enter');
+    await page
+      .locator('[data-testid="command-palette"] .palette-row', { hasText: 'New Terminal' })
+      .click();
 
     // Should now have 2 tabs
     await expect(page.locator('[data-testid="terminal-tab"]')).toHaveCount(2);
@@ -80,17 +81,20 @@ test.describe('Terminal UI', () => {
   });
 
   test('can close terminal tabs', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
-    // Create a second terminal tab (wait for the palette to mount, then focus
-    // its input before typing so the keystrokes are not dropped before autofocus
-    // has settled).
+    // Create a second terminal tab: open the palette, filter for the New
+    // Terminal command, and run it by clicking the filtered row (clicking the
+    // row avoids racing the palette's 80ms result debounce that Enter is subject
+    // to).
     await page.keyboard.press('Meta+p');
     await expect(page.locator('[data-testid="command-palette"]')).toBeVisible();
     await page.locator('.palette-input').click();
     await page.keyboard.type('New Terminal');
-    await page.keyboard.press('Enter');
+    await page
+      .locator('[data-testid="command-palette"] .palette-row', { hasText: 'New Terminal' })
+      .click();
 
     // Should have 2 tabs
     await expect(page.locator('[data-testid="terminal-tab"]')).toHaveCount(2);
@@ -106,17 +110,20 @@ test.describe('Terminal UI', () => {
   });
 
   test('can switch between terminal tabs', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
-    // Create a second terminal tab (wait for the palette to mount, then focus
-    // its input before typing so the keystrokes are not dropped before autofocus
-    // has settled).
+    // Create a second terminal tab: open the palette, filter for the New
+    // Terminal command, and run it by clicking the filtered row (clicking the
+    // row avoids racing the palette's 80ms result debounce that Enter is subject
+    // to).
     await page.keyboard.press('Meta+p');
     await expect(page.locator('[data-testid="command-palette"]')).toBeVisible();
     await page.locator('.palette-input').click();
     await page.keyboard.type('New Terminal');
-    await page.keyboard.press('Enter');
+    await page
+      .locator('[data-testid="command-palette"] .palette-row', { hasText: 'New Terminal' })
+      .click();
 
     // Should have 2 tabs
     await expect(page.locator('[data-testid="terminal-tab"]')).toHaveCount(2);
@@ -139,7 +146,7 @@ test.describe('Terminal UI', () => {
   });
 
   test('creates new terminal with hotkey', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
     // Start with 1 tab
@@ -153,11 +160,11 @@ test.describe('Terminal UI', () => {
   });
 
   test('handles terminal component lifecycle correctly', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
-    // Terminal should initialize and show unavailable status
-    await expect(page.locator('[data-testid="terminal-status"]')).toHaveText('PTY server unavailable — start with: bun scripts/dev.ts');
+    // Terminal should initialize and attach to the live PTY session.
+    await expect(page.locator('[data-testid="terminal-status"]')).toHaveText(/attached|connected/i, { timeout: 10000 });
 
     // Ghostty terminal component should still be rendered
     await expect(page.locator('.ghostty-terminal')).toBeVisible();
@@ -167,7 +174,7 @@ test.describe('Terminal UI', () => {
   });
 
   test('shows loading state during terminal initialization', async ({ page }) => {
-    await page.goto('http://127.0.0.1:5500/');
+    await page.goto('/');
     await page.getByTestId("nav.Workspace").click();
 
     // The Suspense fallback should appear briefly during Ghostty core loading
@@ -175,8 +182,8 @@ test.describe('Terminal UI', () => {
 
     await expect(page.locator('.terminal-pane')).toBeVisible();
 
-    // Either the loading message OR the error message should be visible
-    const hasLoadingOrError = await page.locator('.terminal-loading, .terminal-status').count();
-    expect(hasLoadingOrError).toBeGreaterThan(0);
+    // Either the loading message OR the status line should be present
+    const hasLoadingOrStatus = await page.locator('.terminal-loading, .terminal-status').count();
+    expect(hasLoadingOrStatus).toBeGreaterThan(0);
   });
 });
