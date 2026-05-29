@@ -35,6 +35,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
+  // Real-backend suite: every assertion waits on genuine RPC/stream content, and
+  // under full local parallelism (16 workers) every viewed live run also opens a
+  // real event stream to the shared seeded gateway. Give assertions headroom so
+  // contention-induced latency doesn't flake a true condition — a genuinely
+  // false assertion still fails, just after a longer wait.
+  expect: { timeout: 15_000 },
   reporter: 'html',
   use: {
     baseURL: `http://127.0.0.1:${testPort}`,

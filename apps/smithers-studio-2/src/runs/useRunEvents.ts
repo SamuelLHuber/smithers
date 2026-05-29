@@ -150,13 +150,18 @@ export function useRunEvents(runId: string | undefined): {
     const pendingLastLog = new Map<string, string>();
     let pendingEpoch = 0;
     let sawReal = false;
+    let ended = false;
     let scheduled = false;
     let rafHandle = 0;
 
     const flush = () => {
       scheduled = false;
       if (abort.signal.aborted) return;
-      if (sawReal) setStreaming(true);
+      // Only (re-)assert "live" while the stream is still open. A flush can be
+      // scheduled by the final run.completed frame and then run AFTER the
+      // generator returns and `finally` set streaming false — without this
+      // guard it would flip the badge back to "live" on a finished run forever.
+      if (sawReal && !ended) setStreaming(true);
       if (pendingLines.length > 0) {
         const batch = pendingLines;
         pendingLines = [];
@@ -253,6 +258,9 @@ export function useRunEvents(runId: string | undefined): {
         // A real drop/failure (connect refused, invalid frame). Best-effort:
         // fall through to the static + polling surface without throwing.
       } finally {
+        // Mark ended BEFORE clearing streaming so a still-scheduled flush (from
+        // the final frame) cannot re-assert "live" after the stream closed.
+        ended = true;
         if (!abort.signal.aborted) setStreaming(false);
       }
     })();

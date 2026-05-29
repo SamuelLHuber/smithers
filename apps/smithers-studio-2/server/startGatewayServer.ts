@@ -135,7 +135,11 @@ function startOutOfProcessEventBridge(
 ): () => void {
   const POLL_MS = 1_000;
   const PAGE_LIMIT = 500;
-  const TERMINAL = new Set(["finished", "failed", "cancelled"]);
+  // A run stops emitting events under its runId once it reaches any of these.
+  // `continued` (continue-as-new) is included: the engine marks the old runId
+  // `continued` and resumes under a FRESH runId, so the old one should be
+  // drained once and then ignored — otherwise the poller queries it forever.
+  const TERMINAL = new Set(["finished", "failed", "cancelled", "continued"]);
   const adapter = new SmithersDb(workflow.db);
   // runId -> highest persisted seq we have already fed to the gateway.
   const lastFedSeq = new Map<string, number>();
@@ -148,34 +152,48 @@ function startOutOfProcessEventBridge(
     // Never replay events for a run the gateway executes itself — it already
     // pumps those through handleSmithersEvent via onProgress.
     if (gatewayInstance.runRegistry?.has(runId)) return;
-    const afterSeq = lastFedSeq.get(runId) ?? -1;
-    const rows = (await adapter.listEventHistory(runId, {
-      afterSeq,
-      limit: PAGE_LIMIT,
-    })) as Array<{ seq?: unknown; payloadJson?: unknown; payload_json?: unknown }>;
-    let maxSeq = afterSeq;
-    for (const row of rows) {
-      const seq = typeof row.seq === "number" ? row.seq : Number(row.seq);
-      if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
-      // The adapter maps columns to camelCase (`payloadJson`); accept the raw
-      // snake_case form too in case a different storage backend surfaces it.
-      const payloadJson =
-        typeof row.payloadJson === "string"
-          ? row.payloadJson
-          : typeof row.payload_json === "string"
-            ? row.payload_json
-            : undefined;
-      if (!payloadJson) continue;
-      let event: unknown;
-      try {
-        event = JSON.parse(payloadJson);
-      } catch {
-        // A malformed row should not stall the whole bridge.
-        continue;
+    let afterSeq = lastFedSeq.get(runId) ?? -1;
+    // A terminal run is drained FULLY here: loop until a short page so its
+    // entire tail reaches the gateway even if it is more than PAGE_LIMIT events
+    // behind the persisted head (verbose detached runs easily exceed 500, and a
+    // run first seen already-terminal starts from seq -1). An active run feeds
+    // one page per tick and self-continues on the next tick, so it does not loop.
+    for (;;) {
+      const rows = (await adapter.listEventHistory(runId, {
+        afterSeq,
+        limit: PAGE_LIMIT,
+      })) as Array<{ seq?: unknown; payloadJson?: unknown; payload_json?: unknown }>;
+      let maxSeq = afterSeq;
+      for (const row of rows) {
+        const seq = typeof row.seq === "number" ? row.seq : Number(row.seq);
+        if (Number.isFinite(seq) && seq > maxSeq) maxSeq = seq;
+        // The adapter maps columns to camelCase (`payloadJson`); accept the raw
+        // snake_case form too in case a different storage backend surfaces it.
+        const payloadJson =
+          typeof row.payloadJson === "string"
+            ? row.payloadJson
+            : typeof row.payload_json === "string"
+              ? row.payload_json
+              : undefined;
+        if (!payloadJson) continue;
+        let event: unknown;
+        try {
+          event = JSON.parse(payloadJson);
+        } catch {
+          // A malformed row should not stall the whole bridge.
+          continue;
+        }
+        gatewayInstance.handleSmithersEvent?.(event);
       }
-      gatewayInstance.handleSmithersEvent?.(event);
+      const advanced = maxSeq > afterSeq;
+      if (advanced) {
+        afterSeq = maxSeq;
+        lastFedSeq.set(runId, maxSeq);
+      }
+      // Keep draining a terminal run while pages are full and the cursor still
+      // advances; `!advanced` guards against a stuck cursor (e.g. seq-less rows).
+      if (!terminal || rows.length < PAGE_LIMIT || !advanced) break;
     }
-    if (maxSeq > afterSeq) lastFedSeq.set(runId, maxSeq);
     // After a terminal run's final drain, stop tracking it so the poller does
     // not keep querying a finished run forever.
     if (terminal) {
@@ -188,9 +206,11 @@ function startOutOfProcessEventBridge(
     // Active runs cover everything still producing events; terminal runs are
     // drained once (to flush tail events) and then ignored.
     const runs = (await adapter.listRuns(1_000)) as Array<{ runId?: unknown; status?: unknown }>;
+    const live = new Set<string>();
     for (const run of runs) {
       const runId = typeof run.runId === "string" ? run.runId : undefined;
       if (!runId) continue;
+      live.add(runId);
       const status = typeof run.status === "string" ? run.status : "";
       const terminal = TERMINAL.has(status);
       if (terminal) {
@@ -200,6 +220,10 @@ function startOutOfProcessEventBridge(
       }
       await feedRun(runId, false);
     }
+    // Prune cursors for runs no longer in the listing so neither map grows with
+    // total historical run count over the gateway's lifetime.
+    for (const id of [...drained]) if (!live.has(id)) drained.delete(id);
+    for (const id of [...lastFedSeq.keys()]) if (!live.has(id)) lastFedSeq.delete(id);
   };
 
   const loop = (): void => {
