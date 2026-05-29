@@ -644,6 +644,9 @@ async function workspaceJson<T>(path: string, init?: RequestInit): Promise<T> {
       : `Workspace API failed with HTTP ${response.status}`;
     throw new Error(message);
   }
+  if (payload === undefined) {
+    throw new Error("Workspace gateway returned an empty response (is the gateway running?)");
+  }
   return payload as T;
 }
 
