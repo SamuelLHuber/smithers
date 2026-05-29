@@ -494,6 +494,14 @@ describe("extractGraph", () => {
 				"Subflow sf is missing output",
 			);
 		});
+
+		test("duplicate subflow id reports the Subflow kind", () => {
+			const root = hostEl("smithers:workflow", {}, [
+				hostEl("smithers:subflow", { id: "sf", output: "out" }),
+				hostEl("smithers:subflow", { id: "sf", output: "out" }),
+			]);
+			expect(() => extractGraph(root)).toThrow("Duplicate Subflow id detected");
+		});
 	});
 
 	describe("sandbox", () => {
@@ -557,6 +565,14 @@ describe("extractGraph", () => {
 				"Sandbox id is required",
 			);
 		});
+
+		test("duplicate sandbox id reports the Sandbox kind", () => {
+			const root = hostEl("smithers:workflow", {}, [
+				hostEl("smithers:sandbox", { id: "safe", output: "out" }),
+				hostEl("smithers:sandbox", { id: "safe", output: "out" }),
+			]);
+			expect(() => extractGraph(root)).toThrow("Duplicate Sandbox id detected");
+		});
 	});
 
 	describe("wait-for-event", () => {
@@ -610,6 +626,14 @@ describe("extractGraph", () => {
 			expect(() => extractGraph(hostEl("smithers:wait-for-event", { id: "wait" }))).toThrow(
 				"WaitForEvent wait is missing output",
 			);
+		});
+
+		test("duplicate wait-for-event id reports the WaitForEvent kind", () => {
+			const root = hostEl("smithers:workflow", {}, [
+				hostEl("smithers:wait-for-event", { id: "wait", output: "out" }),
+				hostEl("smithers:wait-for-event", { id: "wait", output: "out" }),
+			]);
+			expect(() => extractGraph(root)).toThrow("Duplicate WaitForEvent id detected");
 		});
 	});
 
@@ -665,6 +689,14 @@ describe("extractGraph", () => {
 			expect(() =>
 				extractGraph(hostEl("smithers:timer", { id: "bad", duration: "1s", every: "1m" })),
 			).toThrow("recurring timers");
+		});
+
+		test("duplicate timer id reports the Timer kind", () => {
+			const root = hostEl("smithers:workflow", {}, [
+				hostEl("smithers:timer", { id: "dup", duration: "1s" }),
+				hostEl("smithers:timer", { id: "dup", duration: "2s" }),
+			]);
+			expect(() => extractGraph(root)).toThrow("Duplicate Timer id detected");
 		});
 	});
 

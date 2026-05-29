@@ -308,13 +308,13 @@ export function extractGraph(root, opts) {
     const seenTcf = new Set();
     let ordinal = 0;
     /**
-   * @param {Record<string, unknown>} raw
    * @param {string} nodeId
+   * @param {string} kind
    * @param {Omit<TaskDescriptor, "ordinal" | "nodeId">} descriptor
    */
-    function addDescriptor(raw, nodeId, descriptor) {
+    function addDescriptor(nodeId, kind, descriptor) {
         if (seen.has(nodeId)) {
-            throw new SmithersError("DUPLICATE_ID", `Duplicate ${String(raw.__smithersKind ?? "Task")} id detected: ${nodeId}`, { id: nodeId });
+            throw new SmithersError("DUPLICATE_ID", `Duplicate ${kind} id detected: ${nodeId}`, { id: nodeId });
         }
         seen.add(nodeId);
         tasks.push({ nodeId, ordinal: ordinal++, ...descriptor });
@@ -399,7 +399,7 @@ export function extractGraph(root, opts) {
                 requireOutput(raw, nodeId, "Subflow");
                 const { retries, retryPolicy } = resolveRetryConfig(raw);
                 const output = resolveOutput(raw);
-                addDescriptor(raw, nodeId, {
+                addDescriptor(nodeId, "Subflow", {
                     ...common,
                     ...output,
                     needsApproval: false,
@@ -432,7 +432,7 @@ export function extractGraph(root, opts) {
             const { retries, retryPolicy } = resolveRetryConfig(raw);
             const output = resolveOutput(raw);
             const runtime = raw.__smithersSandboxRuntime ?? raw.runtime;
-            addDescriptor(raw, nodeId, {
+            addDescriptor(nodeId, "Sandbox", {
                 ...common,
                 ...output,
                 needsApproval: false,
@@ -479,7 +479,7 @@ export function extractGraph(root, opts) {
             requireOutput(raw, nodeId, "WaitForEvent");
             const output = resolveOutput(raw);
             const onTimeout = raw.__smithersOnTimeout ?? raw.onTimeout ?? "fail";
-            addDescriptor(raw, nodeId, {
+            addDescriptor(nodeId, "WaitForEvent", {
                 ...common,
                 ...output,
                 needsApproval: false,
@@ -524,7 +524,7 @@ export function extractGraph(root, opts) {
             if (raw.every !== undefined) {
                 throw new SmithersError("INVALID_INPUT", `Timer ${nodeId} uses every=, but recurring timers are not supported yet.`, { nodeId, every: raw.every });
             }
-            addDescriptor(raw, nodeId, {
+            addDescriptor(nodeId, "Timer", {
                 ...common,
                 outputTable: null,
                 outputTableName: "",
@@ -588,7 +588,7 @@ export function extractGraph(root, opts) {
             if (prompt === "[object Object]") {
                 throw new SmithersError("MDX_PRELOAD_INACTIVE", `Task "${logicalNodeId}" prompt resolved to [object Object].`);
             }
-            addDescriptor(raw, nodeId, {
+            addDescriptor(nodeId, "Task", {
                 ...common,
                 ...output,
                 needsApproval: Boolean(raw.needsApproval),
