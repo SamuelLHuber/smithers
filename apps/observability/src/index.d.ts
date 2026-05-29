@@ -342,6 +342,7 @@ type SmithersEvent$2 = {
     nodeId: string;
     iteration: number;
     attempt: number;
+    toolCallId: string;
     toolName: string;
     seq: number;
     timestampMs: number;
@@ -351,6 +352,7 @@ type SmithersEvent$2 = {
     nodeId: string;
     iteration: number;
     attempt: number;
+    toolCallId: string;
     toolName: string;
     seq: number;
     status: "success" | "error";
