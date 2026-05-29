@@ -1,4 +1,6 @@
+import { Database } from "bun:sqlite";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { STUDIO_SESSION_HEADER } from "../support/sessionHeader";
 import {
   SEEDED_CHAT_REPLY,
   SEEDED_CHAT_SESSION,
@@ -79,7 +81,100 @@ function freshState(): MutableState {
   };
 }
 
-const state = freshState();
+/**
+ * Per-session mutable state. Playwright's support `test` mints a unique
+ * `x-studio-session` header per test (see tests/support/test.ts) and applies it
+ * to BOTH the browser context and the `request` fixture, so every fetch a test
+ * makes — page or API — carries the same key. We hand each key its OWN fresh
+ * clone of the seed, so create/close/launch/fault mutations in one test never
+ * leak into another and absolute counts ("Loaded 1 issue", issue #103) stay
+ * deterministic no matter how many tests run concurrently. A request with no
+ * header lands in the single shared default bucket (the `bun dev` case).
+ */
+const sessions = new Map<string, MutableState>();
+
+function sessionFor(req: IncomingMessage): MutableState {
+  const header = req.headers[STUDIO_SESSION_HEADER];
+  const key = (Array.isArray(header) ? header[0] : header) || "__default__";
+  let existing = sessions.get(key);
+  if (!existing) {
+    existing = freshState();
+    sessions.set(key, existing);
+  }
+  return existing;
+}
+
+/**
+ * The REAL SQLite database backing the SQL Browser surface. Each session gets
+ * its OWN in-memory database (keyed by the `x-studio-session` header, exactly
+ * like the JJHub state), built from SEEDED_SQL_TABLES: every table is created
+ * from its real `createSql` and populated with its seeded rows via
+ * parameterized inserts. The `/sql/*` handlers then run genuine SQL against the
+ * session's own engine — no regex faking, so the SQL Browser is an honest
+ * end-to-end exercise of real SQLite.
+ *
+ * ISOLATION: a per-session database means a query in one test can never corrupt
+ * the rows another parallel test reads, even if a write somehow executed.
+ *
+ * READ-ONLY CONTRACT: the SQL Browser is presented as read-only, so `/sql/query`
+ * rejects any statement that is not a pure read (see {@link isReadOnlySql}) with
+ * a clear read-only error BEFORE it ever touches the engine. As defense in
+ * depth the schema itself is locked after seeding via PRAGMA query_only, so even
+ * a statement that slipped past the guard could not mutate the seeded rows.
+ */
+function buildSeededSqlDb(): Database {
+  const db = new Database(":memory:");
+  for (const table of SEEDED_SQL_TABLES) {
+    db.run(table.createSql);
+    if (table.rows.length === 0) continue;
+    const columns = Object.keys(table.rows[0]!);
+    const placeholders = columns.map(() => "?").join(", ");
+    const insert = db.query(
+      `INSERT INTO "${table.name}" (${columns.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders})`,
+    );
+    for (const row of table.rows) {
+      insert.run(...columns.map((column) => (row as Record<string, unknown>)[column] as never));
+    }
+  }
+  // Lock the connection read-only after seeding: any INSERT/UPDATE/DELETE/DDL
+  // that reaches the engine now fails with SQLite's real "attempt to write a
+  // readonly database" error instead of mutating the seeded rows.
+  db.run("PRAGMA query_only = TRUE");
+  return db;
+}
+
+const sqlDbBySession = new Map<string, Database>();
+
+function sqlDbFor(req: IncomingMessage): Database {
+  const header = req.headers[STUDIO_SESSION_HEADER];
+  const key = (Array.isArray(header) ? header[0] : header) || "__default__";
+  let db = sqlDbBySession.get(key);
+  if (!db) {
+    db = buildSeededSqlDb();
+    sqlDbBySession.set(key, db);
+  }
+  return db;
+}
+
+/**
+ * The SQL Browser is read-only, so `/sql/query` only accepts statements that
+ * cannot mutate the database: a single SELECT / WITH (CTE) / PRAGMA read /
+ * EXPLAIN, with no trailing statement that could smuggle in a write
+ * (`SELECT 1; DELETE FROM runs`). Anything else — INSERT / UPDATE / DELETE /
+ * DROP / CREATE / ALTER / REPLACE / a multi-statement batch — is rejected before
+ * execution with a clear read-only error.
+ */
+function isReadOnlySql(sql: string): boolean {
+  // Strip a single trailing statement separator so `SELECT ...;` is still a
+  // single statement, then reject any further `;`-separated statement.
+  const trimmed = sql.trim().replace(/;\s*$/, "");
+  if (trimmed.length === 0) return false;
+  if (trimmed.includes(";")) return false;
+  return /^(select|with|pragma|explain)\b/i.test(trimmed);
+}
+
+const READ_ONLY_SQL_ERROR =
+  "SQL Browser is read-only: only SELECT / WITH / PRAGMA / EXPLAIN queries are allowed.";
 
 function send(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
@@ -141,6 +236,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (url.pathname === "/health") {
     return send(res, 200, { ok: true });
   }
+
+  // Resolve this request's isolated state bucket from its session header.
+  const state = sessionFor(req);
 
   if (url.pathname === "/__smithers_studio/workspace") {
     return send(res, 200, { cwd: "/tmp/studio", root: "/tmp/studio", hasSmithers: true });
@@ -451,52 +549,75 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     return send(res, 200, { results });
   }
 
-  // SQL Browser (read-only). Served from the seeded SQL tables: the server
-  // reports real table/column/row data backing the SQL surface. Queries return
-  // the rows of the table they reference (the surface's default query is
-  // `SELECT * FROM "runs" LIMIT 100;`), so the result is the same seeded run
-  // data the Gateway serves — the SQL Browser and Runs surfaces agree.
+  // SQL Browser (READ-ONLY). Backed by a REAL per-session in-memory SQLite
+  // database (`bun:sqlite`) built from SEEDED_SQL_TABLES — NOT regex-faked. Every
+  // `/sql/*` response is whatever the genuine SQLite engine produces:
+  // `/sql/tables` reads sqlite_master, `/sql/schema` runs PRAGMA table_info,
+  // and `/sql/query` executes the spec's literal SQL and returns real result
+  // rows (a bad query yields the engine's real error). The `runs` table mirrors
+  // SEEDED_RUNS, so the SQL Browser and Runs surfaces agree on the same data.
+  // The DB is per-session (isolated) AND read-only (PRAGMA query_only + a
+  // guard), so a write/DDL is rejected and can never corrupt another test.
+  const sqlDb = sqlDbFor(req);
   if (path === "/sql/tables") {
-    const tables = SEEDED_SQL_TABLES.map((table) => ({
-      name: table.name,
-      rowCount: table.rows.length,
-      type: "table",
-    }));
-    return send(res, 200, { tables, dbPath: SEEDED_SQL_DB_PATH });
+    const tables = sqlDb
+      .query(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+      )
+      .all() as Array<{ name: string }>;
+    const withCounts = tables.map((table) => {
+      const count = sqlDb
+        .query(`SELECT COUNT(*) AS c FROM "${table.name}"`)
+        .get() as { c: number };
+      return { name: table.name, rowCount: count.c, type: "table" };
+    });
+    return send(res, 200, { tables: withCounts, dbPath: SEEDED_SQL_DB_PATH });
   }
   if (path === "/sql/schema") {
     const tableName = url.searchParams.get("tableName") ?? "";
-    const table = SEEDED_SQL_TABLES.find((entry) => entry.name === tableName);
-    if (!table) return send(res, 404, { error: `unknown table ${tableName}` });
-    const columns = Object.keys(table.rows[0] ?? {}).map((name, index) => ({
-      cid: index,
-      name,
-      type: "TEXT",
-      notNull: name === "id" || name === "namespace" || name === "key",
-      defaultValue: null,
-      primaryKey: name === "id",
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(tableName)) {
+      return send(res, 404, { error: `unknown table ${tableName}` });
+    }
+    const info = sqlDb.query(`PRAGMA table_info("${tableName}")`).all() as Array<{
+      cid: number;
+      name: string;
+      type: string;
+      notnull: number;
+      dflt_value: unknown;
+      pk: number;
+    }>;
+    if (info.length === 0) return send(res, 404, { error: `unknown table ${tableName}` });
+    const columns = info.map((column) => ({
+      cid: column.cid,
+      name: column.name,
+      type: column.type,
+      notNull: column.notnull === 1,
+      defaultValue: column.dflt_value ?? null,
+      primaryKey: column.pk > 0,
     }));
-    return send(res, 200, {
-      schema: { tableName, columns },
-      dbPath: SEEDED_SQL_DB_PATH,
-    });
+    return send(res, 200, { schema: { tableName, columns }, dbPath: SEEDED_SQL_DB_PATH });
   }
   if (path === "/sql/query" && method === "POST") {
     const query = String(body.query ?? "");
-    const match = query.match(/from\s+"?([a-z_]+)"?/i);
-    const tableName = match?.[1] ?? SEEDED_SQL_TABLES[0]!.name;
-    const table = SEEDED_SQL_TABLES.find((entry) => entry.name === tableName);
-    if (!table) {
-      return send(res, 400, { error: `no such table: ${tableName}` });
+    // Reject any write/DDL BEFORE touching the engine: the SQL Browser is
+    // read-only, so a DELETE/INSERT/UPDATE/DROP (or a multi-statement batch that
+    // hides one) gets the clear read-only error, not execution.
+    if (query.trim().length > 0 && !isReadOnlySql(query)) {
+      return send(res, 400, { error: READ_ONLY_SQL_ERROR });
     }
-    const columns = Object.keys(table.rows[0] ?? {});
-    const rows = table.rows.map((row) =>
-      columns.map((column) => String((row as Record<string, unknown>)[column])),
-    );
-    return send(res, 200, {
-      result: { columns, rows },
-      dbPath: SEEDED_SQL_DB_PATH,
-    });
+    try {
+      const stmt = sqlDb.query(query);
+      const rawRows = stmt.all() as Array<Record<string, unknown>>;
+      const columns = stmt.columnNames as string[];
+      const rows = rawRows.map((row) =>
+        columns.map((column) => (row[column] == null ? "" : String(row[column]))),
+      );
+      return send(res, 200, { result: { columns, rows }, dbPath: SEEDED_SQL_DB_PATH });
+    } catch (error) {
+      return send(res, 400, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   // Logs firehose. Served from the seeded log entries; supports the level /

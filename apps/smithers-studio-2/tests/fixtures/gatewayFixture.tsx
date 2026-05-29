@@ -10,6 +10,9 @@ import {
   LIVE_APPROVAL_RUN,
   LIVE_APPROVAL_RUN_IDS,
   LIVE_CANCEL_RUN,
+  LIVE_MULTIFRAME_RUN,
+  LIVE_PROGRESSING_RUN,
+  LIVE_RESUMABLE_RUN,
   LIVE_UI_RUN,
 } from "./seededData";
 
@@ -38,6 +41,9 @@ const tempDir = mkdtempSync(join(tmpdir(), "studio2-gateway-"));
 const dbPath = join(tempDir, "runs.db");
 const longDbPath = join(tempDir, "long.db");
 const uiDbPath = join(tempDir, "ui.db");
+const multiframeDbPath = join(tempDir, "multiframe.db");
+const progressingDbPath = join(tempDir, "progressing.db");
+const resumableDbPath = join(tempDir, "resumable.db");
 const workflowUiEntry = fileURLToPath(new URL("./workflowUiEntry.ts", import.meta.url));
 
 const { smithers, Workflow, Task, Approval, outputs } = createSmithers(
@@ -55,6 +61,26 @@ const long = createSmithers({ done: z.object({ ok: z.boolean() }) }, { dbPath: l
 // into the embedded workflow UI. Owns its own DB for the same reason as
 // `studio-long`: one run per adapter, no `listRuns` duplication.
 const ui = createSmithers({ done: z.object({ ok: z.boolean() }) }, { dbPath: uiDbPath });
+
+// ROUND-2 fixtures, each on its OWN DB (one run per adapter, no listRuns dupes):
+//   - multiframe: several sequential tasks that all settle, committing >1 frame
+//     so the Rewind/time-travel button renders (frameCount > 1).
+//   - progressing: tasks separated by a short delay, so the run stays Running
+//     while its committed frameNo advances — live-run progression.
+//   - resumable: a multi-task run that finishes to a terminal state, so the
+//     toolbar shows Resume and the real resumeRun RPC can be driven against it.
+const multiframe = createSmithers(
+  { step: z.object({ index: z.number() }) },
+  { dbPath: multiframeDbPath },
+);
+const progressing = createSmithers(
+  { step: z.object({ index: z.number() }) },
+  { dbPath: progressingDbPath },
+);
+const resumable = createSmithers(
+  { step: z.object({ index: z.number() }) },
+  { dbPath: resumableDbPath },
+);
 
 // The approval workflow. It is EXECUTED to a real pending approval gate so the
 // run-detail flows have a real tree + gate. Its node ids + approval
@@ -104,6 +130,51 @@ const uiWorkflow = ui.smithers(() => (
   </ui.Workflow>
 ));
 
+// ROUND-2: the multi-frame workflow. Three sequential tasks that each settle
+// immediately, so the orchestrator commits a frame per task — the run finishes
+// with frameNo > 1, which is what makes the Runs Rewind button render.
+const multiframeWorkflow = multiframe.smithers(() => (
+  <multiframe.Workflow name={LIVE_MULTIFRAME_RUN.workflowKey}>
+    {LIVE_MULTIFRAME_RUN.taskNodeIds.map((nodeId, index) => (
+      <multiframe.Task key={nodeId} id={nodeId} output={multiframe.outputs.step}>
+        {async () => ({ index })}
+      </multiframe.Task>
+    ))}
+  </multiframe.Workflow>
+));
+
+// ROUND-2: the progressing workflow. The first tasks settle quickly (committing
+// several frames so frameNo > 1), then the run PARKS on a task that sleeps ~10
+// minutes — so the run stays Running (toolbar shows Cancel) while already
+// carrying a multi-frame tree. A phase-2 spec can assert the Running state and
+// the committed frames without racing the run to completion.
+const progressingWorkflow = progressing.smithers(() => (
+  <progressing.Workflow name={LIVE_PROGRESSING_RUN.workflowKey}>
+    {LIVE_PROGRESSING_RUN.taskNodeIds.map((nodeId, index) => (
+      <progressing.Task key={nodeId} id={nodeId} output={progressing.outputs.step}>
+        {async () => {
+          if (nodeId === LIVE_PROGRESSING_RUN.parkNodeId) {
+            await new Promise((resolve) => setTimeout(resolve, 600_000));
+          }
+          return { index };
+        }}
+      </progressing.Task>
+    ))}
+  </progressing.Workflow>
+));
+
+// ROUND-2: the resumable workflow. A multi-task run that finishes to a terminal
+// state, so the toolbar offers Resume and the real resumeRun RPC has a target.
+const resumableWorkflow = resumable.smithers(() => (
+  <resumable.Workflow name={LIVE_RESUMABLE_RUN.workflowKey}>
+    {LIVE_RESUMABLE_RUN.taskNodeIds.map((nodeId, index) => (
+      <resumable.Task key={nodeId} id={nodeId} output={resumable.outputs.step}>
+        {async () => ({ index })}
+      </resumable.Task>
+    ))}
+  </resumable.Workflow>
+));
+
 // Seed AFTER createSmithers so we control the rows the Gateway will read.
 seedRunStore(dbPath);
 
@@ -111,6 +182,9 @@ const gateway = new Gateway({ heartbeatMs: 250 });
 gateway.register(LIVE_APPROVAL_RUN.workflowKey, approvalWorkflow);
 gateway.register(LIVE_CANCEL_RUN.workflowKey, longWorkflow);
 gateway.register(LIVE_UI_RUN.workflowKey, uiWorkflow, { ui: { entry: workflowUiEntry } });
+gateway.register(LIVE_MULTIFRAME_RUN.workflowKey, multiframeWorkflow);
+gateway.register(LIVE_PROGRESSING_RUN.workflowKey, progressingWorkflow);
+gateway.register(LIVE_RESUMABLE_RUN.workflowKey, resumableWorkflow);
 
 const auth = { triggeredBy: "fixture", scopes: ["*"], role: "operator", tokenId: null };
 
@@ -126,6 +200,21 @@ for (const runId of LIVE_APPROVAL_RUN_IDS) {
 }
 await gateway.startRun(LIVE_CANCEL_RUN.workflowKey, {}, auth, LIVE_CANCEL_RUN.runId, { resume: false });
 await gateway.startRun(LIVE_UI_RUN.workflowKey, {}, auth, LIVE_UI_RUN.runId, { resume: false });
+
+// ROUND-2 runs. The multi-frame + resumable runs must reach a terminal state
+// BEFORE listen() so their snapshots carry the committed frames (frameNo > 1)
+// and the Resume action is available the moment a spec selects them. The
+// progressing run is started but deliberately NOT awaited to completion: its
+// per-step delays keep it actively Running so a spec can observe its frame
+// count climb. Capture each terminal run's inflight promise so we can await it.
+await gateway.startRun(LIVE_MULTIFRAME_RUN.workflowKey, {}, auth, LIVE_MULTIFRAME_RUN.runId, { resume: false });
+const multiframeDone = gateway.inflightRuns.get(LIVE_MULTIFRAME_RUN.runId);
+await gateway.startRun(LIVE_RESUMABLE_RUN.workflowKey, {}, auth, LIVE_RESUMABLE_RUN.runId, { resume: false });
+const resumableDone = gateway.inflightRuns.get(LIVE_RESUMABLE_RUN.runId);
+await gateway.startRun(LIVE_PROGRESSING_RUN.workflowKey, {}, auth, LIVE_PROGRESSING_RUN.runId, { resume: false });
+
+// Await the two terminal runs so their frames are committed before specs run.
+await Promise.allSettled([multiframeDone, resumableDone].filter(Boolean));
 
 const pendingRunIds = new Set<string>(LIVE_APPROVAL_RUN_IDS);
 let allGatesReady = false;
@@ -149,7 +238,10 @@ if (!allGatesReady) {
 const port = Number(process.env.SMITHERS_STUDIO_GATEWAY_PORT ?? "7400");
 await gateway.listen({ port, host: "127.0.0.1" });
 process.stdout.write(
-  `studio-2 e2e gateway listening on http://127.0.0.1:${port} (live gates ready: ${LIVE_APPROVAL_RUN_IDS.join(", ")}; cancel run: ${LIVE_CANCEL_RUN.runId})\n`,
+  `studio-2 e2e gateway listening on http://127.0.0.1:${port} ` +
+    `(live gates: ${LIVE_APPROVAL_RUN_IDS.join(", ")}; cancel: ${LIVE_CANCEL_RUN.runId}; ` +
+    `multiframe: ${LIVE_MULTIFRAME_RUN.runId}; progressing: ${LIVE_PROGRESSING_RUN.runId}; ` +
+    `resumable: ${LIVE_RESUMABLE_RUN.runId})\n`,
 );
 
 async function shutdown() {

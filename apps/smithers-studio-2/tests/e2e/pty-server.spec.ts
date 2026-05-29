@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/test';
 
 test.describe('PTY Server', () => {
   test('PTY server health endpoint responds', async ({ request }) => {

@@ -27,6 +27,10 @@ const ptyUrl = `http://127.0.0.1:${ptyPort}`;
 
 export default defineConfig({
   testDir: './tests',
+  // Playwright e2e specs are `*.spec.ts`. `*.test.ts` files under tests/ (e.g.
+  // tests/server/pty-server.test.ts) are Bun unit tests that import `bun:*`
+  // modules and must NOT be collected by the node-hosted Playwright runner.
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

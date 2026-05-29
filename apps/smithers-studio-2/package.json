@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "pnpm run typecheck && vite build",
     "e2e": "playwright test",
+    "test:unit": "bun test --path-ignore-patterns=\"**/tests/**\"",
     "preview": "vite preview --host 127.0.0.1",
     "dev:desktop": "electrobun dev --watch",
     "build:desktop": "pnpm run build && electrobun build"

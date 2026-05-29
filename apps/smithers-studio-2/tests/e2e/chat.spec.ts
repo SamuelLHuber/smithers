@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/test";
 import { SEEDED_CHAT_REPLY, SEEDED_CHAT_SESSION } from "../fixtures/seededData";
 
 /**

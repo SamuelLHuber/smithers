@@ -316,6 +316,14 @@ export class SmithersGatewayClient {
    * stream reconnects with exponential backoff + jitter and resumes from the
    * last per-run `seq` it observed, leaning on the gateway's `afterSeq` /
    * `run.gap_resync` replay semantics. Aborting the signal stops reconnection.
+   *
+   * An abrupt server drop surfaces as a WebSocket close (code 1006) with no
+   * `error` event, so the inner stream ends *gracefully* rather than throwing.
+   * We therefore reconnect whenever the inner stream ends without the run
+   * reaching a terminal state (a `run.completed` frame) and without the abort
+   * signal firing — treating a silent close exactly like a thrown drop. A clean
+   * completion (run finished/failed/cancelled) or an aborted signal stops the
+   * loop so we never spin on a legitimately-ended stream.
    */
   async *streamRunEventsResilient(
     params: GatewayRpcParams<"streamRunEvents">,
@@ -325,6 +333,7 @@ export class SmithersGatewayClient {
     let lastSeq = typeof params.afterSeq === "number" ? params.afterSeq : undefined;
     let attempt = 0;
     while (!signal?.aborted) {
+      let reachedTerminal = false;
       try {
         for await (const frame of this.streamRunEvents(
           { runId: params.runId, ...(typeof lastSeq === "number" ? { afterSeq: lastSeq } : {}) },
@@ -337,16 +346,27 @@ export class SmithersGatewayClient {
           if (typeof seq === "number") {
             lastSeq = seq;
           }
+          if (isObject(frame.payload) && frame.payload.event === "run.completed") {
+            reachedTerminal = true;
+          }
           yield frame;
         }
-        return;
       } catch (cause) {
         if (signal?.aborted) {
           return;
         }
         await sleepWithSignal(gatewayBackoffDelay(attempt, options.backoff), signal);
         attempt += 1;
+        continue;
       }
+      // The inner stream ended without throwing. A graceful end is only a clean
+      // stop when the run actually completed or the caller aborted; otherwise it
+      // is a silent socket drop (close code 1006) and we reconnect + resume.
+      if (reachedTerminal || signal?.aborted) {
+        return;
+      }
+      await sleepWithSignal(gatewayBackoffDelay(attempt, options.backoff), signal);
+      attempt += 1;
     }
   }
 

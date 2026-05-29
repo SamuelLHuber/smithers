@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "../support/test";
+import type { Page } from "@playwright/test";
 import {
   LIVE_APPROVAL_RUN,
   LIVE_CANCEL_RUN,
@@ -170,9 +171,15 @@ test.describe("Runs surface — live run detail (real gateway)", () => {
     await openRuns(page);
     await selectRun(page, LIVE_APPROVAL_RUN.runId);
 
+    // This spec is READ-ONLY against the CANONICAL {@link LIVE_APPROVAL_RUN}
+    // gate. The mutating approve/deny specs act on their own dedicated runs
+    // ({@link LIVE_MUTABLE_RUN_IDS}), so this run's gate is never consumed by a
+    // parallel test — the gate is always pending here. The inline gate is driven
+    // by the real listApprovals RPC, which can take longer to resolve under full
+    // parallel load, so allow a generous timeout for it to surface.
     await page.getByTestId(`tree.row.${LIVE_APPROVAL_RUN.approvalNodeId}`).click();
     const gate = page.getByTestId("runs.approvalGate");
-    await expect(gate).toBeVisible();
+    await expect(gate).toBeVisible({ timeout: 20_000 });
     await expect(gate).toContainText(LIVE_APPROVAL_RUN.approvalTitle);
     await expect(gate).toContainText(LIVE_APPROVAL_RUN.approvalSummary);
     await expect(page.getByTestId("runs.approvalGate.approve")).toBeVisible();

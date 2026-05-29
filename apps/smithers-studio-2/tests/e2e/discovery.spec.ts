@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/test";
 import {
   SEEDED_MEMORY_FACTS,
   SEEDED_SCORES,

@@ -177,6 +177,65 @@ export const LIVE_UI_RUN = {
 } as const;
 
 /**
+ * ROUND-2 live run: a MULTI-FRAME run. The fixture executes a workflow with
+ * several sequential tasks that ALL settle, so the orchestrator commits more
+ * than one frame (`getDevToolsSnapshot.frameNo > 1`). That is exactly the
+ * condition the Runs toolbar uses to render the Rewind / time-travel button
+ * (see src/runs/RunToolbar.tsx `frameCount > 1`), so a phase-2 spec can select
+ * this run and exercise the rewind path. The run finishes, so it is ALSO a
+ * terminal run that exposes Resume — but prefer {@link LIVE_RESUMABLE_RUN} for
+ * the dedicated resume path to keep rewind and resume specs isolated.
+ *
+ * It runs on its OWN SQLite DB + workflow registration so its run never
+ * duplicates the other adapters' runs across `listRuns`.
+ */
+export const LIVE_MULTIFRAME_RUN = {
+  runId: "run-multiframe-live",
+  workflowKey: "studio-multiframe",
+  /** The sequential task node ids, in commit order. Three tasks → ≥3 frames. */
+  taskNodeIds: ["mf-step-1", "mf-step-2", "mf-step-3"] as const,
+} as const;
+
+/**
+ * ROUND-2 live run: a RUNNING (non-terminal) run that has already PROGRESSED and
+ * STAYS active. The fixture executes a workflow whose first tasks settle quickly
+ * (committing several frames, so `getDevToolsSnapshot.frameNo > 1` by the time
+ * the gateway binds), then PARKS on a final task that sleeps effectively forever.
+ * The run therefore stays in the gateway's active set — the toolbar shows Cancel
+ * and the state pill reads "Running" — while already carrying multiple committed
+ * frames. A phase-2 spec can assert live-run state (Running) and the multi-frame
+ * tree without racing the run to completion. The fixture awaits the quick steps'
+ * frames before binding (see gatewayFixture.tsx), so the Running + multi-frame
+ * state is guaranteed, not timing-dependent. Its own DB + registration.
+ */
+export const LIVE_PROGRESSING_RUN = {
+  runId: "run-progressing-live",
+  workflowKey: "studio-progressing",
+  /**
+   * Sequential task node ids. The first three settle quickly (committing frames);
+   * the LAST (`pg-park`) sleeps ~10 minutes so the run stays Running for the
+   * whole suite. The first node doubles as the readiness marker the fixture
+   * waits on before binding.
+   */
+  taskNodeIds: ["pg-step-1", "pg-step-2", "pg-step-3", "pg-park"] as const,
+  /** The parking task's id — the one that keeps the run alive. */
+  parkNodeId: "pg-park",
+} as const;
+
+/**
+ * ROUND-2 live run: a TERMINAL, RESUMABLE run for the resume path. The fixture
+ * executes a workflow that runs to a finished terminal state, so the Runs
+ * toolbar shows Resume (see RunToolbar.tsx — terminal runs render Resume) and a
+ * phase-2 spec can drive the real `resumeRun` RPC against it. It is multi-task
+ * so it also carries a real tree. Its own DB + registration.
+ */
+export const LIVE_RESUMABLE_RUN = {
+  runId: "run-resumable-live",
+  workflowKey: "studio-resumable",
+  taskNodeIds: ["rs-step-1", "rs-step-2"] as const,
+} as const;
+
+/**
  * Nodes the live approval run renders. These are NOT seeded as DB rows — they
  * are produced by executing the workflow — but the shape is kept here so the
  * run-detail specs assert on stable ids/labels.

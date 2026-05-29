@@ -15,6 +15,14 @@ function tableExists(name) {
 }
 
 function numberOr(value, fallback) {
+  // A missing query param is forwarded by the server as `null` (and an absent
+  // key as `undefined` / ""). Treat those as "not provided" so the caller's
+  // default applies instead of `Number(null) === 0`, which would otherwise
+  // clamp limits down to a single row. An explicit numeric value (including 0)
+  // still wins.
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 }

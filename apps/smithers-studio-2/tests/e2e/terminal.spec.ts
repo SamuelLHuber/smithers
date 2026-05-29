@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '../support/test';
+import type { Page } from '@playwright/test';
 
 test.describe('Terminal Integration', () => {
   test('creates PTY session and displays shell output', async ({ page }) => {

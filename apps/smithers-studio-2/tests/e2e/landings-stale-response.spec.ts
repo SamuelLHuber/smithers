@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../support/test";
 import { SEEDED_JJHUB_STATE, STALE_DIFF_DELAY_MS } from "../fixtures/seededData";
 
 /**

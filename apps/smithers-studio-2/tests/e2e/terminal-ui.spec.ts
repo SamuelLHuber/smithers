@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../support/test';
 
 test.describe('Terminal UI', () => {
   // No WebSocket mocking: playwright.config.ts boots the real node-pty server
