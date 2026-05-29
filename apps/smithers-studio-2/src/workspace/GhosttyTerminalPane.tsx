@@ -8,16 +8,48 @@ type CoreResult =
   | { ok: true; core: Awaited<ReturnType<typeof GhosttyCore.load>> }
   | { ok: false; error: string };
 
-const corePromise: Promise<CoreResult> = GhosttyCore.load({
-  scrollbackLimit: 4_000,
-})
-  .then((core): CoreResult => ({ ok: true, core }))
-  .catch(
-    (error): CoreResult => ({
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    }),
-  );
+/**
+ * One Ghostty core per pane, cached by tab id. Each terminal pane MUST own its
+ * own core: a GhosttyCore wraps a single WASM terminal grid, so sharing one
+ * instance across panes makes every tab render the same buffer (typing in one
+ * tab appears in all of them). The cache is keyed by tab id (not created in
+ * render) so the promise stays stable across the Suspense unmount/remount cycle
+ * — creating a new promise on every suspended render would loop forever.
+ */
+const coreByTab = new Map<string, Promise<CoreResult>>();
+
+function terminalCoreFor(tabId: string): Promise<CoreResult> {
+  let promise = coreByTab.get(tabId);
+  if (!promise) {
+    promise = GhosttyCore.load({ scrollbackLimit: 4_000 })
+      .then((core): CoreResult => ({ ok: true, core }))
+      .catch(
+        (error): CoreResult => ({
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    coreByTab.set(tabId, promise);
+  }
+  return promise;
+}
+
+type PtyStatus = "connecting" | "creating" | "attached" | "exited" | "error";
+
+function terminalStatusLabel(status: PtyStatus): string {
+  switch (status) {
+    case "connecting":
+      return "Connecting…";
+    case "creating":
+      return "Starting session…";
+    case "attached":
+      return "Attached";
+    case "exited":
+      return "Session ended";
+    case "error":
+      return "PTY server unavailable — start with: bun scripts/dev.ts";
+  }
+}
 
 let rpcIdCounter = 0;
 
@@ -30,9 +62,11 @@ function usePtySession(tabId: string, write: (data: string) => void) {
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const pendingRef = useRef<Map<number, RpcCallbacks>>(new Map());
-  const [status, setStatus] = useState<
-    "connecting" | "creating" | "attached" | "exited" | "error"
-  >("connecting");
+  // Set while this pane is intentionally tearing down its socket (unmount or
+  // StrictMode's mount/unmount/mount cycle) so the resulting onclose is not
+  // mistaken for a failed PTY connection.
+  const closingRef = useRef(false);
+  const [status, setStatus] = useState<PtyStatus>("connecting");
 
   const rpcCall = useCallback(
     (method: string, params: Record<string, unknown>): Promise<unknown> => {
@@ -52,6 +86,7 @@ function usePtySession(tabId: string, write: (data: string) => void) {
   );
 
   useEffect(() => {
+    closingRef.current = false;
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(
       `${protocol}//${location.host}/terminal/ws`,
@@ -111,11 +146,21 @@ function usePtySession(tabId: string, write: (data: string) => void) {
         cb.reject(new Error("connection closed"));
       }
       pendingRef.current.clear();
+      // A close that lands before we ever attached (or created) the session
+      // means the PTY server never accepted us — surface the actionable error
+      // instead of a perpetual "Connecting…". Skip this for an intentional
+      // teardown; a close after attach is a normal session end reported via the
+      // session_exited notification.
+      if (closingRef.current) return;
+      setStatus((prev) =>
+        prev === "connecting" || prev === "creating" ? "error" : prev,
+      );
     };
 
     ws.onerror = () => setStatus("error");
 
     return () => {
+      closingRef.current = true;
       const sid = sessionIdRef.current;
       if (sid && ws.readyState === WebSocket.OPEN) {
         ws.send(
@@ -171,7 +216,11 @@ export function GhosttyTerminalPane({
   tab: TerminalTab;
 }) {
   const { ref, write } = useTerminal();
-  const result = use(corePromise);
+  // One core per pane, keyed by tab id so each tab renders into its own grid.
+  // The promise is cached by tab id (not per mount) so it stays stable across
+  // the Suspense and StrictMode mount/unmount cycles — otherwise `use` would
+  // suspend forever on an ever-new promise.
+  const result = use(terminalCoreFor(tab.id));
   const { status, sendInput, sendResize } = usePtySession(tab.id, write);
 
   const handleData = useCallback(
@@ -205,16 +254,19 @@ export function GhosttyTerminalPane({
   return (
     <div
       aria-hidden={!active}
+      // `inert` takes the inactive pane out of the focus order entirely, so a
+      // hidden terminal can never steal keyboard focus and locally echo input
+      // meant for the active tab — keeping the two terminal sessions isolated.
+      inert={!active}
       className={`terminal-pane ${active ? "active" : ""}`}
     >
-      {status === "error" && (
-        <div className="terminal-status" data-testid="terminal-status">
-          PTY server unavailable — start with: bun scripts/dev.ts
-        </div>
-      )}
-      {status === "exited" && (
-        <div className="terminal-status" data-testid="terminal-status">Session ended</div>
-      )}
+      <div
+        className={`terminal-status terminal-status-${status}`}
+        data-status={status}
+        data-testid="terminal-status"
+      >
+        {terminalStatusLabel(status)}
+      </div>
       <Terminal
         autoResize
         className="ghostty-terminal"
