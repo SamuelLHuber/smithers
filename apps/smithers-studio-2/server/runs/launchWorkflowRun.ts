@@ -56,7 +56,12 @@ export async function launchWorkflowRun(workflow: string, input: Record<string, 
   }
   const workflowPath = await resolveWorkflowPath(status.root, trimmed);
 
-  const args = ["up", workflowPath, "--detach"];
+  // Ask the CLI for its structured output envelope rather than scraping stdout:
+  // `smithers up --detach` prints a human "Next steps" CTA block as its LAST
+  // line, so the previous last-line scrape returned a CTA string, not the run
+  // id. `--format json --full-output` emits `{ ok, data: { runId, ... }, meta }`
+  // which we parse and validate.
+  const args = ["up", workflowPath, "--detach", "--format", "json", "--full-output"];
   if (input && Object.keys(input).length > 0) {
     args.push("--input", JSON.stringify(input));
   }
@@ -76,13 +81,24 @@ export async function launchWorkflowRun(workflow: string, input: Record<string, 
     throw new WorkspaceHttpError(500, `Failed to launch ${trimmed}: ${message}`);
   }
 
-  // `smithers up --detach` prints the run id; take the last non-empty token that
-  // looks like an id line.
-  const runId = stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .at(-1);
+  let envelope: unknown;
+  try {
+    envelope = JSON.parse(stdout.trim());
+  } catch {
+    throw new WorkspaceHttpError(502, `Launch of ${trimmed} produced unparseable output.`);
+  }
+  if (!envelope || typeof envelope !== "object") {
+    throw new WorkspaceHttpError(502, `Launch of ${trimmed} produced no run envelope.`);
+  }
+  const env = envelope as { ok?: unknown; data?: unknown; error?: unknown };
+  if (env.ok !== true) {
+    const message = typeof env.error === "string" && env.error
+      ? env.error
+      : `Launch of ${trimmed} was not acknowledged by the CLI.`;
+    throw new WorkspaceHttpError(502, message);
+  }
+  const data = env.data && typeof env.data === "object" ? (env.data as { runId?: unknown }) : null;
+  const runId = data && typeof data.runId === "string" ? data.runId.trim() : "";
   if (!runId) {
     throw new WorkspaceHttpError(502, `Launch of ${trimmed} produced no run id.`);
   }

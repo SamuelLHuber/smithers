@@ -39,6 +39,30 @@
 }
 
 /* Chat surface layout */
+/*
+ * The chat half stays mounted (hidden, not unmounted) across segment switches
+ * so its transcript and in-flight stream survive Chat→Terminal→Chat. This stack
+ * is the grid row-2 item that hosts it; a flex column so the inner .ws-chat
+ * (flex: 1) fills the available height exactly as it did when AgentChat was the
+ * direct row child. The `hidden` attribute (display: none) takes it out of the
+ * grid entirely when the terminal is showing, so the layout never sees both
+ * stacks at once.
+ */
+.chat-stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/*
+ * The `hidden` attribute's UA `display: none` is overridden by the author
+ * `display` rules on these stacks (class selectors win over the UA sheet), which
+ * would leave the "hidden" stack rendered over the active one. Re-assert it with
+ * a class+attribute selector so a hidden stack is genuinely taken out of layout.
+ */
+.chat-stack[hidden],
+.terminal-stack[hidden] {
+  display: none;
+}
 .ws-chat {
   display: flex;
   flex-direction: column;

@@ -289,6 +289,10 @@ const arraySchema = (items: JsonSchema, description: string): JsonSchema => ({
 });
 
 export const anyJsonSchema: JsonSchema = {
+  // The branches are mutually exclusive so a value matches exactly one of them
+  // under strict `oneOf` semantics. The `number` branch already covers integers
+  // (an integer is a JSON number), so a separate `integer` branch would make
+  // every integer match two branches and fail `oneOf` validation.
   description: "Any JSON value.",
   nullable: true,
   oneOf: [
@@ -296,7 +300,6 @@ export const anyJsonSchema: JsonSchema = {
     { type: "array", items: { nullable: true } },
     { type: "string" },
     { type: "number" },
-    { type: "integer" },
     { type: "boolean" },
     { type: "null" },
   ],

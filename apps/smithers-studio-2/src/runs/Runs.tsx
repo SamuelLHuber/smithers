@@ -36,16 +36,17 @@ export function Runs() {
   }, [data.approvals.length, setPendingApprovals]);
 
   // Live event -> data refresh: every WS run.event frame bumps events.eventEpoch.
-  // Debounce a refresh of the run + lists so a burst of log frames collapses
-  // into a single getRun/getDevToolsSnapshot + listRuns/listApprovals round
-  // trip, surfacing new approvals, state, and completion without re-selecting.
-  // (Polling in useRunsData is the floor when no WS is connected.)
-  const refreshRef = useRef({ refresh: data.refresh, refreshRun: data.refreshRun });
-  refreshRef.current = { refresh: data.refresh, refreshRun: data.refreshRun };
+  // Debounce a refresh of the SELECTED RUN (getRun + getDevToolsSnapshot) so a
+  // burst of log frames collapses into a single round trip, surfacing the run's
+  // new state/tree/completion without re-selecting. The run/approval LISTS are
+  // intentionally NOT re-fetched here — the 2s poll in useRunsData is their
+  // floor — so a chatty run doesn't hammer the gateway with listRuns/
+  // listApprovals/listWorkflows on every event burst.
+  const refreshRef = useRef({ refreshRun: data.refreshRun });
+  refreshRef.current = { refreshRun: data.refreshRun };
   useEffect(() => {
     if (events.eventEpoch === 0) return;
     const timer = setTimeout(() => {
-      refreshRef.current.refresh();
       refreshRef.current.refreshRun();
     }, 400);
     return () => clearTimeout(timer);

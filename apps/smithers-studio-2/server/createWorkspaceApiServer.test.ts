@@ -390,6 +390,25 @@ describe("createWorkspaceApiServer (real backend over HTTP)", () => {
     expect(String((await res.json()).error)).toMatch(/Invalid JSON body/);
   });
 
+  test("POST /runs requires a workflow (real 400, never a synthetic run id)", async () => {
+    // The launch route runs the real `smithers up` CLI; an empty workflow is
+    // rejected by launchWorkflowRun before any process is spawned.
+    const { status, body } = await postJson(`${API}/runs`, { workflow: "   " });
+    expect(status).toBe(400);
+    expect(String(body.error)).toMatch(/workflow is required/);
+    expect(body.runId).toBeUndefined();
+  });
+
+  test("POST /runs with an unknown workflow returns a real 404 from source resolution", async () => {
+    // resolveWorkflowPath walks the real /workflow-sources resolution against
+    // the seeded temp workspace. A key with no .tsx on disk is a genuine 404 —
+    // the run is never launched and no fake runId is fabricated.
+    const { status, body } = await postJson(`${API}/runs`, { workflow: "does-not-exist" });
+    expect(status).toBe(404);
+    expect(String(body.error)).toMatch(/does-not-exist/);
+    expect(body.runId).toBeUndefined();
+  });
+
   test("POST /chat/message with empty content streams a clear error delta (no agent faked)", async () => {
     // Documented fault path that needs no agent binary: an empty turn surfaces a
     // real `{type:"error"}` ndjson delta rather than fabricating a reply.

@@ -1,6 +1,7 @@
 import { GhosttyCore } from "@wterm/ghostty";
 import { Terminal, useTerminal } from "@wterm/react";
 import { use, useCallback, useEffect, useRef, useState } from "react";
+import { useStudioStore } from "../useStudioStore";
 
 type TerminalTab = { id: string; title: string; createdAt: Date };
 
@@ -15,6 +16,14 @@ type CoreResult =
  * tab appears in all of them). The cache is keyed by tab id (not created in
  * render) so the promise stays stable across the Suspense unmount/remount cycle
  * — creating a new promise on every suspended render would loop forever.
+ *
+ * Each `GhosttyCore.load()` instantiates its OWN WebAssembly module with its
+ * own linear memory (see @wterm/ghostty wasm-bindings); the only way the runtime
+ * can reclaim that memory is for every reference to the core to be dropped so it
+ * becomes garbage-collectible. So when a tab is CLOSED we must evict its entry
+ * (see evictTerminalCore) — otherwise this module-level map pins the core, and
+ * thus a whole WASM instance, for the life of the page and leaks WASM memory on
+ * every open/close cycle.
  */
 const coreByTab = new Map<string, Promise<CoreResult>>();
 
@@ -32,6 +41,17 @@ function terminalCoreFor(tabId: string): Promise<CoreResult> {
     coreByTab.set(tabId, promise);
   }
   return promise;
+}
+
+/**
+ * Drop the cached core for a tab so its WASM instance can be garbage-collected.
+ * Called when a tab is permanently gone (closed, or the last pane unmounts) —
+ * NOT during the transient Suspense / StrictMode unmount/remount cycle, where
+ * the tab still exists and a fresh `load()` would needlessly re-instantiate the
+ * WASM module and blank the terminal grid.
+ */
+function evictTerminalCore(tabId: string): void {
+  coreByTab.delete(tabId);
 }
 
 type PtyStatus = "connecting" | "creating" | "attached" | "exited" | "error";
@@ -252,6 +272,23 @@ export function GhosttyTerminalPane({
     write,
     getDims,
   );
+
+  // Evict this tab's Ghostty core on unmount, but ONLY when the tab is truly
+  // gone (closed via the store) — never on a transient Suspense / StrictMode
+  // unmount where the tab still exists and the pane is about to remount onto the
+  // same core. We read the live store state inside the cleanup (not via a hook
+  // subscription) so the check reflects the moment of teardown: if the tab id is
+  // no longer in `tabs`, the only remaining reference to the WASM-backed core is
+  // the module-level cache, so dropping it lets the instance be collected.
+  useEffect(() => {
+    const tabId = tab.id;
+    return () => {
+      const stillOpen = useStudioStore
+        .getState()
+        .tabs.some((t) => t.id === tabId);
+      if (!stillOpen) evictTerminalCore(tabId);
+    };
+  }, [tab.id]);
 
   const handleData = useCallback(
     (data: string) => {

@@ -1,3 +1,5 @@
+import { getRequiredScopeForGatewayMethod } from "../rpc/index.ts";
+
 export const GATEWAY_SCOPE_VALUES = [
   "run:read",
   "run:write",
@@ -61,6 +63,22 @@ function legacyAccessImplies(scope: string, required: GatewayScope): boolean {
   }
 }
 
+/**
+ * A name grant ("getRun") or wildcard-prefix grant ("runs.*") authorizes a
+ * method invocation, but it must never escalate beyond the scope that method
+ * itself requires: holding "getRun" lets you call getRun (a run:read method),
+ * not a run:admin method that happens to share the matched name/prefix. We gate
+ * the grant on the dispatched method's own required scope so a name/prefix grant
+ * can confer at most what that method legitimately needs.
+ */
+function methodGrantSatisfiesRequiredScope(methodName: string, requiredScope: GatewayScope): boolean {
+  const methodScope = getRequiredScopeForGatewayMethod(methodName);
+  if (methodScope === undefined) {
+    return false;
+  }
+  return gatewayScopeImplies(methodScope, requiredScope);
+}
+
 export function hasGatewayScope(
   grantedScopes: readonly string[],
   requiredScope: GatewayScope,
@@ -71,10 +89,15 @@ export function hasGatewayScope(
     return true;
   }
   for (const granted of normalized) {
-    if (methodName && granted === methodName) {
+    if (methodName && granted === methodName && methodGrantSatisfiesRequiredScope(methodName, requiredScope)) {
       return true;
     }
-    if (methodName && granted.endsWith(".*") && methodName.startsWith(granted.slice(0, -1))) {
+    if (
+      methodName &&
+      granted.endsWith(".*") &&
+      methodName.startsWith(granted.slice(0, -1)) &&
+      methodGrantSatisfiesRequiredScope(methodName, requiredScope)
+    ) {
       return true;
     }
     if (isGatewayScope(granted) && gatewayScopeImplies(granted, requiredScope)) {

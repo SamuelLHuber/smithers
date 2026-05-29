@@ -101,7 +101,10 @@ test.describe("Workspace agent chat (real backend)", () => {
     await expect(page.getByTestId("agent-chat")).toBeVisible();
 
     await page.getByTestId("ws-segment-terminal").click();
-    await expect(page.getByTestId("agent-chat")).toHaveCount(0);
+    // AgentChat stays MOUNTED across segment switches (hidden + inert) so the
+    // loaded session/transcript and any in-flight stream survive a round trip —
+    // it is hidden here, not removed from the DOM.
+    await expect(page.getByTestId("agent-chat")).toBeHidden();
     await expect(page.getByTestId("terminal-tab")).toHaveCount(1);
     await expect(page.locator(".ghostty-terminal")).toBeVisible();
   });

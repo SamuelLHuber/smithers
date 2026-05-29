@@ -59,7 +59,17 @@ export function Workspace() {
           ))}
         </Suspense>
       </div>
-      {chatActive && <AgentChat active={chatActive} />}
+      {/*
+        AgentChat stays MOUNTED across segment changes (hidden + inert when the
+        terminal is showing) so the loaded session, transcript, and any
+        in-flight stream survive a Chat→Terminal→Chat round trip. Unmounting it
+        on every switch would abort the stream and discard all chat history.
+        `inert` also drops the hidden composer out of the focus/tab order so it
+        can't steal focus or keystrokes meant for the active terminal.
+      */}
+      <div className="chat-stack" hidden={!chatActive} inert={!chatActive}>
+        <AgentChat active={chatActive} />
+      </div>
     </section>
   );
 }

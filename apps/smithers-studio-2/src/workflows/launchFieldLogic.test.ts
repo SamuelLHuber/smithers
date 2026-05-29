@@ -168,6 +168,40 @@ describe("buildLaunchInput", () => {
     expect("note" in input).toBe(false);
   });
 
+  test("an empty optional object/array/json field is OMITTED, never JSON.parse(\"\")", () => {
+    // Regression: a field whose default is "" (empty string, NOT null) that the
+    // user leaves blank used to fall through to JSON.parse("") and throw. It must
+    // be omitted instead.
+    for (const type of ["object", "array", "json"]) {
+      const withEmptyDefault = buildLaunchInput(
+        [field({ key: "cfg", type, required: false, defaultValue: "" })],
+        { cfg: "" },
+      );
+      expect("cfg" in withEmptyDefault).toBe(false);
+
+      const withNullDefault = buildLaunchInput(
+        [field({ key: "cfg", type, required: false, defaultValue: null })],
+        { cfg: "" },
+      );
+      expect("cfg" in withNullDefault).toBe(false);
+
+      // Whitespace-only is also treated as empty (trimmed).
+      const whitespace = buildLaunchInput(
+        [field({ key: "cfg", type, required: false, defaultValue: "" })],
+        { cfg: "   " },
+      );
+      expect("cfg" in whitespace).toBe(false);
+    }
+  });
+
+  test("a required empty object/array/json field still attempts to parse (validation guards it elsewhere)", () => {
+    expect(() =>
+      buildLaunchInput([field({ key: "cfg", type: "object", required: true, defaultValue: "" })], {
+        cfg: "",
+      }),
+    ).toThrow();
+  });
+
   test("object/array/json fields parse to real JSON values", () => {
     const fields = [
       field({ key: "cfg", type: "object" }),

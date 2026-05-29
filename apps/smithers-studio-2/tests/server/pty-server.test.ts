@@ -465,6 +465,29 @@ describe("pty-server hardening (real server, real node-pty, real RFC 6455 frames
   );
 
   test(
+    "a session.create whose owner closes mid round-trip does not leak (create-race guard)",
+    async () => {
+      // Fire session.create and tear the socket down IMMEDIATELY, without
+      // waiting for the result — the owning connection dies during the create
+      // round-trip. Whether the close is observed before or after the PTY is
+      // spawned, the server must reclaim it: the socket-close cleanup handles
+      // the after case, and the create-race guard (conn.readyState !== OPEN at
+      // create time) handles the before case. Either way the count must return
+      // to 0 well inside the reaper's TTL (proving synchronous reclaim, not a
+      // reaper backstop).
+      const c = new RawWsClient();
+      await c.waitOpen();
+      c.send({ jsonrpc: "2.0", id: 900, method: "session.create", params: { cols: 80, rows: 24 } });
+      c.closeAbrupt();
+
+      // ORPHAN_TTL_MS is 2s in this test; a window shorter than that proves the
+      // PTY was reclaimed synchronously rather than by the reaper.
+      expect(await waitForSessionCount(0, ORPHAN_TTL_MS - 500)).toBe(0);
+    },
+    20_000,
+  );
+
+  test(
     "session.create beyond MAX_SESSIONS is rejected",
     async () => {
       const conns: RawWsClient[] = [];

@@ -90,6 +90,12 @@ export function buildLaunchInput(
       if (!field.required && field.defaultValue === null && !hasCurrentValue) continue;
       input[field.key] = ["true", "1", "yes", "on"].includes(trimmed.toLowerCase());
     } else {
+      // object/array/json. An optional field the user left empty must be OMITTED,
+      // not fed to JSON.parse(""). The line-80 guard only skips when the field
+      // declared a null default; a field whose default is the empty string ("")
+      // would otherwise fall through to JSON.parse("") and throw. Absence is the
+      // signal for any empty optional structured field, regardless of default.
+      if (!trimmed && !field.required) continue;
       input[field.key] = parseJsonValue(trimmed, field);
     }
   }

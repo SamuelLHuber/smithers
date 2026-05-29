@@ -73,9 +73,16 @@ export function loadChatSession(): ChatSession {
   const root = resolveChatWorkspaceRoot();
   const path = chatSessionPath(root);
   if (existsSync(path)) {
-    const parsed = coerceSession(JSON.parse(readFileSync(path, "utf8")) as unknown, root);
-    if (parsed) {
-      return parsed;
+    try {
+      const parsed = coerceSession(JSON.parse(readFileSync(path, "utf8")) as unknown, root);
+      if (parsed) {
+        return parsed;
+      }
+    } catch {
+      // Corrupt/partial session.json on disk: fall through to a fresh session +
+      // save (self-heal). Mirrors the guarded parse in streamChatMessage.ts so a
+      // bad file never throws after ndjson headers have been sent (which would
+      // surface as a silent empty chat).
     }
   }
   const session = newSession(root);

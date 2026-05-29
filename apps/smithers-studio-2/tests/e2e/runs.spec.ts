@@ -144,18 +144,22 @@ test.describe("Runs surface — live run detail (real gateway)", () => {
     await page.getByTestId(`tree.row.${LIVE_APPROVAL_RUN.planNodeId}`).click();
     await expect(page.getByTestId("runs.inspector")).toBeVisible();
 
-    // Output tab: the real getNodeOutput row for the plan task.
+    // Output tab: the real getNodeOutput row for the plan task. The content
+    // loads via a real getNodeOutput RPC; allow generous headroom since the
+    // shared e2e gateway is under heavy contention from the fully-parallel suite
+    // (every viewed live run also opens a real event stream).
     await page.getByTestId("runs.inspector.tab.output").click();
     await expect(page.getByTestId("runs.inspector.panel.output")).toContainText(
       LIVE_APPROVAL_RUN.planOutput.summary,
+      { timeout: 15_000 },
     );
 
     // Diff tab: the plan task changed no files, so the real getNodeDiff bundle
     // has no patches.
     await page.getByTestId("runs.inspector.tab.diff").click();
-    await expect(page.getByTestId("runs.inspector.panel.diff")).toContainText("No diff");
+    await expect(page.getByTestId("runs.inspector.panel.diff")).toContainText("No diff", { timeout: 15_000 });
 
-    // Logs tab renders (no live socket in the harness, so it reports no lines).
+    // Logs tab renders.
     await page.getByTestId("runs.inspector.tab.logs").click();
     await expect(page.getByTestId("runs.inspector.panel.logs")).toBeVisible();
 
@@ -163,6 +167,7 @@ test.describe("Runs surface — live run detail (real gateway)", () => {
     await page.getByTestId("runs.inspector.tab.props").click();
     await expect(page.getByTestId("runs.inspector.panel.props")).toContainText(
       LIVE_APPROVAL_RUN.planNodeId,
+      { timeout: 15_000 },
     );
   });
 

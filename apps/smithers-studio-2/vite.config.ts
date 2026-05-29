@@ -18,8 +18,12 @@ const proxy: Record<string, string | ProxyOptions> = {
 };
 
 if (gatewayTarget) {
-  // RPC over HTTP plus the Gateway's run-event websocket (subscribe=<runId>).
-  proxy["/v1/rpc"] = { target: gatewayTarget, changeOrigin: true };
+  // RPC over HTTP plus the Gateway's run-event WebSocket. The live run-event
+  // stream (useRunEvents) opens an RPC-over-WS transport on this same `/v1/rpc`
+  // prefix and sends the Gateway `connect` + `streamRunEvents` handshake, so the
+  // proxy must upgrade WebSocket traffic here too (`ws: true`) — otherwise the
+  // socket hits Vite's HMR server and the Gateway delivers no run.event frames.
+  proxy["/v1/rpc"] = { target: gatewayTarget, changeOrigin: true, ws: true };
   proxy["/health"] = { target: gatewayTarget, changeOrigin: true };
   // Workflow-mounted custom UIs (and their assets) are served by the Gateway at
   // /workflows/<key>; the Runs surface embeds them same-origin via an iframe, so

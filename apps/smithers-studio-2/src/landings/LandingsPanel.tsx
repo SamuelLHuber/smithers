@@ -117,6 +117,18 @@ export function LandingsPanel() {
     void refreshLandings();
   }, [refreshAuthStatus, refreshLandings]);
 
+  const selectedLandingId = effectiveSelectedLanding?.id ?? null;
+
+  // Reset the detail panes whenever the selected landing changes — including
+  // selection changes that bypass selectLanding (refresh swapping the selection,
+  // upsert dropping it, or the landings[0] fallback). Without this, the Diff /
+  // Checks / Conflicts tabs render the PREVIOUS landing's content until refetch.
+  useEffect(() => {
+    setDiffText(null);
+    setChecksText(null);
+    setConflicts(null);
+  }, [selectedLandingId]);
+
   const selectLanding = async (landing: WorkspaceLanding) => {
     setSelectedId(landing.id);
     setSelectedLanding(landing);

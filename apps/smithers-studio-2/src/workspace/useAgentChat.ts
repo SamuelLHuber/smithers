@@ -31,6 +31,11 @@ export function useAgentChat(active: boolean): AgentChatState {
 
   const sessionIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Set true when the in-flight stream emitted an `error` delta. The stream
+  // still resolves normally afterward (the transport closed cleanly), so the
+  // send()'s trailing `.then` would otherwise overwrite the error status with
+  // "ready". This ref lets that `.then` know the response actually failed.
+  const streamErroredRef = useRef(false);
 
   useEffect(() => {
     // Load once the chat segment is active and we have no session yet. We guard
@@ -107,11 +112,28 @@ export function useAgentChat(active: boolean): AgentChatState {
           });
           return changed ? next : current;
         }
-        case "error":
-          return current;
+        case "error": {
+          // An error delta ends the response: finalize EVERY still-pending
+          // block (the named runtime block and any synthetic "stream" block) so
+          // nothing spins forever, then surface the error below. Without this
+          // the assistant bubble stays in its pending/streaming state.
+          let changed = false;
+          const next = current.map((block) => {
+            if (block.pending) {
+              changed = true;
+              return { ...block, pending: false };
+            }
+            return block;
+          });
+          return changed ? next : current;
+        }
       }
     });
-    if (delta.type === "error") setError(delta.message);
+    if (delta.type === "error") {
+      streamErroredRef.current = true;
+      setError(delta.message);
+      setStatus("error");
+    }
   }, []);
 
   const send = useCallback(
@@ -129,13 +151,20 @@ export function useAgentChat(active: boolean): AgentChatState {
       setBlocks((current) => [...current, userBlock]);
       setStatus("streaming");
       setError(null);
+      streamErroredRef.current = false;
 
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
       sendChatMessage(sessionId, trimmed, applyDelta, controller.signal)
-        .then(() => setStatus("ready"))
+        .then(() => {
+          // The stream can close cleanly AFTER emitting an `error` delta (the
+          // transport succeeded; the agent reported a failure). Don't reset to
+          // "ready" in that case — applyDelta already moved us to "error".
+          if (streamErroredRef.current) return;
+          setStatus("ready");
+        })
         .catch((reason: unknown) => {
           if (controller.signal.aborted) return;
           setError(reason instanceof Error ? reason.message : String(reason));

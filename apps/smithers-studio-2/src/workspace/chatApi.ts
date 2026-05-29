@@ -72,9 +72,13 @@ export async function loadChatSession(): Promise<ChatSession> {
  * Send a user message and surface the assistant reply as a sequence of
  * `ChatStreamDelta`s.
  *
- * The endpoint may answer two ways, both handled here:
+ * The endpoint may answer three ways, all handled here:
+ *   - `text/event-stream`: Server-Sent Events. Each event is one or more
+ *     `data:` lines terminated by a blank line; the joined data payload is a
+ *     `ChatStreamDelta` (the SSE-native live-streaming path). A bare `data:
+ *     [DONE]` sentinel is ignored.
  *   - `application/x-ndjson`: newline-delimited `ChatStreamDelta` lines, read
- *     incrementally so tokens render as they arrive (the live-streaming path).
+ *     incrementally so tokens render as they arrive (the NDJSON streaming path).
  *   - `application/json`: a `{ deltas: ChatStreamDelta[] }` envelope for runtimes
  *     that cannot stream (e.g. a non-resumable agent) — replayed in order.
  */
@@ -101,11 +105,17 @@ export async function sendChatMessage(
   }
 
   const contentType = response.headers.get("content-type") ?? "";
-  const isNdjson = contentType.includes("ndjson") || contentType.includes("event-stream");
+  const isSse = contentType.includes("event-stream");
+  const isNdjson = contentType.includes("ndjson");
 
-  if (!isNdjson || !response.body) {
+  if ((!isSse && !isNdjson) || !response.body) {
     const payload = (await response.json().catch(() => undefined)) as { deltas?: ChatStreamDelta[] };
     for (const delta of payload?.deltas ?? []) onDelta(delta);
+    return;
+  }
+
+  if (isSse) {
+    await readSse(response.body, onDelta);
     return;
   }
 
@@ -126,6 +136,57 @@ export async function sendChatMessage(
   }
   const tail = buffer.trim();
   if (tail) emitLine(tail, onDelta);
+}
+
+/**
+ * Read a `text/event-stream` body. SSE events are separated by a blank line; an
+ * event may carry multiple `data:` lines which the spec joins with "\n". We
+ * accumulate the data payload for each event and parse it as a `ChatStreamDelta`
+ * (ignoring comment lines starting with ":" and the `[DONE]` sentinel some
+ * runtimes emit). Parsing raw `data:` text as NDJSON — the prior behavior —
+ * leaked the literal `data:` framing into the chat as plain assistant text.
+ */
+async function readSse(
+  body: ReadableStream<Uint8Array>,
+  onDelta: (delta: ChatStreamDelta) => void,
+): Promise<void> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const flushEvent = (raw: string) => {
+    const dataLines: string[] = [];
+    for (const rawLine of raw.split("\n")) {
+      const line = rawLine.replace(/\r$/, "");
+      if (!line || line.startsWith(":")) continue;
+      if (line.startsWith("data:")) {
+        // A single leading space after the colon is part of the framing.
+        dataLines.push(line.slice(5).replace(/^ /, ""));
+      }
+      // Other SSE fields (event:, id:, retry:) carry no delta payload here.
+    }
+    if (dataLines.length === 0) return;
+    const data = dataLines.join("\n").trim();
+    if (!data || data === "[DONE]") return;
+    emitLine(data, onDelta);
+  };
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // Events are delimited by a blank line. Normalize CRLF so the split matches
+    // both "\n\n" and "\r\n\r\n" framing.
+    buffer = buffer.replace(/\r\n/g, "\n");
+    let sep = buffer.indexOf("\n\n");
+    while (sep !== -1) {
+      const event = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      flushEvent(event);
+      sep = buffer.indexOf("\n\n");
+    }
+  }
+  if (buffer.trim()) flushEvent(buffer);
 }
 
 function emitLine(line: string, onDelta: (delta: ChatStreamDelta) => void) {

@@ -63,6 +63,14 @@ const SKIPPED_DIRS = new Set([
 ]);
 const TERMINAL_SESSION_EVENT_LIMIT = 1_000;
 const TERMINAL_SESSION_OUTPUT_LIMIT = 1_000_000;
+// Completed terminal sessions retain their child handle + up to ~2MB of
+// captured output. Evict them so the Map cannot grow unbounded: drop finished
+// sessions older than this TTL, and cap the number of retained finished
+// sessions (LRU by completion time) regardless of age.
+const TERMINAL_SESSION_COMPLETED_TTL_MS = 10 * 60 * 1000;
+const TERMINAL_SESSION_COMPLETED_LIMIT = 50;
+// How long to wait after SIGTERM before escalating to SIGKILL on stop.
+const TERMINAL_SESSION_KILL_GRACE_MS = 2_000;
 const MAX_OPERATOR_SCREENSHOT_BYTES = 20_000_000;
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
 const terminalSessions = new Map<string, WorkspaceTerminalSessionRecord>();
@@ -995,7 +1003,85 @@ function terminalSessionRecord(workspace: WorkspaceRoot, id: string | null) {
   return record;
 }
 
+/**
+ * Evict finished terminal sessions so the in-memory Map cannot grow unbounded.
+ * Each completed record still pins a child handle and up to ~2MB of captured
+ * output, so we drop finished sessions past the TTL and cap the retained
+ * finished count (LRU by completion time). Running sessions are never evicted.
+ */
+function sweepCompletedTerminalSessions(): void {
+  const now = Date.now();
+  const completed: WorkspaceTerminalSessionRecord[] = [];
+  for (const record of terminalSessions.values()) {
+    if (record.running || record.completedAtMs === null) {
+      continue;
+    }
+    if (now - record.completedAtMs > TERMINAL_SESSION_COMPLETED_TTL_MS) {
+      terminalSessions.delete(record.id);
+    } else {
+      completed.push(record);
+    }
+  }
+  if (completed.length > TERMINAL_SESSION_COMPLETED_LIMIT) {
+    completed.sort((a, b) => (a.completedAtMs ?? 0) - (b.completedAtMs ?? 0));
+    const overflow = completed.length - TERMINAL_SESSION_COMPLETED_LIMIT;
+    for (let i = 0; i < overflow; i += 1) {
+      terminalSessions.delete(completed[i]!.id);
+    }
+  }
+}
+
+/** Best-effort SIGTERM of a terminal session's child (whole process group for
+ * detached non-pty children), then escalate to SIGKILL after a grace period. */
+function killTerminalChild(record: WorkspaceTerminalSessionRecord): void {
+  const child = record.child;
+  if (child.kind === "pty") {
+    try {
+      child.process.kill("SIGTERM");
+    } catch {
+      // Already exited.
+    }
+    setTimeout(() => {
+      if (record.running) {
+        try {
+          child.process.kill("SIGKILL");
+        } catch {
+          // Already exited.
+        }
+      }
+    }, TERMINAL_SESSION_KILL_GRACE_MS).unref();
+    return;
+  }
+  const pid = child.process.pid;
+  const killGroup = (signal: NodeJS.Signals) => {
+    if (process.platform === "win32") {
+      if (pid != null) {
+        execFile("taskkill", ["/pid", String(pid), "/T", "/F"], () => {});
+      }
+      return;
+    }
+    try {
+      if (pid != null) {
+        process.kill(-pid, signal);
+      }
+    } catch {
+      try {
+        child.process.kill(signal);
+      } catch {
+        // Already exited.
+      }
+    }
+  };
+  killGroup("SIGTERM");
+  setTimeout(() => {
+    if (record.running) {
+      killGroup("SIGKILL");
+    }
+  }, TERMINAL_SESSION_KILL_GRACE_MS).unref();
+}
+
 function startTerminalSession(workspace: WorkspaceRoot, body: Record<string, unknown>) {
+  sweepCompletedTerminalSessions();
   const command = typeof body.command === "string" ? body.command.trim() : "";
   if (command.length > 20_000) {
     throw new WorkspaceHttpError(400, "command is too long.");
@@ -1020,6 +1106,9 @@ function startTerminalSession(workspace: WorkspaceRoot, body: Record<string, unk
   } catch {
     const processChild = spawn(shellPath, command ? ["-lc", command] : [], {
       cwd,
+      // Detach into its own process group (POSIX) so stop can SIGTERM/SIGKILL
+      // the whole tree, not just the shell.
+      detached: process.platform !== "win32",
       env: process.env,
       stdio: "pipe",
     }) as ChildProcessWithoutNullStreams;
@@ -1060,6 +1149,7 @@ function startTerminalSession(workspace: WorkspaceRoot, body: Record<string, unk
       record.exitCode = exitCode;
       record.signal = signal ? String(signal) : null;
       appendTerminalSessionEvent(record, "system", signal ? `Signal ${signal}\n` : `Exit ${exitCode ?? "unknown"}\n`);
+      sweepCompletedTerminalSessions();
     });
   } else {
     child.process.stdout.on("data", (chunk) => appendTerminalSessionEvent(record, "stdout", String(chunk)));
@@ -1072,6 +1162,7 @@ function startTerminalSession(workspace: WorkspaceRoot, body: Record<string, unk
       record.exitCode = code;
       record.signal = signal;
       appendTerminalSessionEvent(record, "system", signal ? `Signal ${signal}\n` : `Exit ${code ?? "unknown"}\n`);
+      sweepCompletedTerminalSessions();
     });
   }
 
@@ -1116,12 +1207,16 @@ function resizeTerminalSession(workspace: WorkspaceRoot, id: string | null, body
 function stopTerminalSession(workspace: WorkspaceRoot, id: string | null) {
   const record = terminalSessionRecord(workspace, id);
   if (record.running) {
-    record.running = false;
-    record.signal = "SIGTERM";
-    record.completedAtMs = Date.now();
-    record.completedAt = new Date(record.completedAtMs).toISOString();
+    // Don't fabricate a "completed" state here: signal the real child and let
+    // its exit handler set running=false / exitCode / signal from the actual
+    // termination. We escalate SIGTERM -> SIGKILL so a process that ignores
+    // SIGTERM (or a non-pty process group) is still reaped.
     appendTerminalSessionEvent(record, "system", "Stop requested.\n");
-    record.child.process.kill("SIGTERM");
+    killTerminalChild(record);
+  } else {
+    // Already finished: explicit stop should free the retained child handle +
+    // captured output immediately rather than waiting for the TTL sweep.
+    terminalSessions.delete(record.id);
   }
   return terminalSessionSnapshot(workspace, record);
 }

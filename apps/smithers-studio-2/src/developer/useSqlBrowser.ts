@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getWorkspaceSqlSchema,
   listWorkspaceSqlTables,
@@ -46,6 +46,9 @@ export function useSqlBrowser(): SqlBrowserState {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
+  // Monotonic id for the latest in-flight query. A slow earlier query that
+  // resolves after a newer one is stale and must not overwrite the newer result.
+  const queryRunRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,18 +92,27 @@ export function useSqlBrowser(): SqlBrowserState {
       setError("Enter a query to run.");
       return;
     }
+    const runId = queryRunRef.current + 1;
+    queryRunRef.current = runId;
     setRunning(true);
     setError(null);
     runWorkspaceSqlQuery(trimmed, QUERY_LIMIT)
-      .then((payload) => setResult(payload.result))
+      .then((payload) => {
+        if (queryRunRef.current !== runId) return;
+        setResult(payload.result);
+      })
       .catch((cause: unknown) => {
+        if (queryRunRef.current !== runId) return;
         setResult(null);
         // The backend rejects writes (INSERT/UPDATE/DELETE/DDL) and surfaces a
         // read-only error here; pass its message through verbatim so the surface
         // reflects the real enforcement rather than a generic failure.
         setError(cause instanceof Error ? cause.message : "Query failed.");
       })
-      .finally(() => setRunning(false));
+      .finally(() => {
+        if (queryRunRef.current !== runId) return;
+        setRunning(false);
+      });
   }, [query]);
 
   const refresh = useCallback(() => {

@@ -2198,8 +2198,6 @@ paths:
                             -
                               type: number
                             -
-                              type: integer
-                            -
                               type: boolean
                             -
                               type: "null"
@@ -2623,8 +2621,6 @@ paths:
                           type: string
                         -
                           type: number
-                        -
-                          type: integer
                         -
                           type: boolean
                         -

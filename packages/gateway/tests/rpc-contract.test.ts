@@ -3,6 +3,7 @@ import {
   GATEWAY_RPC_DEFINITIONS,
   GATEWAY_RPC_ERRORS,
   SMITHERS_API_VERSION,
+  anyJsonSchema,
   canonicalGatewayRpcMethod,
   getGatewayRpcDefinition,
   getRequiredScopeForGatewayMethod,
@@ -255,5 +256,55 @@ describe("Gateway RPC contract", () => {
     // cronDelete and cronRun reference it as a possible error.
     expect(getGatewayRpcDefinition("cronDelete")!.errors).toContain("CronNotFound");
     expect(getGatewayRpcDefinition("cronRun")!.errors).toContain("CronNotFound");
+  });
+
+  test("anyJsonSchema oneOf branches are mutually exclusive under strict semantics", () => {
+    // A strict `oneOf` validator (e.g. Ajv) requires a value to match EXACTLY one
+    // branch. Integers are JSON numbers, so a separate `integer` branch would make
+    // every integer match both it and `number`, failing oneOf. Assert that every
+    // representative JSON value matches exactly one branch.
+    expect(anyJsonSchema.oneOf).toBeDefined();
+    const branches = anyJsonSchema.oneOf!;
+    const samples: unknown[] = [{ a: 1 }, [1, null, "x"], "hello", 1.5, 42, true, null];
+    for (const sample of samples) {
+      const matchCount = branches.filter(
+        (branch) => validateAgainstSchema(sample, branch).length === 0,
+      ).length;
+      expect(matchCount, `value ${JSON.stringify(sample)} should match exactly one oneOf branch`).toBe(1);
+    }
+    // Specifically: there is no standalone "integer" branch shadowing "number".
+    const branchTypes = branches.map((branch) => branch.type);
+    expect(branchTypes).not.toContain("integer");
+    expect(branchTypes).toContain("number");
+  });
+
+  test("name/prefix grants cannot escalate beyond the dispatched method's required scope", () => {
+    // A name grant authorizes its own method at that method's scope, no higher.
+    expect(hasGatewayScope(["getRun"], "run:read", "getRun")).toBe(true);
+    // getRun is a run:read method, so holding only "getRun" must NOT confer run:write/run:admin.
+    expect(hasGatewayScope(["getRun"], "run:write", "getRun")).toBe(false);
+    expect(hasGatewayScope(["getRun"], "run:admin", "getRun")).toBe(false);
+    // A wildcard-prefix grant is likewise capped at the matched method's scope.
+    expect(hasGatewayScope(["runs.*"], "run:read", "runs.get")).toBe(true);
+    expect(hasGatewayScope(["runs.*"], "run:write", "runs.create")).toBe(true);
+    // runs.get resolves to getRun (run:read), so a read-only matched method cannot grant run:admin.
+    expect(hasGatewayScope(["runs.*"], "run:admin", "runs.get")).toBe(false);
+    // An unknown granted method name confers nothing (no scope to resolve).
+    expect(hasGatewayScope(["mysteryMethod"], "run:read", "mysteryMethod")).toBe(false);
+  });
+
+  test("granular run:admin is intentionally narrow: it does not imply observability:read or approval:submit", () => {
+    // Unlike the coarse legacy "admin" super-grant, the granular run:admin scope is
+    // scoped to run control (hijack/rewind) only. It deliberately does NOT bleed into
+    // unrelated families — that is the entire point of granular least-privilege scopes.
+    expect(hasGatewayScope(["run:admin"], "run:admin", "hijackRun")).toBe(true);
+    expect(hasGatewayScope(["run:admin"], "run:read", "getRun")).toBe(true);
+    expect(hasGatewayScope(["run:admin"], "observability:read", "streamDevTools")).toBe(false);
+    expect(hasGatewayScope(["run:admin"], "approval:submit", "submitApproval")).toBe(false);
+    expect(hasGatewayScope(["run:admin"], "signal:submit", "submitSignal")).toBe(false);
+    expect(hasGatewayScope(["run:admin"], "cron:read", "cronList")).toBe(false);
+    // The coarse legacy "admin" grant, by contrast, implies everything for back-compat.
+    expect(hasGatewayScope(["admin"], "observability:read", "streamDevTools")).toBe(true);
+    expect(hasGatewayScope(["admin"], "approval:submit", "submitApproval")).toBe(true);
   });
 });

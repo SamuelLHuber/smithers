@@ -342,15 +342,6 @@ export function discoverPromptInputs(source: string, preferredInputs: PromptInpu
   });
 }
 
-export function defaultPromptInputValues(inputs: PromptInput[]) {
-  return inputs.reduce<Record<string, string>>((values, input) => {
-    if (input.defaultValue !== undefined) {
-      values[input.name] = input.defaultValue;
-    }
-    return values;
-  }, {});
-}
-
 export function renderPromptPreview(source: string, input: Record<string, string>) {
   const { body } = splitFrontmatter(source);
   return body.replace(/\{\s*props\.([A-Za-z_][A-Za-z0-9_.-]*)\s*\}/g, (_match, name: string) => {

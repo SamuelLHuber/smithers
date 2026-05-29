@@ -324,22 +324,43 @@ export class SmithersGatewayClient {
    * signal firing — treating a silent close exactly like a thrown drop. A clean
    * completion (run finished/failed/cancelled) or an aborted signal stops the
    * loop so we never spin on a legitimately-ended stream.
+   *
+   * Backoff only resets after a *sustained healthy* connection. A flapping
+   * server that accepts the socket, replays a single frame (e.g. the
+   * `run.gap_resync` catch-up frame), then instantly closes would otherwise
+   * reset the attempt counter on that first frame and busy-reconnect at the base
+   * delay forever. We therefore keep escalating backoff until the connection has
+   * either stayed alive for `healthyAfterMs` or delivered a fresh (non-replay)
+   * live frame — proof the stream is genuinely healthy rather than instantly
+   * flapping.
    */
   async *streamRunEventsResilient(
     params: GatewayRpcParams<"streamRunEvents">,
-    options: { signal?: AbortSignal; backoff?: GatewayBackoffOptions } = {},
+    options: { signal?: AbortSignal; backoff?: GatewayBackoffOptions; healthyAfterMs?: number } = {},
   ): AsyncGenerator<GatewayEventFrame<StreamRunEventPayload>> {
     const signal = options.signal;
+    const healthyAfterMs = options.healthyAfterMs ?? 1_000;
     let lastSeq = typeof params.afterSeq === "number" ? params.afterSeq : undefined;
     let attempt = 0;
     while (!signal?.aborted) {
       let reachedTerminal = false;
+      // Mark when this connection's inner stream began so we only zero the
+      // backoff counter once the connection proves sustained liveness.
+      const connectionStart = Date.now();
+      let resetBackoff = false;
       try {
         for await (const frame of this.streamRunEvents(
           { runId: params.runId, ...(typeof lastSeq === "number" ? { afterSeq: lastSeq } : {}) },
           { signal },
         )) {
-          attempt = 0;
+          const isReplay = isObject(frame.payload) && frame.payload.event === "run.gap_resync";
+          // Reset backoff only after the connection is demonstrably healthy: a
+          // live (non-replay) frame, or any frame past the healthy threshold.
+          // A bare replay frame at connection start is NOT proof of liveness.
+          if (!resetBackoff && (!isReplay || Date.now() - connectionStart >= healthyAfterMs)) {
+            attempt = 0;
+            resetBackoff = true;
+          }
           const seq = isObject(frame.payload) && typeof frame.payload.seq === "number"
             ? frame.payload.seq
             : undefined;

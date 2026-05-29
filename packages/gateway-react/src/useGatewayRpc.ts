@@ -44,6 +44,20 @@ export function useGatewayRpc<Method extends GatewayRpcMethod>(
   }, [client, enabled, method]);
 
   useEffect(() => {
+    // A disabled query (e.g. runId cleared) must not keep surfacing the previous
+    // result, and a changed key must not surface the old key's result before the
+    // refetch lands. Drop any prior data/error so consumers see an empty state
+    // instead of stale data. Invalidate in-flight requests via the generation
+    // bump so a late resolve cannot repopulate cleared state.
+    if (!enabled) {
+      generationRef.current += 1;
+      setData(undefined);
+      setError(undefined);
+      setLoading(false);
+      return;
+    }
+    setData(undefined);
+    setError(undefined);
     void refetch();
     return () => {
       generationRef.current += 1;

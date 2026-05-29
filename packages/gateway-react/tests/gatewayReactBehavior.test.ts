@@ -268,6 +268,89 @@ describe("useGatewayRpc", () => {
     await harness.unmount();
   });
 
+  test("disabling the query clears prior data so stale results are not surfaced", async () => {
+    // Mirrors useGatewayRun(undefined): when a query becomes disabled (e.g. the
+    // runId is cleared) the hook must drop the previous payload instead of
+    // continuing to surface it. A late-resolving in-flight request must also not
+    // repopulate the cleared state.
+    let resolveRpc: ((value: unknown) => void) | undefined;
+    const client = {
+      rpc: (_method: string, _params: unknown) =>
+        new Promise((resolve) => {
+          resolveRpc = resolve;
+        }),
+    } as unknown as SmithersGatewayClient;
+
+    let snapshot: ReturnType<typeof useGatewayRpc> | undefined;
+    function Probe(props: { enabled: boolean }) {
+      snapshot = useGatewayRpc("getRun", { runId: "run-1" }, { enabled: props.enabled, deps: ["run-1"] });
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(
+      createElement(SmithersGatewayProvider, { client }, createElement(Probe, { enabled: true })),
+    );
+    // Resolve the first request so the hook holds real data.
+    await act(async () => {
+      resolveRpc?.({ run: { id: "run-1" } });
+    });
+    expect(snapshot?.data).toEqual({ run: { id: "run-1" } });
+    expect(snapshot?.loading).toBe(false);
+
+    // Disable the query: data and error must clear and loading must be false.
+    await harness.render(
+      createElement(SmithersGatewayProvider, { client }, createElement(Probe, { enabled: false })),
+    );
+    expect(snapshot?.data).toBeUndefined();
+    expect(snapshot?.error).toBeUndefined();
+    expect(snapshot?.loading).toBe(false);
+
+    await harness.unmount();
+  });
+
+  test("changing the key clears prior data so the old key's result is not shown during refetch", async () => {
+    // When the param key changes (e.g. runId switches), the hook must not keep
+    // surfacing the previous key's payload while the new request is in flight.
+    const resolvers = new Map<string, (value: unknown) => void>();
+    const client = {
+      rpc: (_method: string, params: { runId: string }) =>
+        new Promise((resolve) => {
+          resolvers.set(params.runId, resolve);
+        }),
+    } as unknown as SmithersGatewayClient;
+
+    let snapshot: ReturnType<typeof useGatewayRpc> | undefined;
+    function Probe(props: { runId: string }) {
+      snapshot = useGatewayRpc("getRun", { runId: props.runId }, { deps: [props.runId] });
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(
+      createElement(SmithersGatewayProvider, { client }, createElement(Probe, { runId: "run-1" })),
+    );
+    await act(async () => {
+      resolvers.get("run-1")?.({ run: { id: "run-1" } });
+    });
+    expect(snapshot?.data).toEqual({ run: { id: "run-1" } });
+
+    // Switch the key: the prior payload must be dropped immediately and the hook
+    // re-enters loading until the new request resolves.
+    await harness.render(
+      createElement(SmithersGatewayProvider, { client }, createElement(Probe, { runId: "run-2" })),
+    );
+    expect(snapshot?.data).toBeUndefined();
+    expect(snapshot?.loading).toBe(true);
+
+    await act(async () => {
+      resolvers.get("run-2")?.({ run: { id: "run-2" } });
+    });
+    expect(snapshot?.data).toEqual({ run: { id: "run-2" } });
+
+    await harness.unmount();
+  });
+
   test("changing params re-issues exactly one additional rpc call", async () => {
     const calls: Array<{ method: string; params: unknown }> = [];
     const client = {

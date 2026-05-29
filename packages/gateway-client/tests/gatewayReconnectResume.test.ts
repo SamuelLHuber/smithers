@@ -28,6 +28,8 @@ type RealGatewayServer = {
   afterSeqLog: number[];
   /** Number of connect handshakes completed (i.e. socket connections). */
   connectionCount: number;
+  /** Wall-clock timestamp each socket opened, in order — used to measure backoff gaps. */
+  connectionOpenedAt: number[];
   stop: () => void;
 };
 
@@ -36,6 +38,7 @@ function startRealGatewayServer(behavior: ServerBehavior = {}): RealGatewayServe
     baseUrl: "",
     afterSeqLog: [],
     connectionCount: 0,
+    connectionOpenedAt: [],
     stop: () => {},
   };
   let connectionIndex = -1;
@@ -51,6 +54,7 @@ function startRealGatewayServer(behavior: ServerBehavior = {}): RealGatewayServe
     websocket: {
       open(ws) {
         connectionIndex += 1;
+        state.connectionOpenedAt.push(Date.now());
         (ws as unknown as { _idx: number })._idx = connectionIndex;
       },
       message(ws, raw) {
@@ -95,6 +99,16 @@ function sendRunEvent(ws: ServerWebSocket<unknown>, streamId: string, seq: numbe
     seq,
     stateVersion: seq,
     payload: { streamId, runId: "run-1", seq, event },
+  }));
+}
+
+function sendGapResync(ws: ServerWebSocket<unknown>, streamId: string, seq: number) {
+  ws.send(JSON.stringify({
+    type: "event",
+    event: "run.gap_resync",
+    seq,
+    stateVersion: seq,
+    payload: { streamId, runId: "run-1", seq, event: "run.gap_resync" },
   }));
 }
 
@@ -243,6 +257,118 @@ describe("streamRunEventsResilient reconnect-resume (real WS server)", () => {
     expect(running.afterSeqLog).toEqual([-1]);
   });
 
+  test("a flapping stream that only replays a gap_resync frame keeps escalating backoff (no base-delay busy loop)", async () => {
+    // Pathological real-world flap: every connection accepts the socket, replays
+    // exactly ONE `run.gap_resync` catch-up frame (an afterSeq replay), then
+    // instantly closes — never delivering a fresh live frame and never staying
+    // alive past the healthy threshold. The buggy implementation reset the
+    // attempt counter on that first replay frame, so each reconnect slept the
+    // BASE delay and the client hot-looped against a flapping server. The fix
+    // must keep ESCALATING backoff because the connection never proves sustained
+    // liveness. We measure the real wall-clock gap between successive socket
+    // opens: with factor 2 and jitter 0 the gaps must roughly double, not stay
+    // pinned at the base delay.
+    running = startRealGatewayServer({
+      onSubscribed: (ws, { connectionIndex }) => {
+        const streamId = `stream-${connectionIndex}`;
+        if (connectionIndex < 3) {
+          sendGapResync(ws, streamId, 0);
+          setTimeout(() => ws.close(), 1);
+        } else {
+          // Finally a genuinely live frame so the test terminates.
+          sendRunEvent(ws, streamId, 1, "task.completed");
+        }
+      },
+    });
+
+    const client = new SmithersGatewayClient({ baseUrl: running.baseUrl });
+    const controller = new AbortController();
+    const seen: number[] = [];
+
+    await (async () => {
+      for await (const frame of client.streamRunEventsResilient(
+        { runId: "run-1" },
+        {
+          signal: controller.signal,
+          // Huge healthy threshold + a replay-only flap means the connection is
+          // NEVER healthy, so backoff must escalate every cycle.
+          healthyAfterMs: 60_000,
+          // jitter 0 => deterministic delay == baseMs * factor**attempt.
+          backoff: { baseMs: 30, maxMs: 5_000, factor: 2, jitter: 0 },
+        },
+      )) {
+        const payload = frame.payload as { seq: number; event: string };
+        if (payload.event === "run.gap_resync") {
+          continue;
+        }
+        seen.push(payload.seq);
+        controller.abort();
+      }
+    })();
+
+    expect(seen).toEqual([1]);
+    // 4 connections: 3 flapping replays-then-close + 1 live.
+    expect(running.connectionCount).toBe(4);
+    // Inter-connection gaps approximate the escalating sleeps (attempt 0,1,2 =>
+    // ~30, ~60, ~120ms). The discriminating assertion vs the bug: the last gap
+    // is meaningfully larger than the first. If backoff had reset on the replay
+    // frame, all gaps would hover near the base 30ms and this would fail.
+    const opens = running.connectionOpenedAt;
+    expect(opens.length).toBe(4);
+    const gaps = opens.slice(1).map((t, i) => t - opens[i]!);
+    // Each successive sleep grows; allow scheduler slop but require clear growth.
+    expect(gaps[1]!).toBeGreaterThan(gaps[0]! + 10);
+    expect(gaps[2]!).toBeGreaterThan(gaps[1]! + 10);
+  });
+
+  test("a sustained healthy connection resets backoff so the next drop reconnects fast", async () => {
+    // Counterpart to the flap test: once a connection delivers a fresh live frame
+    // (proof of health), the attempt counter resets — so a later drop reconnects
+    // at the base delay rather than at the escalated delay. Connection 0 stays
+    // healthy (live frame), drops; connection 1 must reconnect at ~base delay.
+    running = startRealGatewayServer({
+      onSubscribed: (ws, { connectionIndex }) => {
+        const streamId = `stream-${connectionIndex}`;
+        if (connectionIndex === 0) {
+          // A genuine live (non-replay) frame proves liveness and resets backoff.
+          sendRunEvent(ws, streamId, 1, "task.started");
+          setTimeout(() => ws.close(), 5);
+        } else {
+          sendRunEvent(ws, streamId, 2, "task.completed");
+        }
+      },
+    });
+
+    const client = new SmithersGatewayClient({ baseUrl: running.baseUrl });
+    const controller = new AbortController();
+    const seen: number[] = [];
+
+    await (async () => {
+      for await (const frame of client.streamRunEventsResilient(
+        { runId: "run-1" },
+        {
+          signal: controller.signal,
+          healthyAfterMs: 60_000,
+          backoff: { baseMs: 20, maxMs: 5_000, factor: 2, jitter: 0 },
+        },
+      )) {
+        seen.push((frame.payload as { seq: number }).seq);
+        if ((frame.payload as { seq: number }).seq === 2) {
+          controller.abort();
+        }
+      }
+    })();
+
+    expect(seen).toEqual([1, 2]);
+    expect(running.connectionCount).toBe(2);
+    // The reconnect happened at the base delay (attempt reset to 0 after the
+    // healthy frame): the gap between the two opens is close to baseMs (20ms),
+    // not an escalated value. Includes the ~5ms close timer; cap generously.
+    const opens = running.connectionOpenedAt;
+    const gap = opens[1]! - opens[0]!;
+    expect(gap).toBeLessThan(150);
+  });
+
   test("honors an explicit starting afterSeq on the first subscribe", async () => {
     running = startRealGatewayServer({
       onSubscribed: (ws, { afterSeq, connectionIndex }) => {
@@ -325,6 +451,7 @@ describe("connect() AbortSignal handling (real WS server)", () => {
       baseUrl: `http://127.0.0.1:${server.port}`,
       afterSeqLog: [],
       connectionCount: 0,
+      connectionOpenedAt: [],
       stop: () => server.stop(true),
     };
 

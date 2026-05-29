@@ -263,6 +263,16 @@ function handleRequest(
   if (method === "session.create") {
     try {
       const session = createSession(params, conn);
+      // Create-race guard: the owning socket can die (abrupt RST / close) WHILE
+      // this create is in flight. The socket's cleanup handler runs over the
+      // sessions map, but if it ran before this session was inserted it never
+      // saw it — so the freshly spawned PTY would have only a dead subscriber
+      // and survive until the reaper's TTL. Detect the now-closed owner and
+      // destroy the session immediately so the shell is reclaimed at once.
+      if (conn.readyState !== 1) {
+        destroySession(session);
+        return jsonRpcError(id, -32000, "connection closed during create");
+      }
       return jsonRpcResult(id, {
         sessionId: session.id,
         pid: session.pid,
