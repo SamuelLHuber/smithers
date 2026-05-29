@@ -524,7 +524,15 @@ export function extension(pi: ExtensionAPI) {
       if (!confirmed) {
         return;
       }
-      await run.client.cancel(run.runId);
+      try {
+        await run.client.cancel(run.runId);
+      } catch (error) {
+        ctx.ui.notify(
+          `Failed to cancel ${run.runId.slice(0, 8)}: ${error instanceof Error ? error.message : String(error)}`,
+          "error",
+        );
+        return;
+      }
       ctx.ui.notify(`Cancelling ${run.runId.slice(0, 8)}`, "warning");
     },
   });
