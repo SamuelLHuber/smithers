@@ -3,8 +3,15 @@ import { exit } from "node:process";
 
 type ManagedProcess = { name: string; process: Bun.Subprocess<"ignore", "pipe", "pipe"> };
 
+// Studio 2's two backend contracts are served by the same fixture servers the
+// e2e suite boots (a real seeded Gateway + a workspace-API server). They serve
+// deterministic DEMO data, not your real workspace — wiring the production
+// workspace backend (the original app's ~4.5k-line workspaceBackend) is a
+// separate effort. This lets `bun dev` bring every surface up populated today.
+const APP_DIR = "apps/smithers-studio-2";
 const host = process.env.SMITHERS_STUDIO_2_HOST ?? "127.0.0.1";
 const gatewayStartPort = numberFromEnv("SMITHERS_GATEWAY_PORT", 7331);
+const workspaceApiStartPort = numberFromEnv("SMITHERS_WORKSPACE_API_PORT", 7410);
 const ptyStartPort = numberFromEnv("SMITHERS_PTY_PORT", 7342);
 const uiStartPort = numberFromEnv("SMITHERS_STUDIO_2_PORT", 5190);
 const children: ManagedProcess[] = [];
@@ -102,39 +109,56 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 
 async function main() {
   const gatewayPort = await findOpenPort(gatewayStartPort);
+  const workspaceApiPort = await findOpenPort(workspaceApiStartPort);
   const ptyPort = await findOpenPort(ptyStartPort);
   const uiPort = await findOpenPort(uiStartPort);
   const gatewayUrl = `http://${host}:${gatewayPort}`;
+  const workspaceApiUrl = `http://${host}:${workspaceApiPort}`;
   const ptyUrl = `http://${host}:${ptyPort}`;
   const uiUrl = `http://${host}:${uiPort}`;
 
+  // Real Smithers Gateway (serves /v1/rpc for Runs + Developer), seeded with
+  // deterministic demo runs/approvals — the same fixture the e2e suite boots.
   console.log(`[dev] Starting Smithers Gateway on ${gatewayUrl}`);
-  spawnManaged("gateway", ["bun", "apps/cli/src/index.js", "gateway", "serve", "--host", host, "--port", String(gatewayPort)]);
-  await waitForHttpOk(`${gatewayUrl}/health`);
+  spawnManaged("gateway", ["bun", "tests/fixtures/gatewayFixture.tsx"], {
+    SMITHERS_STUDIO_GATEWAY_PORT: String(gatewayPort),
+  }, APP_DIR);
+  await waitForHttpOk(`${gatewayUrl}/health`, 60_000);
+
+  // Workspace-API server (serves /__smithers_studio/api/* for Home recents,
+  // Workflows, Issues, Landings, Workspaces, Memory, Scores), seeded demo data.
+  console.log(`[dev] Starting Workspace API on ${workspaceApiUrl}`);
+  spawnManaged("workspace-api", ["bun", "tests/fixtures/workspaceApiServer.ts"], {
+    SMITHERS_STUDIO_WORKSPACE_API_PORT: String(workspaceApiPort),
+  }, APP_DIR);
+  await waitForHttpOk(`${workspaceApiUrl}/health`);
 
   console.log(`[dev] Starting PTY Server on ${ptyUrl}`);
   // Run the PTY server under Node, not Bun: node-pty's native read loop closes
   // the PTY fd before any data is delivered under Bun (zero-byte reads, ioctl
   // EBADF on resize), so the terminal would attach but show no output.
-  spawnManaged("pty", ["node", "apps/smithers-studio-2/scripts/pty-server.ts"], {
+  spawnManaged("pty", ["node", "scripts/pty-server.ts"], {
     PTY_SERVER_HOST: host,
     PTY_SERVER_PORT: String(ptyPort),
-  });
+  }, APP_DIR);
   await waitForHttpOk(`${ptyUrl}/health`);
 
+  // Vite serves the UI same-origin and proxies each backend (the clients call
+  // location.origin, so the proxy targets are how the browser reaches them).
   console.log(`[dev] Starting Smithers Studio 2 on ${uiUrl}`);
   spawnManaged("studio-2", ["node", "node_modules/vite/bin/vite.js", "--host", host, "--port", String(uiPort), "--strictPort"], {
-    VITE_SMITHERS_GATEWAY_URL: gatewayUrl,
-    VITE_SMITHERS_GATEWAY_RPC_PATH: "/v1/rpc",
+    SMITHERS_STUDIO_GATEWAY_PROXY_TARGET: gatewayUrl,
+    SMITHERS_STUDIO_WORKSPACE_API_PROXY_TARGET: workspaceApiUrl,
     PTY_SERVER_URL: ptyUrl,
-  }, "apps/smithers-studio-2");
+  }, APP_DIR);
   await waitForHttpOk(uiUrl);
 
   console.log("");
-  console.log(`[dev] Studio 2: ${uiUrl}`);
-  console.log(`[dev] Gateway:  ${gatewayUrl}`);
-  console.log(`[dev] PTY:      ${ptyUrl}`);
-  console.log("[dev] Press Ctrl+C to stop all processes.");
+  console.log(`[dev] Studio 2:      ${uiUrl}`);
+  console.log(`[dev] Gateway:       ${gatewayUrl}`);
+  console.log(`[dev] Workspace API: ${workspaceApiUrl}`);
+  console.log(`[dev] PTY:           ${ptyUrl}`);
+  console.log("[dev] Surfaces are populated with seeded demo data. Press Ctrl+C to stop.");
   await Promise.race(children.map((child) => child.process.exited));
 }
 
