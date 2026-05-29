@@ -64,6 +64,8 @@ deno.lock
 reference/
 !docs/reference/
 !docs/reference/*.mdx
+!deploy/reference/
+!deploy/reference/**
 codex/
 ghostty/
 burns
