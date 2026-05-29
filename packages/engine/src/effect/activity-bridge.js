@@ -10,8 +10,63 @@ import { Effect, Schema } from "effect";
 /** @typedef {import("@smithers-orchestrator/graph/TaskDescriptor").TaskDescriptor} _TaskDescriptor */
 
 const adapterNamespaces = new WeakMap();
+/**
+ * Upper bound on cached completed-activity results. Within a single run the
+ * number of distinct idempotency keys is small, so this cap is a backstop that
+ * prevents the module-level cache from growing without limit across the many
+ * runs handled by a long-running gateway. Exported for tests.
+ * @type {number}
+ */
+export const COMPLETED_ACTIVITY_RESULTS_MAX = 4096;
+/**
+ * Insertion-ordered LRU cache of completed activity results keyed by composite
+ * idempotency key. A plain `Map` preserves insertion order, so the
+ * least-recently-used entry is always the first key. Recency is refreshed on
+ * read (see `getCompletedActivityResult`) so entries for an active run survive
+ * eviction pressure from unrelated runs.
+ * @type {Map<string, unknown>}
+ */
 const completedActivityResults = new Map();
 let nextAdapterNamespace = 0;
+/**
+ * @param {string} key
+ * @returns {boolean}
+ */
+const hasCompletedActivityResult = (key) => completedActivityResults.has(key);
+/**
+ * Reads a cached result and refreshes its recency (LRU touch).
+ * @param {string} key
+ * @returns {unknown}
+ */
+const getCompletedActivityResult = (key) => {
+    const value = completedActivityResults.get(key);
+    if (completedActivityResults.delete(key)) {
+        completedActivityResults.set(key, value);
+    }
+    return value;
+};
+/**
+ * Stores a result, evicting least-recently-used entries beyond the cap.
+ * @param {string} key
+ * @param {unknown} value
+ * @returns {void}
+ */
+const setCompletedActivityResult = (key, value) => {
+    completedActivityResults.delete(key);
+    completedActivityResults.set(key, value);
+    while (completedActivityResults.size > COMPLETED_ACTIVITY_RESULTS_MAX) {
+        const oldest = completedActivityResults.keys().next().value;
+        if (oldest === undefined) {
+            break;
+        }
+        completedActivityResults.delete(oldest);
+    }
+};
+/**
+ * Current number of cached completed-activity results. Exported for tests.
+ * @returns {number}
+ */
+export const completedActivityResultsSize = () => completedActivityResults.size;
 /**
  * @param {_SmithersDb} adapter
  * @returns {string}
@@ -111,12 +166,12 @@ export const executeTaskActivity = async (adapter, workflowName, runId, desc, ex
     let attempt = initialAttempt;
     while (true) {
         const idempotencyKey = makeActivityIdempotencyKey(adapter, workflowName, runId, desc, attempt, options?.includeAttemptInIdempotencyKey);
-        if (completedActivityResults.has(idempotencyKey)) {
-            return completedActivityResults.get(idempotencyKey);
+        if (hasCompletedActivityResult(idempotencyKey)) {
+            return getCompletedActivityResult(idempotencyKey);
         }
         try {
             const result = await Promise.resolve(executeFn({ attempt, idempotencyKey }));
-            completedActivityResults.set(idempotencyKey, result);
+            setCompletedActivityResult(idempotencyKey, result);
             return result;
         }
         catch (error) {
