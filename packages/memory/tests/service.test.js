@@ -70,23 +70,34 @@ describe("MemoryService", () => {
         expect(result.afterDelete).toHaveLength(1);
         expect(result.afterDelete[0].key).toBe("b");
     });
-    test("semantic recall fails gracefully without vector store", async () => {
+    test("does not expose semantic recall on the public API", async () => {
         const db = createTestDb();
-        // No vectorStore or embeddingModel provided
         const layer = createMemoryLayer({ db });
         const program = Effect.gen(function* () {
             const memory = yield* MemoryService;
-            // This should fail since no vectorStore is configured
-            yield* memory.recall(WF_NS, "test query");
+            // recall() is not part of MemoryServiceApi: SemanticRecallConfig is
+            // declared but the feature is unimplemented. Assert the real surface.
+            return {
+                hasRecall: typeof memory.recall,
+                methods: Object.keys(memory).sort(),
+            };
         });
-        try {
-            await Effect.runPromise(program.pipe(Effect.provide(layer)));
-            // Should not reach here
-            expect(false).toBe(true);
-        }
-        catch (err) {
-            expect(err).toBeDefined();
-        }
+        const { hasRecall, methods } = await Effect.runPromise(program.pipe(Effect.provide(layer)));
+        expect(hasRecall).toBe("undefined");
+        expect(methods).toEqual([
+            "countMessages",
+            "createThread",
+            "deleteExpiredFacts",
+            "deleteFact",
+            "deleteThread",
+            "getFact",
+            "getThread",
+            "listFacts",
+            "listMessages",
+            "saveMessage",
+            "setFact",
+            "store",
+        ]);
     });
     test("deleteExpiredFacts via Effect layer", async () => {
         const db = createTestDb();
