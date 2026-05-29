@@ -276,7 +276,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const landing = state.landings.find((entry) => entry.number === Number(landingSub[1]));
     if (!landing) return send(res, 404, { error: "landing not found" });
     if (!landingSub[2]) return send(res, 200, { landing });
-    if (landingSub[2] === "diff") return send(res, 200, { diff: landing.diff });
+    if (landingSub[2] === "diff") {
+      const diffDelayMs = (landing as { diffDelayMs?: number }).diffDelayMs;
+      if (diffDelayMs) await new Promise((resolve) => setTimeout(resolve, diffDelayMs));
+      return send(res, 200, { diff: landing.diff });
+    }
     if (landingSub[2] === "checks") return send(res, 200, { checks: landing.checks });
     if (landingSub[2] === "conflicts") return send(res, 200, { conflicts: landing.conflicts });
     if (landingSub[2] === "review") {

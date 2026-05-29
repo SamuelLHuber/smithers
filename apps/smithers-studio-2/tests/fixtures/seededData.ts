@@ -41,6 +41,13 @@ export type SeededApproval = {
 export const SEED_NOW_MS = 1_716_000_000_000;
 
 /**
+ * Server-side delay applied to the "stale race alpha" landing's diff so it
+ * resolves after a second landing's diff — used by landings-stale-response.spec
+ * to exercise the stale-response guard against the real fixture server.
+ */
+export const STALE_DIFF_DELAY_MS = 1_500;
+
+/**
  * Runs seeded into the Gateway SQLite store. The Runs surface reads these via
  * the real `POST /v1/rpc/listRuns`. Statuses are chosen to exercise every
  * history filter: running, succeeded (finished), failed, and an
@@ -279,6 +286,35 @@ export const SEEDED_JJHUB_STATE = {
       reviewStatus: "approved",
       diff: "",
       checks: "merged checks passed\n",
+      conflicts: { conflictStatus: "clean", hasConflicts: false, conflicts: [] },
+    },
+    {
+      id: "landing-301",
+      number: 301,
+      title: "Stale race alpha landing",
+      description: "Race-test landing A; the fixture server delays its diff so it resolves after B's.",
+      state: "open",
+      targetBranch: "main",
+      author: "codex",
+      createdAt: "2026-05-27T12:00:00.000Z",
+      reviewStatus: "pending",
+      diff: "diff --git a/alpha.ts b/alpha.ts\n@@ -1 +1 @@\n-old-alpha\n+new-alpha\n",
+      checks: "alpha checks: passing\n",
+      conflicts: { conflictStatus: "clean", hasConflicts: false, conflicts: [] },
+      diffDelayMs: STALE_DIFF_DELAY_MS,
+    },
+    {
+      id: "landing-302",
+      number: 302,
+      title: "Stale race beta landing",
+      description: "Race-test landing B; its diff resolves immediately.",
+      state: "open",
+      targetBranch: "main",
+      author: "codex",
+      createdAt: "2026-05-27T13:00:00.000Z",
+      reviewStatus: "pending",
+      diff: "diff --git a/beta.ts b/beta.ts\n@@ -1 +1 @@\n-old-beta\n+new-beta\n",
+      checks: "beta checks: passing\n",
       conflicts: { conflictStatus: "clean", hasConflicts: false, conflicts: [] },
     },
   ],
