@@ -57,14 +57,22 @@ export async function streamChatMessage(
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
   const content = typeof body.content === "string" ? body.content.trim() : "";
 
-  res.writeHead(200, { "content-type": "application/x-ndjson" });
-
+  // Empty content is a clean validation fault: surface it as a 200 ndjson error
+  // delta (the client always reads this route as a stream). This needs no
+  // workspace/session, so it is handled before any throwing resolution.
   if (!content) {
+    res.writeHead(200, { "content-type": "application/x-ndjson" });
     writeDelta(res, { type: "error", message: "content is required." });
     res.end();
     return;
   }
 
+  // Resolve the workspace + session and stage the initial transcript blocks
+  // BEFORE sending any bytes. resolveChatWorkspaceRoot() (404 when no
+  // .smithers) and loadSessionById() can throw; doing this work pre-stream lets
+  // the handler's catch return a proper non-200 JSON error instead of a
+  // headers-already-sent response with no error delta. Once writeHead runs the
+  // response is committed and failures must be surfaced as error deltas.
   const root = resolveChatWorkspaceRoot();
   const session = sessionId ? loadSessionById(root, sessionId) : loadChatSession();
 
@@ -85,6 +93,8 @@ export async function streamChatMessage(
     pending: true,
   };
   session.blocks.push(assistantBlock);
+
+  res.writeHead(200, { "content-type": "application/x-ndjson" });
   writeDelta(res, { type: "block", block: { ...assistantBlock } });
 
   try {

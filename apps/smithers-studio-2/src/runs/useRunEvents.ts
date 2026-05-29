@@ -92,14 +92,28 @@ function toLine(streamPayload: Record<string, unknown>): RunEventLine {
  * Streaming is best-effort: when no socket opens (no live Gateway) the hook
  * yields an empty list and never throws, so the surface degrades to a static
  * tree + inspector (polling in useRunsData is the floor).
+ *
+ * Out-of-process runs: runs launched detached (`smithers up --detach`) execute
+ * in a separate process, so their events never reach the gateway's in-process
+ * event pump. The dev gateway bridges those in by tailing the persisted
+ * `_smithers_events` log and replaying each row through its event ingestion
+ * (see `server/startGatewayServer.ts`), so `streamRunEvents` delivers REAL per-
+ * node frames for detached runs too — `streaming` flips true and the logs tab
+ * fills exactly as it does for in-process runs. If that bridge is ever absent
+ * (a gateway with no event relay), the stream is heartbeat-only: `streaming`
+ * stays false (the badge shows "polling", not "live") and the logs tab stays
+ * honestly empty while the 2s poll keeps the tree/state progressing.
  */
 export function useRunEvents(runId: string | undefined): {
   lines: RunEventLine[];
   lastLogByNode: Map<string, string>;
   /**
-   * True only while the Gateway WebSocket is actually connected and the
-   * `streamRunEvents` subscription is live — not merely because a non-terminal
-   * run is selected. Drops to false when the socket closes or the stream ends.
+   * True only after a REAL run-event frame (`run.event` / `run.gap_resync` /
+   * `run.error`) has actually arrived over the live socket — NOT merely because
+   * the socket connected or a heartbeat was received. A `run.heartbeat`-only
+   * stream (e.g. a run whose events the gateway is not relaying) leaves this
+   * false, so the "live" badge never lies. Drops to false when the socket closes
+   * or the stream ends.
    */
   streaming: boolean;
   /**
@@ -125,41 +139,115 @@ export function useRunEvents(runId: string | undefined): {
     }
 
     const abort = new AbortController();
-    let connected = false;
+
+    // Batch frame application. A connect-time backlog replay (afterSeq:0) — and
+    // any burst of frames — would otherwise force ONE re-render per frame: the
+    // async for-await loop crosses await boundaries, so React cannot auto-batch
+    // the per-frame setState calls. We accumulate into buffers and flush once
+    // per animation frame, so a burst collapses into a single render (which also
+    // keeps a backlog replay from churning the tree/inspector mid-interaction).
+    let pendingLines: RunEventLine[] = [];
+    const pendingLastLog = new Map<string, string>();
+    let pendingEpoch = 0;
+    let sawReal = false;
+    let scheduled = false;
+    let rafHandle = 0;
+
+    const flush = () => {
+      scheduled = false;
+      if (abort.signal.aborted) return;
+      if (sawReal) setStreaming(true);
+      if (pendingLines.length > 0) {
+        const batch = pendingLines;
+        pendingLines = [];
+        setLines((current) => {
+          const next = current.concat(batch);
+          return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
+        });
+      }
+      if (pendingLastLog.size > 0) {
+        const entries = [...pendingLastLog];
+        pendingLastLog.clear();
+        setLastLogByNode((current) => {
+          const next = new Map(current);
+          for (const [nodeId, message] of entries) next.set(nodeId, message);
+          return next;
+        });
+      }
+      if (pendingEpoch > 0) {
+        const bump = pendingEpoch;
+        pendingEpoch = 0;
+        setEventEpoch((epoch) => epoch + bump);
+      }
+    };
+    const scheduleFlush = () => {
+      if (scheduled) return;
+      scheduled = true;
+      if (typeof requestAnimationFrame === "function") rafHandle = requestAnimationFrame(flush);
+      else queueMicrotask(flush);
+    };
 
     void (async () => {
       try {
         for await (const frame of runEventsClient().streamRunEventsResilient(
-          { runId },
+          // afterSeq:0 requests the gateway's FULL run-event window on first
+          // connect: without it the subscription starts at "now" and every
+          // event the run emitted before we subscribed is lost (a blank logs
+          // tab for an already-running run). 0 means "everything after seq 0",
+          // i.e. the entire retained backlog. streamRunEventsResilient then
+          // advances afterSeq to the last seq it saw, so reconnects resume
+          // without re-replaying.
+          { runId, afterSeq: 0 },
           { signal: abort.signal },
         )) {
-          // The first delivered frame proves the connect handshake +
-          // subscription succeeded, so the live badge reflects a real stream.
-          if (!connected) {
-            connected = true;
-            setStreaming(true);
-          }
-          // Heartbeats keep the stream alive but carry no log line; they still
-          // confirm connectivity (handled above) without bumping the epoch.
+          // Heartbeats keep the socket alive but prove NOTHING about the run
+          // producing events. They must NOT flip the live badge — a heartbeat-
+          // only stream is exactly the out-of-process case the badge used to
+          // lie about. Skip them entirely (no liveness, no epoch bump).
           if (frame.event === "run.heartbeat") continue;
-          const streamPayload = asRecord(frame.payload);
-          const line = toLine(streamPayload);
-          if (line.nodeId && line.message) {
-            // Replace the map with a fresh instance so React sees a new
-            // reference and the tree's running-cursor last-log re-renders;
-            // mutating in place left consumers reading a stale render.
-            const { nodeId, message } = line;
-            setLastLogByNode((current) => {
-              const next = new Map(current);
-              next.set(nodeId, message);
-              return next;
-            });
+
+          // gap_resync: the run advanced past the retained window before we
+          // could replay it. It carries a snapshot, not a log line — use it for
+          // liveness + a state refresh (bump the epoch so the data layer re-
+          // fetches getRun/snapshot) but DO NOT synthesize a generic log line.
+          if (frame.event === "run.gap_resync") {
+            sawReal = true;
+            pendingEpoch += 1;
+            scheduleFlush();
+            continue;
           }
-          setLines((current) => {
-            const next = [...current, line];
-            return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
-          });
-          setEventEpoch((epoch) => epoch + 1);
+
+          // run.error: a stream-level error frame (replay failed, etc.). Render
+          // it distinctly as an error line rather than letting toLine collapse
+          // it into a generic "event" row, and do not bump the refresh epoch.
+          if (frame.event === "run.error") {
+            const errorPayload = asRecord(frame.payload);
+            const errorInfo = asRecord(errorPayload.error);
+            const errorMessage =
+              typeof errorInfo.message === "string"
+                ? errorInfo.message
+                : typeof errorPayload.message === "string"
+                  ? errorPayload.message
+                  : "run event stream error";
+            sawReal = true;
+            pendingLines.push({
+              seq: typeof errorPayload.seq === "number" ? errorPayload.seq : 0,
+              event: "run.error",
+              message: errorMessage,
+              atMs: Date.now(),
+            });
+            scheduleFlush();
+            continue;
+          }
+
+          // A real run.event frame: the live badge can now honestly claim live,
+          // because a genuine per-node event (not a heartbeat) has arrived.
+          sawReal = true;
+          const line = toLine(asRecord(frame.payload));
+          if (line.nodeId && line.message) pendingLastLog.set(line.nodeId, line.message);
+          pendingLines.push(line);
+          pendingEpoch += 1;
+          scheduleFlush();
         }
       } catch {
         // A real drop/failure (connect refused, invalid frame). Best-effort:
@@ -172,6 +260,7 @@ export function useRunEvents(runId: string | undefined): {
     return () => {
       setStreaming(false);
       abort.abort();
+      if (rafHandle && typeof cancelAnimationFrame === "function") cancelAnimationFrame(rafHandle);
     };
   }, [runId]);
 

@@ -148,7 +148,23 @@ export function useAgentChat(active: boolean): AgentChatState {
         content: trimmed,
         timestampMs: Date.now(),
       };
-      setBlocks((current) => [...current, userBlock]);
+      setBlocks((current) => {
+        // Retire any leftover synthetic "stream" block from a PRIOR turn before
+        // starting this one. Non-JSON stream lines render into a block with the
+        // fixed id "stream" (see chatApi.emitLine). If a previous turn left such
+        // a block behind, a new turn's "stream" deltas would re-target it —
+        // appending this turn's text onto the old, finalized bubble with no
+        // pending indicator. Renaming it to a unique id frees "stream" so the
+        // next non-JSON delta mints a fresh, correctly-pending block while the
+        // prior transcript is preserved verbatim.
+        const next = current.map((block) =>
+          block.id === "stream"
+            ? { ...block, id: `stream-${block.timestampMs ?? Date.now()}`, pending: false }
+            : block,
+        );
+        next.push(userBlock);
+        return next;
+      });
       setStatus("streaming");
       setError(null);
       streamErroredRef.current = false;

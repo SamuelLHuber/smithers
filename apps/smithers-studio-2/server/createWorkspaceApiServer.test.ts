@@ -425,4 +425,35 @@ describe("createWorkspaceApiServer (real backend over HTTP)", () => {
     // No assistant content was fabricated.
     expect(deltas.some((d) => d.type === "delta")).toBe(false);
   });
+
+  test("POST /chat/message surfaces a pre-stream resolution failure as a real non-200 error (not a silently-swallowed empty response)", async () => {
+    // Regression guard for the swallowed pre-stream error path: with valid
+    // content, resolveChatWorkspaceRoot() runs BEFORE any ndjson bytes are sent.
+    // Point the workspace at a fresh dir with no `.smithers` ancestor so that
+    // resolution throws a 404. Because headers are not yet sent, the handler's
+    // catch must return a proper JSON error with a non-200 status — never a
+    // headers-already-sent response with no error delta (which left the user
+    // with no reply and no error at all).
+    const noSmithersDir = mkdtempSync(join(tmpdir(), "studio-no-smithers-"));
+    const previous = process.env.SMITHERS_STUDIO_WORKSPACE;
+    process.env.SMITHERS_STUDIO_WORKSPACE = noSmithersDir;
+    try {
+      const res = await fetch(`${baseUrl}${API}/chat/message`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: "", content: "hello there" }),
+      });
+      expect(res.status).toBe(404);
+      expect(res.headers.get("content-type")).toContain("application/json");
+      const body = await res.json();
+      expect(String(body.error)).toMatch(/\.smithers not found/);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.SMITHERS_STUDIO_WORKSPACE;
+      } else {
+        process.env.SMITHERS_STUDIO_WORKSPACE = previous;
+      }
+      rmSync(noSmithersDir, { recursive: true, force: true });
+    }
+  });
 });
