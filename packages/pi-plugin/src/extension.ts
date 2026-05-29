@@ -494,10 +494,18 @@ export function extension(pi: ExtensionAPI) {
       if (!action || action === "Cancel") {
         return;
       }
-      if (action === "Approve") {
-        await target.run.client.approve(target.run.runId, target.node.nodeId);
-      } else {
-        await target.run.client.deny(target.run.runId, target.node.nodeId);
+      try {
+        if (action === "Approve") {
+          await target.run.client.approve(target.run.runId, target.node.nodeId);
+        } else {
+          await target.run.client.deny(target.run.runId, target.node.nodeId);
+        }
+      } catch (error) {
+        ctx.ui.notify(
+          `Failed to ${action.toLowerCase()} ${target.node.nodeId}: ${error instanceof Error ? error.message : String(error)}`,
+          "error",
+        );
+        return;
       }
       ctx.ui.notify(`${action}d ${target.node.nodeId}`, action === "Approve" ? "info" : "warning");
     },
