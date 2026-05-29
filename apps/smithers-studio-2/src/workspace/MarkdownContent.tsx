@@ -1,6 +1,20 @@
 import { Fragment, type ReactNode } from "react";
 
 /**
+ * Only render links whose scheme can't execute script. Agent/LLM output can
+ * contain `[label](javascript:...)`, which React renders verbatim into href and
+ * runs on click. Allow http(s), mailto, and relative/anchor links; everything
+ * else falls back to plain text.
+ */
+function isSafeHref(href: string): boolean {
+  const value = href.trim();
+  if (value.startsWith("/") || value.startsWith("#") || value.startsWith("./") || value.startsWith("../")) {
+    return true;
+  }
+  return /^(https?:|mailto:)/i.test(value);
+}
+
+/**
  * Dependency-free markdown renderer for chat blocks. The repo ships no markdown
  * library, and chat content is trusted agent output (not arbitrary HTML), so we
  * render a deliberately small, safe subset: fenced code blocks, inline code,
@@ -77,12 +91,16 @@ function renderInline(line: string): ReactNode[] {
       nodes.push(<em key={key++}>{piece.slice(1, -1)}</em>);
     } else {
       const linkMatch = /\[([^\]]+)\]\(([^)]+)\)/.exec(piece);
-      if (linkMatch) {
+      if (linkMatch && isSafeHref(linkMatch[2])) {
         nodes.push(
           <a className="ws-md-link" href={linkMatch[2]} key={key++} rel="noreferrer" target="_blank">
             {linkMatch[1]}
           </a>,
         );
+      } else if (linkMatch) {
+        // Unsafe scheme (e.g. javascript:) in agent/LLM output — render the
+        // label as plain text rather than a clickable code-executing link.
+        nodes.push(linkMatch[1]);
       } else {
         nodes.push(piece);
       }
