@@ -1,6 +1,7 @@
 /** @jsxImportSource smithers-orchestrator */
-import { ApprovalGate, HumanTask, Subflow } from "@smithers-orchestrator/components";
+import { ApprovalGate, HumanTask, Subflow, type SmithersWorkflow } from "@smithers-orchestrator/components";
 import { createSmithers } from "smithers-orchestrator";
+import type { z } from "zod";
 
 import {
   approvalSchema,
@@ -30,6 +31,23 @@ const { Workflow, Task, Sequence, smithers, outputs } = createSmithers(
   { dbPath: process.env.BUN_PORT_SMITHERS_DB ?? "examples/bun-port-smithers/.tmp/smithers.db" },
 );
 
+type ChildRunResult = z.infer<typeof childRunResultSchema>;
+
+/** The lifetime subflow merges these summary fields onto its child-run result. */
+type LifetimeChildResult = ChildRunResult & {
+  unknownRate?: number;
+  totalFields?: number;
+  refutedKeys?: string[];
+  summary?: string;
+};
+
+/** The compile subflow merges these report fields onto its child-run result. */
+type CompileChildResult = ChildRunResult & {
+  gatedModules?: number;
+  failingCrates?: string[];
+  summary?: string;
+};
+
 const phaseToFlag = {
   lifetimes: "runLifetimes",
   phaseA: "runPhaseA",
@@ -55,8 +73,12 @@ export default smithers((ctx) => {
   const subflowRows = subflowIds
     .map((nodeId) => ctx.outputMaybe(outputs.childRunResult, { nodeId }))
     .filter(Boolean);
-  const lifetimeResult = ctx.outputMaybe(outputs.childRunResult, { nodeId: "main:lifetimes" }) as any;
-  const compileResult = ctx.outputMaybe(outputs.childRunResult, { nodeId: "main:compile" }) as any;
+  const lifetimeResult = ctx.outputMaybe(outputs.childRunResult, { nodeId: "main:lifetimes" }) as
+    | LifetimeChildResult
+    | undefined;
+  const compileResult = ctx.outputMaybe(outputs.childRunResult, { nodeId: "main:compile" }) as
+    | CompileChildResult
+    | undefined;
   const lifetimeGate = ctx.outputMaybe(outputs.approval, { nodeId: "main:lifetimes:approval" });
   const compileGate = ctx.outputMaybe(outputs.approval, { nodeId: "main:compile:approval" });
   const allSubflowsDone = canRun && subflowRows.length >= requestedPhases.length;
@@ -96,7 +118,10 @@ export default smithers((ctx) => {
           <Subflow
             id="main:lifetimes"
             output={outputs.childRunResult}
-            workflow={lifetimeWorkflow as any}
+            // Subflow accepts SmithersWorkflow<unknown>; each child workflow has a
+            // specific input schema in a contravariant position, so it must be widened
+            // through `unknown` rather than narrowed with `as any`.
+            workflow={lifetimeWorkflow as unknown as SmithersWorkflow<unknown>}
             retries={0}
             input={{
               repo: ctx.input.repo,
@@ -128,7 +153,7 @@ export default smithers((ctx) => {
           <Subflow
             id="main:phaseA"
             output={outputs.childRunResult}
-            workflow={phaseAWorkflow as any}
+            workflow={phaseAWorkflow as unknown as SmithersWorkflow<unknown>}
             retries={0}
             input={{ repo: ctx.input.repo, files: ctx.input.files, maxConcurrency: ctx.input.maxConcurrency }}
           />
@@ -138,7 +163,7 @@ export default smithers((ctx) => {
           <Subflow
             id="main:compile"
             output={outputs.childRunResult}
-            workflow={compileWorkflow as any}
+            workflow={compileWorkflow as unknown as SmithersWorkflow<unknown>}
             retries={0}
             input={{ repo: ctx.input.repo, crates: ctx.input.crates }}
           />
@@ -165,7 +190,7 @@ export default smithers((ctx) => {
           <Subflow
             id="main:ungate"
             output={outputs.childRunResult}
-            workflow={ungateWorkflow as any}
+            workflow={ungateWorkflow as unknown as SmithersWorkflow<unknown>}
             retries={0}
             input={{ repo: ctx.input.repo, targets: ctx.input.targets }}
           />
@@ -175,7 +200,7 @@ export default smithers((ctx) => {
           <Subflow
             id="main:probes"
             output={outputs.childRunResult}
-            workflow={probeWorkflow as any}
+            workflow={probeWorkflow as unknown as SmithersWorkflow<unknown>}
             retries={0}
             input={{ repo: ctx.input.repo, probes: ctx.input.probes }}
           />
@@ -185,7 +210,7 @@ export default smithers((ctx) => {
           <Subflow
             id="main:tests"
             output={outputs.childRunResult}
-            workflow={testSwarmWorkflow as any}
+            workflow={testSwarmWorkflow as unknown as SmithersWorkflow<unknown>}
             retries={0}
             input={{
               repo: ctx.input.repo,
@@ -202,7 +227,7 @@ export default smithers((ctx) => {
           <Subflow
             id="main:sweeps"
             output={outputs.childRunResult}
-            workflow={auditSweepsWorkflow as any}
+            workflow={auditSweepsWorkflow as unknown as SmithersWorkflow<unknown>}
             retries={0}
             input={{ repo: ctx.input.repo, sweeps: ctx.input.sweeps }}
           />
