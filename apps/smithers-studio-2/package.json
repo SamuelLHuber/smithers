@@ -9,11 +9,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "pnpm run typecheck && vite build",
     "e2e": "playwright test",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "dev:desktop": "electrobun dev --watch",
+    "build:desktop": "pnpm run build && electrobun build"
   },
   "dependencies": {
+    "@smithers-orchestrator/devtools": "workspace:*",
+    "@smithers-orchestrator/gateway-client": "workspace:*",
     "@uidotdev/usehooks": "^2.4.1",
     "@vitejs/plugin-react": "^6.0.2",
+    "electrobun": "^1.18.1",
     "@wterm/dom": "0.3.0",
     "@wterm/ghostty": "0.3.0",
     "@wterm/react": "0.3.0",
@@ -27,6 +32,7 @@
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "playwright": "^1.60.0"
   }
 }
