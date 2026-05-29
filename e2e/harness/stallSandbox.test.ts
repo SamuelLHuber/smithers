@@ -39,8 +39,7 @@ describe("stallSandbox", () => {
       const stall = await stallSandbox(handle, 5000);
       expect(existsSync(handle.requestPath)).toBe(false);
       expect(existsSync(`${handle.requestPath}.stalled`)).toBe(true);
-      stall.release();
-      await wait(20);
+      await stall.release();
       expect(existsSync(handle.requestPath)).toBe(true);
     } finally {
       cleanup();
@@ -65,12 +64,10 @@ describe("stallSandbox", () => {
     try {
       const stall = await stallSandbox(handle, 5000);
       expect(existsSync(handle.requestPath)).toBe(false);
-      stall.release();
-      await wait(20);
+      await stall.release();
       expect(existsSync(handle.requestPath)).toBe(true);
       // release is idempotent and double-release does not throw
-      stall.release();
-      await wait(20);
+      await stall.release();
       expect(existsSync(handle.requestPath)).toBe(true);
     } finally {
       cleanup();

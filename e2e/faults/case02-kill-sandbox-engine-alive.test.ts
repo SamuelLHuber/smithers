@@ -126,7 +126,7 @@ describe("case02 kill-sandbox-engine-alive", () => {
         expect(view.state).toBe("running");
         expect(view.unhealthy).toBeUndefined();
       } finally {
-        stall.release();
+        await stall.release();
       }
     } finally {
       sbxCleanup();

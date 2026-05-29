@@ -6,7 +6,7 @@ const STALL_SUFFIX = ".stalled";
 export async function stallSandbox(
   handle: SandboxHandle,
   durationMs: number,
-): Promise<{ release: () => void }> {
+): Promise<{ release: () => Promise<void> }> {
   const original = handle.requestPath;
   const stalled = `${original}${STALL_SUFFIX}`;
   await rename(original, stalled);
@@ -25,8 +25,6 @@ export async function stallSandbox(
   if (typeof timer.unref === "function") timer.unref();
 
   return {
-    release: () => {
-      void restore();
-    },
+    release: () => restore(),
   };
 }
