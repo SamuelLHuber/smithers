@@ -15,6 +15,7 @@ type TaskProps = {
   dependsOn?: string[];
   needs?: Record<string, string>;
   deps?: Record<string, OutputTarget>; // typed render-time upstream outputs
+  fork?: string; // start from another task's final agent session snapshot
   allowTools?: string[]; // CLI-agent tool allowlist
   key?: string;
   skipIf?: boolean;
@@ -65,8 +66,67 @@ const codeAgent = new Agent({
 </Task>
 ```
 
+## Fork
+
+Every agent task produces a reusable session snapshot. Use `fork` to start a new task from any previous task's context.
+
+`<Task id={B} fork={A}>` means:
+
+- `B` depends on `A` and cannot run until `A` has completed.
+- `B` starts from a **copy** of `A`'s final agent session context, then submits its own prompt into that copy.
+- `B` produces its own output and its own session snapshot. `A` is never mutated.
+
+`fork` is immutable. It does not continue or mutate the source task — it copies the conversation into a fresh, independent session. Multiple tasks may fork the same source safely, and a forked task may itself be forked.
+
+```tsx
+const PLAN = "plan" as const;
+const IMPLEMENT = "implement" as const;
+const VERIFY = "verify" as const;
+
+<Task id={PLAN} agent={claude} output={outputs.plan}>
+  Make a plan.
+</Task>
+
+<Task id={IMPLEMENT} agent={claude} fork={PLAN} output={outputs.patch}>
+  Implement the plan.
+</Task>
+
+<Task id={VERIFY} agent={claude} fork={IMPLEMENT} output={outputs.result}>
+  Run tests and fix failures.
+</Task>
+```
+
+`VERIFY` forks `IMPLEMENT`, which forked `PLAN`, so `VERIFY` sees the whole `plan → implement` conversation.
+
+**Parallel branches** — fork the same source from sibling tasks; each gets its own copy and they never affect each other:
+
+```tsx
+<Task id="investigate" agent={claude} output={outputs.investigation}>
+  Understand the bug and identify possible fixes.
+</Task>
+
+<Parallel>
+  <Task id="minimal-fix" agent={claude} fork="investigate" output={outputs.patch}>
+    Try the minimal fix.
+  </Task>
+  <Task id="refactor-fix" agent={claude} fork="investigate" output={outputs.patch}>
+    Try the refactor fix.
+  </Task>
+</Parallel>
+```
+
+`fork` composes with `dependsOn`, `needs`, `deps`, `Sequence`, `Parallel`, `Branch`, and `Loop`. Inside a loop, `fork` resolves to the **latest completed** session snapshot for that task id — there is no iteration selector and no ambiguity.
+
+### Error cases
+
+- **`TASK_FORK_SOURCE_NOT_FOUND`** — `fork` points to a task id not present in the graph (including a source that exists only in an unselected `<Branch>`).
+- **`TASK_FORK_CYCLE`** — `fork` creates a cycle, directly or indirectly.
+- **`TASK_FORK_SESSION_UNAVAILABLE`** — the forking task is not an agent task, or the source completed but produced no usable session snapshot (e.g. a compute/static source, or a source that was skipped/cancelled).
+- **`TASK_FORK_SOURCE_NOT_COMPLETE`** — the source exists but has not completed; the forked task waits and does not run.
+
 ## Notes
 
 - Three modes by `children` shape: agent (with `agent`), compute (function, no agent), static (value, no agent).
+- `fork` requires an agent task; the source must be an agent task with a session snapshot. Forking copies the conversation into a new session and never reuses a native session id.
 - When `outputSchema` is set, JSON is extracted from agent text; schema-validation retries don't consume `retries`.
 - Auth errors short-circuit retries; non-idempotent tool reuse warns on the next attempt.

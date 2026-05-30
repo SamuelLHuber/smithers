@@ -181,6 +181,7 @@ type TaskDescriptor = {
   ralphId?: string;
   dependsOn?: string[];
   needs?: Record<string, string>;
+  forkSource?: string;              // logical id of the task whose session this task forks
   worktreeId?: string;
   worktreePath?: string;
   worktreeBranch?: string;
@@ -317,6 +318,7 @@ type TaskProps<Row, Output extends OutputTarget = OutputTarget, D extends DepsSp
   dependsOn?: string[];
   needs?: Record<string, string>;
   deps?: D;
+  fork?: string;                    // start from another task's final agent session snapshot
   skipIf?: boolean;
   needsApproval?: boolean;
   async?: boolean;                  // only with needsApproval
@@ -610,7 +612,6 @@ type GatewayOptions = {
   heartbeatMs?: number;
   auth?: GatewayAuthConfig;
   ui?: GatewayUiConfig;
-  operatorUi?: GatewayOperatorUiConfig | false;   // default { path: "/console" }
   defaults?: { cliAgentTools?: "all" | "explicit-only" };
   maxBodyBytes?: number;
   maxPayload?: number;
