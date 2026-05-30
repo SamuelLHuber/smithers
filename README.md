@@ -15,6 +15,25 @@ This scaffolds a `.smithers/` folder with canonical workflows for implementation
 
 Use the `smithers` CLI or Gateway console to operate runs.
 
+## Use it from your coding agent
+
+Smithers is driven by an AI agent — Claude Code, Codex, and friends — **not** a GUI
+you click. Your agent runs Smithers on your behalf: it scaffolds workflows, kicks
+off runs, watches them, and handles approvals. Install the [`smithers` skill](./skills/smithers)
+so your agent knows the fast path without reading the whole docs site:
+
+```bash
+mkdir -p ~/.claude/skills/smithers
+curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
+  -o ~/.claude/skills/smithers/SKILL.md
+curl -fsSL https://smithers.sh/llms-full.txt \
+  -o ~/.claude/skills/smithers/llms-full.txt
+```
+
+Then just ask: *"orchestrate an agent to add rate limiting and keep iterating until
+the tests pass."* See [`skills/smithers/`](./skills/smithers) for the install
+details and what the agent loads.
+
 ## [See Docs](https://smithers.sh)
 
 ## Example

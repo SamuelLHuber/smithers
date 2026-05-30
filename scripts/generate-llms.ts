@@ -16,10 +16,13 @@
  * Run: bun scripts/generate-llms.ts
  */
 
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const DOCS = resolve(import.meta.dir, "../docs");
+// The `smithers` agent skill bundles a copy of the full docs so an installed
+// skill is self-contained. Keep it generated here so it never drifts from docs.
+const SKILL_DIR = resolve(import.meta.dir, "../skills/smithers");
 
 // -----------------------------------------------------------------------------
 // Manifests
@@ -273,6 +276,12 @@ for (const b of builds) {
   const bytes = fullContent.length;
   console.log(`\n→ llms-full.txt (full concat)`);
   console.log(`  ${bytes.toLocaleString()} bytes (~${Math.round(bytes / 4).toLocaleString()} tokens)`);
+
+  // Mirror the full bundle into the `smithers` agent skill so it ships
+  // self-contained (the SKILL.md on-ramp points agents at this file).
+  mkdirSync(SKILL_DIR, { recursive: true });
+  writeFileSync(resolve(SKILL_DIR, "llms-full.txt"), fullContent);
+  console.log(`\n→ skills/smithers/llms-full.txt (bundled copy)`);
 }
 
 // -----------------------------------------------------------------------------

@@ -45,6 +45,31 @@ To overwrite an existing scaffold:
 bunx smithers-orchestrator init --force
 ```
 
+## Install the Agent Skill
+
+Smithers is driven by an AI agent — Claude Code, Codex, and friends — not a GUI you
+click. Your agent runs Smithers on your behalf: scaffolding workflows, starting
+runs, watching them, and clearing approvals. The `smithers` skill makes your agent
+fluent in that without making it read the whole docs site first, so you reach the
+aha moment faster.
+
+```bash
+mkdir -p ~/.claude/skills/smithers
+curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
+  -o ~/.claude/skills/smithers/SKILL.md
+curl -fsSL https://smithers.sh/llms-full.txt \
+  -o ~/.claude/skills/smithers/llms-full.txt
+```
+
+The skill ships the full docs bundle (`llms-full.txt`) next to its `SKILL.md`, so
+the agent can read the exact API on demand. Once installed, just ask for the
+outcome — *"orchestrate an agent to add rate limiting and keep iterating until the
+tests pass"* — and the agent reaches for Smithers itself.
+
+For agents without a skills directory, point them at
+`bunx smithers-orchestrator docs-full` (prints the same bundle) or
+`bunx smithers-orchestrator ask "<question>"`.
+
 ## When to Use Manual Installation
 
 Use manual installation when embedding Smithers into an existing TypeScript codebase to author a standalone [workflow project](/guides/project-structure) from scratch.
@@ -77,6 +102,7 @@ The current build is unsigned. The first time you open it, right-click the app a
 ## After Installation
 
 - [Quickstart](/quickstart) — run a seeded workflow immediately.
+- [Install the Agent Skill](#install-the-agent-skill) — make your coding agent fluent in Smithers.
 - [CLI Quickstart](/cli/quickstart) — operational workflow.
 - [JSX Installation](/jsx/installation) — manual TSX authoring setup.
 - [Project Structure](/guides/project-structure) — how a standalone workflow project fits together.
