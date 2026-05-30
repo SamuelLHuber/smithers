@@ -133,8 +133,8 @@ the graph; only the matching branch executes.
 `G.branch({ condition, needs, then, else })` is the same shape but the
 predicate runs against an arbitrary `needs` context, not a single source step.
 
-`G.loop({ id, children, until, maxIterations })` repeats a fragment until the
-predicate returns true. Nested loops are not supported.
+`G.loop({ id, children, until, maxIterations, onMaxReached })` repeats a fragment until the
+predicate returns true. Nested loops are not supported. `onMaxReached` accepts `'fail'` or `'return-last'` and controls behavior when `maxIterations` is exceeded; when omitted the loop returns the last iteration's outputs rather than failing.
 
 ```ts
 export const reviewWorkflow = G.from(
@@ -150,6 +150,7 @@ export const reviewWorkflow = G.from(
         }),
         onDeny: "fail",
       }),
+      // else: report — omitting `else` means the match falls through to the next sibling in the sequence
     }),
     report,
   ),
@@ -197,8 +198,7 @@ const makeReviewShard = (params: { path: string }) =>
 
 Multi-mount reuse is `G.scope(instanceId, fragment)`. The compiler applies
 `instanceId.` as a durable ID prefix to every step and approval inside the
-fragment. The same fragment can be mounted under multiple scopes without
-collision:
+fragment. For example, `G.scope('api', makeReviewShard(...))` produces step IDs `api.read` and `api.summarize` in the database. The same fragment can be mounted under multiple scopes without collision:
 
 ```ts
 G.parallel(
@@ -245,22 +245,7 @@ export const reviewWorkflow = G.from(
 );
 ```
 
-A fragment's input schema is read by every step inside it. The host workflow's
-input must be assignable to the fragment's input schema.
-
-## Pipe
-
-Every graph value has a `.pipe(...fns)` method. It's left-to-right function
-application — the same shape as `Effect.pipe`:
-
-```ts
-graph.pipe(f, g, h)
-// equivalent to
-h(g(f(graph)))
-```
-
-No pipeable combinators ship in V1; the method is forward-compatibility for
-future data-last forms.
+A fragment is typed with an input schema so TypeScript can infer each step's `input` type. At runtime the schema is not read or validated — steps receive the host workflow's input directly. The host workflow's input type must be assignable to the fragment's input schema. This is enforced at compile time: TypeScript will error if you mount a fragment whose input schema has fields the host workflow's input doesn't satisfy.
 
 ## Operational notes
 
@@ -268,7 +253,8 @@ future data-last forms.
 - Keep step IDs stable across releases; use new IDs for materially different work.
 - Use `heartbeat()` in long-running steps and honor `signal` in external calls.
 - Use `retry`, `retryPolicy`, `timeout`, `skipIf`, and `cache` the same way you
-  would on JSX tasks.
+  would on JSX tasks (see [JSX Task options](/components/task#retry) for the shared option shape).
+- All graph values support `.pipe(...fns)` for future data-last combinators.
 - Prefer idempotent step bodies. For external side effects, use `executionId`,
   `stepId`, and `attempt` when constructing idempotency keys.
 - `G.match` is graph topology selection — both branches must be statically

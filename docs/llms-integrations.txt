@@ -159,13 +159,13 @@ export default smithers(() => (
 ));
 ```
 
-Authentication options:
+### Authentication
 
 - Subscription login: run `codex login` once. For isolated accounts, pass `configDir`; Smithers sets `CODEX_HOME` for that invocation.
 - API billing: pass `apiKey` or set `OPENAI_API_KEY`; Smithers forwards it to the spawned `codex` process.
 - Account registry: `bunx smithers-orchestrator agents add --provider codex ...` registers a subscription config directory, while `--provider openai-api` registers API-key billing for Codex-compatible providers.
 
-Structured output:
+### Structured output
 
 - If the Smithers task has an output schema and `outputSchema` is not set, Smithers writes a temporary OpenAI-compatible JSON Schema file and passes it as `--output-schema`.
 - Resume attempts use `codex exec resume <thread-id>` and skip `--output-schema`, matching the Codex CLI's resume command surface.
@@ -202,6 +202,8 @@ await agent.generate({
 
 ## Per-agent extras
 
+`ClaudeCodeAgent` extends the base with Claude Code-specific session and permission flags. Key additions: `permissionMode`, `sessionId`, `mcpConfig`, `resume`.
+
 ```ts
 import { ClaudeCodeAgent } from "smithers-orchestrator";
 new ClaudeCodeAgent({
@@ -221,12 +223,14 @@ new ClaudeCodeAgent({
 });
 ```
 
+`CodexAgent` extends the base with OpenAI Codex-specific flags. Key additions: `sandbox`, `config`, `outputSchema`.
+
 ```ts
 import { CodexAgent } from "smithers-orchestrator";
 new CodexAgent({
   sandbox?: "read-only" | "workspace-write" | "danger-full-access";
   fullAuto?: boolean; dangerouslyBypassApprovalsAndSandbox?: boolean;
-  config?: Record<string, unknown> | string[];
+  config?: Record<string, string | number | boolean | object | null> | string[];
   enable?: string[]; disable?: string[];
   oss?: boolean; localProvider?: string;
   image?: string[]; profile?: string; cd?: string; addDir?: string[];
@@ -235,6 +239,8 @@ new CodexAgent({
   configDir?: string; apiKey?: string;
 });
 ```
+
+`AntigravityAgent` wraps the Google `agy` CLI. Key additions: `extensions`, `allowedMcpServerNames`, `geminiDir`, `resume`.
 
 ```ts
 import { AntigravityAgent } from "smithers-orchestrator";
@@ -250,10 +256,12 @@ new AntigravityAgent({
 });
 ```
 
+`PiAgent` wraps the Pi CLI and adds extension UI hook support. Key additions: `mode`, `onExtensionUiRequest`, `extension`, `thinking`.
+
 ```ts
 import { PiAgent, type PiExtensionUiRequest, type PiExtensionUiResponse } from "smithers-orchestrator";
 new PiAgent({
-  provider?: string; apiKey?: string; mode?: "text" | "json" | "rpc";
+  provider?: string; apiKey?: string; appendSystemPrompt?: string; mode?: "text" | "json" | "rpc";
   print?: boolean; continue?: boolean; resume?: boolean; session?: string;
   sessionDir?: string; noSession?: boolean;
   models?: string | string[]; listModels?: boolean | string;
@@ -262,9 +270,11 @@ new PiAgent({
   tools?: string[]; noTools?: boolean; files?: string[];
   thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   export?: string; verbose?: boolean;
-  onExtensionUiRequest?: (req: PiExtensionUiRequest) => Promise<PiExtensionUiResponse | null>;
+  onExtensionUiRequest?: (req: PiExtensionUiRequest) => Promise<PiExtensionUiResponse | null> | PiExtensionUiResponse | null;
 });
 ```
+
+`KimiAgent` wraps the Moonshot Kimi CLI with automatic session isolation. Key additions: `thinking`, `agent`, `maxRalphIterations`.
 
 ```ts
 import { KimiAgent } from "smithers-orchestrator";
@@ -279,6 +289,8 @@ new KimiAgent({
 });
 ```
 
+`ForgeAgent` wraps the Forge CLI and supports 300+ models via provider/model strings. Key additions: `conversationId`, `provider`, `workflow`.
+
 ```ts
 import { ForgeAgent } from "smithers-orchestrator";
 new ForgeAgent({
@@ -287,6 +299,8 @@ new ForgeAgent({
   verbose?: boolean; workflow?: string; event?: string; conversation?: string;
 });
 ```
+
+`AmpAgent` wraps the Amp CLI in `--execute` headless mode. Key additions: `visibility`, `mcpConfig`, `dangerouslyAllowAll`.
 
 ```ts
 import { AmpAgent } from "smithers-orchestrator";
@@ -297,6 +311,8 @@ new AmpAgent({
   dangerouslyAllowAll?: boolean; ide?: boolean; jetbrains?: boolean;
 });
 ```
+
+`OpenCodeAgent` wraps the OpenCode CLI via `opencode run --format json`. Key additions: `agentName`, `continueSession`, `sessionId`. Note: native hijack support is not yet shipped.
 
 ```ts
 import { OpenCodeAgent } from "smithers-orchestrator";
@@ -310,12 +326,26 @@ new OpenCodeAgent({
 
 ## Hijack handoff
 
-Most built-in CLI agents support `bunx smithers-orchestrator hijack <runId>`, which relaunches the agent in its native CLI session for interactive takeover. Smithers persists the native session id (or conversation id for Forge / thread id for Amp) on each task event; on hijack it waits for a safe boundary between blocking tool calls, then reopens the session via the vendor's resume flag (`claude --resume`, `codex resume`, `agy --resume`, `pi --session`, `kimi --session`, `forge --conversation-id`, `amp threads continue`). On clean exit the workflow resumes in detached mode. OpenCode stream capture is documented above, but native `smithers hijack` support for OpenCode is not shipped yet. See [How it works → Durability and resume](/how-it-works#durability--resume).
+Most built-in CLI agents support `bunx smithers-orchestrator hijack <runId>`, which relaunches the agent in its native CLI session for interactive takeover.
+
+Smithers persists the native session or conversation id on each task event. On hijack, it waits for a safe boundary between blocking tool calls, then reopens the session via the vendor's resume flag:
+
+| Agent class | Resume flag |
+|---|---|
+| `ClaudeCodeAgent` | `claude --resume` |
+| `CodexAgent` | `codex resume` |
+| `AntigravityAgent` | `agy --resume` |
+| `PiAgent` | `pi --session` |
+| `KimiAgent` | `kimi --session` |
+| `ForgeAgent` | `forge --conversation-id` |
+| `AmpAgent` | `amp threads continue` |
+
+On clean exit the workflow resumes in detached mode. OpenCode stream capture is documented above, but native `smithers hijack` support for OpenCode is not shipped yet. See [How it works → Durability and resume](/how-it-works#durability--resume).
 
 ## Notes
 
 - **Yolo defaults.** `yolo: true` (default) maps to each CLI's "skip approvals" flag (`--dangerously-skip-permissions`, `--dangerously-bypass-approvals-and-sandbox`, `--yolo`, `--dangerously-allow-all`). Set `yolo: false` or use the agent-specific approval option for tighter control.
-- **PI rpc mode** sends prompts as JSON over stdin and is required for `onExtensionUiRequest` callbacks; text/json modes pass the prompt as a positional arg with `files` emitted as `@path`.
+- **Pi rpc mode** sends prompts as JSON over stdin and is required for `onExtensionUiRequest` callbacks; text/json modes pass the prompt as a positional arg with `files` emitted as `@path`.
 - **Kimi share dir.** `KimiAgent` auto-creates an isolated `KIMI_SHARE_DIR` per invocation to prevent `kimi.json` corruption under concurrent runs. Set `env.KIMI_SHARE_DIR` to opt out.
 - **Antigravity config.** `AntigravityAgent` launches the `agy` binary and passes `configDir`/`geminiDir` as `--gemini_dir`, matching Antigravity's `~/.gemini/antigravity-cli` config root.
 - **Non-idempotent retries.** When a `<Task>` retries, Smithers prepends a warning listing previously-called side-effect tools so the agent can verify external state before re-invoking them.
@@ -848,9 +878,21 @@ const result = await Effect.runPromise(runWorkflow(workflow, {
 
 For each external service, you have three choices:
 
-1. **OpenAPI tools** — point `createOpenApiTools()` at the service's OpenAPI spec. See `/llms-openapi.txt`.
-2. **CLI in a task** — if the service has a CLI (`gh`, `linear`, `notion`, `slack`), run it inside a `<Task>` via the `bash` tool. See `/recipes#side-effect-tools-with-idempotency`.
-3. **Custom `defineTool`** — wrap the service's REST API in a Zod-validated tool. See `/llms-integrations.txt#definetool`.
+1. **OpenAPI tools** — point `createOpenApiTools()` at the service's OpenAPI spec. See [OpenAPI tools](/concepts/openapi-tools).
+2. **CLI in a task** — if the service has a CLI (`gh`, `linear`, `notion`, `slack`), run it inside a `<Task>` via the `bash` tool. See [side-effect tools with idempotency](/recipes#side-effect-tools-with-idempotency).
+3. **Custom `defineTool`** — wrap the service's REST API in a Zod-validated tool. See [`defineTool`](/integrations/tools#definetool).
+
+### Example: CLI in a task (Pattern 2)
+
+```tsx
+<Task
+  id="open-pr"
+  tools={[bash]}
+  prompt="Run: gh pr create --title 'Fix login bug' --body 'Closes #42'"
+/>
+```
+
+Run `gh auth login` once on the host before executing. The `bash` tool executes in the task's sandbox, so credentials set in the environment carry through automatically.
 
 ## Quick decision
 
@@ -874,7 +916,7 @@ Always mark side-effecting tools with `sideEffect: true` and use `ctx.idempotenc
 
 Workspace-first local control plane for Smithers. Single UI for authoring, running, and supervising workflows across repositories. Register repos, launch runs, stream events, inspect frames, handle approvals.
 
-- React web app, ElectroBun desktop shell, or headless CLI
+- React web app, ElectroBun (a Bun-native Electron alternative) desktop shell, or headless CLI
 - AI-assisted workflow authoring via local agent CLIs
 - SQLite-backed workspace registry
 
