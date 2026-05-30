@@ -1,11 +1,9 @@
 ---
 title: getRun
-description: Stable Gateway RPC for reading one run.
+description: Gateway RPC for reading one run.
 maturity: stable
 apiVersion: v1
 ---
-
-`getRun` returns the current run view.
 
 - Method: `getRun`
 - Scope: `run:read`
@@ -13,4 +11,4 @@ apiVersion: v1
 - Request: `{ runId }`
 - Response: `RunStateView`
 
-Use this after `GapResync` when a client needs to refresh local state.
+Use this after a `GapResync` event (see `streamRunEvents`) to rebuild local state from scratch.

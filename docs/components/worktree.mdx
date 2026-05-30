@@ -1,18 +1,19 @@
 ---
 title: <Worktree>
-description: Run a subtree in a separate JJ worktree rooted at `path`.
+description: Run a subtree in an isolated worktree (git or jj) rooted at `path`.
 ---
 
 ```ts
 import { Worktree } from "smithers-orchestrator";
 
 type WorktreeProps = {
+  key?: string;
   path: string; // required, non-empty; resolved against baseRootDir or cwd if relative
   id?: string;
   branch?: string; // omit to use current branch
   baseBranch?: string; // default "main"
   skipIf?: boolean;
-  children: ReactNode;
+  children?: ReactNode;
 };
 ```
 

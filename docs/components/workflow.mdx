@@ -40,4 +40,4 @@ export default smithers((ctx) => (
 ## Notes
 
 - Direct children run sequentially; `<Sequence>` is only needed inside other control-flow components.
-- Custom Drizzle tables require `runId` and `nodeId` columns; tasks inside `<Loop>` also need `iteration`.
+- Custom Drizzle tables require `runId`, `nodeId`, and `iteration` columns with a composite primary key `(run_id, node_id, iteration)`. Tasks outside a `<Loop>` write `iteration = 0`.

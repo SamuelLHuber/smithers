@@ -16,7 +16,7 @@ type ScanFixVerifyProps = {
   fixOutput: OutputTarget;
   verifyOutput: OutputTarget;
   reportOutput: OutputTarget;
-  maxConcurrency?: number; // default Infinity
+  maxConcurrency?: number; // omit for no per-group cap (bounded only by the run-level concurrency limit, default 4)
   maxRetries?: number; // default 3
   skipIf?: boolean;
   children?: ReactNode; // scan prompt
@@ -43,5 +43,5 @@ type ScanFixVerifyProps = {
 
 ## Notes
 
-- The loop exits when the verifier reports all clear or `maxRetries` is hit.
+- The loop runs up to `maxRetries` scan-fix-verify cycles. Early exit based on verifier output is not currently wired — the loop always completes all iterations (then ends via `onMaxReached: return-last`).
 - The report task always runs, even when retries are exhausted.

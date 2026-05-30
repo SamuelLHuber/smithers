@@ -1,11 +1,11 @@
 ---
 title: cronRun
-description: Stable Gateway RPC for triggering cron schedules.
+description: Gateway RPC for triggering cron schedules.
 maturity: stable
 apiVersion: v1
 ---
 
-`cronRun` triggers a cron schedule or workflow immediately.
+`cronRun` triggers a cron schedule or workflow immediately. Pass either `cronId` to trigger an existing schedule, or `workflow` to trigger a workflow directly (at least one is required).
 
 - Method: `cronRun`
 - Scope: `cron:write`

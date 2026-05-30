@@ -3,6 +3,8 @@ title: Error Reference
 description: Exhaustive Smithers error codes, typed error helpers, and HTTP API error responses.
 ---
 
+`SmithersErrorInstance` is a typed, code-bearing `Error` subclass used throughout Smithers internals. It surfaces when `runWorkflow` throws, in `NodeFailed` events emitted during execution, and as JSON in HTTP API error responses. The imports below are the full error utility surface.
+
 ```ts
 import {
   ERROR_REFERENCE_URL,
@@ -25,7 +27,7 @@ Every built-in `SmithersErrorInstance` carries three pieces of documentation met
 
 | Field | Meaning |
 |---|---|
-| `message` | Human-readable message with a docs link appended. |
+| `message` | Human-readable description followed by a docs URL, e.g. `"Input failed validation. See https://…"` |
 | `summary` | Raw message without the docs suffix. |
 | `docsUrl` | Reference URL for Smithers errors. |
 
@@ -39,7 +41,7 @@ Use `KnownSmithersErrorCode` for an exhaustive switch over built-in Smithers cod
 | `knownSmithersErrorCodes` | value | Array of every built-in Smithers error code documented on this page. |
 | `getSmithersErrorDocsUrl(code)` | function | Returns the docs URL appended to built-in error messages. |
 | `getSmithersErrorDefinition(code)` | function | Returns category, description, and details metadata for known codes. |
-| `errorToJson(err)` | function | Serializes `message`, `summary`, `docsUrl`, `code`, `details`, `cause`, and `stack`. |
+| `errorToJson(err)` | function | Serializes `name`, `message`, `summary`, `docsUrl`, `code`, `details`, `cause`, and `stack`. |
 | `ERROR_REFERENCE_URL` | value | Base docs URL for Smithers runtime errors. |
 | `KnownSmithersErrorCode` | type | Exact built-in Smithers code union. |
 | `SmithersErrorCode` | type | Built-in codes plus the custom string escape hatch. |
@@ -88,17 +90,16 @@ try {
 | `TASK_ABORTED` | A running task is aborted through an AbortSignal or shutdown path. | -- |
 | `RUN_NOT_FOUND` | A CLI or engine command references a run ID that does not exist in the database. | `{ runId }` |
 | `NODE_NOT_FOUND` | A CLI command references a node ID that does not exist for the given run. | `{ runId, nodeId }` |
-| `INVALID_EVENTS_OPTIONS` | The smithers events command receives invalid filter options. | -- |
 | `SANDBOX_BUNDLE_INVALID` | A sandbox bundle fails validation (missing README, invalid manifest, etc.). | `{ bundlePath }` |
 | `SANDBOX_BUNDLE_TOO_LARGE` | A sandbox bundle exceeds the maximum allowed size. | `{ bundlePath, maxBytes }` |
 | `WORKFLOW_EXECUTION_FAILED` | A child or builder workflow exits unsuccessfully without surfacing a typed error payload. | `{ status }` |
 | `SANDBOX_EXECUTION_FAILED` | Sandbox setup or execution fails before a more specific sandbox error can be emitted. | `{ sandboxId, runId?, maxConcurrent?, activeSandboxCount? }` |
-| `TASK_HEARTBEAT_TIMEOUT` | A task has not heartbeated within its configured timeout. | `{ nodeId, iteration, attempt, timeoutMs, staleForMs, lastHeartbeatAtMs }` |
-| `HEARTBEAT_PAYLOAD_TOO_LARGE` | A task heartbeat payload exceeds the maximum allowed size. | `{ dataSizeBytes, maxBytes }` |
-| `HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE` | A task heartbeat payload cannot be serialized to JSON. | `{ path, valueType? }` |
+| `TASK_HEARTBEAT_TIMEOUT` | A task heartbeat timeout is exceeded while the task is still in progress. | `{ nodeId, iteration, attempt, timeoutMs, staleForMs, lastHeartbeatAtMs }` |
+| `HEARTBEAT_PAYLOAD_TOO_LARGE` | A task heartbeat payload exceeds the maximum persisted checkpoint size. | `{ dataSizeBytes, maxBytes }` |
+| `HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE` | A task heartbeat payload contains values that cannot be serialized to JSON. | `{ path, valueType? }` |
 | `RUN_CANCELLED` | A run is cancelled while runtime work is still active. | `{ runId }` |
 | `RUN_NOT_RESUMABLE` | A resume request targets a run state that cannot be resumed. | `{ runId, status }` |
-| `RUN_OWNER_ALIVE` | Resume recovery is skipped because the previous runtime owner is still heartbeating. | `{ runId, runtimeOwnerId }` |
+| `RUN_OWNER_ALIVE` | A resume attempt is skipped because the process that started the run is still alive (heartbeating). This is normal — it prevents two processes from running the same workflow simultaneously. | `{ runId, runtimeOwnerId }` |
 | `RUN_STILL_RUNNING` | A recovery or resume operation finds a run that is still active. | `{ runId }` |
 | `RUN_RESUME_CLAIM_LOST` | A runtime loses the resume claim before it can update the run. | `{ runId, runtimeOwnerId }` |
 | `RUN_RESUME_CLAIM_FAILED` | A runtime cannot claim a stale run for resume. | `{ runId, runtimeOwnerId }` |
@@ -167,7 +168,7 @@ try {
 
 | Code | When | Details |
 |---|---|---|
-| `INTERNAL_ERROR` | An unexpected internal exception crossed a runtime boundary without a more specific Smithers code. | -- |
+| `INTERNAL_ERROR` | An unexpected internal exception crossed an Effect boundary without a more specific Smithers code. | -- |
 | `PROCESS_ABORTED` | A spawned child process is aborted by signal or shutdown. | `{ command, args, cwd }` |
 | `PROCESS_TIMEOUT` | A spawned child process exceeds its total timeout. | `{ command, args, cwd, timeoutMs }` |
 | `PROCESS_IDLE_TIMEOUT` | A spawned child process stops producing output longer than its idle timeout. | `{ command, args, cwd, idleTimeoutMs }` |
@@ -192,6 +193,7 @@ try {
 
 | Code | When | Details |
 |---|---|---|
+| `INVALID_EVENTS_OPTIONS` | The smithers events command receives invalid filter options. | -- |
 | `WORKFLOW_EXISTS` | The workflow creation CLI refuses to overwrite an existing workflow file. | -- |
 | `CLI_DB_NOT_FOUND` | A CLI command cannot find a nearby `smithers.db` file. | -- |
 | `CLI_AGENT_UNSUPPORTED` | The ask command selects an agent integration that Smithers does not support in that mode. | -- |

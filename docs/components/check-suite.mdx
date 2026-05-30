@@ -7,11 +7,11 @@ description: Parallel checks with auto-aggregated pass/fail verdict.
 // Props
 import { CheckSuite } from "smithers-orchestrator";
 
-type CheckConfig = { id?: string; agent?: AgentLike; command?: string; label?: string };
+type CheckConfig = { id: string; agent?: AgentLike; command?: string; label?: string };
 
 type CheckSuiteProps = {
   id?: string;                                              // default: "checksuite"
-  checks: CheckConfig[] | Record<string, CheckConfig>;
+  checks: CheckConfig[] | Record<string, Omit<CheckConfig, "id">>;
   verdictOutput: OutputTarget;
   strategy?: "all-pass" | "majority" | "any-pass";          // default: "all-pass"
   maxConcurrency?: number;                                  // default: Infinity
@@ -37,5 +37,5 @@ type CheckSuiteProps = {
 ## Notes
 
 - Check task ids are `{prefix}-{checkId}`; verdict is `{prefix}-verdict`.
-- `strategy` is passed as prompt context to the verdict agent, which interprets it.
+- `strategy` is evaluated in pure code: `all-pass` requires every check to pass, `majority` requires more than half (`passCount*2 > total`), and `any-pass` requires at least one to pass.
 - Use `command` instead of `agent` for shell-based checks.

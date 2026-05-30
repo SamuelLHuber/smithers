@@ -8,12 +8,14 @@ import { Subflow } from "smithers-orchestrator";
 
 type SubflowProps = {
   id: string;
-  workflow: Function;
-  output: z.ZodObject | Table | string;
+  workflow: SmithersWorkflow<unknown>;
+  output: OutputTarget;
   input?: unknown;
   mode?: "childRun" | "inline"; // default "childRun"
   skipIf?: boolean;
   timeoutMs?: number;
+  heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;
   retries?: number;
   retryPolicy?: RetryPolicy;
   continueOnFail?: boolean;
@@ -22,6 +24,8 @@ type SubflowProps = {
   needs?: Record<string, string>;
   label?: string;
   meta?: Record<string, unknown>;
+  key?: string;
+  children?: React.ReactNode;
 };
 ```
 

@@ -25,13 +25,7 @@ Both get dramatically easier if you map them to a domain that agents are _alread
 **TypeScript**, because prompts are template strings.
 
 ```ts
-const analyze = createAgent({
-  name: "analyzer",
-  instructions: ({ repo, sha }) => `
-    Analyze the repository ${repo} at commit ${sha}.
-    Flag breaking changes, performance regressions, security issues.
-  `,
-});
+const analyst = new AnthropicAgent({ model: "claude-opus-4-5" });
 ```
 
 Template strings interpolate. They refactor. Models read and edit them without ceremony. No DSL.
@@ -56,7 +50,7 @@ Analyze {props.repo} at {props.sha}.
 <OutputSpec fields={["summary", "risk"]} />
 ```
 
-**React**, because agents are disproportionately good at writing it. They have have trained on it. They understand it's functional patterns. It's easy for humans to read what the agents output. Agents can manage complex state machines inside it, debug it, log through it, and review other agents' React. The humans auditing what the agents wrote are also better at reviewing React than at simulating an imperative graph in their heads.
+**React**, because agents are disproportionately good at writing it. They have trained on it. They understand its functional patterns. It's easy for humans to read what the agents output. Agents can manage complex state machines inside it, debug it, log through it, and review other agents' React. The humans auditing what the agents wrote are also better at reviewing React than at simulating an imperative graph in their heads.
 
 The same review workflow as JSX:
 
@@ -67,13 +61,13 @@ The same review workflow as JSX:
       Analyze {ctx.input.repo}@{ctx.input.sha}
     </Task>
     <Task id="report" output={outputs.report}>
-      {(ctx) => `# Review\n\n${ctx.output(outputs.analysis).summary}`}
+      {`# Review\n\n${ctx.outputMaybe(outputs.analysis, { nodeId: 'analyze' })?.summary}`}
     </Task>
   </Sequence>
 </Workflow>
 ```
 
-The payoff: workflows you can hand to an agent and have it refactor, extend, or debug without supervision. We took Gstack, an existing high-token agentic workflow, and [cut it by roughly 80% of its lines of code](https://TODO-add-gstack-comparison-link) just by composing Smithers components instead of hand-writing the orchestration.
+The payoff: workflows you can hand to an agent and have it refactor, extend, or debug without supervision. We took Gstack, an existing high-token agentic workflow, and cut it by roughly 80% of its lines of code just by composing Smithers components instead of hand-writing the orchestration.
 
 ---
 
@@ -166,13 +160,13 @@ If your primitives are good, named patterns fall out as compositions, not as run
 None of these are baked into the runtime. `<ReviewLoop>` is roughly:
 
 ```tsx
-<Loop until={(ctx) => ctx.latest(outputs.review)?.approved} maxIterations={3}>
+<Loop until={ctx.latest(outputs.review, 'review')?.approved === true} maxIterations={3}>
   <Sequence>
     <Task id="produce" agent={producer} output={outputs.draft}>
       Produce: {ctx.input.task}
     </Task>
     <Task id="review" agent={reviewer} output={outputs.review}>
-      Review the draft: {ctx.output(outputs.draft)}
+      Review the draft: {ctx.outputMaybe(outputs.draft, { nodeId: 'produce' })}
     </Task>
   </Sequence>
 </Loop>
@@ -190,9 +184,9 @@ These are five capabilities the substrate has to provide, not five sealed primit
 
 | Capability                | Smithers shape                                                                                                                                                 |
 | :------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Durable steps             | `<Task>` / `$.step`. Output decoded against a `Schema`, persisted to SQLite.                                                                                   |
+| Durable steps             | `<Task>` / `G.step`. Output decoded against a `Schema`, persisted to SQLite.                                                                                   |
 | Persistent external state | Every output schema becomes a typed SQLite table. Run state is queryable with the SQL tools you already have.                                                  |
-| Parallel work             | `<Parallel>` / `$.parallel`. Built on Effect fibers; structured concurrency, interruption, and resource lifetimes behave the way you expect.                   |
+| Parallel work             | `<Parallel>` / `G.parallel`. Built on Effect fibers; structured concurrency, interruption, and resource lifetimes behave the way you expect.                   |
 | Event-driven control flow | `<Signal>`, `<WaitForEvent>`, `<Approval>`, `<HumanTask>`. Durably suspend until something happens.                                                            |
 | Structured observability  | Prometheus metrics out of the box, plus the SQLite event log. Every state transition, every attempt, every input/output, every retry, every approval is a row. |
 
@@ -220,10 +214,7 @@ In Smithers it's all one shape:
   <Approval
     id="ship"
     output={outputs.shipDecision}
-    request={(ctx) => ({
-      title: "Ship this diff?",
-      summary: ctx.output(outputs.diff).summary,
-    })}
+    request={{ title: "Ship this diff?", summary: ctx.outputMaybe(outputs.diff, { nodeId: 'implement' })?.summary }}
     onDeny="fail"
   />
   <Task id="deploy" agent={deployer} output={outputs.deploy}>
@@ -295,4 +286,4 @@ The substrate doesn't change. The authoring surface has to be legible to agents 
 
 > Background agents aren't coming. They're here. The only question is whether your infrastructure is ready to let them run, or whether you're about to rebuild it again.
 
-Our answer is the rest of these docs. Durable steps with retries by default. Prometheus and SQLite observability with no setup. Approval, Signal, HumanTask, Sandbox. Named composition components on top of the substrate, not in place of it. State-of-the-art default workflows from `smithers init` ([Kanban](/workflows/kanban), [Mission](/workflows/mission), [Research-Plan-Implement](/workflows/research-plan-implement), [Plan + PRD](/workflows/write-a-prd), [Grill-Me](/workflows/grill-me)) you can use today and fork tomorrow. A managed hub if you don't want to run the dashboard yourself.
+Our answer is the rest of these docs. Durable steps with retries by default. Prometheus and SQLite observability with no setup. Approval, Signal, HumanTask, Sandbox. Named composition components on top of the substrate, not in place of it. State-of-the-art default workflows from `bunx smithers-orchestrator init` ([Kanban](/workflows/kanban), [Mission](/workflows/mission), [Research-Plan-Implement](/workflows/research-plan-implement), [Plan + PRD](/workflows/write-a-prd), [Grill-Me](/workflows/grill-me)) you can use today and fork tomorrow. A managed hub if you don't want to run the dashboard yourself.

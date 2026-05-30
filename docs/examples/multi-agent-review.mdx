@@ -107,7 +107,6 @@ bunx smithers-orchestrator up multi-agent-review.tsx --input '{}'
 Retrieve each result with `ctx.outputMaybe(schemaKey, { nodeId })`:
 
 ```tsx
-/** @jsxImportSource smithers-orchestrator */
 const secReview = ctx.outputMaybe("review", { nodeId: "security-review" });
 const qualReview = ctx.outputMaybe("review", { nodeId: "quality-review" });
 ```

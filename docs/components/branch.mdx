@@ -9,7 +9,7 @@ import { Branch } from "smithers-orchestrator";
 type BranchProps = {
   if: boolean;
   then: ReactElement;
-  else?: ReactElement;
+  else?: ReactElement | null;
   skipIf?: boolean;
 };
 ```

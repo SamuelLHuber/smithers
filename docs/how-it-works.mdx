@@ -144,9 +144,9 @@ Three denial policies: `"fail"` (abort the run), `"continue"` (proceed without t
 Operator side is identical for both:
 
 ```bash
-bunx smithers-orchestrator ps --status waiting-approval
-bunx smithers-orchestrator approve <run-id> --node ship-decision --by alice
-bunx smithers-orchestrator up workflow.tsx --run-id <run-id> --resume true
+bunx smithers ps --status waiting-approval
+bunx smithers approve <run-id> --node ship-decision --by alice
+bunx smithers up workflow.tsx --run-id <run-id> --resume true
 ```
 
 `<HumanTask>` is for richer interaction — a human submits arbitrary structured JSON. `<EscalationChain>` and `<ApprovalGate>` are higher-level patterns built from these.
@@ -156,7 +156,7 @@ bunx smithers-orchestrator up workflow.tsx --run-id <run-id> --resume true
 The contract: **a completed task is never re-executed.** Resume loads persisted state, validates the environment (workflow source hash + VCS revision must match the original run), cleans stale in-progress attempts (>15 min without a heartbeat are abandoned), re-renders, and continues.
 
 ```bash
-bunx smithers-orchestrator up workflow.tsx --run-id <id> --resume true
+bunx smithers up workflow.tsx --run-id <id> --resume true
 ```
 
 For resume to work, **task IDs must be stable across renders.** Derive them from data, not from indices or timestamps:
@@ -171,7 +171,7 @@ Same rule as React keys. A changed task ID looks like a new task to the runtime,
 The supervisor auto-resumes runs whose owner process died:
 
 ```bash
-bunx smithers-orchestrator supervise --interval 30s --stale-threshold 1m
+bunx smithers supervise --interval 30s --stale-threshold 1m
 ```
 
 ## Caching
@@ -201,10 +201,10 @@ Don't cache side-effect tasks (deploys, emails, mutations). Caching is for pure 
 Every frame commit produces a `GraphSnapshot`.
 
 ```bash
-bunx smithers-orchestrator timeline <run-id>           # frames + forks
-bunx smithers-orchestrator diff <run-id> <node-id>     # node DiffBundle
-bunx smithers-orchestrator fork workflow.tsx --run-id <id> --frame 5 --reset-node analyze
-bunx smithers-orchestrator replay workflow.tsx --run-id <id> --frame 5 --restore-vcs
+bunx smithers timeline <run-id>           # frames + forks
+bunx smithers diff <run-id> <node-id>     # node DiffBundle
+bunx smithers fork workflow.tsx --run-id <id> --frame 5 --reset-node analyze
+bunx smithers replay workflow.tsx --run-id <id> --frame 5 --restore-vcs
 ```
 
 Replay with `--restore-vcs` checks out the jj revision the snapshot was taken at — re-execution sees the same source code as the original run.
@@ -234,7 +234,7 @@ Five built-ins: `schemaAdherenceScorer`, `latencyScorer`, `relevancyScorer`, `to
 The public scorer surface also exports `runScorersAsync`, `runScorersBatch`, `aggregateScores`, the `smithersScorers` table, and scorer metrics (`scorersStarted`, `scorersFinished`, `scorersFailed`, `scorerDuration`).
 
 ```bash
-bunx smithers-orchestrator scores <run-id>
+bunx smithers scores <run-id>
 ```
 
 ## Memory (cross-run state)
@@ -250,9 +250,10 @@ Five built-in tools — `read`, `write`, `edit`, `grep`, `bash` — sandboxed to
 Least-privilege per task:
 
 ```tsx
-const analyst    = new Agent({ model, instructions: "..." }); // no tools
-const reviewer   = new Agent({ model, instructions: "...", tools: { read, grep } });
-const implementer = new Agent({ model, instructions: "...", tools: { read, write, edit, bash } });
+import { AnthropicAgent } from "smithers-orchestrator";
+const analyst     = new AnthropicAgent({ model, instructions: "..." }); // no tools
+const reviewer    = new AnthropicAgent({ model, instructions: "...", tools: { read, grep } });
+const implementer = new AnthropicAgent({ model, instructions: "...", tools: { read, write, edit, bash } });
 ```
 
 `defineTool` builds custom tools. Mark side-effecting ones with `sideEffect: true` and use `ctx.idempotencyKey` so retries don't double-fire.
@@ -262,7 +263,7 @@ const implementer = new Agent({ model, instructions: "...", tools: { read, write
 - **Stable task IDs.** `id="implement-${i}"` or `id={Math.random()}` breaks resume. Derive from data.
 - **`useState` is not durable.** Resets on every render. Persist via `ctx` and a Task.
 - **Input is immutable.** Resuming with different `--input` is an error — the input is persisted at first run.
-- **Code changes block resume.** A workflow source change = a different workflow. Start a new run, don't resume across edits.
+- **Code changes block resume.** A workflow source change = a different workflow. Hot reload applies changes within a running frame; resume validates the source hash of the original run. If you stop a run and the source has changed, resume is blocked. Start a new run, don't resume across edits.
 - **Cached output is re-validated.** Schema drift after caching is caught (the validator rejects the stale row), so the cache misses safely.
 - **Side-effect tasks should not be cached.** Pure work only.
 

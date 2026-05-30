@@ -3,9 +3,9 @@ title: Introduction
 description: What Smithers is and when to use it.
 ---
 
-Smithers is a durable control plane for long-running coding agents. Smithers workflows survive crashes and handle approvals, retries, restarts, replay, evals, and operator visibility.
+Most workflow systems fail quietly — a crash mid-run means lost work and a manual restart from scratch. Smithers solves this with a render-loop execution model: every completed step is persisted immediately, so the runtime always knows exactly what has finished and what to run next.
 
-You write a workflow as a JSX tree, and Smithers repeatedly renders it every "tick". Each render answers: given what has already finished, what can run now? Tasks produce outputs validated by Zod schemas; the runtime persists them to SQLite. Crashes, restarts, and approvals are first-class — the runtime resumes from the last persisted state without re-running completed work.
+You write a workflow as a JSX tree, and Smithers repeatedly renders it every "frame". Each render answers: given what has already finished, what can run now? Tasks produce outputs validated by Zod schemas; the runtime persists them to SQLite. Crashes, restarts, and approvals are first-class — the runtime resumes from the last persisted state without re-running completed work.
 
 ```tsx
 <Workflow name="review">
@@ -15,7 +15,7 @@ You write a workflow as a JSX tree, and Smithers repeatedly renders it every "ti
     </Task>
     {analysis ? (
       <Task id="fix" output={outputs.fix} agent={fixer}>
-        {`Fix: ${analysis.issues}`}
+        {`Fix these issues:\n${analysis.issues.map(i => `- [${i.severity}] ${i.file}:${i.line} - ${i.description}`).join("\n")}`}
       </Task>
     ) : null}
   </Sequence>
@@ -28,9 +28,9 @@ Use Smithers when:
 - you need crash recovery
 - humans must approve or answer questions mid-run
 - different tasks need different models, tools, or policies
-- operators need a Gateway API or browser console for active runs
+- operators need the [Gateway](/integrations/gateway) operator API and browser console for active runs
 
-Don't use it for a single prompt → single response. That's just an `Agent.generate(...)` call.
+Don't use it for a single prompt → single response. Use your model provider's SDK directly — Smithers adds no value there.
 
 ## Read next
 

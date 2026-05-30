@@ -34,20 +34,6 @@ smithers --mcp --surface both
 
 Use `--surface raw` only for direct CLI parity. Prefer the semantic surface for new integrations: every tool returns a `{ ok, data, error }` envelope with Zod-validated input and output schemas.
 
-### Register with Claude Code
-
-```bash
-smithers mcp add
-```
-
-`smithers mcp add` writes the server entry to the MCP config file for the detected agent. Pass `--agent` to target a specific client, `--no-global` to install project-locally, or `--command` to override the launch command:
-
-```bash
-smithers mcp add --agent claude-code
-smithers mcp add --no-global
-smithers mcp add --command "pnpm smithers --mcp"
-```
-
 ### Register manually
 
 For clients that read JSON config directly:
@@ -56,21 +42,21 @@ For clients that read JSON config directly:
 {
   "mcpServers": {
     "smithers": {
-      "command": "smithers",
-      "args": ["--mcp"]
+      "command": "bunx",
+      "args": ["smithers-orchestrator", "--mcp"]
     }
   }
 }
 ```
 
-Project-scoped install (e.g. a monorepo where Smithers is a dev dependency):
+Project-scoped install (e.g. a monorepo where Smithers is a dev dependency — ensure `smithers-orchestrator` is in the local `package.json`):
 
 ```json
 {
   "mcpServers": {
     "smithers": {
-      "command": "pnpm",
-      "args": ["smithers", "--mcp"]
+      "command": "bunx",
+      "args": ["smithers-orchestrator", "--mcp"]
     }
   }
 }
@@ -80,7 +66,7 @@ Project-scoped install (e.g. a monorepo where Smithers is a dev dependency):
 
 ## Tool Registration
 
-On start, the server calls `registerSemanticTools`, which loops over `createSemanticToolDefinitions` and registers each via `server.registerTool`. Every tool carries:
+On start, each tool is registered with its input schema, output schema, and MCP annotations. Every tool carries:
 
 - **`inputSchema`** — Zod object describing accepted parameters.
 - **`outputSchema`** — Zod schema for the structured response envelope.
@@ -280,7 +266,7 @@ Poll a run at a fixed interval until it reaches a terminal state or a timeout ex
 }
 ```
 
-When `timedOut` is `true` the run is still active — call `watch_run` again or raise `timeoutMs`. Terminal statuses: `finished`, `failed`, `cancelled`.
+When `timedOut` is `true` the run is still active — call `watch_run` again or raise `timeoutMs`. Terminal statuses: any status other than `running`, `waiting-approval`, `waiting-event`, or `waiting-timer` — including `finished`, `failed`, `cancelled`, and `continued`.
 
 ---
 
@@ -331,15 +317,13 @@ Return a structured diagnosis explaining why a run is blocked, waiting, or stale
 
 List approvals that are waiting for a human decision, optionally filtered by run, workflow, or node.
 
-**Input:**
+**Input:** All parameters optional. Omit all to list every pending approval across all runs.
 
 | Parameter | Type | Description |
 |---|---|---|
 | `runId` | `string` | Filter by run ID |
 | `workflowName` | `string` | Filter by workflow name |
 | `nodeId` | `string` | Filter by node ID |
-
-All parameters optional. Omit all to list every pending approval across all runs.
 
 **Output:**
 
@@ -628,7 +612,7 @@ Paginate via `afterSeq`: pass the `seq` of the last received event to fetch the 
   "data": {
     "reachedTerminal": true,
     "timedOut": false,
-    "finalRun": { "status": "waiting-approval", ... }
+    "finalRun": { "status": "finished", ... }
   }
 }
 ```
@@ -716,7 +700,6 @@ Errors follow the structured envelope. Common codes:
 
 | Code | Meaning |
 |---|---|
-| `RUN_NOT_FOUND` | No run exists with the given ID |
+| `RUN_NOT_FOUND` | No run or workflow exists with the given ID |
 | `INVALID_INPUT` | Missing required field, failed validation, or ambiguous approval filter |
 | `WORKFLOW_MISSING_DEFAULT` | Workflow file has no default export |
-| `WORKFLOW_NOT_FOUND` | No workflow matches the given ID |

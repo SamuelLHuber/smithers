@@ -27,9 +27,9 @@ await Effect.runPromise(runWorkflow(workflow, {
 Events append to `.smithers/executions/<runId>/logs/stream.ndjson` (configure with `logDir` / `--log-dir`; disable with `--no-log`).
 
 ```bash
-tail -f .smithers/executions/abc123/logs/stream.ndjson | jq .
-cat .smithers/executions/abc123/logs/stream.ndjson | jq 'select(.type == "NodeFailed")'
-cat .smithers/executions/abc123/logs/stream.ndjson | jq -r .type | sort | uniq -c | sort -rn
+tail -f .smithers/executions/<run-id>/logs/stream.ndjson | jq .
+jq 'select(.type == "NodeFailed")' .smithers/executions/<run-id>/logs/stream.ndjson
+jq -r .type .smithers/executions/<run-id>/logs/stream.ndjson | sort | uniq -c | sort -rn
 ```
 
 Or with the CLI:
@@ -84,4 +84,4 @@ Used by `bunx smithers-orchestrator events --type <category>` and the metrics la
 | `ApprovalGranted` / `ApprovalDenied` | Approval counters |
 | `TokenUsageReported` | Token usage counters per model/agent |
 
-`trackSmithersEvent` from `smithers-orchestrator/observability` exposes this mapping for custom integrations. See the [observability fragment](/llms-observability.txt) for the full OTLP/Prometheus setup.
+`trackSmithersEvent` from `smithers-orchestrator/observability` exposes this mapping for custom integrations. See [Observability](/guides/monitoring-logs) for the full OTLP/Prometheus setup.

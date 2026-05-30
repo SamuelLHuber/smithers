@@ -3,11 +3,11 @@ title: Package Configuration
 description: Reference for the smithers-orchestrator package exports, TypeScript configuration, and Bun preload setup.
 ---
 
-Build and package configuration shipped with `smithers-orchestrator`. Use it when setting up a new project, debugging import resolution, or understanding why your `tsconfig.json` needs specific options.
+This page covers: CLI binary usage, subpath export map, TypeScript compiler options, Bun preload and test config, and npm scripts.
 
 ## Binary
 
-Use `bunx smithers-orchestrator <command>` for CLI commands. The repository root keeps a private development bin that points at `apps/cli/src/index.js`; application code should import from the package exports below.
+Use `bunx smithers <command>` for CLI commands. The repository root keeps a private development bin that points at `apps/cli/src/index.js`; application code should import from the package exports below.
 
 ## Subpath Exports
 
@@ -23,7 +23,6 @@ Use the subpath form to import only the surface you need.
 | `smithers-orchestrator/jsx-runtime` | `./src/jsx-runtime.js` | JSX runtime (auto-resolved by `jsxImportSource`) |
 | `smithers-orchestrator/jsx-dev-runtime` | `./src/jsx-runtime.js` | JSX dev runtime (auto-resolved in dev mode) |
 | `smithers-orchestrator/tools` | `./src/tools.js` | Tool sandbox: `defineTool`, `read`, `grep`, `bash`, `edit`, `write` |
-| `smithers-orchestrator/sandbox` | `./src/sandbox.js` | Sandbox provider registration and transport types for sandboxed workflow execution |
 | `smithers-orchestrator/server` | `./src/server.js` | HTTP server for run management and event streaming |
 | `smithers-orchestrator/observability` | `./src/observability.js` | OpenTelemetry traces, metrics, and Prometheus integration |
 | `smithers-orchestrator/mdx-plugin` | `./src/mdx-plugin.js` | Bun preload plugin for `.mdx` imports |
@@ -105,7 +104,7 @@ import { ControlPlaneStore } from "smithers-orchestrator/control-plane";
 }
 ```
 
-This tells TypeScript to resolve JSX transforms from `smithers-orchestrator/jsx-runtime` instead of `react/jsx-runtime`. The Smithers JSX runtime re-exports React's runtime, so component behavior is identical -- this setting enables proper type resolution for Smithers workflow components.
+This tells TypeScript to resolve JSX transforms from `smithers-orchestrator/jsx-runtime` instead of `react/jsx-runtime`. The Smithers JSX runtime re-exports React's runtime, so component behavior is identical. This setting enables proper type resolution for Smithers workflow components.
 
 See [JSX Installation](/jsx/installation) for the complete TypeScript setup.
 
@@ -140,10 +139,10 @@ The root package is a private `smithers-monorepo`; `smithers-orchestrator` resol
 ### Local Type Root Shims
 
 ```json
-"typeRoots": ["./src/types", "./node_modules/@types"]
+"typeRoots": ["./packages/smithers/src/types", "./node_modules/@types"]
 ```
 
-The `./src/types` directory contains ambient type declarations that fill gaps in third-party packages. One shim ships today:
+The `./packages/smithers/src/types` directory contains ambient type declarations that fill gaps in third-party packages. One shim ships today:
 
 - `react-dom-server.d.ts` -- Declares the `react-dom/server` module so TypeScript doesn't error when server-side rendering types are referenced.
 
@@ -186,9 +185,10 @@ Defined in the root `package.json` for development:
 | `lint` | `oxlint ... packages/*/src packages/*/tests` | Lint package source and tests with oxlint |
 | `lint:fix` | `oxlint ... --fix --fix-suggestions packages/*/src packages/*/tests` | Apply supported oxlint fixes |
 | `cli` | `bun run apps/cli/src/index.js` | Run the local development CLI entrypoint |
-| `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && pnpm -r test` | Run dependency guard checks and each package test script |
+| `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && node scripts/check-architecture-budget.mjs && pnpm -r test` | Run three dependency/architecture guard checks and each package test script |
 | `check:effect` | `node scripts/check-single-effect-version.mjs` | Verify the workspace resolves a single Effect version |
 | `check:deps` | `node scripts/check-dependency-boundaries.mjs` | Verify package dependency boundaries |
+| `check:architecture` | `node scripts/check-architecture-budget.mjs` | Verify the workspace stays within the architecture budget constraints |
 | `docs` | `cd docs && bunx mintlify dev` | Start the Mintlify docs dev server for local preview |
 | `version` | `node scripts/bump.mjs` | Bump package versions using the release helper |
 | `release` | `node scripts/publish.mjs` | Publish packages using the release helper |

@@ -19,6 +19,7 @@ bunx smithers-orchestrator workflow run review --prompt "Review the current repo
 
 Reviewers return:
 
+- `reviewer`: identifier string for the agent that produced this review (e.g. `reviewer-1`).
 - `approved`: whether the change is production-ready.
 - `feedback`: concise review notes.
 - `issues`: structured findings with severity, title, optional file, and description.

@@ -1,14 +1,12 @@
 ---
 title: cronList
-description: Stable Gateway RPC for listing cron schedules.
+description: Gateway RPC for listing cron schedules.
 maturity: stable
 apiVersion: v1
 ---
-
-`cronList` lists Gateway cron schedules.
 
 - Method: `cronList`
 - Scope: `cron:read`
 - Transports: HTTP RPC, WebSocket RPC
 - Request: `{ filter?: { workflow? } }`
-- Response: cron rows
+- Response: `CronRow[]`

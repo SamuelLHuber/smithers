@@ -3,7 +3,11 @@ title: audit
 description: Audit feature groups for gaps and follow-up work.
 ---
 
-`audit` runs a feature-by-feature or group-by-group review using `ForEachFeature`. It is designed to consume the output of `feature-enum`, but you can provide any feature map.
+`audit` runs a feature-by-feature or group-by-group review using `ForEachFeature`. It is designed to consume the output of `feature-enum`, but you can provide any feature map — an object whose keys are group names and whose values are arrays of feature identifiers:
+
+```json
+{ "GROUP_NAME": ["FEATURE_A", "FEATURE_B"] }
+```
 
 ```bash
 bunx smithers-orchestrator workflow run audit \
@@ -19,6 +23,13 @@ bunx smithers-orchestrator workflow run audit \
 | `additionalContext` | string or null | `null` |
 | `maxConcurrency` | number | `5` |
 
-## Output Shape
+## Output
 
-The workflow produces per-feature results and a merged audit report. Use it to find missing tests, docs, observability, error handling, or maintainability work.
+The workflow returns two structured outputs in the run result (nothing is written to disk):
+
+| Key | Shape | Description |
+| --- | --- | --- |
+| `auditFeature` | `{ groupName, result, featuresCovered[], score? }` | One entry per group processed in parallel |
+| `audit` | `{ totalGroups, summary, mergedResult, markdownBody }` | Merged report across all groups |
+
+Use it to find missing tests, docs, observability, error handling, or maintainability work.

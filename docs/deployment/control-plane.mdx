@@ -3,9 +3,9 @@ title: Control Plane
 description: Organization, project, identity, billing, usage, secret-reference, and audit primitives for hosted Smithers deployments.
 ---
 
-Smithers ships local Gateway and runtime primitives, plus a durable control-plane store for deployments that need multi-tenant product boundaries. The store is intentionally small: it gives hosted services a tested schema for the objects enterprise buyers ask about, while leaving payment collection, identity-provider handshakes, and secret-value reads to the hosted service.
+The control-plane package adds a durable SQLite store for multi-tenant objects — orgs, projects, teams, billing records, usage, secret references, and audit events. Import it alongside the Gateway when you need these boundaries.
 
-## What Ships
+## ControlPlaneStore API
 
 Import the store from the public facade:
 
@@ -33,6 +33,7 @@ The store creates SQLite tables for:
 ```ts
 const store = new ControlPlaneStore(sqlite);
 
+// Required: create the org and at least one project before recording any data.
 const org = store.createOrg({
   orgId: "org_acme",
   slug: "acme",
@@ -46,6 +47,7 @@ const project = store.createProject({
   name: "App",
 });
 
+// Optional: record a usage event and set a quota for a metric.
 store.recordUsage({
   orgId: org.orgId,
   projectId: project.projectId,
@@ -64,6 +66,7 @@ store.setUsageLimit({
   limitQuantity: 10_000_000,
 });
 
+// Optional: register a SAML or OIDC provider for the org.
 store.upsertIdentityProvider({
   orgId: org.orgId,
   providerId: "idp_okta",
@@ -73,6 +76,7 @@ store.upsertIdentityProvider({
   certificateRef: "vault://identity/acme-okta-cert",
 });
 
+// Optional: store a reference to a secret in an external provider (not the value).
 store.putSecretRef({
   orgId: org.orgId,
   projectId: project.projectId,
@@ -81,6 +85,7 @@ store.putSecretRef({
   ref: "arn:aws:secretsmanager:us-east-1:123:secret:deploy",
 });
 
+// Check whether the project is within its quota. Returns { ok: boolean, used: number, limit: number }.
 const quota = store.checkUsageLimit({
   orgId: org.orgId,
   projectId: project.projectId,
@@ -92,7 +97,7 @@ const quota = store.checkUsageLimit({
 const audit = store.exportOrgAudit({ orgId: org.orgId });
 ```
 
-Foreign keys are enabled during setup. Deleting an org cascades to its projects, teams, identity providers, usage rows, usage limits, secret references, and audit rows.
+Deleting an org cascades to all its child rows — projects, teams, identity providers, billing account, usage rows, usage limits, secret references, and audit rows. There is no soft-delete; use a status flag in your application layer if you need recoverable deletion.
 
 ## Hosted Boundary
 
@@ -114,7 +119,9 @@ Use the built-in console when you need an operator surface before building a cus
 ```ts
 import { Gateway } from "smithers-orchestrator/gateway";
 
-const gateway = new Gateway({ ui: true });
+const gateway = new Gateway({});
 ```
 
-It mounts at `/console` and uses stable Gateway RPCs for workflow inventory, active runs, and approval decisions. For branded or domain-specific operations, pass `ui: { entry, path, title, props }` and build a custom Gateway UI.
+The operator console mounts at `/console` by default. Disable it with `operatorUi: false`, or customize the mount with `operatorUi: { path, title, props }`. It uses Gateway RPCs for workflow inventory, active runs, and approval decisions. The console respects the same bearer scopes as the Gateway API — a token with `run:read` and `approval:read` is sufficient for read-only access.
+
+For branded or domain-specific operations, pass `ui: { entry, path, title, props }` (where `entry` is required) to mount a custom Gateway-level React app instead.

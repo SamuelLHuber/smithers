@@ -20,6 +20,7 @@ type WaitForEventProps = {
   needs?: Record<string, string>;
   label?: string;
   meta?: Record<string, unknown>;
+  key?: string;
 };
 ```
 
@@ -46,4 +47,4 @@ type WaitForEventProps = {
 
 - Push-based; for poll-based checks use `<Task>` with a compute function.
 - With `async`, dependents via `dependsOn`/`needs` still block until payload arrives.
-- Async waits increment `smithers_external_wait_async_pending{kind="event"}` while pending.
+- Async waits are tracked by the `smithers_external_wait_async_pending{kind="event"}` gauge while pending (it rises on start, falls on completion).

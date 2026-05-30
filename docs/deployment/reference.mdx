@@ -1,9 +1,9 @@
 ---
 title: Reference Deployment
-description: Deploy the stable Gateway with SQLite, scoped bearer auth, and a reverse proxy.
+description: Deploy the Gateway with SQLite, scoped bearer auth, and a reverse proxy.
 ---
 
-The reference deployment is the lower-level Gateway path for teams that do not want JJHub. It runs one Gateway process, one SQLite database file, and a TLS reverse proxy.
+The reference deployment runs one Gateway process, one SQLite database file, and a TLS reverse proxy. Use it when you are self-hosting without the managed control plane.
 
 For multi-tenant hosted deployments, pair the Gateway with the [Control Plane](/deployment/control-plane) package for orgs, projects, teams, billing account records, usage events, secret references, and audit export.
 
@@ -15,7 +15,7 @@ From the repo root:
 docker compose -f deploy/reference/docker-compose.yml up
 ```
 
-The Gateway listens on `7331` inside the compose network and Caddy exposes HTTP/TLS. The compose file mounts a SQLite volume at `/data` and reads short-lived bearer grants from `/data/tokens.json`.
+The Gateway listens on `7331` inside the compose network and Caddy exposes HTTP/TLS. The compose file mounts a SQLite volume at `/data` and reads short-lived bearer grants from `/data/tokens.json`. If `/data/tokens.json` does not exist, the Gateway creates an empty store on startup.
 
 Issue a local token grant:
 
@@ -51,7 +51,7 @@ SMITHERS_GATEWAY_REQUEST_TIMEOUT_MS=60000
 | `SMITHERS_TOKEN_STORE` | `/data/tokens.json` | JSON token grant store used by token auth. |
 | `SMITHERS_GATEWAY_MODULE` | `/workspace/gateway.mjs` | Module that registers workflows on startup. |
 | `SMITHERS_GATEWAY_HEARTBEAT_MS` | `15000` | WebSocket heartbeat interval. |
-| `SMITHERS_GATEWAY_EVENT_WINDOW` | `10000` | Per-run replay window for `streamRunEvents`. |
+| `SMITHERS_GATEWAY_EVENT_WINDOW` | `10000` | Per-run replay window size (number of events) for `streamRunEvents`. |
 | `SMITHERS_GATEWAY_HEADERS_TIMEOUT_MS` | `30000` | Maximum time to receive complete HTTP headers. |
 | `SMITHERS_GATEWAY_REQUEST_TIMEOUT_MS` | `60000` | Maximum time to receive and parse a complete HTTP request, including body. |
 
@@ -61,18 +61,23 @@ The minimal manifests in `deploy/reference/k8s/` create:
 
 - a `smithers` namespace
 - a single Gateway `Deployment`
+- a `ConfigMap` (`smithers-gateway-config`) supplying Gateway environment variables
 - a SQLite `PersistentVolumeClaim`
 - a token `Secret`
 - a `Service` and `Ingress`
 
-Apply the manifests after replacing the example token and host:
+Edit `deploy/reference/k8s/secret.example.yaml` to set the bearer token and update the host in `deploy/reference/k8s/ingress.yaml` before applying:
 
 ```bash
 kubectl apply -f deploy/reference/k8s/
 ```
 
-## Reconnect
+## Event Stream Reconnection
 
-Streams accept `afterSeq`. Clients should reconnect with the last seen sequence. If the Gateway still has the missed events in the bounded per-run window, it replays them. If the window has truncated, it emits `GapResync` with `fromSeq`, `toSeq`, and a run snapshot, then continues with available events. `Heartbeat` frames are separate from run events.
+Pass `afterSeq` with the last seen sequence number when reconnecting to a stream. The Gateway then:
+
+- Replays any missed events still within the bounded per-run window.
+- Emits a `GapResync` frame (fields: `fromSeq`, `toSeq`, run snapshot) if the window has truncated, then resumes with available events.
+- Sends `Heartbeat` frames on a separate interval; these do not carry run events.
 
 All HTTP responses include `X-Smithers-API-Version: v1`.

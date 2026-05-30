@@ -32,7 +32,8 @@ That scaffolds `.smithers/` with files such as:
 | `.smithers/tsconfig.json` | TypeScript config for JSX workflow authoring |
 | `.smithers/bunfig.toml` | Bun preload config for MDX workflow prompts |
 | `.smithers/preload.ts` | Registers the MDX preload plugin |
-| `.smithers/agents.ts` | Auto-detected agent configuration |
+| `.smithers/agents/` | User-owned agent config (`claude-code.ts`, `codex.ts`, `opencode.ts`, `antigravity.ts`, `index.ts`) — edit to pin models/cwd/systemPrompt; preserved across re-inits |
+| `.smithers/agents.ts` | Auto-detected agent configuration (regenerated on each `init`) |
 | `.smithers/smithers.config.ts` | Repo-level config (lint, test, coverage commands) |
 | `.smithers/tickets/` | Ticket workspace used by ticket-oriented workflows |
 | `.smithers/executions/` | Execution artifacts directory preserved across re-inits |

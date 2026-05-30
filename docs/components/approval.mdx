@@ -11,7 +11,7 @@ type ApprovalProps = {
   mode?: "approve" | "select" | "rank"; // default "approve"
   options?: ApprovalOption[]; // required for select/rank
   output: z.ZodObject | Table | string;
-  outputSchema?: z.ZodObject; // default approvalDecisionSchema
+  outputSchema?: z.ZodObject; // default: mode-appropriate schema (approve→approvalDecisionSchema, select→approvalSelectionSchema, rank→approvalRankingSchema); or the output schema itself when output is a ZodObject
   request: { title: string; summary?: string; metadata?: Record<string, unknown> };
   onDeny?: "fail" | "continue" | "skip"; // default "fail"
   allowedScopes?: string[];
@@ -27,6 +27,8 @@ type ApprovalProps = {
   needs?: Record<string, string>;
   skipIf?: boolean;
   timeoutMs?: number;
+  heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;
   retries?: number;
   retryPolicy?: { backoff?: "fixed" | "linear" | "exponential"; initialDelayMs?: number };
   continueOnFail?: boolean;

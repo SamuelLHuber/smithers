@@ -8,7 +8,7 @@ import { Loop } from "smithers-orchestrator";
 
 type LoopProps = {
   id?: string; // auto-generated from tree position
-  until: boolean;
+  until?: boolean;
   maxIterations?: number; // default 5
   onMaxReached?: "fail" | "return-last"; // default "return-last"
   continueAsNewEvery?: number; // checkpoint every N iters to bound history

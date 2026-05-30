@@ -4,7 +4,7 @@ description: Resolve a workflow's prompt from a provided string, a cached entry,
 ---
 
 ```ts
-import { ExtractPrompt } from "smithers-workflows/components/extract-prompt";
+import { ExtractPrompt } from "../components/extract-prompt";
 
 type ExtractPromptProps = {
   idPrefix: string;
@@ -29,7 +29,7 @@ import {
   ExtractPrompt,
   MarkdownPromptCache,
   rctfPromptSchema,
-} from "smithers-workflows/components/extract-prompt";
+} from "../components/extract-prompt";
 
 const cache = new MarkdownPromptCache();
 
@@ -71,8 +71,9 @@ export default smithers((ctx) => {
 
 1. **Passthrough** — `prompt` is provided and ≥ 32 chars. Emits a static-output
    task with `score: 1.0` and `resolved: true`. No agent invoked.
-2. **Cache hit** — caller resolved a `cached` entry by key. Same passthrough behavior,
-   marked `source: "cache"`.
+2. **Cache hit** — caller resolved a `cached` entry by key. Same passthrough behavior —
+   emits `resolved: true`, carries over the cached `score`, and prefixes `scoreReason`
+   with `cached: `.
 3. **Extraction** — wraps `<LoopUntilScored>` around the drafter task. The drafter
    uses the R-C-T-F backbone, picks one Socratic principle per turn, asks the user
    via `bun .smithers/scripts/ask-user.ts`, self-scores, and sets `resolved: true`
@@ -105,4 +106,5 @@ and the human types "ship it" via the ask-user CLI, the agent sets:
 - `overridden: true`
 - `overrideReason: "<verbatim>"`
 
-This is recorded in the cache so it can be audited later.
+The cache records `overridden: true` for audit; the verbatim `overrideReason` is
+available only on the live output, not in the cache.

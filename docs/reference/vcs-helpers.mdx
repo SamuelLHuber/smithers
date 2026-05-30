@@ -67,16 +67,17 @@ Smithers uses the same pointer model internally for revert support and cache inv
 
 ## `revertToJjPointer(pointer, cwd?)`
 
-Restore the working copy from a previously recorded JJ pointer.
+Restore the working copy from a previously recorded JJ pointer. A pointer is a JJ `change_id` string, as returned by `getJjPointer`.
 
 ```ts
 const result = await revertToJjPointer("zqkopwvn", "/path/to/repo");
 ```
 
 ```ts
-type JjRevertResult =
-  | { success: true }
-  | { success: false; error?: string };
+type JjRevertResult = {
+  success: boolean;
+  error?: string;
+};
 ```
 
 This helper wraps `jj restore --from <pointer>`.
@@ -112,15 +113,16 @@ type WorkspaceAddOptions = {
   atRev?: string;
 };
 
-type WorkspaceResult =
-  | { success: true }
-  | { success: false; error?: string };
+type WorkspaceResult = {
+  success: boolean;
+  error?: string;
+};
 ```
 
 Behavior notes:
 
 - removes an existing workspace with the same name before retrying
-- recreates the target directory if needed
+- removes the target directory if it exists and creates its parent directory if needed
 - tries multiple `jj workspace add` syntaxes to work across JJ versions
 
 ## `workspaceList(cwd?)`

@@ -3,7 +3,7 @@ title: Production Hardening
 description: Operate Smithers with durable storage, scoped access, bounded execution, and auditable workflows.
 ---
 
-Smithers can run long-lived agent workflows, so production deployments need a stricter posture than a local quickstart. Treat the Gateway, database, workflow modules, and sandbox workers as one operational boundary.
+This page covers storage durability, access scoping, execution isolation, secrets handling, cache policy, and audit for production Gateway deployments. Treat the Gateway, database, workflow modules, and sandbox workers as one operational boundary.
 
 ## Required Checks
 
@@ -17,7 +17,7 @@ pnpm -r typecheck
 pnpm test
 ```
 
-The default CI workflow runs the same test gate on pull requests and pushes to `main`.
+The default CI workflow (`.github/workflows/ci.yml`) runs `check:effect`, `check:deps`, typecheck, and `test` on pull requests and pushes to `main`. `check:architecture` is a local pre-promotion gate and is not enforced by CI.
 
 ## Persistence
 
@@ -46,11 +46,11 @@ Recommended scopes by client type:
 
 Rotate token grants regularly and revoke grants when a user, CI job, or integration no longer needs access.
 
-For multi-tenant deployments, store tenant-level orgs, projects, teams, usage, secret references, and audit events with `ControlPlaneStore` from `smithers-orchestrator/control-plane`. Keep identity-provider assertions and billing-provider webhooks outside SQLite, then write normalized grants and audit events into the control-plane tables.
+For multi-tenant deployments, see [Control Plane](/deployment/control-plane) for org, project, usage, and audit primitives.
 
 ## Execution Boundary
 
-Sandbox tasks isolate the Smithers control plane from bundle collection and diff application:
+Sandbox workers run in an isolated environment so that untrusted workflow code cannot reach the Gateway database or host filesystem. The concrete controls are:
 
 - request and result bundles are written under the run sandbox directory
 - bundle manifests are size-bounded
@@ -58,7 +58,7 @@ Sandbox tasks isolate the Smithers control plane from bundle collection and diff
 - produced diffs require review unless `autoAcceptDiffs` is enabled
 - sandbox records and events are persisted for audit
 
-Treat `allowNetwork`, container images, environment variables, ports, volumes, and CPU or memory limits as runtime-specific controls. Verify the selected runtime enforces the controls you depend on before running untrusted workflows. For high-risk code generation, run sandbox workers in a separate account, namespace, or machine with no ambient production credentials.
+Configure `allowNetwork`, container images, environment variables, ports, volumes, and CPU or memory limits per worker. Verify your chosen runtime (Docker, Kubernetes, etc.) actually enforces these limits before running untrusted code. For high-risk code generation, run sandbox workers in a separate account, namespace, or machine with no ambient production credentials.
 
 ## Secrets
 
@@ -74,6 +74,15 @@ Operational rules:
 
 Use cache policy keys deliberately:
 
+```ts
+// Example: cache a step result across runs of the same workflow for up to 1 hour
+cachePolicy: {
+  scope: "workflow",
+  ttlMs: 60 * 60 * 1000,
+  version: "v2", // bump when prompt, model, or output semantics change
+}
+```
+
 - `scope: "run"` keeps reuse inside one run.
 - `scope: "workflow"` shares reuse across runs of the same workflow.
 - `scope: "global"` shares reuse across workflow names.
@@ -88,7 +97,7 @@ For incident review, preserve:
 
 - Gateway access logs
 - Smithers run events
-- `_smithers_time_travel_audit` rows
+- rows in `_smithers_time_travel_audit`, which record workflow rewind/replay events
 - sandbox bundle metadata and review decisions
 - approval decisions, notes, and actor IDs
 - deployment version and workflow module revision
@@ -103,5 +112,5 @@ Before a production release:
 - Database backups have been restored in a staging environment.
 - Gateway tokens are scoped and have bounded TTLs.
 - Sandbox runtime enforcement has been tested against the intended threat model.
-- Approval paths have a named owner and a fallback owner.
+- Approval paths have a named owner and a fallback owner (see [Approvals](/workflows/approvals)).
 - Logs are retained long enough to investigate delayed workflow failures.

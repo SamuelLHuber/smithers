@@ -129,21 +129,21 @@ const sendEmail = defineTool({
 
 ### What counts as a side effect
 
+The rule is simple: **if you cannot undo it with `git reset`, mark it as a side effect.**
+
 A side effect is any mutation the runtime should not blindly repeat on retry. If a custom tool talks to an external API, writes to a database, sends a message, or triggers a webhook, mark it.
 
-File system changes from the built-in `write` and `edit` tools are sandbox-local and are not marked as side-effecting. The built-in `bash` tool is intentionally conservative: it is registered as `sideEffect: true` and `idempotent: false` because arbitrary commands can mutate files, launch processes, or perform non-repeatable local work.
+The built-in `write` and `edit` tools are registered as `sideEffect: true` and `idempotent: false` because their file mutations are not safe to blindly replay on retry; like `bash`, they are treated conservatively. All three built-in mutating tools (`write`, `edit`, `bash`) are side-effecting.
 
 | Tool | Side effect? | Why |
 |---|---|---|
 | Built-in `read`, `grep` | No | Pure reads |
-| Built-in `write`, `edit` | No | Sandboxed file changes, tracked by git |
+| Built-in `write`, `edit` | **Yes** | Sandboxed file writes are tracked by git, but replaying on retry could overwrite content that diverged since the first call |
 | Built-in `bash` | **Yes** | Arbitrary shell commands may not be safe to repeat |
 | Custom tool calling an external API | **Yes** | Mutates state outside the sandbox |
 | Custom tool writing to a database | **Yes** | External persistent state |
 | Custom tool sending a Slack message | **Yes** | Irreversible external communication |
 | Custom tool creating a GitHub PR | **Yes** | External state visible to others |
-
-The rule is simple: **if you cannot undo it with `git reset`, mark it as a side effect.**
 
 ---
 
@@ -304,7 +304,7 @@ Pass tools to an [AI SDK](https://ai-sdk.dev) agent and assign the agent to a [`
 ```tsx
 import { ToolLoopAgent as Agent } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { createSmithers, read, write, edit, grep, bash, Task, Workflow } from "smithers-orchestrator";
+import { createSmithers, read, write, edit, grep, bash, Task } from "smithers-orchestrator";
 import { z } from "zod";
 
 const codeAgent = new Agent({

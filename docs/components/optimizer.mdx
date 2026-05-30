@@ -10,7 +10,7 @@ import { Optimizer } from "smithers-orchestrator";
 type OptimizerProps = {
   id?: string; // default "optimizer"; task ids {id}-generate, {id}-evaluate
   generator: AgentLike;
-  evaluator: AgentLike | ((candidate: unknown) => unknown); // function = compute task
+  evaluator: AgentLike | ((candidate: unknown) => unknown | Promise<unknown>); // function = compute task
   generateOutput: OutputTarget;
   evaluateOutput: OutputTarget; // must include `score: number`
   targetScore?: number; // omit to run all iterations

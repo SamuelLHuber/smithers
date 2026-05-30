@@ -36,7 +36,7 @@ Pass the original `runId` plus `resume: true`. State loads from SQLite, complete
 await Effect.runPromise(runWorkflow(workflow, { input: {}, runId: "my-run-123", resume: true }));
 ```
 
-The original input row is loaded from the DB; pass `{}` for `input`. The workflow file hash and VCS revision must match the original run.
+The original input row is loaded from the DB; pass `{}` for `input`. The workflow file hash and VCS root must match the original run.
 
 ## Cancel via AbortSignal
 
@@ -52,7 +52,7 @@ All in-flight attempts are marked cancelled and `NodeCancelled` events are emitt
 
 ## Hijack handoff
 
-If a CLI hijack happens mid-run (`bunx smithers-orchestrator hijack <id>`), the run ends `"cancelled"` and the latest attempt metadata stores `hijackHandoff`. On `resume: true`, Smithers waits for a safe handoff point and continues with the persisted CLI session id (Claude/Codex/Gemini/Pi/Kimi/Forge/Amp) or the persisted message history (SDK agents).
+If a CLI hijack happens mid-run (`bunx smithers-orchestrator hijack <id>`), the run ends `"cancelled"` and the latest attempt metadata stores `hijackHandoff`. On `resume: true`, Smithers waits for a safe handoff point and continues with the persisted CLI session id (see [CLI Agents](/integrations/cli-agents)) or the persisted message history (SDK agents).
 
 ## `result.output`
 
@@ -66,6 +66,6 @@ const rows = db.query("SELECT * FROM page WHERE run_id = ? ORDER BY iteration DE
 
 ## Notes
 
-- On macOS, `runWorkflow` acquires a `caffeinate` lock to prevent idle sleep; released on completion. No-op elsewhere.
-- Set `SMITHERS_DEBUG=1` to print engine errors to stderr.
+- On macOS, `runWorkflow` acquires a `caffeinate` lock to prevent idle sleep and releases it on completion. On other platforms this is a no-op.
+- Set `SMITHERS_LOG_LEVEL=debug` to enable verbose engine logging.
 - For lifecycle events, pass `onProgress` (see [Events](/runtime/events)).

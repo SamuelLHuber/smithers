@@ -8,12 +8,14 @@ import { ApprovalGate } from "smithers-orchestrator";
 
 type ApprovalGateProps = {
   id: string;
-  output: z.ZodObject | Table | string;
+  output: OutputTarget; // z.ZodObject<z.ZodRawShape> | { $inferSelect: Record<string, unknown> } | string
   request: { title: string; summary?: string; metadata?: Record<string, unknown> };
   when: boolean; // true => require human; false => auto-approve immediately
-  onDeny?: "fail" | "continue" | "skip"; // default "fail"
+  onDeny?: "fail" | "continue" | "skip"; // if omitted, denial fails the task
   skipIf?: boolean;
   timeoutMs?: number;
+  heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;
   retries?: number;
   retryPolicy?: { backoff?: "fixed" | "linear" | "exponential"; initialDelayMs?: number };
   continueOnFail?: boolean;

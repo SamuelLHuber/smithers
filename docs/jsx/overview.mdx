@@ -1,6 +1,6 @@
 ---
 title: JSX API
-description: Author workflows as JSX trees. Setup, tsconfig, and the render model on one page.
+description: Author workflows as JSX trees. Smithers renders the tree, dispatches ready tasks, persists outputs, and re-renders — branching and parallelism are plain JSX conditionals.
 ---
 
 Workflows are JSX trees. Smithers renders the tree, extracts ready tasks, executes them, persists their outputs, and re-renders. Branching, looping, and parallelism are normal JSX.
@@ -12,8 +12,8 @@ Most projects should use `bunx smithers-orchestrator init` — it scaffolds ever
 To embed into an existing codebase:
 
 ```bash
-bun add smithers-orchestrator ai @ai-sdk/anthropic zod
-bun add -d typescript @types/bun @types/ws
+bun add smithers-orchestrator react react-dom zod
+bun add -d typescript @types/react @types/react-dom @types/node
 ```
 
 Minimal `tsconfig.json`:
@@ -42,7 +42,7 @@ Verify with `bunx tsc --noEmit` and `bunx smithers-orchestrator --help`.
 ## A minimal workflow
 
 ```tsx
-/** @jsxImportSource smithers-orchestrator */
+// @jsxImportSource smithers-orchestrator — only needed if not set in tsconfig.json
 import { createSmithers, Sequence, Task } from "smithers-orchestrator";
 import { z } from "zod";
 
@@ -61,18 +61,18 @@ export default smithers((ctx) => (
 ));
 ```
 
-`outputs.analysis` is the typed reference for the Zod schema — typos are compile errors.
+`outputs.analysis` is the typed reference for the Zod schema — typos are compile errors. The task body is a JSX expression (`{...}`) whose value is a plain object — no LLM call here, just a static return. Real tasks pass a `run` prop or an AI model. See the [Task component reference](/components/workflow).
 
 ## Reactivity
 
-The tree re-renders on every frame, so branching is a normal JSX conditional:
+The tree re-renders on every frame, so branching is a normal JSX conditional. Inside a workflow function, `ctx` exposes `ctx.input` and `ctx.outputMaybe(ref, { nodeId })` — the latter returns the output of a completed task, or `undefined` if it hasn't run yet:
 
 ```tsx
 const analysis = ctx.outputMaybe(outputs.analysis, { nodeId: "analyze" });
 {analysis ? <Task id="report" output={outputs.report} agent={writer}>...</Task> : null}
 ```
 
-The `report` Task doesn't exist in the plan until `analysis` completes. No placeholder, no skipped node — the conditional IS the dependency.
+The `report` Task doesn't exist in the plan until `analysis` completes. No placeholder, no skipped node — the conditional IS the dependency. Unlike static DAG tools that require you to declare optional nodes upfront, the JSX conditional is evaluated fresh each frame — if `analysis` is undefined, the `report` task simply doesn't exist in that frame's plan.
 
 ## Read next
 

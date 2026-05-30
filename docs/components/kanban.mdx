@@ -12,20 +12,20 @@ type ColumnDef = {
   agent: AgentLike;
   output: OutputTarget;
   prompt?: (ctx: { item: unknown; column: string }) => string;
-  task?: Partial<TaskProps>;                         // retries, timeoutMs, etc.
+  task?: Omit<Partial<TaskProps>, "agent" | "children" | "id" | "key" | "output" | "smithersContext">;  // retries, timeoutMs, etc.
 };
 
 type KanbanProps = {
   id?: string;                                       // default: "kanban"
   columns: ColumnDef[];
-  useTickets: () => Array<{ id: string }>;
+  useTickets: () => Array<{ id: string; [key: string]: unknown }>;
   agents?: Record<string, AgentLike>;                // overrides column-level agents
-  maxConcurrency?: number;                           // default: Infinity, per column
+  maxConcurrency?: number;                           // default: unlimited (no cap), per column
   onComplete?: OutputTarget;
   until?: boolean;                                   // default: false
   maxIterations?: number;                            // default: 5
   skipIf?: boolean;
-  children?: ReactNode;                              // content for onComplete task
+  children?: ReactNode | Record<string, unknown>;    // content for onComplete task
 };
 ```
 

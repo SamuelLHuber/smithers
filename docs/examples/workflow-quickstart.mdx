@@ -87,4 +87,4 @@ bunx smithers-orchestrator up workflows/quickstart.tsx --input '{"goal": "Build 
 
 - **Cross-task data flow** -- `ctx.outputMaybe(outputs.plan, { nodeId: "plan" })` reads the planner's persisted output. `ctx.outputMaybe` accepts either a schema key string like `"plan"` or the schema object from `outputs`.
 - **Shared schemas** -- The same Zod schemas are reused by `createSmithers(...)` and `Output.object({ schema })`, so task persistence and agent output stay aligned.
-- **Vercel AI SDK** -- `ToolLoopAgent` and `Output` are exported from `ai`, and the agent constructor accepts `{ model, output, instructions }`.
+- **Vercel AI SDK** -- `ToolLoopAgent` runs tool-call loops internally until the model stops calling tools — you do not manage the loop yourself. `Output.object({ schema })` tells the Vercel AI SDK to enforce the Zod schema on the model's JSON output.

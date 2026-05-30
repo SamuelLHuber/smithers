@@ -27,8 +27,7 @@ type RunState =
   | "unknown"           // telemetry gap; never invent a state
 ```
 
-`idle` is gone. When a signal is missing, the state is `unknown` —
-never `succeeded`, never `running`.
+When state cannot be determined (e.g. a missing heartbeat with ambiguous DB status), the runtime returns `unknown` — never invent a more specific state.
 
 The legacy run-row `status` column maps to `RunState` like this:
 
@@ -45,9 +44,7 @@ The legacy run-row `status` column maps to `RunState` like this:
 | `cancelled`             | `cancelled`                    |
 | missing / unknown text  | `unknown`                      |
 
-`recovering` is reserved for the supervisor takeover window; it is not
-emitted today (the supervisor will set it once
-[ticket 0018](https://github.com/codeplaneapp/smithers) lands).
+`recovering` is reserved for the supervisor takeover window. As of this writing, it is defined but not yet emitted by the runtime.
 
 ## ReasonBlocked / ReasonUnhealthy
 
@@ -127,10 +124,10 @@ engine uses for `isRunHeartbeatFresh`.
 
 - `smithers inspect <runId>` — top-level `runState` field on the JSON
   output (and rendered in the human view).
-- Gateway RPC `runs.get` — `runState` field on the response.
+- Gateway RPC `getRun` — `runState` field on the response.
 - DevTools snapshot header — `runState?: RunStateView` field.
 - Event stream — `RunStateChanged` event with `before` and `after`
-  (emitted by the recovery state machine in ticket 0018).
+  (emitted by the recovery state machine).
 
 A run id that does not exist is not a `RunState` — it's an error
 (`RUN_NOT_FOUND`). `unknown` is for ambiguity, not for "doesn't exist."

@@ -17,4 +17,4 @@ bunx smithers-orchestrator workflow run ralph --prompt "Continue reducing flaky 
 
 ## Notes
 
-`ralph` uses an unbounded loop in the seeded workflow. Use it for ongoing maintenance tasks where an operator is watching run state and can cancel when enough work has been done.
+`ralph` runs an unbounded loop — it won't stop on its own. Cancel it with `smithers cancel <run-id>` when enough work is done, or configure a `maxIterations` limit in your local workflow file.

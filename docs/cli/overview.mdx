@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: Every Smithers CLI command in one TOON catalog.
+description: Every Smithers CLI command in one structured catalog (TOON format).
 ---
 
 Always invoke as `bunx smithers-orchestrator <command>` (see [Installation](/installation) for why). Use `--help` on any command for the canonical option list.
@@ -32,7 +32,7 @@ Always invoke as `bunx smithers-orchestrator <command>` (see [Installation](/ins
 Commands listed by dotted name. `human` and `alerts` use an action positional instead of nested subcommands.
 
 ```toon
-commands[64]:
+commands[65]:
   - name: init
     purpose: Install the local workflow pack into .smithers/
     flags[5]{name,short,type,default,desc}:
@@ -175,7 +175,7 @@ commands[64]:
   - name: chat-create
     purpose: Create and start a one-task auto-hijacked chat run
     flags[2]{name,short,type,default,desc}:
-      agent,,enum,,claude-code|codex|antigravity
+      agent,,enum,,claude-code|codex|antigravity|gemini
       cwd,,string,.,Working directory for the chat session
   - name: hijack
     purpose: Hand off the latest resumable agent session or Smithers-managed conversation
@@ -256,7 +256,7 @@ commands[64]:
   - name: down
     purpose: Cancel all active runs in the nearest smithers.db
     flags[1]{name,short,type,default,desc}:
-      force,,boolean,false,Accepted for compatibility; active runs are cancelled from DB state
+      force,,boolean,false,Cancel runs even if they still appear live; without this only stale runs are cancelled
   - name: graph
     purpose: Render the workflow graph without executing it
     args[1]{name,type,required,desc}:
@@ -373,7 +373,7 @@ commands[64]:
     args[1]{name,type,required,desc}:
       question,string,false,Question to ask
     flags[6]{name,short,type,default,desc}:
-      agent,,enum,,claude|codex|antigravity|kimi|pi
+      agent,,enum,,claude|codex|antigravity|gemini|kimi|pi
       list-agents,,boolean,false,List detected agents and exit
       dump-prompt,,boolean,false,Print generated system prompt and exit
       tool-surface,,enum,semantic,semantic|raw
@@ -404,7 +404,7 @@ commands[64]:
   - name: agents.add
     purpose: Register a Smithers agent account, interactively or with flags
     flags[9]{name,short,type,default,desc}:
-      provider,,enum,,"claude-code|antigravity|codex|kimi|anthropic-api|openai-api|gemini-api"
+      provider,,enum,,"claude-code|antigravity|codex|gemini|kimi|anthropic-api|openai-api|gemini-api"
       label,,string,,Unique account label
       config-dir,,string,,Per-account CLI config dir for subscription providers
       api-key,,string,,API key for API-key providers
@@ -508,6 +508,15 @@ commands[64]:
       no-global,,boolean,false,Install to project instead of globally
   - name: skills.list
     purpose: List available skills
+  - name: ui
+    purpose: Open the custom UI for a workflow run in your browser
+    args[1]{name,type,required,desc}:
+      runId,string,false,Run to open. Defaults to most recent run
+    flags[4]{name,short,type,default,desc}:
+      gateway,g,string,,Gateway base URL (default http://127.0.0.1:<port>)
+      port,,number,7331,Gateway port when --gateway is not set
+      workflow,w,string,,Open this workflow's UI directly
+      open,,boolean,true,Open a browser (use --no-open to print URL)
 ```
 
 ## Operational notes
@@ -517,4 +526,5 @@ commands[64]:
 - **Watch mode**: `ps`, `events`, `inspect`, `node`, and `tree` have watch-style behavior. They stop cleanly on SIGINT and most stop when the run becomes terminal.
 - **DevTools commands**: `tree`, `diff`, `output`, and `rewind` intentionally use command-scoped `--json`/`-j` and return exit code `1` for parser/user errors.
 - **Account commands**: `agents add|list|remove|test` manage `~/.smithers/accounts.json`; subscription providers use CLI config directories, API providers use API keys.
-- **Removed command**: `smithers tui` was removed in 0.20.2. Use `ps`, `events`, `chat`, `inspect`, `node`, `tree`, `diff`, `output`, `rewind`, or `gui` instead.
+- **Output format**: all commands honour `--format toon|json|yaml|md|jsonl`; `--filter-output <key.path>` extracts a nested field from JSON output.
+- **Removed command**: `smithers tui` was removed in 0.20.2. Use `ps`, `events`, `chat`, `inspect`, `node`, `tree`, `diff`, `output`, `rewind`, or `gui` instead. See `tui.mdx` for migration details.

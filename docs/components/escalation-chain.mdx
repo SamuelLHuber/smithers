@@ -12,16 +12,16 @@ type EscalationChainProps = {
   levels: EscalationLevel[];
   humanFallback?: boolean; // default false
   humanRequest?: ApprovalRequest;
-  escalationOutput: z.ZodObject | Table | string;
+  escalationOutput: z.ZodObject | { $inferSelect: Record<string, unknown> } | string;
   skipIf?: boolean;
   children?: ReactNode; // prompt forwarded to every level
 };
 
 type EscalationLevel = {
   agent: AgentLike;
-  output: z.ZodObject | Table | string;
+  output: z.ZodObject | { $inferSelect: Record<string, unknown> } | string;
   label?: string;
-  escalateIf?: (result: any) => boolean; // true -> next level
+  escalateIf?: (result: unknown) => boolean; // true -> next level
 };
 ```
 
@@ -45,4 +45,4 @@ type EscalationLevel = {
 ## Notes
 
 - Each level uses `continueOnFail`; failures propagate to the next level.
-- `escalateIf` runs at task-execution time, not render time.
+- `escalateIf` is evaluated at render time — the chain re-renders reactively as each level's output becomes available and calls the predicate to decide whether the next level mounts.

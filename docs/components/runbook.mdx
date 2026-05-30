@@ -8,7 +8,7 @@ description: Sequential steps with risk classification; safe auto-runs, risky/cr
 import { Runbook } from "smithers-orchestrator";
 
 type RunbookProps = {
-  id?: string; // default "runbook"
+  id?: string; // used as step-id prefix; defaults to "runbook" when omitted
   steps: RunbookStep[];
   defaultAgent?: AgentLike;
   stepOutput: OutputTarget;

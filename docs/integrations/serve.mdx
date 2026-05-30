@@ -49,8 +49,8 @@ Bun.serve({ port: 3000, fetch: app.fetch });
 
 ```ts
 type ServeOptions = {
-  workflow: SmithersWorkflow<any>;   // loaded workflow instance
-  adapter: SmithersDb;               // database adapter for the workflow
+  workflow: SmithersWorkflow<unknown>;   // loaded workflow instance
+  adapter: SmithersDb;               // database adapter; typically drizzle("./smithers.db") — see HTTP Server for the equivalent db config
   runId: string;                     // active run ID
   abort: AbortController;            // shared cancellation controller
   authToken?: string;                // bearer token; falls back to SMITHERS_API_KEY; disabled if unset
@@ -98,7 +98,7 @@ Run status and node summary.
 
 ### GET /events
 
-SSE stream of lifecycle events. Same format as the [multi-workflow server](/integrations/server#get-v1runsrunidevents).
+SSE stream of lifecycle events. Same format as the [multi-workflow server](/integrations/server#api-routes-toon).
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -106,11 +106,11 @@ SSE stream of lifecycle events. Same format as the [multi-workflow server](/inte
 
 ```
 event: smithers
-data: {"type":"NodeStarted","runId":"run-1234","nodeId":"analyze","iteration":0,"attempt":0}
+data: {"type":"NodeStarted","runId":"run-1234","nodeId":"analyze","iteration":0,"attempt":1}
 id: 1
 
 event: smithers
-data: {"type":"NodeFinished","runId":"run-1234","nodeId":"analyze","iteration":0,"attempt":0}
+data: {"type":"NodeFinished","runId":"run-1234","nodeId":"analyze","iteration":0,"attempt":1}
 id: 2
 ```
 
@@ -150,11 +150,13 @@ Cancel the running workflow.
 | Status | Code | Condition |
 |---|---|---|
 | 200 | — | Cancelled successfully |
-| 409 | `RUN_NOT_ACTIVE` | Run already finished/failed/cancelled |
+| 409 | `RUN_NOT_ACTIVE` | Run is not actively running (e.g. already finished, failed, cancelled, continued, or its heartbeat has gone stale) |
+
+> **Note:** Runs in `waiting-approval` or `waiting-timer` state are cancelled immediately and return `200`.
 
 ### GET /metrics
 
-Prometheus text exposition. Same metrics as the [multi-workflow server](/integrations/server#get-metrics).
+Prometheus text exposition. Same metrics as the [multi-workflow server](/integrations/server#api-routes-toon).
 
 ---
 

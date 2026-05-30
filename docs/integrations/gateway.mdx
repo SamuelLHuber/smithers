@@ -3,9 +3,7 @@ title: Gateway
 description: WebSocket / RPC gateway for connecting clients to Smithers runs.
 ---
 
-`Gateway` is Smithers' headless control plane. Reach for it (instead of [`startServer()`](/integrations/server)) when long-lived clients — bots, dashboards, schedulers — need to authenticate once, stream events over WebSocket, decide [approvals](/concepts/approvals), inject [signals](/runtime/events), and manage cron schedules across many registered workflows.
-
-This page covers the multi-workflow Gateway control plane. The Hono-based surface is [Serve Mode](/integrations/serve), exposed through `createServeApp()` and `smithers up --serve`; it is the single-workflow HTTP app and is separate from the Gateway WebSocket/RPC runtime.
+`Gateway` is Smithers' headless control plane. Reach for it (instead of [`startServer()`](/integrations/server)) when long-lived clients — bots, dashboards, schedulers — need to authenticate once, stream events over WebSocket, decide [approvals](/concepts/approvals), inject [signals](/runtime/events), and manage cron schedules across many registered workflows. For the single-workflow Hono-based HTTP surface, see [Serve Mode](/integrations/serve) (`createServeApp()` / `smithers up --serve`).
 
 ## Quick start
 
@@ -46,7 +44,7 @@ ws.onopen = () => ws.send(JSON.stringify({
   params: {
     minProtocol: 1,
     maxProtocol: 1,
-    client: { name: "docs-example", version: "1.0.0" },
+    client: { id: "docs-example", version: "1.0.0", platform: "browser" },
     auth: { token: "operator-token" },
   },
 }));
@@ -167,7 +165,7 @@ scopes[8]{scope,allows}:
   observability:read,Read DevTools and other observability streams
 ```
 
-`*` grants every scope. Exact method grants such as `launchRun` also work. Legacy wildcard method grants such as `cron.*` continue to match legacy method names; typed scopes are the contract to use for new integrations. Legacy ranked grants (`read`, `execute`, `approve`, `admin`) are accepted so older tokens keep working.
+`*` grants every scope. Pass a method name string in the `scopes` array (e.g. `"launchRun"`) to grant access to exactly that RPC call. Legacy wildcard method grants such as `cron.*` continue to match legacy method names; typed scopes are the contract to use for new integrations. Legacy ranked grants (`read`, `execute`, `approve`, `admin`) are accepted so older tokens keep working.
 
 ### `rewindRun` (destructive rewind)
 
@@ -264,12 +262,13 @@ type OutputSchemaDescriptor = {
 Gateway v1 RPC errors use stable code strings and HTTP status mappings:
 
 ```toon
-errors[18]{code,http}:
+errors[19]{code,http}:
   InvalidRequest,400
   InvalidInput,400
   Unauthorized,401
   Forbidden,403
   RunNotFound,404
+  CronNotFound,404
   NodeNotFound,404
   IterationNotFound,404
   NodeHasNoOutput,404
@@ -358,7 +357,28 @@ Three frame types share the same socket:
 
 Handshake: on connect the server immediately pushes `connect.challenge` (`{ nonce, ts }`). The client replies with a `connect` request carrying `minProtocol`, `maxProtocol`, `client` metadata, `auth`, and an optional `subscribe: string[]` to filter events by `runId`. The server returns a `hello` payload (`protocol`, `features`, `policy.heartbeatMs`, `auth` with `sessionToken`/`role`/`scopes`/`userId`, `snapshot`).
 
-After `connect`, the gateway emits `tick` events every `heartbeatMs`. `launchRun`, `submitApproval`, `submitSignal`, and `cronRun` automatically subscribe the connection to the affected `runId`. Streamed event names: `connect.challenge`, `tick`, `run.event`, `run.heartbeat`, `run.gap_resync`, `run.error`, `node.started`, `node.finished`, `node.failed`, `task.output`, `task.heartbeat`, `approval.requested`, `approval.decided`, `approval.auto_approved`, `run.time_travel_jumped`, `run.completed`, `cron.triggered`, `devtools.event`.
+After `connect`, the gateway emits `tick` events every `heartbeatMs`. `launchRun`, `submitApproval`, `submitSignal`, and `cronRun` automatically subscribe the connection to the affected `runId`. Server-pushed event names:
+
+| Event | Category |
+|---|---|
+| `connect.challenge` | Connection |
+| `tick` | Connection |
+| `run.event` | Run lifecycle |
+| `run.heartbeat` | Run lifecycle |
+| `run.gap_resync` | Run lifecycle |
+| `run.error` | Run lifecycle |
+| `run.completed` | Run lifecycle |
+| `run.time_travel_jumped` | Run lifecycle |
+| `node.started` | Run lifecycle |
+| `node.finished` | Run lifecycle |
+| `node.failed` | Run lifecycle |
+| `task.output` | Run lifecycle |
+| `task.heartbeat` | Run lifecycle |
+| `approval.requested` | Approval |
+| `approval.decided` | Approval |
+| `approval.auto_approved` | Approval |
+| `cron.triggered` | Cron |
+| `devtools.event` | DevTools |
 
 For stateless callers, `POST /rpc` accepts the same body shape (`{ id, method, params }`) and returns the same `ResponseFrame`. Auth headers: `Authorization: Bearer <token>` or `x-smithers-key: <token>` (or trusted-proxy headers in trusted-proxy mode).
 
@@ -387,7 +407,7 @@ type GatewayAuthConfig =
   | {
       mode: "jwt";
       issuer: string;
-      audience: string;
+      audience: string | string[];
       secret: string;                // HS256
       scopesClaim?: string;
       roleClaim?: string;
@@ -414,4 +434,4 @@ Runs started through the gateway expose `ctx.auth = { triggeredBy, role, scopes,
 - Cron: `gateway.register(name, wf, { schedule })` writes a cron row keyed `gateway:<name>`; the gateway polls between 1 s and 15 s (clamped from `heartbeatMs`). Cron-fired runs get `ctx.auth.role = "system"`, `triggeredBy = "cron:gateway"`, `scopes = ["*"]`.
 - JWT mode currently validates `alg=HS256`, HMAC, `iss`, `aud`, `exp`, `nbf`. Scope claims may be arrays or space/comma-separated strings.
 - Trusted-proxy mode is only safe behind something you control (Cloudflare Access, internal API gateway) that strips and rewrites identity headers.
-- DevTools streams re-baseline every 50 events or when a delta exceeds a fresh snapshot; over-capacity subscribers receive `BackpressureDisconnect`.
+- DevTools streams: see Versioned wire shapes for re-baseline triggers; over-capacity subscribers receive `BackpressureDisconnect`.

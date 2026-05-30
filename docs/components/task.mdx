@@ -25,7 +25,7 @@ type TaskProps = {
   noRetry?: boolean;
   retryPolicy?: { backoff?: "fixed" | "linear" | "exponential"; initialDelayMs?: number };
   continueOnFail?: boolean;
-  cache?: { by?: (ctx) => unknown; version?: string };
+  cache?: { by?: (ctx) => unknown; version?: string; key?: string; ttlMs?: number; scope?: "run" | "workflow" | "global" };
   label?: string;
   meta?: Record<string, unknown>;
   scorers?: ScorersMap;
@@ -35,7 +35,10 @@ type TaskProps = {
     threadId?: string;
   };
   heartbeatTimeoutMs?: number; // fail if no heartbeat in window
-  children:
+  heartbeatTimeout?: number; // alias of heartbeatTimeoutMs
+  hijack?: boolean; // request an immediate hijack handoff as soon as the task starts running
+  onHijackExit?: "complete" | "reopen"; // what Smithers should do after a hijacked session exits
+  children?:
     | string
     | Row
     | (() => Row | Promise<Row>)

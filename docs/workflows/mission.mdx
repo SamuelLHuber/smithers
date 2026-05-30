@@ -34,8 +34,20 @@ bunx smithers-orchestrator workflow run mission \
 2. If approval is enabled, the run waits at `mission:approve-plan`.
 3. The active milestone dispatches feature workers with fresh focused prompts.
 4. The integration task merges or reconciles the feature outputs.
-5. Validation runs tests, builds, smoke checks, and UI walkthroughs when applicable.
-6. Failed validation triggers one focused follow-up task and a revalidation.
+5. Validation runs tests, builds, and smoke checks. UI walkthroughs run if the repo has a configured browser test command.
+6. Failed validation triggers one targeted repair task and a revalidation.
 7. After all milestones complete, the final task writes a mission report.
 
-Use `smithers approve <run-id> --node mission:approve-plan` after reviewing the proposed plan.
+## Approval
+
+When `requirePlanApproval` is `true`, the run pauses after planning and emits a `mission:approve-plan` event. Review the proposed milestones in Smithers, then resume the run:
+
+```bash
+smithers approve <run-id> --node mission:approve-plan
+```
+
+Canceling the run at the approval gate aborts the mission.
+
+## Output Shape
+
+`mission` commits changes incrementally as each milestone completes. The final task writes a mission report to the run log summarizing milestones, validation outcomes, and any unresolved failures.

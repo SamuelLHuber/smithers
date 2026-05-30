@@ -9,7 +9,7 @@ import { GatherAndSynthesize } from "smithers-orchestrator";
 
 type SourceDef = {
   agent: AgentLike;
-  prompt: string;
+  prompt?: string;        // optional; defaults to a generated gather prompt
   output?: OutputTarget;
   children?: ReactNode;        // overrides prompt
 };

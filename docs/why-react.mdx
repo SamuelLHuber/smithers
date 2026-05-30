@@ -14,7 +14,7 @@ This page is the long answer.
 Forget orchestration for a minute. Here is everything Smithers does:
 
 - **State lives in SQLite.** Every task output, every frame, every approval, every signal — all persisted as rows in a local database.
-- **Workflows return a React tree.** The tree describes which tasks should run and in what order. It is not a UI; the "host elements" are `<Task>`, `<Sequence>`, `<Parallel>`, `<Branch>`, `<Loop>`.
+- **Workflows return a React tree.** The tree describes which tasks should run and in what order. It is not a UI; the host elements are `smithers:task`, `smithers:sequence`, `smithers:parallel`, `smithers:branch`, and `smithers:ralph` — exposed to workflow authors as the React components `<Task>`, `<Sequence>`, `<Parallel>`, `<Branch>`, and `<Loop>` (`<Loop>` is an alias for `<Ralph>`).
 - **As tasks finish, React rerenders.** The next render reads the updated rows from SQLite, and the tree comes back different. Branches that were missing before now mount. Loops grow another iteration. Conditionals flip.
 - **Every frame is stored back in SQLite.** Each render produces a snapshot of the workflow plan, indexed by frame number, alongside the outputs that triggered it.
 
@@ -26,7 +26,7 @@ Once the runtime has that shape, a stack of useful properties just *appear*:
 
 **Agents inspect state easily, because the state is SQLite.** Agents are very good at writing SQL. Ask the agent what happened on frame 17 of run `abc123` and it writes a `SELECT`. No bespoke tracing API to learn.
 
-**Time travel is real, because every frame is a snapshot.** Smithers commits each frame to a jj revision. You can rewind to frame 5, edit a task's output, and replay the workflow forward against the exact source code that ran the original. Not "logs of what happened" — the actual state.
+**Time travel is real, because every frame is a snapshot.** Smithers records a snapshot of each frame — nodes, outputs, and the jj pointer that was active when the frame ran — as a row in SQLite. When you rewind to frame 5, Smithers calls revertToJjPointer to restore the working tree to that recorded jj state, then replays the workflow forward against the exact source code that ran the original. Not "logs of what happened" — the actual state.
 
 **The whole React hook ecosystem becomes available for orchestration.** `useMemo`, `useContext`, custom hooks — they all work. Want to factor the "wait for approval, then branch" pattern into a `useApprovalGate()` hook? Go ahead. The reconciler doesn't know the difference between a Task and a `<div>`.
 
@@ -48,7 +48,7 @@ So Smithers does the obvious thing: **map orchestration onto a domain agents are
 
 This is what we mean by agent experience. Just as DX (developer experience) is the discipline of designing tools humans love to use, agent experience is the discipline of designing tools agents are good at. A great way to set up an agent to perform well on a hard problem is to express the problem in a domain the agent has already mastered.
 
-That is why, as Smithers has stabilized, it has become the orchestration tool agents reach for: not because it's the most powerful (other engines are more featureful), and not because the API is small (it isn't), but because **agents reliably get it right on the first try.** They write a workflow, it runs. They debug a failed task, they fix it. They refactor a 200-task pipeline, they don't break it.
+That is why, as Smithers has stabilized, it has become the orchestration tool agents reach for: not because it's the most powerful (other engines are more featureful), and not because the API is small (it isn't), but because **agents write workflows that run correctly more often, with less back-and-forth coaching, than they do with bespoke DSLs.** They write a workflow, it runs. They debug a failed task, they fix it. They refactor a 200-task pipeline, they don't break it.
 
 ## The objection, answered
 

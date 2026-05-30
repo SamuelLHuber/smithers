@@ -104,7 +104,7 @@ const analysis = ctx.outputMaybe(outputs.analysis, { nodeId: "analyze" });
 ) : null}
 ```
 
-`ctx.outputMaybe` for control flow; `deps={{...}}` for typed data flow into prompts.
+`ctx.outputMaybe` for control flow.
 
 ## Dynamic ticket discovery
 
@@ -146,9 +146,11 @@ One context boundary per logical operation, not per step. Splitting too finely l
 ## Per-agent least-privilege tools
 
 ```tsx
-const analyst     = new Agent({ model, instructions: "Return JSON" });               // no tools
-const reviewer    = new Agent({ model, instructions: "...", tools: { read, grep } }); // read-only
-const implementer = new Agent({ model, instructions: "...", tools: { read, write, edit, bash } });
+import { AnthropicAgent } from "smithers-orchestrator";
+
+const analyst     = new AnthropicAgent({ model, system: "Return JSON" });               // no tools
+const reviewer    = new AnthropicAgent({ model, system: "...", tools: { read, grep } }); // read-only
+const implementer = new AnthropicAgent({ model, system: "...", tools: { read, write, edit, bash } });
 ```
 
 Match the tool surface to the role.
@@ -257,7 +259,7 @@ bunx smithers-orchestrator fork workflow.tsx --run-id <id> --frame 5 --reset-nod
 bunx smithers-orchestrator replay workflow.tsx --run-id <id> --frame 5 --restore-vcs
 ```
 
-Fork makes a child run; replay re-executes from the snapshot in the same run. `--restore-vcs` checks out the original revision so re-execution sees the same source.
+Fork makes a child run without starting it (add `--run` to start immediately); replay also makes a child run but immediately resumes it. `--restore-vcs` checks out the original revision so re-execution sees the same source.
 
 ## Scoring tasks
 
@@ -294,7 +296,7 @@ Scorers run after the task and never block. Sample expensive scorers with `ratio
 bunx smithers-orchestrator eval workflow.tsx --cases evals/smoke.jsonl --suite smoke --force
 ```
 
-Use eval suites when you need repeatable workflow-level checks. Expected assertions support `status`, `output`, `outputContains`, and `errorContains`; unknown assertion keys fail before launch. `output` asserts exact JSON against the normalized output snapshot, while `outputContains` asserts a recursive partial match. Reports are written to `.smithers/evals/<suite>.json` and exit non-zero on failed cases. Reuse `--run-label` only when you know the generated run IDs are new.
+Use eval suites when you need repeatable workflow-level checks. Assertions support `status`, `output` (exact match), and `outputContains` (partial match). Reports land in `.smithers/evals/<suite>.json`; the command exits non-zero on failures.
 
 ## Continue-as-new for very long runs
 
@@ -309,7 +311,7 @@ Avoids unbounded SQLite growth in long-lived loops.
 ## Hot reload while authoring
 
 ```bash
-bunx smithers-orchestrator up workflow.tsx --hot true
+bunx smithers-orchestrator up workflow.tsx --hot
 ```
 
 Edits to the workflow source apply on the next render frame without losing in-flight task state. Schema changes still require a fresh run.

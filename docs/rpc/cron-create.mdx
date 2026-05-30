@@ -1,6 +1,6 @@
 ---
 title: cronCreate
-description: Stable Gateway RPC for creating cron schedules.
+description: Gateway RPC for creating cron schedules.
 maturity: stable
 apiVersion: v1
 ---
@@ -11,4 +11,4 @@ apiVersion: v1
 - Scope: `cron:write`
 - Transports: HTTP RPC, WebSocket RPC
 - Request: `{ workflow, pattern, cronId?, enabled? }`
-- Response: created cron row
+- Response: `{ cronId, workflow, pattern, enabled }`

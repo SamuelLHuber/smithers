@@ -5,6 +5,14 @@ description: Public TypeScript surface for smithers-orchestrator.
 
 One source of truth: `tsc --emitDeclarationOnly` would produce something close to this. Import these types from `smithers-orchestrator` unless noted otherwise.
 
+Major sections at a glance:
+- **Workflow / Context** — `SmithersWorkflow`, `SmithersCtx`, `RunOptions`, `RunResult` — the entry points for defining and running workflows.
+- **Task / Graph** — `TaskDescriptor`, `TaskProps`, `GraphSnapshot` — the shape of nodes at runtime and in the JSX layer.
+- **Component props** — `WorkflowProps`, `ApprovalProps`, `SignalProps`, `LoopProps`, etc. — all JSX component interfaces.
+- **Errors** — `SmithersError`, `KnownSmithersErrorCode` — typed error codes; see [Errors](/reference/errors) for descriptions.
+- **Server / Gateway** — `ServerOptions`, `GatewayOptions`, `GatewayAuthConfig` — self-hosting configuration.
+- **Scorers / Memory / OpenAPI / Observability** — sub-path imports (`smithers-orchestrator/scorers`, `/memory`, `/openapi`, `/observability`).
+
 ```ts
 // =============================================================================
 // Workflow
@@ -109,6 +117,7 @@ type RunOptions = {
   maxOutputBytes?: number;          // default 200000
   toolTimeoutMs?: number;           // default 60000
   hot?: boolean | HotReloadOptions;
+  annotations?: Record<string, string | number | boolean>;
   auth?: RunAuthContext | null;
   config?: Record<string, unknown>;
   cliAgentToolsDefault?: "all" | "explicit-only";  // default "all"
@@ -202,6 +211,8 @@ type TaskDescriptor = {
   heartbeatTimeoutMs: number | null;
   continueOnFail: boolean;
   cachePolicy?: CachePolicy;
+  hijack?: boolean;
+  onHijackExit?: "complete" | "reopen";
   agent?: AgentLike | AgentLike[];
   prompt?: string;
   staticPayload?: unknown;
@@ -318,9 +329,13 @@ type TaskProps<Row, Output extends OutputTarget = OutputTarget, D extends DepsSp
   cache?: CachePolicy;
   scorers?: ScorersMap;
   memory?: TaskMemoryConfig;
+  hijack?: boolean;
+  onHijackExit?: "complete" | "reopen";
   allowTools?: string[];            // CLI-agent tool allowlist
   label?: string;
   meta?: Record<string, unknown>;
+  // string = prompt literal; Row = static result; () => Row = compute fn;
+  // (deps) => result = deps-aware fn; React.ReactNode = JSX subtree
   children: string | Row | (() => Row | Promise<Row>) | React.ReactNode | ((deps: InferDeps<D>) => Row | React.ReactNode);
 };
 
@@ -533,7 +548,7 @@ type KnownSmithersErrorCode =
   | "INVALID_INPUT" | "MISSING_INPUT" | "MISSING_INPUT_TABLE" | "RESUME_METADATA_MISMATCH"
   | "UNKNOWN_OUTPUT_SCHEMA" | "INVALID_OUTPUT" | "WORKTREE_CREATE_FAILED" | "VCS_NOT_FOUND"
   | "SNAPSHOT_NOT_FOUND" | "VCS_WORKSPACE_CREATE_FAILED" | "TASK_TIMEOUT" | "TASK_ABORTED"
-  | "RUN_NOT_FOUND" | "NODE_NOT_FOUND" | "UI_COMMAND_FAILED" | "INVALID_EVENTS_OPTIONS"
+  | "TASK_HIJACK_UNSUPPORTED" | "RUN_NOT_FOUND" | "NODE_NOT_FOUND" | "INVALID_EVENTS_OPTIONS"
   | "SANDBOX_BUNDLE_INVALID" | "SANDBOX_BUNDLE_TOO_LARGE" | "WORKFLOW_EXECUTION_FAILED"
   | "SANDBOX_EXECUTION_FAILED" | "TASK_HEARTBEAT_TIMEOUT" | "HEARTBEAT_PAYLOAD_TOO_LARGE"
   | "HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE" | "RUN_CANCELLED" | "RUN_NOT_RESUMABLE"
@@ -547,13 +562,12 @@ type KnownSmithersErrorCode =
   | "TOOL_PATH_INVALID" | "TOOL_PATH_ESCAPE" | "TOOL_FILE_TOO_LARGE" | "TOOL_CONTENT_TOO_LARGE"
   | "TOOL_PATCH_TOO_LARGE" | "TOOL_PATCH_FAILED" | "TOOL_NETWORK_DISABLED"
   | "TOOL_GIT_REMOTE_DISABLED" | "TOOL_COMMAND_FAILED" | "TOOL_GREP_FAILED"
-  | "AGENT_CLI_ERROR" | "AGENT_RPC_FILE_ARGS" | "AGENT_BUILD_COMMAND" | "AGENT_DIAGNOSTIC_TIMEOUT"
+  | "AGENT_CLI_ERROR" | "AGENT_CONFIG_INVALID" | "AGENT_RPC_FILE_ARGS" | "AGENT_BUILD_COMMAND" | "AGENT_DIAGNOSTIC_TIMEOUT"
   | "DB_MISSING_COLUMNS" | "DB_REQUIRES_BUN_SQLITE" | "DB_QUERY_FAILED" | "DB_WRITE_FAILED"
   | "STORAGE_ERROR" | "INTERNAL_ERROR" | "PROCESS_ABORTED" | "PROCESS_TIMEOUT"
   | "PROCESS_IDLE_TIMEOUT" | "PROCESS_SPAWN_FAILED" | "TASK_RUNTIME_UNAVAILABLE"
   | "SCHEMA_CHANGE_HOT" | "HOT_OVERLAY_FAILED" | "HOT_RELOAD_INVALID_MODULE"
-  | "SCORER_FAILED" | "WORKFLOW_EXISTS" | "PROMPT_EXISTS" | "PROMPT_MDX_INVALID"
-  | "TICKET_EXISTS" | "TICKET_NOT_FOUND" | "CLI_DB_NOT_FOUND" | "CLI_AGENT_UNSUPPORTED"
+  | "SCORER_FAILED" | "WORKFLOW_EXISTS" | "CLI_DB_NOT_FOUND" | "CLI_AGENT_UNSUPPORTED"
   | "PI_HTTP_ERROR" | "EXTERNAL_BUILD_FAILED" | "SCHEMA_DISCOVERY_FAILED"
   | "OPENAPI_SPEC_LOAD_FAILED" | "OPENAPI_OPERATION_NOT_FOUND" | "OPENAPI_TOOL_EXECUTION_FAILED";
 
@@ -595,6 +609,8 @@ type GatewayOptions = {
   features?: string[];
   heartbeatMs?: number;
   auth?: GatewayAuthConfig;
+  ui?: GatewayUiConfig;
+  operatorUi?: GatewayOperatorUiConfig | false;   // default { path: "/console" }
   defaults?: { cliAgentTools?: "all" | "explicit-only" };
   maxBodyBytes?: number;
   maxPayload?: number;
@@ -690,20 +706,21 @@ type CreateSmithersApi<Schema = any> = {
   Task: <Row, D extends DepsSpec = {}>(props: TaskProps<Row, any, D>) => React.ReactElement;
   Sequence: (props: SequenceProps) => React.ReactElement;
   Parallel: (props: ParallelProps) => React.ReactElement;
+  MergeQueue: (props: MergeQueueProps) => React.ReactElement;
   Branch: (props: BranchProps) => React.ReactElement;
   Loop: (props: LoopProps) => React.ReactElement;
   Ralph: (props: LoopProps) => React.ReactElement;
-  Worktree: any;
+  Worktree: any;                     // schema-generic; see <Worktree> component docs
   Sandbox: (props: SandboxProps) => React.ReactElement;
   Signal: <S extends import("zod").ZodObject<any>>(props: SignalProps<S>) => React.ReactElement;
   Timer: (props: TimerProps) => React.ReactElement;
-  ContinueAsNew: any;
-  continueAsNew: any;
+  ContinueAsNew: any;               // schema-generic; wraps continueAsNew() for JSX use
+  continueAsNew: any;               // schema-generic; typed at call-site via Schema
   useCtx: () => SmithersCtx<Schema>;
   smithers: (build: (ctx: SmithersCtx<Schema>) => React.ReactElement, opts?: SmithersWorkflowOptions) => SmithersWorkflow<Schema>;
-  db: any;
-  tables: Record<string, any>;
-  outputs: Record<string, any>;
+  db: any;                          // schema-generic Drizzle db instance; typed at call-site
+  tables: Record<string, any>;      // schema-generic table map; typed at call-site
+  outputs: Record<string, any>;     // schema-generic output accessor map; typed at call-site
 };
 
 // =============================================================================

@@ -14,14 +14,14 @@ type CategoryConfig = {
 };
 
 type ClassifyAndRouteProps = {
-  id?: string;                                                       // default: "classify-and-route"
+  id?: string;                                                       // prefix for auto-generated child task IDs; defaults to "classify-and-route"
   items: unknown | unknown[];
   categories: Record<string, AgentLike | CategoryConfig>;
   classifierAgent: AgentLike;
   classifierOutput: OutputTarget;
   routeOutput: OutputTarget;
   classificationResult?: { classifications: Array<{ category: string; itemId?: string }> } | null;
-  maxConcurrency?: number;                                           // default: Infinity
+  maxConcurrency?: number;                                           // optional; unbounded when omitted
   skipIf?: boolean;
   children?: ReactNode;                                              // custom classifier prompt
 };

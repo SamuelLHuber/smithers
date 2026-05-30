@@ -8,7 +8,7 @@ import { Parallel } from "smithers-orchestrator";
 
 type ParallelProps = {
   id?: string;
-  maxConcurrency?: number; // default Infinity
+  maxConcurrency?: number; // default: unlimited (no cap)
   skipIf?: boolean;
   children?: ReactNode;
 };
@@ -32,5 +32,5 @@ type ParallelProps = {
 
 ## Notes
 
-- Group completes when all children finish (or fail, unless `continueOnFail`).
+- Group completes when all children finish. To let the group proceed past a failing child, set `continueOnFail` on that individual child `<Task>` — it is not a `<Parallel>` prop.
 - Children receive `parallelGroupId` and `parallelMaxConcurrency` in their descriptor.

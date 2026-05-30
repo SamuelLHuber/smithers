@@ -120,7 +120,7 @@ bunx smithers-orchestrator up review-loop.tsx --input '{}'
 
 ## Context Methods
 
-- `ctx.outputMaybe(schemaKey, { nodeId })` returns the latest value from the most recent iteration. The first argument is the schema key from `createSmithers`, not a table name.
+- `ctx.outputMaybe(schemaKey, { nodeId })` returns the value written by that task in the current render iteration (the iteration matching the current re-render frame), or `undefined` if no row exists yet. To retrieve the highest-iteration row regardless of the current frame, use `ctx.latest` instead. The first argument is the schema key from `createSmithers`, not a table name.
 - `ctx.iterationCount(schemaKey, nodeId)` returns how many times a task has executed.
 - `ctx.latest(schemaKey, nodeId)` always returns the highest-iteration row. Inside loops, this is often more convenient than `ctx.outputMaybe`.
 

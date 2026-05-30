@@ -105,13 +105,12 @@ SDK agents do not reopen a provider-native CLI. Smithers persists the agent conv
 Live-run behavior:
 
 - Smithers captures response history after each step via `onStepFinish`.
-- `smithers hijack` waits until history is durable, cancels the live run, and opens the REPL.
+- `smithers hijack` waits until history is durable, aborts the current agent task (handing it off to the REPL), and opens the REPL.
 - On clean REPL exit, Smithers writes updated message history back and resumes the workflow automatically.
 
 Limits:
 
-- Conversation hijack stays on the same agent implementation. Cross-engine hijack is not supported.
-- Smithers reconstructs the original task agent from the workflow source.
+- Smithers reconstructs the agent from the workflow source on hijack. This means cross-engine hijack is not supported — the REPL will use the same agent class that ran originally.
 
 ## CLI vs SDK
 

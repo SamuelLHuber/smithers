@@ -38,6 +38,8 @@ type RunState =
 
 ## Event Variants
 
+Discriminate on the `type` field — e.g. `event.type === "NodeFailed"` — to handle specific lifecycle moments.
+
 | Event | Top-level fields |
 |---|---|
 | `SupervisorStarted` | `runId`, `pollIntervalMs`, `staleThresholdMs`, `timestampMs` |
@@ -113,6 +115,8 @@ type RunState =
 
 ## Agent Event Payload
 
+This type describes the `.event` field of the `AgentEvent` variant above. For structured traces, prefer `AgentTraceEvent`, `AgentTraceSummary`, and `AgentSessionEvent`.
+
 `AgentEvent.event` is the normalized CLI-agent event payload:
 
 ```ts
@@ -130,5 +134,3 @@ type AgentCliEvent =
     }
   | { type: "completed"; engine: string; ok: boolean; answer?: string; error?: string; resume?: string; usage?: Record<string, unknown> };
 ```
-
-Canonical agent tracing uses the dedicated `AgentTraceEvent`, `AgentTraceSummary`, and `AgentSessionEvent` variants.

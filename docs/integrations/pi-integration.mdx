@@ -72,8 +72,8 @@ Session persistence:
 4. For server-driven workflows, use `@smithers-orchestrator/pi-plugin`.
 
 ```bash
+# Verify PI is installed
 pi --version
-bun run test
 ```
 
 ## Design Guidance
@@ -85,4 +85,4 @@ bun run test
 
 ## Limitations
 
-Chat-provider integration lives in host applications, not this repo.
+Smithers does not provide a chat interface for PI. Chat UI integration is the responsibility of the host application using `@smithers-orchestrator/pi-plugin`.

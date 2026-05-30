@@ -11,13 +11,15 @@ type SignalProps = {
   schema: z.ZodObject; // typed payload + output target
   correlationId?: string;
   timeoutMs?: number;
-  onTimeout?: "fail" | "skip" | "continue"; // default "fail"
+  onTimeout?: "fail" | "skip" | "continue"; // default "fail" (applied by the underlying <WaitForEvent>)
   async?: boolean;
   skipIf?: boolean;
   dependsOn?: string[];
   needs?: Record<string, string>;
   label?: string;
   meta?: Record<string, unknown>;
+  key?: string;
+  smithersContext?: React.Context<SmithersCtx | null>; // advanced: inject a custom Smithers context
   children?: (data) => ReactNode; // mounts only after payload arrives
 };
 ```

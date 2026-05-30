@@ -16,11 +16,19 @@ The browser demo has synchronized surfaces:
 - A React Flow graph on the left with generated Smithers task nodes.
 - Generated Smithers React code on the right, produced from the same workflow model as the graph.
 
-Provider defaults:
+## Setup
 
-- Cerebras: `gpt-oss-120b` with `CEREBRAS_API_KEY`
-- OpenAI: `gpt-5.5` with `OPENAI_API_KEY`
-- Claude: `claude-opus-4.7` with `ANTHROPIC_API_KEY`
+Set one of the following environment variables. The demo picks the first key it finds:
+
+- `CEREBRAS_API_KEY`
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+
+## Provider defaults
+
+- Cerebras: `gpt-oss-120b`
+- OpenAI: `gpt-5.5`
+- Claude: `claude-opus-4.7`
 
 The same package also includes a terminal demo built with `@dino-dna/react-tui`:
 
@@ -49,4 +57,15 @@ pnpm --filter @smithers-orchestrator/smithers-demo e2e
 pnpm --filter @smithers-orchestrator/smithers-tui-demo test
 ```
 
-The layout tests fail if generated node rectangles overlap, which protects the visual spacing contract for generated diagrams. The Playwright e2e test runs the real Workflow Studio in desktop and mobile viewports, checks settings persistence, verifies prompt regeneration, confirms provider-neutral `Run Workflow` copy, stubs provider output, and asserts rendered React Flow nodes do not overlap. The TUI tests also fail if the terminal graph collapses back into a list, if terminal node boxes overlap, or if the Run Workflow -> Cancel -> Done button contract regresses.
+## Tests
+
+**Browser demo** (`pnpm --filter @smithers-orchestrator/smithers-demo test` / `e2e`):
+
+- Layout tests fail if generated node rectangles overlap, protecting the visual spacing contract for generated diagrams.
+- Playwright e2e runs the real Workflow Studio in desktop and mobile viewports, checks settings persistence, verifies prompt regeneration, confirms provider-neutral `Run Workflow` copy, stubs provider output, and asserts rendered React Flow nodes do not overlap.
+
+**TUI** (`pnpm --filter @smithers-orchestrator/smithers-tui-demo test`):
+
+- Fails if the terminal graph collapses back into a list.
+- Fails if terminal node boxes overlap.
+- Fails if the Run Workflow → Cancel → Done button contract regresses.

@@ -20,6 +20,7 @@ type HumanTaskProps = {
   needs?: Record<string, string>;
   label?: string;
   meta?: Record<string, unknown>;
+  key?: string;
 };
 ```
 
@@ -61,6 +62,6 @@ export default smithers((ctx) => {
 
 ## Notes
 
-- Submit via `bunx smithers-orchestrator approve <runId> <nodeId> --note '<json>'`.
+- Submit via `smithers human answer <requestId> --value '<json>'`. Find the requestId with `smithers human inbox`. The `smithers approve` command is for `<Approval>` components, not `<HumanTask>`.
 - Failed JSON re-prompts up to `maxAttempts` with zero backoff.
 - Same durable deferred mechanism as `<Approval>`; survives restarts.
