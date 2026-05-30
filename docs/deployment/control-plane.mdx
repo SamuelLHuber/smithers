@@ -111,17 +111,3 @@ A hosted Smithers service should layer these primitives behind:
 - SLAs, support, compliance controls, and incident response
 
 The open-source package owns the durable data contract. The hosted service owns identity, payment collection, tenant isolation, compliance operations, and infrastructure support.
-
-## Gateway Console
-
-Use the built-in console when you need an operator surface before building a custom app:
-
-```ts
-import { Gateway } from "smithers-orchestrator/gateway";
-
-const gateway = new Gateway({});
-```
-
-The operator console mounts at `/console` by default. Disable it with `operatorUi: false`, or customize the mount with `operatorUi: { path, title, props }`. It uses Gateway RPCs for workflow inventory, active runs, and approval decisions. The console respects the same bearer scopes as the Gateway API — a token with `run:read` and `approval:read` is sufficient for read-only access.
-
-For branded or domain-specific operations, pass `ui: { entry, path, title, props }` (where `entry` is required) to mount a custom Gateway-level React app instead.

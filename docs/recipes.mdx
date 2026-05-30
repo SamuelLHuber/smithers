@@ -316,6 +316,27 @@ bunx smithers-orchestrator up workflow.tsx --hot
 
 Edits to the workflow source apply on the next render frame without losing in-flight task state. Schema changes still require a fresh run.
 
+## Fork agent session context
+
+Every agent task produces a reusable session snapshot. `fork` starts a new task from a copy of another task's final context — without mutating the source.
+
+```tsx
+<Task id="investigate" agent={claude} output={outputs.investigation}>
+  Understand the bug and identify possible fixes.
+</Task>
+
+<Parallel>
+  <Task id="minimal-fix" agent={claude} fork="investigate" output={outputs.patch}>
+    Try the minimal fix.
+  </Task>
+  <Task id="refactor-fix" agent={claude} fork="investigate" output={outputs.patch}>
+    Try the refactor fix.
+  </Task>
+</Parallel>
+```
+
+`fork` adds the source as a dependency (the forked task waits for it), copies its conversation into a fresh session, then submits the new prompt. Both branches above start from the same investigation and never affect each other. Chain it for follow-ups (`plan → implement → verify`); inside a `<Loop>` it forks the latest completed snapshot for that id. See [`<Task>` fork](/components/task#fork).
+
 ## Read next
 
 - [How It Works](/how-it-works) — the model these recipes plug into.

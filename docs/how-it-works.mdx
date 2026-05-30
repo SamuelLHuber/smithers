@@ -174,6 +174,17 @@ The supervisor auto-resumes runs whose owner process died:
 bunx smithers supervise --interval 30s --stale-threshold 1m
 ```
 
+## Session snapshots & fork
+
+Every agent task persists its conversation as a durable session snapshot alongside its output. A later task can start from a **copy** of that context with `fork`:
+
+```tsx
+<Task id="plan" agent={claude} output={outputs.plan}>Make a plan.</Task>
+<Task id="implement" agent={claude} fork="plan" output={outputs.patch}>Implement the plan.</Task>
+```
+
+`fork` is immutable: it copies the source conversation into a fresh, independent session and submits the new prompt — the source is never mutated, so many tasks can fork the same source in parallel, and a forked task can itself be forked. Because the snapshot is read from persisted state on each attempt, fork is resume-safe and the source is never re-executed. Inside a `<Loop>`, `fork` resolves to the latest completed snapshot for that task id. See [`<Task>` fork](/components/task#fork).
+
 ## Caching
 
 Per-Task caching with explicit invalidation:

@@ -1,9 +1,17 @@
 ---
 title: Smithers
-description: Durable control plane for long-running coding agents.
+description: Orchestrate agents at scale with composable workflows.
+mode: wide
 ---
 
-Smithers is a durable control plane for long-running coding agents. It gives TypeScript teams crash recovery, retries, human approvals, replay, evals, sandbox review, and Gateway APIs in one workflow runtime.
+<div style={{ fontSize: "1.35rem", fontWeight: 600, lineHeight: 1.4, marginBottom: "0.5rem" }}>
+  Orchestrate agents at scale with composable workflows.
+</div>
+
+Smithers is a durable runtime for long-running AI coding agents. Write a workflow once as
+a composable TypeScript tree, then run it for minutes or days with crash recovery,
+retries, human approvals, replay, and full observability across any agent, any model,
+and any machine.
 
 ```tsx
 /** @jsxImportSource smithers-orchestrator */
@@ -25,22 +33,154 @@ export default smithers((ctx) => (
 ));
 ```
 
-Run it:
-
 ```bash
 bunx smithers-orchestrator init
 bunx smithers-orchestrator up workflow.tsx --input '{"name":"world"}'
 ```
 
-Outputs are validated by Zod, persisted to SQLite, and survive crashes. Resume with `--resume true`, or expose the [Gateway](/integrations/gateway) operator API and browser console with `new Gateway({ ui: true })`.
+Outputs are validated by Zod, persisted to SQLite, and survive crashes. Resume with
+`--resume true`, or drive everything from your coding agent with the
+[`smithers` skill](/installation#install-the-agent-skill).
+
+## What makes Smithers different
+
+<CardGroup cols={3}>
+  <Card title="Composable workflows" icon="puzzle-piece">
+    Sequence, fan out, branch, and loop tasks into workflows shaped to your task and your
+    project, not one giant one-size-fits-all agent.
+  </Card>
+  <Card title="Model- & harness-agnostic" icon="plug">
+    Claude Code, Codex, Pi, Antigravity, and more, plus any model through the AI SDK.
+    Swap the harness without rewriting the workflow.
+  </Card>
+  <Card title="Robust by default" icon="shield-check">
+    Durable execution, retries, replay, time-travel, evals, human approvals, and
+    Prometheus metrics. Guarantees no single agent gives you.
+  </Card>
+</CardGroup>
+
+## Why Smithers
+
+We build Smithers to put power in the hands of builders. You shouldn't have to wait and
+see what the model companies decide to ship next. With composable, model- and
+harness-agnostic workflows, you can build the future you want to see today, on whatever
+model and harness is best this week.
+
+Every decision in Smithers is about making builders **more** powerful, not replacing
+them. Where other tools race to swap human craftsmanship for slop, Smithers is built to
+get **higher-quality output** out of agents, with the review loops, approvals, evals,
+and structure that real work demands.
+
+And we don't believe in one-size-fits-all orchestration. The best results come from
+**task-specific and project-specific workflows**, so Smithers ships dozens of them ready
+to run, and treats authoring your own as a first-class path.
+
+## Built-in workflows
+
+`bunx smithers-orchestrator init` scaffolds a `.smithers/` folder preloaded with
+production-ready workflows. Point your agent at one and go with
+`bunx smithers-orchestrator workflow run <id> --prompt "..."`:
+
+```bash
+# break a request into tickets, then implement them on a board
+bunx smithers-orchestrator workflow run tickets-create --prompt "add rate limiting and audit logging"
+bunx smithers-orchestrator workflow run kanban
+```
+
+<CardGroup cols={2}>
+  <Card title="Build" icon="hammer" href="/workflows/implement">
+    `implement` · `research-plan-implement` · `mission` · `kanban` · `ralph`. Turn a
+    request into validated, reviewed code, from a focused change to a long-horizon mission.
+  </Card>
+  <Card title="Plan" icon="map" href="/workflows/plan">
+    `research` · `plan` · `grill-me` · `write-a-prd` · `ticket-create` · `tickets-create`.
+    Gather context and shape the work before any code is written.
+  </Card>
+  <Card title="Quality" icon="circle-check" href="/workflows/review">
+    `review` · `debug` · `improve-test-coverage` · `feature-enum` · `audit`. Review
+    changes, fix bugs, raise coverage, and audit for gaps.
+  </Card>
+  <Card title="Browse the catalog" icon="list" href="/workflows/overview">
+    Every bundled workflow is a normal Smithers TSX file: run it as-is, edit it for your
+    repo, or fork it as a starting point.
+  </Card>
+</CardGroup>
+
+## Examples
+
+The [examples](/examples/hello-world) cover real patterns you can copy: multi-agent
+panels and debates, fan-out/fan-in, review and coverage loops, migrations, PR shepherding,
+canary judging, SLO breach explainers, repo janitors, and more.
+
+<CardGroup cols={2}>
+  <Card title="Multi-agent review" icon="users" href="/examples/multi-agent-review">
+    N specialists review in parallel; a moderator synthesizes the verdict.
+  </Card>
+  <Card title="Approval gates" icon="hand" href="/examples/approval-gate">
+    Pause a run for a human decision, then resume exactly where it left off.
+  </Card>
+  <Card title="Dynamic plans" icon="diagram-project" href="/examples/dynamic-plan">
+    Let an agent plan the work, then fan the plan out across worker tasks.
+  </Card>
+  <Card title="Loops" icon="repeat" href="/examples/loop">
+    Iterate until tests pass, coverage hits target, or a reviewer approves.
+  </Card>
+</CardGroup>
+
+## Any agent, any model
+
+Smithers doesn't bet on one lab or one harness. Point each task at whichever agent is best
+for the job, and switch freely:
+
+- **CLI agents**: [Claude Code](/integrations/cli-agents), Codex,
+  [Pi](/integrations/pi-integration), Antigravity, Kimi, and more, driven through their
+  own runtimes.
+- **SDK agents**: any model the [AI SDK](/integrations/sdk-agents) supports, with tools,
+  structured output, and MCP.
+- **Mix them in one workflow**: a frontier model plans, a fast model fans out, a
+  specialized harness does the edits. The workflow doesn't change when the model does.
+
+## Durable and observable
+
+Runs survive crashes, restarts, and flaky tools. Every completed step is persisted the
+moment it finishes, so the runtime always knows what's done and what to run next, and you
+can rewind, fork, and replay any run.
+
+```bash
+smithers up workflow.tsx --run-id abc123 --resume true   # resume after a crash
+smithers rewind abc123 --frame 4                         # time-travel to an earlier frame
+smithers observability up                                # Grafana + Prometheus + Tempo + OTLP
+smithers up workflow.tsx --serve --metrics               # HTTP API, SSE events, and /metrics
+```
+
+Every run emits Prometheus metrics and OpenTelemetry traces, so you can watch token spend,
+task latency, retries, and failures across thousands of runs. See
+[How It Works](/how-it-works) for the render → execute → persist loop.
+
+## Scale across machines
+
+Most workflows run fine on your laptop. When you need isolation, parallelism, or
+horizontal scale, the same [`<Sandbox>`](/components/sandbox) primitive runs a child
+workflow through an injectable provider (local or remote) with no change to the
+workflow:
+
+- **Local**: run agents in an isolated sandbox on your own machine.
+- **Remote**: gVisor, Kubernetes, [freestyle.sh](/examples/freestyle-sandbox-provider),
+  Daytona, and Cloudflare.
 
 ## Read next
 
-- [Install the agent skill](/installation#install-the-agent-skill) — make your coding agent drive Smithers for you.
-- [Tour](/tour) — a 6-step worked example that introduces every core feature.
-- [How It Works](/how-it-works) — the render → execute → persist loop.
-- [Components](/components/workflow) — JSX surface reference.
-- [CLI](/cli/overview) — every command in one table.
-- [Control Plane](/deployment/control-plane) — org/project, metering, secret-reference, and audit primitives.
-- [Recipes](/recipes) — common patterns.
-- [Types](/reference/types) — public TypeScript surface.
+<CardGroup cols={2}>
+  <Card title="Install the agent skill" icon="robot" href="/installation#install-the-agent-skill">
+    Make your coding agent drive Smithers for you.
+  </Card>
+  <Card title="Tour" icon="route" href="/tour">
+    A 6-step worked example that introduces every core feature.
+  </Card>
+  <Card title="How It Works" icon="gears" href="/how-it-works">
+    The render → execute → persist loop that makes runs durable.
+  </Card>
+  <Card title="Components" icon="cubes" href="/components/workflow">
+    The full JSX surface: tasks, sequences, loops, approvals, and more.
+  </Card>
+</CardGroup>
