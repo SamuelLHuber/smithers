@@ -30,6 +30,15 @@ export type ViewId =
 const TERMINAL_VIEW_ALIAS: ViewId = "workspace";
 
 const DEVELOPER_MODE_STORAGE_KEY = "studio.developerMode";
+const SHELL_MODE_STORAGE_KEY = "studio.shellMode";
+
+/**
+ * Which top-level shell renders. "chat" is the chat-first experience
+ * (src/chat); "studio" is the original tabbed shell (src/shell/AppShell). The
+ * chat shell is the default; the tabbed shell stays one toggle away (/studio or
+ * the project-bar gear), so no previous view is ever removed.
+ */
+export type ShellMode = "chat" | "studio";
 
 function readDeveloperMode(): boolean {
   if (typeof localStorage === "undefined") return false;
@@ -39,6 +48,16 @@ function readDeveloperMode(): boolean {
 function persistDeveloperMode(value: boolean): void {
   if (typeof localStorage === "undefined") return;
   localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, value ? "true" : "false");
+}
+
+function readShellMode(): ShellMode {
+  if (typeof localStorage === "undefined") return "chat";
+  return localStorage.getItem(SHELL_MODE_STORAGE_KEY) === "studio" ? "studio" : "chat";
+}
+
+function persistShellMode(value: ShellMode): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(SHELL_MODE_STORAGE_KEY, value);
 }
 
 function createTerminal(index: number): TerminalTab {
@@ -59,6 +78,7 @@ type StudioState = {
   // Nav state
   activeView: ViewId;
   developerMode: boolean;
+  shellMode: ShellMode;
 
   // Command palette state
   paletteOpen: boolean;
@@ -73,6 +93,7 @@ type StudioState = {
   // Nav actions
   setActiveView: (view: ViewId | "terminal") => void;
   toggleDeveloperMode: () => void;
+  setShellMode: (mode: ShellMode) => void;
 
   // Palette actions
   openPalette: () => void;
@@ -86,6 +107,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   activeTabId: firstTerminal.id,
   activeView: "home",
   developerMode: readDeveloperMode(),
+  shellMode: readShellMode(),
   paletteOpen: false,
   paletteQuery: "",
   selectedPaletteIndex: 0,
@@ -125,6 +147,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       const activeView = !next && developerViews.includes(state.activeView) ? "home" : state.activeView;
       return { developerMode: next, activeView };
     }),
+
+  setShellMode: (mode) => {
+    persistShellMode(mode);
+    set({ shellMode: mode });
+  },
 
   openPalette: () => set({ paletteOpen: true }),
 
