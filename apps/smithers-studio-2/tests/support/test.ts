@@ -22,6 +22,11 @@ import { STUDIO_SESSION_HEADER } from "./sessionHeader";
  * and its mutations (approve / deny / cancel) already act on dedicated
  * per-spec run ids, so parallel tests never collide on Gateway state.
  *
+ * The app now boots the chat-first shell by default. Every existing spec targets
+ * the classic tabbed shell (nav rows, surfaces), so the `page` override below
+ * sets `shellMode=studio` via an init script before navigation. The chat-shell
+ * spec adds its own `shellMode=chat` init script (run after this one) to override.
+ *
  * Specs MUST import { test, expect } from "../support/test" (NOT
  * "@playwright/test") to inherit this isolation.
  */
@@ -42,6 +47,19 @@ export const test = base.extend<{ studioSessionId: string }>({
       ...(extraHTTPHeaders ?? {}),
       [STUDIO_SESSION_HEADER]: studioSessionId,
     });
+  },
+
+  // Default every spec to the classic tabbed shell (the app boots chat-first).
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem("studio.shellMode", "studio");
+      } catch {
+        // localStorage may be unavailable pre-navigation; the store falls back
+        // to its own default and a spec can set it again if needed.
+      }
+    });
+    await use(page);
   },
 });
 
