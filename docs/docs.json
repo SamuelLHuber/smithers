@@ -49,6 +49,8 @@
           "guides/evals-quickstart",
           "guides/workflow-optimization",
           "guides/tui",
+          "guides/alerting",
+          "guides/agent-trace-otel-verification",
           "deployment/reference",
           "deployment/control-plane",
           "deployment/production-hardening"
@@ -102,9 +104,11 @@
           "components/parallel",
           "components/branch",
           "components/loop",
+          "components/loop-until-scored",
           "components/approval",
           "components/merge-queue",
           "components/worktree",
+          "components/extract-prompt",
           {
             "group": "Composite",
             "pages": [
@@ -251,6 +255,12 @@
         ]
       },
       {
+        "group": "Contributing",
+        "pages": [
+          "contributing/checks"
+        ]
+      },
+      {
         "group": "Changelog",
         "pages": [
           "changelogs/0.22.0",
@@ -300,8 +310,8 @@
     { "source": "/docs/quickstart", "destination": "/quickstart" },
     { "source": "/api", "destination": "/jsx/overview" },
     { "source": "/api/overview", "destination": "/jsx/overview" },
-    { "source": "/api/installation", "destination": "/jsx/installation" },
-    { "source": "/api/quickstart", "destination": "/jsx/quickstart" },
+    { "source": "/api/installation", "destination": "/jsx/overview" },
+    { "source": "/api/quickstart", "destination": "/jsx/overview" },
     { "source": "/jsx", "destination": "/jsx/overview" },
     { "source": "/effect", "destination": "/jsx/overview" },
     { "source": "/api/effect", "destination": "/jsx/overview" },
