@@ -210,6 +210,19 @@
         ]
       },
       {
+        "group": "Agent Support",
+        "pages": [
+          "agents/overview",
+          "agents/claude-code",
+          "agents/codex",
+          "agents/cursor",
+          "agents/copilot",
+          "agents/pi",
+          "agents/hermes",
+          "agents/openclaw"
+        ]
+      },
+      {
         "group": "Examples",
         "pages": [
           "examples/hello-world",
@@ -217,7 +230,6 @@
           "examples/tools-agent",
           "examples/multi-agent-review",
           "examples/dynamic-plan",
-          "examples/workflow-studio-demo",
           "examples/loop",
           {
             "group": "Workflow Samples",
@@ -359,6 +371,8 @@
     { "source": "/guides/memory-quickstart", "destination": "/llms-memory.txt" },
     { "source": "/guides/openapi-tools-quickstart", "destination": "/llms-openapi.txt" },
     { "source": "/guides/project-structure", "destination": "/recipes" },
+    { "source": "/agents", "destination": "/agents/overview" },
+    { "source": "/docs/agents/:slug*", "destination": "/agents/:slug*" },
     { "source": "/integrations/ide", "destination": "/integrations/integrations" },
     { "source": "/integrations/github-bot", "destination": "/integrations/integrations" },
     { "source": "/integrations/pi-extension", "destination": "/integrations/pi-integration" },
