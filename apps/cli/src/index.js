@@ -31,6 +31,8 @@ import { assertMaxBytes, assertMaxStringLength } from "@smithers-orchestrator/db
 import { findAndOpenDb } from "./find-db.js";
 import { chatAttemptKey, formatChatAttemptHeader, formatChatBlock, parseAgentEvent, parseChatAttemptMeta, parseNodeOutputEvent, selectChatAttempts, } from "./chat.js";
 import { buildHijackLaunchSpec, isNativeHijackCandidate, launchHijackSession, resolveHijackCandidate, waitForHijackCandidate, } from "./hijack.js";
+import { parseAgentWiringArgv } from "./agent-wiring/parseAgentWiringArgv.js";
+import { wireExtraAgents } from "./agent-wiring/wireExtraAgents.js";
 import { launchConversationHijackSession, persistConversationHijackHandoff, } from "./hijack-session.js";
 import { colorizeEventText, formatAge, formatElapsedCompact, formatEventLine, formatRelativeOffset, } from "./format.js";
 import { EVENT_CATEGORY_VALUES, eventTypesForCategory, normalizeEventCategory, } from "./event-categories.js";
@@ -5693,6 +5695,25 @@ async function main() {
     catch (err) {
         console.error(err?.message ?? String(err));
         process.exit(1);
+    }
+    // `mcp add` / `skills add` register Smithers into the agents the underlying
+    // framework knows about. Reach the rest — Hermes/OpenClaw (native MCP config)
+    // and Pi (skills dir) — as a best-effort supplementary step on success.
+    if (exitCodeFromServe === undefined || exitCodeFromServe === 0) {
+        try {
+            const wiring = parseAgentWiringArgv(argv);
+            if (wiring) {
+                const results = wireExtraAgents(wiring);
+                for (const r of results) {
+                    if (r.registered) console.error(`✓ ${r.agent}: ${r.path}`);
+                    else if (Array.isArray(r.linked) && r.linked.length) console.error(`✓ ${r.agent}: ${r.path} (${r.linked.length} skill${r.linked.length === 1 ? "" : "s"})`);
+                    else if (r.reason && r.reason !== "not-detected" && r.reason !== "no-source-skills") console.error(`⚠ ${r.agent}: skipped (${r.reason})`);
+                }
+            }
+        }
+        catch (err) {
+            console.error(`⚠ Smithers agent wiring skipped: ${err?.message ?? String(err)}`);
+        }
     }
     if (exitCodeFromServe !== undefined) {
         const commandIndex = findFirstPositionalIndex(argv);
