@@ -364,6 +364,20 @@ declare class OpenAIAgent extends ToolLoopAgent<never, any, never> {
 type GenerateTextResult$1 = ai.GenerateTextResult<any, any>;
 type OpenAIAgentOptions$1<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = OpenAIAgentOptions$2<CALL_OPTIONS, TOOLS>;
 
+type HermesAgentOptions$2<CALL_OPTIONS = never, TOOLS extends ToolSet = {}> = Omit<SdkAgentOptions<CALL_OPTIONS, TOOLS, ReturnType<typeof openai>>, "model"> & {
+    model?: string;
+    baseURL?: string;
+    apiKey?: string;
+    nativeStructuredOutput?: boolean;
+};
+/**
+ * Hermes (Nous Research) agent, reached over its OpenAI-compatible HTTP API.
+ */
+declare class HermesAgent extends OpenAIAgent {
+    constructor(opts?: HermesAgentOptions$2);
+}
+type HermesAgentOptions$1<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = HermesAgentOptions$2<CALL_OPTIONS, TOOLS>;
+
 /**
  * Configuration options for the AmpAgent.
  */
@@ -938,6 +952,7 @@ type AgentToolDescriptor = AgentToolDescriptor$1;
 type AnthropicAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = AnthropicAgentOptions$2<CALL_OPTIONS, TOOLS>;
 type OpenCodeAgentOptions = OpenCodeAgentOptions$1;
 type OpenAIAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = OpenAIAgentOptions$2<CALL_OPTIONS, TOOLS>;
+type HermesAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = HermesAgentOptions$2<CALL_OPTIONS, TOOLS>;
 type PiAgentOptions = PiAgentOptions$2;
 type PiExtensionUiRequest = PiExtensionUiRequest$1;
 type PiExtensionUiResponse = PiExtensionUiResponse$1;
@@ -947,4 +962,4 @@ type SmithersAgentToolCategory = SmithersAgentToolCategory$1;
 type SmithersListedTool = SmithersListedTool$2;
 type SmithersToolSurface = SmithersToolSurface$2;
 
-export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, AntigravityAgent, BaseCliAgent, ClaudeCodeAgent, CodexAgent, ForgeAgent, GeminiAgent, KimiAgent, OpenAIAgent, type OpenAIAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, createAntigravityCapabilityRegistry, createSmithersAgentContract, hashCapabilityRegistry, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };
+export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, AntigravityAgent, BaseCliAgent, ClaudeCodeAgent, CodexAgent, ForgeAgent, GeminiAgent, HermesAgent, type HermesAgentOptions, KimiAgent, OpenAIAgent, type OpenAIAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, createAntigravityCapabilityRegistry, createSmithersAgentContract, hashCapabilityRegistry, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };
