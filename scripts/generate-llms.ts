@@ -31,6 +31,7 @@ const CORE_PAGES = [
   "introduction.mdx",
   "installation.mdx",
   "quickstart.mdx",
+  "starters.mdx",
   // The two anchor pages
   "tour.mdx",
   "how-it-works.mdx",
@@ -89,8 +90,10 @@ const CORE_PAGES = [
   "runtime/run-workflow.mdx",
   "runtime/render-frame.mdx",
   "runtime/revert.mdx",
+  "runtime/run-state.mdx",
   // TUI is a discrete product surface, not a recipe
   "guides/tui.mdx",
+  "guides/workflow-optimization.mdx",
 ];
 
 const MEMORY_PAGES = [
@@ -258,6 +261,7 @@ for (const b of builds) {
     "  4. /llms-observability.txt  — HTTP server, gateway, MCP, OpenTelemetry",
     "  5. /llms-effect.txt         — low-level Effect-ts integration",
     "  6. /llms-integrations.txt   — agent runtimes, IDE, CI, ecosystem",
+    "  7. /llms-events.txt          — full SmithersEvent discriminated union",
     "",
     "Changelogs are not included; see /docs/changelogs/ on the docs site.",
     "",

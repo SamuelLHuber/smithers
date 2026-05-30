@@ -1,6 +1,6 @@
 # Smithers
 
-Durable control plane for long-running coding agents.
+Durable AI workflow orchestration as a JSX runtime.
 
 ## Documentation
 

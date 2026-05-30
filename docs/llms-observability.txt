@@ -36,7 +36,7 @@ curl -X POST http://localhost:7331/v1/runs \
 ```ts
 type ServerOptions = {
   port?: number;              // default 7331
-  db?: BunSQLiteDatabase<any>;// enables GET /v1/runs and approvals listing
+  db?: unknown;               // enables GET /v1/runs and approvals listing
   authToken?: string;         // falls back to process.env.SMITHERS_API_KEY
   maxBodyBytes?: number;      // default 1_048_576
   rootDir?: string;           // sandbox root for workflow paths and tools
@@ -51,8 +51,7 @@ type ServerOptions = {
 ## API Routes (TOON)
 
 ```toon
-routes[16]{method,path,purpose,auth}:
-  GET,/health,Liveness probe,none
+routes[15]{method,path,purpose,auth}:
   GET,/metrics,Prometheus exposition,bearer
   POST,/v1/runs,Start or resume a run,bearer
   GET,/v1/runs,List runs (requires db),bearer
@@ -72,7 +71,7 @@ routes[16]{method,path,purpose,auth}:
 
 JSON requests/responses use `Content-Type: application/json`, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`. SSE events are named `smithers` and carry [`SmithersEvent`](/runtime/events) JSON; the stream sends a keep-alive comment every 10 s and closes on terminal state.
 
-Errors use the envelope `{ "error": { "code", "message", "details" } }`. Common codes: `INVALID_REQUEST`, `RUN_NOT_FOUND`, `RUN_IN_PROGRESS`, `RUN_ALREADY_EXISTS`, `WORKFLOW_PATH_OUTSIDE_ROOT`, `DB_NOT_CONFIGURED`, `RUN_NOT_ACTIVE`, `SERVER_ERROR`.
+Errors use the envelope `{ "error": { "code", "message", "details" } }`. Common codes: `INVALID_REQUEST`, `RUN_NOT_FOUND`, `RUN_ALREADY_EXISTS`, `RUN_NOT_ACTIVE`, `NOT_FOUND`, `UNAUTHORIZED`, `WORKFLOW_PATH_OUTSIDE_ROOT`, `DB_NOT_CONFIGURED`, `SERVER_ERROR`.
 
 ## Tool surface
 
@@ -100,7 +99,7 @@ export default smithers((ctx) => (
 
 ## Authentication
 
-When `authToken` is configured (directly or via `SMITHERS_API_KEY`), every request except `GET /health` must include either:
+When `authToken` is configured (directly or via `SMITHERS_API_KEY`), every request must include either:
 
 - `Authorization: Bearer <token>`, or
 - `x-smithers-key: <token>`.
@@ -109,8 +108,8 @@ Missing or invalid tokens return `401`. No scopes — for finer access control u
 
 ## Notes
 
-- Each `POST /v1/runs` and `/resume` reloads the workflow source via a content-addressed shadow file (`.${name}.smithers-${sha1}.tsx`), so edits take effect on the next call without a restart.
-- Active runs heartbeat to `_smithers_runs.heartbeat_at_ms` every 5 s; stale rows are treated as crashed and may be resumed.
+- Each `POST /v1/runs` and `/resume` reloads the workflow source via a content-addressed shadow file with the same extension as the source, so edits take effect on the next call without a restart.
+- Active runs heartbeat to `_smithers_runs.heartbeat_at_ms` every 1 s; stale rows (no heartbeat in 30 s) are treated as crashed and may be resumed.
 - When a server-level `db` differs from a workflow's database, runs and events are mirrored asynchronously to the server db so they show up in `GET /v1/runs`.
 - Metrics are exported via `/metrics`; set `SMITHERS_OTEL_ENABLED=1` plus `OTEL_EXPORTER_OTLP_ENDPOINT` for OTLP. See [Observability](/guides/monitoring-logs).
 
@@ -166,8 +165,8 @@ Bun.serve({ port: 3000, fetch: app.fetch });
 
 ```ts
 type ServeOptions = {
-  workflow: SmithersWorkflow<any>;   // loaded workflow instance
-  adapter: SmithersDb;               // database adapter for the workflow
+  workflow: SmithersWorkflow<unknown>;   // loaded workflow instance
+  adapter: SmithersDb;               // database adapter; typically drizzle("./smithers.db") — see HTTP Server for the equivalent db config
   runId: string;                     // active run ID
   abort: AbortController;            // shared cancellation controller
   authToken?: string;                // bearer token; falls back to SMITHERS_API_KEY; disabled if unset
@@ -215,7 +214,7 @@ Run status and node summary.
 
 ### GET /events
 
-SSE stream of lifecycle events. Same format as the [multi-workflow server](/integrations/server#get-v1runsrunidevents).
+SSE stream of lifecycle events. Same format as the [multi-workflow server](/integrations/server#api-routes-toon).
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -223,11 +222,11 @@ SSE stream of lifecycle events. Same format as the [multi-workflow server](/inte
 
 ```
 event: smithers
-data: {"type":"NodeStarted","runId":"run-1234","nodeId":"analyze","iteration":0,"attempt":0}
+data: {"type":"NodeStarted","runId":"run-1234","nodeId":"analyze","iteration":0,"attempt":1}
 id: 1
 
 event: smithers
-data: {"type":"NodeFinished","runId":"run-1234","nodeId":"analyze","iteration":0,"attempt":0}
+data: {"type":"NodeFinished","runId":"run-1234","nodeId":"analyze","iteration":0,"attempt":1}
 id: 2
 ```
 
@@ -267,11 +266,13 @@ Cancel the running workflow.
 | Status | Code | Condition |
 |---|---|---|
 | 200 | — | Cancelled successfully |
-| 409 | `RUN_NOT_ACTIVE` | Run already finished/failed/cancelled |
+| 409 | `RUN_NOT_ACTIVE` | Run is not actively running (e.g. already finished, failed, cancelled, continued, or its heartbeat has gone stale) |
+
+> **Note:** Runs in `waiting-approval` or `waiting-timer` state are cancelled immediately and return `200`.
 
 ### GET /metrics
 
-Prometheus text exposition. Same metrics as the [multi-workflow server](/integrations/server#get-metrics).
+Prometheus text exposition. Same metrics as the [multi-workflow server](/integrations/server#api-routes-toon).
 
 ---
 
@@ -330,9 +331,7 @@ curl http://localhost:8080/health
 
 > WebSocket / RPC gateway for connecting clients to Smithers runs.
 
-`Gateway` is Smithers' headless control plane. Reach for it (instead of [`startServer()`](/integrations/server)) when long-lived clients — bots, dashboards, schedulers — need to authenticate once, stream events over WebSocket, decide [approvals](/concepts/approvals), inject [signals](/runtime/events), and manage cron schedules across many registered workflows.
-
-This page covers the multi-workflow Gateway control plane. The Hono-based surface is [Serve Mode](/integrations/serve), exposed through `createServeApp()` and `smithers up --serve`; it is the single-workflow HTTP app and is separate from the Gateway WebSocket/RPC runtime.
+`Gateway` is Smithers' headless control plane. Reach for it (instead of [`startServer()`](/integrations/server)) when long-lived clients — bots, dashboards, schedulers — need to authenticate once, stream events over WebSocket, decide [approvals](/concepts/approvals), inject [signals](/runtime/events), and manage cron schedules across many registered workflows. For the single-workflow Hono-based HTTP surface, see [Serve Mode](/integrations/serve) (`createServeApp()` / `smithers up --serve`).
 
 ## Quick start
 
@@ -373,15 +372,26 @@ ws.onopen = () => ws.send(JSON.stringify({
   params: {
     minProtocol: 1,
     maxProtocol: 1,
-    client: { name: "docs-example", version: "1.0.0" },
+    client: { id: "docs-example", version: "1.0.0", platform: "browser" },
     auth: { token: "operator-token" },
   },
 }));
 ```
 
+## Operator Console
+
+Gateway serves a built-in operator console at `/console`. It gives non-coding operators a same-origin surface for health, workflow launch, active runs, pending approvals, and run inspection. Selecting a run opens a Run Chronicle view backed by `streamDevTools`, `streamRunEvents`, `getNodeOutput`, and `getNodeDiff`, so operators can inspect the live task tree, event history, output, and diff without leaving the Gateway. The console uses the Gateway RPC API and accepts the same bearer tokens as programmatic clients.
+
+Disable or move it when embedding Smithers behind another app:
+
+```ts
+new Gateway({ operatorUi: false });
+new Gateway({ operatorUi: { path: "/ops", title: "Ops Console" } });
+```
+
 ## Custom React UI
 
-Gateway can also serve a browser React app from the same origin as the RPC and WebSocket API. Use this when a workflow needs a custom operator surface instead of a generic client.
+Gateway can also serve a browser React app from the same origin as the RPC and WebSocket API. Use this when a workflow needs a custom operator surface instead of the built-in console.
 
 ```tsx
 const gateway = new Gateway({
@@ -483,7 +493,7 @@ scopes[8]{scope,allows}:
   observability:read,Read DevTools and other observability streams
 ```
 
-`*` grants every scope. Exact method grants such as `launchRun` also work. Legacy wildcard method grants such as `cron.*` continue to match legacy method names; typed scopes are the contract to use for new integrations. Legacy ranked grants (`read`, `execute`, `approve`, `admin`) are accepted so older tokens keep working.
+`*` grants every scope. Pass a method name string in the `scopes` array (e.g. `"launchRun"`) to grant access to exactly that RPC call. Legacy wildcard method grants such as `cron.*` continue to match legacy method names; typed scopes are the contract to use for new integrations. Legacy ranked grants (`read`, `execute`, `approve`, `admin`) are accepted so older tokens keep working.
 
 ### `rewindRun` (destructive rewind)
 
@@ -580,12 +590,13 @@ type OutputSchemaDescriptor = {
 Gateway v1 RPC errors use stable code strings and HTTP status mappings:
 
 ```toon
-errors[18]{code,http}:
+errors[19]{code,http}:
   InvalidRequest,400
   InvalidInput,400
   Unauthorized,401
   Forbidden,403
   RunNotFound,404
+  CronNotFound,404
   NodeNotFound,404
   IterationNotFound,404
   NodeHasNoOutput,404
@@ -674,7 +685,28 @@ Three frame types share the same socket:
 
 Handshake: on connect the server immediately pushes `connect.challenge` (`{ nonce, ts }`). The client replies with a `connect` request carrying `minProtocol`, `maxProtocol`, `client` metadata, `auth`, and an optional `subscribe: string[]` to filter events by `runId`. The server returns a `hello` payload (`protocol`, `features`, `policy.heartbeatMs`, `auth` with `sessionToken`/`role`/`scopes`/`userId`, `snapshot`).
 
-After `connect`, the gateway emits `tick` events every `heartbeatMs`. `launchRun`, `submitApproval`, `submitSignal`, and `cronRun` automatically subscribe the connection to the affected `runId`. Streamed event names: `connect.challenge`, `tick`, `run.event`, `run.heartbeat`, `run.gap_resync`, `run.error`, `node.started`, `node.finished`, `node.failed`, `task.output`, `task.heartbeat`, `approval.requested`, `approval.decided`, `approval.auto_approved`, `run.time_travel_jumped`, `run.completed`, `cron.triggered`, `devtools.event`.
+After `connect`, the gateway emits `tick` events every `heartbeatMs`. `launchRun`, `submitApproval`, `submitSignal`, and `cronRun` automatically subscribe the connection to the affected `runId`. Server-pushed event names:
+
+| Event | Category |
+|---|---|
+| `connect.challenge` | Connection |
+| `tick` | Connection |
+| `run.event` | Run lifecycle |
+| `run.heartbeat` | Run lifecycle |
+| `run.gap_resync` | Run lifecycle |
+| `run.error` | Run lifecycle |
+| `run.completed` | Run lifecycle |
+| `run.time_travel_jumped` | Run lifecycle |
+| `node.started` | Run lifecycle |
+| `node.finished` | Run lifecycle |
+| `node.failed` | Run lifecycle |
+| `task.output` | Run lifecycle |
+| `task.heartbeat` | Run lifecycle |
+| `approval.requested` | Approval |
+| `approval.decided` | Approval |
+| `approval.auto_approved` | Approval |
+| `cron.triggered` | Cron |
+| `devtools.event` | DevTools |
 
 For stateless callers, `POST /rpc` accepts the same body shape (`{ id, method, params }`) and returns the same `ResponseFrame`. Auth headers: `Authorization: Bearer <token>` or `x-smithers-key: <token>` (or trusted-proxy headers in trusted-proxy mode).
 
@@ -703,7 +735,7 @@ type GatewayAuthConfig =
   | {
       mode: "jwt";
       issuer: string;
-      audience: string;
+      audience: string | string[];
       secret: string;                // HS256
       scopesClaim?: string;
       roleClaim?: string;
@@ -730,7 +762,7 @@ Runs started through the gateway expose `ctx.auth = { triggeredBy, role, scopes,
 - Cron: `gateway.register(name, wf, { schedule })` writes a cron row keyed `gateway:<name>`; the gateway polls between 1 s and 15 s (clamped from `heartbeatMs`). Cron-fired runs get `ctx.auth.role = "system"`, `triggeredBy = "cron:gateway"`, `scopes = ["*"]`.
 - JWT mode currently validates `alg=HS256`, HMAC, `iss`, `aud`, `exp`, `nbf`. Scope claims may be arrays or space/comma-separated strings.
 - Trusted-proxy mode is only safe behind something you control (Cloudflare Access, internal API gateway) that strips and rewrites identity headers.
-- DevTools streams re-baseline every 50 events or when a delta exceeds a fresh snapshot; over-capacity subscribers receive `BackpressureDisconnect`.
+- DevTools streams: see Versioned wire shapes for re-baseline triggers; over-capacity subscribers receive `BackpressureDisconnect`.
 
 ---
 
@@ -769,20 +801,6 @@ smithers --mcp --surface both
 
 Use `--surface raw` only for direct CLI parity. Prefer the semantic surface for new integrations: every tool returns a `{ ok, data, error }` envelope with Zod-validated input and output schemas.
 
-### Register with Claude Code
-
-```bash
-smithers mcp add
-```
-
-`smithers mcp add` writes the server entry to the MCP config file for the detected agent. Pass `--agent` to target a specific client, `--no-global` to install project-locally, or `--command` to override the launch command:
-
-```bash
-smithers mcp add --agent claude-code
-smithers mcp add --no-global
-smithers mcp add --command "pnpm smithers --mcp"
-```
-
 ### Register manually
 
 For clients that read JSON config directly:
@@ -791,21 +809,21 @@ For clients that read JSON config directly:
 {
   "mcpServers": {
     "smithers": {
-      "command": "smithers",
-      "args": ["--mcp"]
+      "command": "bunx",
+      "args": ["smithers-orchestrator", "--mcp"]
     }
   }
 }
 ```
 
-Project-scoped install (e.g. a monorepo where Smithers is a dev dependency):
+Project-scoped install (e.g. a monorepo where Smithers is a dev dependency — ensure `smithers-orchestrator` is in the local `package.json`):
 
 ```json
 {
   "mcpServers": {
     "smithers": {
-      "command": "pnpm",
-      "args": ["smithers", "--mcp"]
+      "command": "bunx",
+      "args": ["smithers-orchestrator", "--mcp"]
     }
   }
 }
@@ -815,7 +833,7 @@ Project-scoped install (e.g. a monorepo where Smithers is a dev dependency):
 
 ## Tool Registration
 
-On start, the server calls `registerSemanticTools`, which loops over `createSemanticToolDefinitions` and registers each via `server.registerTool`. Every tool carries:
+On start, each tool is registered with its input schema, output schema, and MCP annotations. Every tool carries:
 
 - **`inputSchema`** — Zod object describing accepted parameters.
 - **`outputSchema`** — Zod schema for the structured response envelope.
@@ -864,9 +882,13 @@ List all Smithers workflows discovered in the working directory.
 {
   workflows: Array<{
     id: string;
+    metadataVersion: number;
     displayName: string;
     entryFile: string;
-    sourceType: "seeded" | "user" | "generated";
+    sourceType: string;
+    description: string;
+    tags: string[];
+    aliases: string[];
   }>;
 }
 ```
@@ -903,7 +925,16 @@ Start or resume a discovered workflow.
 
 ```ts
 {
-  workflow: { id, displayName, entryFile, sourceType };
+  workflow: {
+    id: string;
+    metadataVersion: number;
+    displayName: string;
+    entryFile: string;
+    sourceType: string;
+    description: string;
+    tags: string[];
+    aliases: string[];
+  };
   runId: string;
   launchMode: "background" | "waited";
   requestedResume: boolean;
@@ -1002,7 +1033,7 @@ Poll a run at a fixed interval until it reaches a terminal state or a timeout ex
 }
 ```
 
-When `timedOut` is `true` the run is still active — call `watch_run` again or raise `timeoutMs`. Terminal statuses: `finished`, `failed`, `cancelled`.
+When `timedOut` is `true` the run is still active — call `watch_run` again or raise `timeoutMs`. Terminal statuses: any status other than `running`, `waiting-approval`, `waiting-event`, or `waiting-timer` — including `finished`, `failed`, `cancelled`, and `continued`.
 
 ---
 
@@ -1053,15 +1084,13 @@ Return a structured diagnosis explaining why a run is blocked, waiting, or stale
 
 List approvals that are waiting for a human decision, optionally filtered by run, workflow, or node.
 
-**Input:**
+**Input:** All parameters optional. Omit all to list every pending approval across all runs.
 
 | Parameter | Type | Description |
 |---|---|---|
 | `runId` | `string` | Filter by run ID |
 | `workflowName` | `string` | Filter by workflow name |
 | `nodeId` | `string` | Filter by node ID |
-
-All parameters optional. Omit all to list every pending approval across all runs.
 
 **Output:**
 
@@ -1350,7 +1379,7 @@ Paginate via `afterSeq`: pass the `seq` of the last received event to fetch the 
   "data": {
     "reachedTerminal": true,
     "timedOut": false,
-    "finalRun": { "status": "waiting-approval", ... }
+    "finalRun": { "status": "finished", ... }
   }
 }
 ```
@@ -1438,7 +1467,6 @@ Errors follow the structured envelope. Common codes:
 
 | Code | Meaning |
 |---|---|
-| `RUN_NOT_FOUND` | No run exists with the given ID |
+| `RUN_NOT_FOUND` | No run or workflow exists with the given ID |
 | `INVALID_INPUT` | Missing required field, failed validation, or ambiguous approval filter |
 | `WORKFLOW_MISSING_DEFAULT` | Workflow file has no default export |
-| `WORKFLOW_NOT_FOUND` | No workflow matches the given ID |
