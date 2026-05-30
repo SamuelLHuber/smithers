@@ -13,6 +13,11 @@
  * @template [TOOLS=import("ai").ToolSet]
  * @typedef {import("./OpenAIAgentOptions.ts").OpenAIAgentOptions<CALL_OPTIONS, TOOLS>} OpenAIAgentOptions
  */
+/**
+ * @template [CALL_OPTIONS=never]
+ * @template [TOOLS=import("ai").ToolSet]
+ * @typedef {import("./HermesAgentOptions.ts").HermesAgentOptions<CALL_OPTIONS, TOOLS>} HermesAgentOptions
+ */
 /** @typedef {import("./PiAgentOptions.ts").PiAgentOptions} PiAgentOptions */
 /** @typedef {import("./BaseCliAgent/PiExtensionUiRequest.ts").PiExtensionUiRequest} PiExtensionUiRequest */
 /** @typedef {import("./BaseCliAgent/PiExtensionUiResponse.ts").PiExtensionUiResponse} PiExtensionUiResponse */
@@ -28,6 +33,7 @@ export { BaseCliAgent } from "./BaseCliAgent/index.js";
 export { hashCapabilityRegistry } from "./capability-registry/index.js";
 export { AnthropicAgent } from "./AnthropicAgent.js";
 export { OpenAIAgent } from "./OpenAIAgent.js";
+export { HermesAgent } from "./HermesAgent.js";
 export { AmpAgent } from "./AmpAgent.js";
 export { AntigravityAgent, createAntigravityCapabilityRegistry } from "./AntigravityAgent.js";
 export { ClaudeCodeAgent } from "./ClaudeCodeAgent.js";
