@@ -17,6 +17,7 @@ import { assertJsonPayloadWithinBounds, assertOptionalStringMaxLength, assertPos
 import { retryPolicyToSchedule } from "@smithers-orchestrator/scheduler/retryPolicyToSchedule";
 import { retryScheduleDelayMs } from "@smithers-orchestrator/scheduler/retryScheduleDelayMs";
 import { buildPlanTree, scheduleTasks, buildStateKey, } from "./scheduler.js";
+import { resolveForkSessionMessages } from "./resolveForkSessionMessages.js";
 import { getDefinedToolMetadata } from "./getDefinedToolMetadata.js";
 import { captureSnapshotEffect, loadLatestSnapshot, parseSnapshot, } from "@smithers-orchestrator/time-travel/snapshot";
 import { EventBus } from "./events.js";
@@ -2770,6 +2771,18 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     : (cloneJsonValue(checkpointResumeMessages) ??
                         checkpointResumeMessages);
                 const guidedResumeMessages = appendToolResumeWarningMessage(resumeMessages, toolResumeWarningMessage);
+                // Fork: when this task forks another and has no same-task resume
+                // context yet (i.e. this is its first execution), seed it with a
+                // copy of the source task's final agent conversation. The source
+                // session is never mutated. On resume of a partially-run forked
+                // task, guidedResumeMessages (its own checkpoint) takes over and
+                // already carries the forked-in context forward.
+                let forkSeedMessages = null;
+                if (desc.forkSource && !(guidedResumeMessages?.length)) {
+                    const forkSourceAttempts = await Effect.runPromise(adapter.listAttemptsForRun(runId));
+                    forkSeedMessages = resolveForkSessionMessages(forkSourceAttempts, desc.forkSource, desc.nodeId);
+                    attemptMeta.forkedFromSource = desc.forkSource;
+                }
                 if (desc.hijack) {
                     if (!hijackCapableEngine) {
                         attemptMeta.failureRetryable = false;
@@ -2855,6 +2868,11 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     ].join("\n");
                 }
                 effectivePrompt = prependToolResumeWarningMessage(effectivePrompt, toolResumeWarningMessage);
+                // For a forked task, the conversation starts from the copied
+                // source context with this task's prompt appended as a new turn.
+                const forkConversationBase = forkSeedMessages?.length
+                    ? [...forkSeedMessages, { role: "user", content: effectivePrompt }]
+                    : null;
                 const maybeCompleteHijack = () => {
                     if (!hijackState?.request || hijackState.completion || !runAbortController) {
                         return;
@@ -2957,9 +2975,11 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                 const handleSdkStepFinish = (stepResult) => {
                     recordInternalHeartbeat();
                     if (!conversationMessages) {
-                        conversationMessages = [
-                            { role: "user", content: effectivePrompt },
-                        ];
+                        conversationMessages = forkConversationBase
+                            ? [...forkConversationBase]
+                            : [
+                                { role: "user", content: effectivePrompt },
+                            ];
                     }
                     const stepMessages = Array.isArray(stepResult?.response?.messages)
                         ? (cloneJsonValue(stepResult.response.messages) ?? stepResult.response.messages)
@@ -3013,9 +3033,13 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                                     ? {
                                         messages: guidedResumeMessages,
                                     }
-                                    : {
-                                        prompt: effectivePrompt,
-                                    };
+                                    : forkConversationBase
+                                        ? {
+                                            messages: forkConversationBase,
+                                        }
+                                        : {
+                                            prompt: effectivePrompt,
+                                        };
                                 return effectiveAgent.generate({
                                     options: undefined,
                                     abortSignal: taskSignal,
@@ -3082,8 +3106,13 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                         ? (cloneJsonValue(result.response.messages) ?? result.response.messages)
                         : [];
                     if (responseMessages.length > 0) {
+                        const conversationBase = resumeMessages?.length
+                            ? resumeMessages
+                            : forkConversationBase
+                                ? forkConversationBase
+                                : [{ role: "user", content: effectivePrompt }];
                         updateConversation([
-                            ...(resumeMessages?.length ? resumeMessages : [{ role: "user", content: effectivePrompt }]),
+                            ...conversationBase,
                             ...responseMessages,
                         ]);
                     }

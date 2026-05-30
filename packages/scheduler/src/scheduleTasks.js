@@ -38,9 +38,7 @@ function isTraversalTerminal(state, descriptor) {
  * @returns {boolean}
  */
 function dependenciesSatisfied(descriptor, states, descriptors) {
-    if (!descriptor.dependsOn || descriptor.dependsOn.length === 0)
-        return true;
-    for (const dependencyId of descriptor.dependsOn) {
+    for (const dependencyId of descriptor.dependsOn ?? []) {
         const dependency = descriptors.get(dependencyId);
         if (!dependency)
             return false;
@@ -49,7 +47,43 @@ function dependenciesSatisfied(descriptor, states, descriptors) {
             return false;
         }
     }
+    // A forked task waits until its source task has a completed (terminal)
+    // execution. The source is matched by logical id so a source inside a loop
+    // is satisfied by whichever iteration has completed; the executor then
+    // forks the latest completed snapshot for that id.
+    if (descriptor.forkSource && !forkSourceTerminal(descriptor.forkSource, states, descriptors)) {
+        return false;
+    }
     return true;
+}
+/**
+ * Strip the loop-scope suffix (`@@ralph=0,...`) from a node id to recover the
+ * logical task id authored in JSX.
+ * @param {string} nodeId
+ * @returns {string}
+ */
+function logicalNodeId(nodeId) {
+    const atIdx = nodeId.indexOf("@@");
+    return atIdx === -1 ? nodeId : nodeId.slice(0, atIdx);
+}
+/**
+ * Whether any execution of the fork source task (matched by logical id) has
+ * reached a terminal state.
+ * @param {string} forkSource
+ * @param {TaskStateMap} states
+ * @param {Map<string, TaskDescriptor>} descriptors
+ * @returns {boolean}
+ */
+function forkSourceTerminal(forkSource, states, descriptors) {
+    for (const descriptor of descriptors.values()) {
+        if (logicalNodeId(descriptor.nodeId) !== forkSource)
+            continue;
+        const state = states.get(buildStateKey(descriptor.nodeId, descriptor.iteration));
+        if (state && isTerminal(state, descriptor)) {
+            return true;
+        }
+    }
+    return false;
 }
 /**
  * @param {PlanNode | null} plan

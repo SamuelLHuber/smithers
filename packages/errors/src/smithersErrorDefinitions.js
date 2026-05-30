@@ -53,6 +53,26 @@ export const smithersErrorDefinitions = {
         when: "A task requests auto-hijack but its agent cannot provide a resumable session or conversation.",
         details: "{ nodeId, agentId? }",
     },
+    TASK_FORK_SOURCE_NOT_FOUND: {
+        category: "components",
+        when: "A <Task fork> references a source task id that is not present in the workflow graph (including a source that exists only in an unselected branch).",
+        details: "{ nodeId, forkSource }",
+    },
+    TASK_FORK_SOURCE_NOT_COMPLETE: {
+        category: "engine",
+        when: "A forked task began executing but its fork source has not completed, so no session snapshot exists yet.",
+        details: "{ nodeId, forkSource }",
+    },
+    TASK_FORK_SESSION_UNAVAILABLE: {
+        category: "engine",
+        when: "A <Task fork> cannot obtain a usable agent session snapshot — the forking task is not an agent task, or the source completed without producing a forkable conversation (e.g. a compute/static, skipped, or cancelled source).",
+        details: "{ nodeId, forkSource }",
+    },
+    TASK_FORK_CYCLE: {
+        category: "components",
+        when: "A <Task fork> introduces a dependency cycle, directly or indirectly.",
+        details: "{ nodeId, forkSource }",
+    },
     RUN_NOT_FOUND: {
         category: "engine",
         when: "A CLI or engine command references a run ID that does not exist in the database.",

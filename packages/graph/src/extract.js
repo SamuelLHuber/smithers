@@ -1,6 +1,7 @@
 import { isAbsolute, resolve as resolvePath } from "node:path";
 import { getTableName } from "drizzle-orm";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
+import { validateForkSources } from "./validateForkSources.js";
 /** @typedef {import("./TaskDescriptor.ts").TaskDescriptor} TaskDescriptor */
 /** @typedef {import("./XmlNode.ts").XmlNode} XmlNode */
 /** @typedef {import("./ExtractOptions.ts").ExtractOptions} ExtractOptions */
@@ -591,6 +592,7 @@ export function extractGraph(root, opts) {
             addDescriptor(nodeId, "Task", {
                 ...common,
                 ...output,
+                forkSource: typeof raw.fork === "string" && raw.fork ? raw.fork : undefined,
                 needsApproval: Boolean(raw.needsApproval),
                 waitAsync: Boolean(raw.waitAsync),
                 approvalMode,
@@ -652,6 +654,7 @@ export function extractGraph(root, opts) {
         worktreeStack: [],
         loopStack: [],
     });
+    validateForkSources(tasks);
     return { xml: toXmlNode(root), tasks, mountedTaskIds };
 }
 export const extractFromHost = extractGraph;
