@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateAgentsTs } from "./agent-detection.js";
+import { WORKFLOW_UI_SOURCES } from "./workflowUiSources.js";
 /**
  * @typedef {{ force?: boolean; rootDir?: string; skipInstall?: boolean; agentsOnly?: boolean; }} InitOptions
  */
@@ -495,8 +496,8 @@ function renderPrompts() {
                 "The solution from the user's perspective.",
                 "",
                 "### User Stories",
-                "A LONG numbered list. Format: As an <actor>, I want a <feature>,",
-                "so that <benefit>. Be extremely extensive.",
+                "A LONG numbered list. Format: As an `<actor>`, I want a `<feature>`,",
+                "so that `<benefit>`. Be extremely extensive.",
                 "",
                 "### Implementation Decisions",
                 "Modules to build/modify, interfaces, technical clarifications,",
@@ -1792,7 +1793,35 @@ function renderWorkflowFile(id, displayName, body, metadata = {}) {
 const UI_WORKFLOWS = [
     { key: "kanban", title: "Kanban" },
     { key: "plan", title: "Plan" },
+    { key: "implement", title: "Implement" },
+    { key: "research-plan-implement", title: "Research Plan Implement" },
+    { key: "review", title: "Review" },
+    { key: "research", title: "Research" },
+    { key: "ticket-create", title: "Ticket Create" },
+    { key: "tickets-create", title: "Tickets Create" },
+    { key: "ralph", title: "Ralph" },
+    { key: "improve-test-coverage", title: "Improve Test Coverage" },
+    { key: "debug", title: "Debug" },
+    { key: "grill-me", title: "Grill Me" },
+    { key: "write-a-prd", title: "Write a PRD" },
+    { key: "feature-enum", title: "Feature Enum" },
+    { key: "audit", title: "Audit" },
+    { key: "mission", title: "Mission" },
+    { key: "workflow-skill", title: "Workflow Skill" },
 ];
+
+/**
+ * Emit a .smithers/ui/<key>.tsx file for every workflow whose UI source lives in
+ * WORKFLOW_UI_SOURCES (the swarm-generated bespoke UIs). kanban and plan keep
+ * their own dedicated render functions, so they're not in the map.
+ * @returns {TemplateFile[]}
+ */
+function renderUiFiles() {
+    return Object.entries(WORKFLOW_UI_SOURCES).map(([key, contents]) => ({
+        path: `.smithers/ui/${key}.tsx`,
+        contents,
+    }));
+}
 
 /** A safe JS identifier for a workflow key used in the generated gateway.ts. */
 function toUiIdent(key) {
@@ -1801,19 +1830,8 @@ function toUiIdent(key) {
 }
 
 function renderGatewayFile() {
-    const imports = UI_WORKFLOWS.map(
-        (w) => `const { default: ${toUiIdent(w.key)} } = await import(${JSON.stringify(`./workflows/${w.key}.tsx`)});`,
-    );
-    const registrations = UI_WORKFLOWS.flatMap((w) => [
-        `registerWorkflow(${JSON.stringify(w.key)}, ${toUiIdent(w.key)}, {`,
-        "  ui: {",
-        `    entry: resolve(here, "ui", ${JSON.stringify(`${w.key}.tsx`)}),`,
-        `    title: ${JSON.stringify(w.title)},`,
-        "  },",
-        "});",
-    ]);
-    const mountLogs = UI_WORKFLOWS.map(
-        (w) => `console.log("  " + ${JSON.stringify(w.title)} + " UI -> http://" + host + ":" + port + ${JSON.stringify(`/workflows/${w.key}`)});`,
+    const mounts = UI_WORKFLOWS.map(
+        (w) => `await mountWorkflow(${JSON.stringify(w.key)}, ${JSON.stringify(w.title)});`,
     );
     return {
         path: ".smithers/gateway.ts",
@@ -1828,24 +1846,33 @@ function renderGatewayFile() {
             "const projectRoot = resolve(here, \"..\");",
             "process.chdir(projectRoot);",
             "",
-            ...imports,
-            "",
             "const parsedPort = Number(process.env.PORT ?? \"7331\");",
             "const port = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 7331;",
             "const host = process.env.HOST ?? \"127.0.0.1\";",
             "",
             "const gateway = new Gateway({ heartbeatMs: 15_000 });",
             "",
-            "function registerWorkflow(key: string, workflow: any, options?: any) {",
-            "  gateway.register(key, workflow, options);",
+            "// Mount each workflow + its UI independently. A workflow that fails to",
+            "// import (e.g. a broken prompt/MDX) disables only its own UI — the rest of",
+            "// the gateway and the other workflow UIs still come up.",
+            "async function mountWorkflow(key: string, title: string) {",
+            "  try {",
+            "    const mod = await import(\"./workflows/\" + key + \".tsx\");",
+            "    gateway.register(key, mod.default, {",
+            "      ui: { entry: resolve(here, \"ui\", key + \".tsx\"), title },",
+            "    });",
+            "    console.log(\"  \" + title + \" UI -> http://\" + host + \":\" + port + \"/workflows/\" + key);",
+            "  } catch (err) {",
+            "    const message = err instanceof Error ? err.message : String(err);",
+            "    console.warn(\"[gateway] skipped \" + key + \" UI: \" + message);",
+            "  }",
             "}",
             "",
-            ...registrations,
+            "console.log(\"Workflow UIs:\");",
+            ...mounts,
             "",
             "await gateway.listen({ host, port });",
             "console.log(\"Smithers Gateway listening on http://\" + host + \":\" + port);",
-            "console.log(\"Workflow UIs:\");",
-            ...mountLogs,
             "",
         ].join("\n"),
     };
@@ -3860,6 +3887,7 @@ function renderTemplateFiles(versions, env, projectRoot) {
         ...renderWorkflows(),
         renderKanbanUiFile(),
         renderPlanUiFile(),
+        ...renderUiFiles(),
         {
             path: ".smithers/skills/.gitkeep",
             contents: "",
