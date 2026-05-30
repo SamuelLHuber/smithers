@@ -27,8 +27,16 @@ workflow agent, Pi as a server client, and the hybrid): **[Pi integration](/inte
 
 ## Install the skill
 
-If you want the lighter path, Pi reads skills from `~/.pi/agent/skills/` (global)
-or `.pi/skills/` (project), and loads `AGENTS.md` / `CLAUDE.md` at startup:
+If you want the lighter path, `skills add` installs the Smithers skill set into
+Pi's directory for you:
+
+```bash
+bunx smithers-orchestrator skills add --agent pi
+```
+
+Pi reads skills from `~/.pi/agent/skills/` (global) or `.pi/skills/` (project),
+and loads `AGENTS.md` / `CLAUDE.md` at startup, so you can also drop the
+onboarding skill in by hand:
 
 ```bash
 mkdir -p ~/.pi/agent/skills/smithers

@@ -11,8 +11,15 @@ server — Hermes can then list, run, watch, and approve workflows as tools.
 
 ## Register the MCP server
 
-Hermes reads MCP servers from `~/.hermes/config.yaml` under `mcp_servers`. Add
-Smithers as a stdio server:
+The fastest path is `mcp add` — Smithers writes its server straight into Hermes's
+`~/.hermes/config.yaml`:
+
+```bash
+bunx smithers-orchestrator mcp add --agent hermes
+```
+
+To do it by hand, Hermes reads MCP servers from `~/.hermes/config.yaml` under
+`mcp_servers`. Add Smithers as a stdio server:
 
 ```yaml
 mcp_servers:

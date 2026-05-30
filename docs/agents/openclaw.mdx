@@ -10,8 +10,15 @@ acts as both an MCP client and an MCP server. Both surfaces accept Smithers.
 
 ## Register the MCP server
 
-OpenClaw stores MCP servers in `~/.openclaw/openclaw.json` under `mcp.servers`.
-Add Smithers as a stdio server:
+The fastest path is `mcp add` — Smithers writes its server straight into
+OpenClaw's `~/.openclaw/openclaw.json`:
+
+```bash
+bunx smithers-orchestrator mcp add --agent openclaw
+```
+
+To do it by hand, OpenClaw stores MCP servers in `~/.openclaw/openclaw.json` under
+`mcp.servers`. Add Smithers as a stdio server:
 
 ```json
 {

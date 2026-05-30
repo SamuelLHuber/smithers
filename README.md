@@ -53,8 +53,19 @@ Run `bunx smithers-orchestrator starters` to browse plain-English starters, and
 
 Smithers is driven by an AI agent (Claude Code, Codex, and friends), **not** a GUI you
 click. Your agent runs Smithers on your behalf: it scaffolds workflows, kicks off runs,
-watches them, and handles approvals. Install the [`smithers` skill](./skills/smithers) so
-your agent knows the fast path without reading the whole docs site:
+watches them, and handles approvals.
+
+The fastest way to make your agent fluent is the two fan-out commands — they install the
+Smithers skill and register the MCP server into **every coding agent on your machine**
+(Claude Code, Codex, Cursor, Copilot, Pi, Hermes, OpenClaw, and ~20 more):
+
+```bash
+bunx smithers-orchestrator skills add   # install the skill set into every detected agent
+bunx smithers-orchestrator mcp add      # register Smithers as an MCP server everywhere
+```
+
+Prefer to wire one agent by hand, or want the curated onboarding skill with the full docs
+bundle? Drop it in directly:
 
 ```bash
 mkdir -p ~/.claude/skills/smithers
@@ -65,7 +76,9 @@ curl -fsSL https://smithers.sh/llms-full.txt \
 ```
 
 Then just ask: *"orchestrate an agent to add rate limiting and keep iterating until the
-tests pass."* See [`skills/smithers/`](./skills/smithers) for install details.
+tests pass."* See [Agent Support](https://smithers.sh/agents/overview) for the per-agent
+setup (skill, MCP, instructions) for Claude Code, Codex, Cursor, Copilot, Pi, Hermes, and
+OpenClaw, and [`skills/smithers/`](./skills/smithers) for the onboarding skill.
 
 ## Any agent, any model
 
@@ -279,4 +292,5 @@ Full documentation lives at **[smithers.sh](https://smithers.sh)**.
 
 ## License
 
-MITNo em dashes, remove every em dash. Remove em dashes. Um, the answer would probably just be easy. You might just go off and, some of the transcripts you can go to the camera. I don't know. 
+MIT
+

@@ -98,6 +98,24 @@ const local = new OpenAIAgent({
 
 Use the `createOpenAI` path when you need provider-level configuration beyond `baseURL` and `apiKey`; in that form, `apiKey: "none"` belongs in the `createOpenAI` config.
 
+## Hermes
+
+[Hermes](https://github.com/NousResearch/hermes-agent) (Nous Research) exposes an OpenAI-compatible HTTP API, so `HermesAgent` is a convenience subclass of `OpenAIAgent` that points the provider at your Hermes server and disables native structured output by default (a local Hermes server may not honor JSON-schema response formats).
+
+```ts
+import { HermesAgent } from "smithers-orchestrator";
+
+const hermes = new HermesAgent({
+  baseURL: "http://127.0.0.1:5123/v1", // or set HERMES_BASE_URL
+  model: "hermes",                      // whatever model id your server advertises
+  tools,
+  instructions: "You are a careful implementation agent.",
+  stopWhen: stepCountIs(40),
+});
+```
+
+`baseURL` falls back to the `HERMES_BASE_URL` env var and `apiKey` to `HERMES_API_KEY` (then `"hermes"`). Pass `nativeStructuredOutput: true` if your server does honor JSON-schema output. To use Smithers *from* Hermes instead of running Hermes as a worker, see [Agent Support → Hermes](/agents/hermes).
+
 ## Hijack Support
 
 SDK agents do not reopen a provider-native CLI. Smithers persists the agent conversation and reopens it through a Smithers-managed REPL via `smithers hijack <runId>`.
