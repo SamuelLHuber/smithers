@@ -376,7 +376,6 @@ type HermesAgentOptions$2<CALL_OPTIONS = never, TOOLS extends ToolSet = {}> = Om
 declare class HermesAgent extends OpenAIAgent {
     constructor(opts?: HermesAgentOptions$2);
 }
-type HermesAgentOptions$1<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = HermesAgentOptions$2<CALL_OPTIONS, TOOLS>;
 
 /**
  * Configuration options for the AmpAgent.
