@@ -2301,17 +2301,24 @@ function renderKanbanUiFile() {
  * Honors ?runId= (set by the studio embed and `smithers ui`) for deep-linking.
  */
 function renderPlanUiFile() {
+    // Emit the import header from quoted strings (not raw template-literal
+    // lines) so the published-deps-declared test's start-of-line import scan
+    // doesn't mistake this generated UI source for a real CLI import — matching
+    // how workflowUiSources.js and the kanban renderer emit their imports.
+    const planUiHeader = [
+        "/** @jsxImportSource react */",
+        'import { useMemo, useState } from "react";',
+        "import {",
+        "  createGatewayReactRoot,",
+        "  useGatewayActions,",
+        "  useGatewayNodeOutput,",
+        "  useGatewayRunEvents,",
+        "  useGatewayRuns,",
+        '} from "smithers-orchestrator/gateway-react";',
+    ].join("\n");
     return {
         path: ".smithers/ui/plan.tsx",
-        contents: `/** @jsxImportSource react */
-import { useMemo, useState } from "react";
-import {
-  createGatewayReactRoot,
-  useGatewayActions,
-  useGatewayNodeOutput,
-  useGatewayRunEvents,
-  useGatewayRuns,
-} from "smithers-orchestrator/gateway-react";
+        contents: `${planUiHeader}
 
 const WORKFLOW_KEY = "plan";
 
