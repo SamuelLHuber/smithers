@@ -1,15 +1,15 @@
-# Smithers 0.22.0 launch thread
+# Smithers 0.22.0 launch thread: Smithers Studio 2
 
-Ready-to-post X/Twitter thread for the 0.22.0 release. Each tweet lists its media
-attachment (files live in `./assets/`). The shape follows a strong flagship launch
-thread: hook, vision, product framing, depth, objection, then proof and CTA.
+Ready-to-post X/Twitter thread for the Smithers Studio 2 launch. The CLI and agent
+tooling ships as a separate thread (`thread-cli-agents.md`). Each tweet lists its
+media attachment (files live in `./assets/`). Shape: hook, vision, product framing,
+depth, depth, then proof and CTA.
 
 Every product screenshot and GIF is a real capture from Studio 2. The title and
 diagram cards are rendered from the actual Studio 2 design tokens (`src/theme.css`).
 
 Copy follows an anti-slop pass: no em-dashes, no "it's not X, it's Y" framing, no
-padding triads, no hedging. (Reference: the patterns flagged in common anti-AI-slop
-writing guides.)
+padding triads, no hedging.
 
 ---
 
@@ -73,51 +73,35 @@ proves it instead of claiming it.
 
 ---
 
-### 5. Depth (new primitive)
-**Media:** `assets/task-fork.gif` (static fallback: `assets/task-fork.png`)
+### 5. Depth (the workspace)
+**Media:** `assets/workspace-terminal.png`
 
-> New primitive: `<Task fork="plan">`.
+> The Workspace surface gives you a real terminal and an agent chat side by side.
 >
-> It copies an agent's whole session into a fresh task, so you can chain plan →
-> implement → verify, or fan out parallel branches from one base context. The
-> source is never touched, and a fork can be forked again.
+> The terminal runs a true PTY through the Ghostty WASM core: live shell I/O and
+> scrollback replay when you reattach. The chat keeps its history and auto-scrolls
+> only when you're already at the bottom.
 
-Gives builders one concrete, quotable API. "Copies the whole session into a fresh
-task" is the line people repeat.
+Shows Studio is a place to work, not just watch. The Ghostty detail signals it is
+a real terminal, not a log viewer.
 
 ---
 
-### 6. Objection ("am I locked in?")
-**Media:** `assets/any-agent.png`
-
-> You don't have to switch agents to use Smithers.
->
-> One `smithers skills add` plus `smithers mcp add` wires it into Claude Code,
-> Codex, Cursor, Copilot, Pi, Hermes, OpenClaw, and ~14 more. The agent you already
-> run drives it for you.
-
-Answers the obvious worry inside the thread. Reassurance first, then the one-line
-proof.
-
----
-
-### 7. Proof, CTA, and the rest
+### 6. Proof, CTA, and the rest
 **Media:** `assets/command-palette.gif`
 
-> 0.22.0 is big and this thread only scratched it. Also shipping:
+> Studio 2 is deep, and this thread only scratched it. Also inside:
 >
-> • per-workflow UIs from `smithers init`, opened with `smithers ui`
-> • Gateway Run Chronicle
-> • `smithers starters` gallery
-> • `smithers optimize` (GEPA prompt tuning)
-> • HermesAgent worker
-> • a security pass closing XSS, local-RCE, path-traversal, DoS, and auth-bypass
-> • a broad engine, DB, and time-travel correctness sweep
+> • inline approval gates and embedded per-workflow UIs in the Runs surface
+> • JJHub issues, landings, and cloud workspaces
+> • Memory, Scores, and global Search
+> • DevTools, SQL Browser, and Logs behind developer mode
+> • every e2e test driving a real seeded backend, no route mocks
 >
 > Full changelog: https://smithers.sh/changelogs/0.22.0
 
-Honest about what got left out, leads the list with security and correctness
-rather than only shiny features, and ends on one clean link.
+Honest about what got left out, leads with the surfaces a daily user touches, and
+ends on one clean link.
 
 ---
 
@@ -129,10 +113,9 @@ rather than only shiny features, and ends on one clean link.
 | 2 Vision | `assets/chat-first.gif`, `assets/chat-first.png` | generated animation, static |
 | 3 Framing | `assets/studio-home.png` | real Studio 2 capture |
 | 4 Depth/state | `assets/runs-live.gif`, `assets/color-state.png` | real GIF, generated |
-| 5 Fork | `assets/task-fork.gif`, `assets/task-fork.png` | generated animation, static |
-| 6 Any agent | `assets/any-agent.png` | generated (theme tokens) |
-| 7 CTA | `assets/command-palette.gif` | real Studio 2 capture |
-| spare | `assets/workspace-terminal.png`, `assets/workflow-ui-review.png` | real captures |
+| 5 Workspace | `assets/workspace-terminal.png` | real Studio 2 capture |
+| 6 CTA | `assets/command-palette.gif` | real Studio 2 capture |
+| spare | `assets/devtools.png` | real capture (developer mode) |
 
 **Regenerate static cards:** edit `assets/_cards.html`, then run
 `node marketing/0.22.0/assets/_shoot.mjs` (Chromium screenshots each `.card` at 2x).
