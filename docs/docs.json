@@ -7,6 +7,9 @@
     "primary": "#00D2A0"
   },
   "favicon": "/favicon.svg",
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude"]
+  },
   "navigation": {
     "groups": [
       {
