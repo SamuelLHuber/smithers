@@ -9,15 +9,15 @@ import { createSmithers, Gateway, Sequence } from "smithers-orchestrator";
 import { z } from "zod/v4";
 
 /**
- * Real-browser e2e for the `ultragrill` monitoring UI. No route mocking, no
+ * Real-browser e2e for the `ship-pipeline` monitoring UI. No route mocking, no
  * fabricated RPC: a REAL Smithers Gateway serves the REAL `.smithers/ui/
- * ultragrill.tsx` (bundled on demand by the gateway's Bun build), driven by a
+ * ship-pipeline.tsx` (bundled on demand by the gateway's Bun build), driven by a
  * REAL run whose node output + event frames the UI reads over the live RPC/WS.
  *
  * The run is produced by a deterministic `createSmithers` workflow that
- * reproduces ultragrill' EXACT node-id + output-schema contract
+ * reproduces ship-pipeline' EXACT node-id + output-schema contract
  * (`manifest`, then per-ticket `<slug>:research|plan|implement|validate|
- * review:0|merge`). The real ultragrill workflow drives agents, git worktrees,
+ * review:0|merge`). The real ship-pipeline workflow drives agents, git worktrees,
  * and a `pnpm typecheck` merge gate — none of which complete deterministically
  * headless — so, exactly like the studio-2 gateway fixture, the workflow is the
  * seeded-deterministic part and EVERYTHING the UI touches (gateway, RPC, schema-
@@ -34,17 +34,17 @@ import { z } from "zod/v4";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
-const uiEntry = resolve(here, "../ui/ultragrill.tsx");
-const RUN_ID = "ultragrill-e2e-run";
+const uiEntry = resolve(here, "../ui/ship-pipeline.tsx");
+const RUN_ID = "ship-pipeline-e2e-run";
 
 // The two tickets the fixture run "ships". Titles + per-stage summary tokens are
 // deliberately unique so the assertions prove the UI rendered THIS run's output.
 const TICKETS = [
-  { slug: "0001-voice-capture", title: "Voice capture pipeline", id: ".smithers/tickets/ultragrill/0001-voice-capture.md" },
-  { slug: "0002-question-pool", title: "Rolling question pool", id: ".smithers/tickets/ultragrill/0002-question-pool.md" },
+  { slug: "0001-voice-capture", title: "Voice capture pipeline", id: ".smithers/tickets/ship-pipeline/0001-voice-capture.md" },
+  { slug: "0002-question-pool", title: "Rolling question pool", id: ".smithers/tickets/ship-pipeline/0002-question-pool.md" },
 ];
 
-// EXACT schemas the ultragrill UI extractors read (mirrors the real workflow +
+// EXACT schemas the ship-pipeline UI extractors read (mirrors the real workflow +
 // ValidationLoop/Review component outputs).
 const researchSchema = z.object({ summary: z.string(), keyFindings: z.array(z.string()).default([]) });
 const planSchema = z.object({ summary: z.string(), steps: z.array(z.string()).default([]) });
@@ -57,7 +57,7 @@ const manifestSchema = z.object({
   tickets: z.array(z.object({ slug: z.string(), title: z.string(), id: z.string() })).default([]),
 });
 
-const tmpDir = mkdtempSync(join(tmpdir(), "ultragrill-e2e-"));
+const tmpDir = mkdtempSync(join(tmpdir(), "ship-pipeline-e2e-"));
 const dbPath = join(tmpDir, "runs.db");
 
 const { smithers, Workflow, Task, outputs } = createSmithers(
@@ -99,10 +99,10 @@ function ticketNodes(t: (typeof TICKETS)[number]) {
 }
 
 const workflow = smithers(() => (
-  <Workflow name="ultragrill">
+  <Workflow name="ship-pipeline">
     <Sequence>
       <Task id="manifest" output={outputs.manifest}>
-        {{ ticketsDir: ".smithers/tickets/ultragrill", tickets: TICKETS }}
+        {{ ticketsDir: ".smithers/tickets/ship-pipeline", tickets: TICKETS }}
       </Task>
       {TICKETS.map(ticketNodes)}
     </Sequence>
@@ -113,8 +113,8 @@ const gateway = new Gateway({ heartbeatMs: 250 });
 // The workflow's inferred schema generic is narrower than register's `SmithersWorkflow`
 // param (build's ctx is contravariant) — a fixture-only cast, exactly the shape the
 // gateway runs at runtime.
-gateway.register("ultragrill", workflow as Parameters<typeof gateway.register>[1], {
-  ui: { entry: uiEntry, title: "UltraGrill" },
+gateway.register("ship-pipeline", workflow as Parameters<typeof gateway.register>[1], {
+  ui: { entry: uiEntry, title: "Ship Pipeline" },
 });
 
 let port = 0;
@@ -159,7 +159,7 @@ beforeAll(async () => {
   const auth = { triggeredBy: "e2e", scopes: ["*"], role: "operator", tokenId: null };
   // Execute the run to completion BEFORE listening, so node output + the full
   // event window exist the instant the browser connects (no spec/run race).
-  await gateway.startRun("ultragrill", {}, auth, RUN_ID, { resume: false });
+  await gateway.startRun("ship-pipeline", {}, auth, RUN_ID, { resume: false });
   const inflight = gateway.inflightRuns.get(RUN_ID);
   if (inflight) await inflight;
 
@@ -175,7 +175,7 @@ afterAll(async () => {
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
-test("ultragrill UI renders a real completed run end-to-end", async () => {
+test("ship-pipeline UI renders a real completed run end-to-end", async () => {
   expect(await waitForHealth()).toBe(true);
 
   const browser = await (await loadChromium()).launch({ headless: true });
@@ -184,10 +184,10 @@ test("ultragrill UI renders a real completed run end-to-end", async () => {
     const errors: string[] = [];
     page.on("pageerror", (err: Error) => errors.push(err.message));
 
-    await page.goto(`${base}/workflows/ultragrill?runId=${RUN_ID}`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/workflows/ship-pipeline?runId=${RUN_ID}`, { waitUntil: "networkidle" });
 
     // 1) The real bundle built + the app mounted to its root.
-    await page.waitForSelector('[data-testid="ultragrill-ui"]', { timeout: 20_000 });
+    await page.waitForSelector('[data-testid="ship-pipeline-ui"]', { timeout: 20_000 });
 
     // 2) The pipeline lists both tickets from the manifest node output.
     await page.waitForSelector('[data-testid="ship-pipeline"]', { timeout: 20_000 });

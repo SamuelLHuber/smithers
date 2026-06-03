@@ -7,10 +7,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * REAL end-to-end execution of the ultragrill workflow + its UI.
+ * REAL end-to-end execution of the ship-pipeline workflow + its UI.
  *
- * Unlike ultragrill-ui.e2e (which drives the UI with a deterministic fixture
- * run), this boots a gateway that EXECUTES the real ultragrill workflow to
+ * Unlike ship-pipeline-ui.e2e (which drives the UI with a deterministic fixture
+ * run), this boots a gateway that EXECUTES the real ship-pipeline workflow to
  * completion: VerifiableGoals decomposes the proposal and writes a ticket,
  * ShipTickets discovers it and runs research → plan → implement → validate →
  * review inside a real git worktree, then the merge task lands it. The only stub
@@ -27,9 +27,9 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
-const runnerScript = resolve(here, "ultragrillRunFixture.ts");
+const runnerScript = resolve(here, "shipPipelineRunFixture.ts");
 const realNodeModules = resolve(repoRoot, "node_modules");
-const RUN_ID = "ultragrill-e2e";
+const RUN_ID = "ship-pipeline-e2e";
 
 // One superset agent response that satisfies goals + every per-ticket schema
 // (research/plan/implement/validate/review/shipResult). "stub agent output" is
@@ -103,17 +103,17 @@ async function loadChromium() {
 beforeAll(async () => {
   // A throwaway git repo with a `main` ref (so Worktree's `git worktree add -B`
   // off main succeeds) and a node_modules pointing at the real repo.
-  tempRepo = mkdtempSync(join(tmpdir(), "ultragrill-run-"));
+  tempRepo = mkdtempSync(join(tmpdir(), "ship-pipeline-run-"));
   execFileSync("git", ["init", "-b", "main"], { cwd: tempRepo });
   execFileSync("git", ["config", "user.email", "e2e@example.com"], { cwd: tempRepo });
   execFileSync("git", ["config", "user.name", "e2e"], { cwd: tempRepo });
   execFileSync("git", ["commit", "--allow-empty", "-m", "init"], { cwd: tempRepo });
   symlinkSync(realNodeModules, join(tempRepo, "node_modules"), "dir");
-  writeFileSync(join(tempRepo, "package.json"), JSON.stringify({ name: "ultragrill-run-e2e", type: "module" }) + "\n");
+  writeFileSync(join(tempRepo, "package.json"), JSON.stringify({ name: "ship-pipeline-run-e2e", type: "module" }) + "\n");
 
   // The repo's standard fake `claude` binary: echoes the JSON payload back in the
   // turn_end envelope the ClaudeCodeAgent parses.
-  binDir = mkdtempSync(join(tmpdir(), "ultragrill-bin-"));
+  binDir = mkdtempSync(join(tmpdir(), "ship-pipeline-bin-"));
   const claudeSrc = [
     `#!${process.execPath}`,
     `const payload = process.env.SMITHERS_FAKE_AGENT_RESPONSE ?? "{}";`,
@@ -156,17 +156,17 @@ afterAll(() => {
   } catch {}
 });
 
-test("the real ultragrill run renders end-to-end in the UI", async () => {
+test("the real ship-pipeline run renders end-to-end in the UI", async () => {
   const browser = await (await loadChromium()).launch({ headless: true });
   try {
     const page = await browser.newPage();
     const errors: string[] = [];
     page.on("pageerror", (err: Error) => errors.push(err.message));
 
-    await page.goto(`${base}/workflows/ultragrill?runId=${RUN_ID}`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/workflows/ship-pipeline?runId=${RUN_ID}`, { waitUntil: "networkidle" });
 
     // The real bundle built + app mounted.
-    await page.waitForSelector('[data-testid="ultragrill-ui"]', { timeout: 20_000 });
+    await page.waitForSelector('[data-testid="ship-pipeline-ui"]', { timeout: 20_000 });
 
     // The pipeline lists the ticket that VerifiableGoals actually wrote +
     // ShipTickets actually discovered (slug from the written 0001-*.md file).

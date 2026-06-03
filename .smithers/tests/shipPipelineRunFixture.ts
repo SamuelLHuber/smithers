@@ -1,7 +1,7 @@
-// Test fixture: boot a REAL gateway that EXECUTES the real ultragrill workflow
+// Test fixture: boot a REAL gateway that EXECUTES the real ship-pipeline workflow
 // to completion (with whatever `claude` is on PATH — the e2e supplies a fake
-// agent binary), then serves the real ultragrill UI so a browser can assert it
-// renders the real run. Spawned by ultragrill-run.e2e.test.tsx with cwd set to a
+// agent binary), then serves the real ship-pipeline UI so a browser can assert it
+// renders the real run. Spawned by ship-pipeline-run.e2e.test.tsx with cwd set to a
 // throwaway git repo (so the worktrees + ticket files land there, and bun
 // resolves modules from the real tree rather than a stale global cache).
 import { Gateway, mdxPlugin } from "smithers-orchestrator";
@@ -11,22 +11,22 @@ import { fileURLToPath } from "node:url";
 mdxPlugin();
 
 const here = dirname(fileURLToPath(import.meta.url));
-const uiEntry = resolve(here, "../ui/ultragrill.tsx");
-const mod = await import("../workflows/ultragrill.tsx");
+const uiEntry = resolve(here, "../ui/ship-pipeline.tsx");
+const mod = await import("../workflows/ship-pipeline.tsx");
 
 const gateway = new Gateway({ heartbeatMs: 250 });
-gateway.register("ultragrill", (mod as { default: Parameters<typeof gateway.register>[1] }).default, {
-  ui: { entry: uiEntry, title: "UltraGrill" },
+gateway.register("ship-pipeline", (mod as { default: Parameters<typeof gateway.register>[1] }).default, {
+  ui: { entry: uiEntry, title: "Ship Pipeline" },
 });
 
 const auth = { triggeredBy: "e2e", scopes: ["*"], role: "operator", tokenId: null };
-const RUN_ID = process.env.UG_RUN_ID ?? "ultragrill-e2e";
+const RUN_ID = process.env.UG_RUN_ID ?? "ship-pipeline-e2e";
 
 // Execute the real workflow end-to-end BEFORE listening, so the browser only
 // ever sees a completed run (no spec/run race).
 await gateway.startRun(
-  "ultragrill",
-  { ticketsDir: ".smithers/tickets/ultragrill", baseBranch: "main", tdd: false },
+  "ship-pipeline",
+  { ticketsDir: ".smithers/tickets/ship-pipeline", baseBranch: "main", tdd: false },
   auth as Parameters<typeof gateway.startRun>[2],
   RUN_ID,
   { resume: false },
@@ -36,7 +36,7 @@ if (inflight) await inflight;
 
 const port = Number(process.env.UG_PORT ?? "7350");
 await gateway.listen({ port, host: "127.0.0.1" });
-process.stdout.write(`ultragrill-run fixture listening on http://127.0.0.1:${port} (run ${RUN_ID})\n`);
+process.stdout.write(`ship-pipeline-run fixture listening on http://127.0.0.1:${port} (run ${RUN_ID})\n`);
 
 async function shutdown() {
   try {

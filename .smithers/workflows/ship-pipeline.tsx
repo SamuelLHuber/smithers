@@ -1,5 +1,5 @@
 // smithers-source: authored
-// smithers-display-name: UltraGrill
+// smithers-display-name: Ship Pipeline
 /** @jsxImportSource smithers-orchestrator */
 import { createSmithers, Sequence } from "smithers-orchestrator";
 import { z } from "zod/v4";
@@ -10,7 +10,7 @@ import { implementOutputSchema, validateOutputSchema } from "../components/Valid
 import { reviewOutputSchema } from "../components/Review";
 
 /**
- * UltraGrill: break a proposal into verifiable-goal tickets, then ship every
+ * Ship Pipeline: break a proposal into verifiable-goal tickets, then ship every
  * ticket onto the base branch — one workflow, composed from two components:
  *   1. <VerifiableGoals> writes the ticket queue from the proposal.
  *   2. <ShipTickets> discovers that queue and lands each ticket (research →
@@ -21,7 +21,7 @@ import { reviewOutputSchema } from "../components/Review";
 const inputSchema = z.object({
   prompt: z.string().default("Break the work into independently verifiable goals."),
   source: z.string().default(".smithers/proposals/real-time-collaboration.md"),
-  ticketsDir: z.string().default(".smithers/tickets/ultragrill"),
+  ticketsDir: z.string().default(".smithers/tickets/ship-pipeline"),
   baseBranch: z.string().default("main"),
   tdd: z.boolean().default(false),
 });
@@ -42,7 +42,7 @@ const { Workflow, smithers } = createSmithers({
 });
 
 export default smithers((ctx) => (
-  <Workflow name="ultragrill">
+  <Workflow name="ship-pipeline">
     <Sequence>
       <VerifiableGoals
         ctx={ctx}
