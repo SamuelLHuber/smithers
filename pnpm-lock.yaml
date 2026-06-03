@@ -255,6 +255,9 @@ importers:
       '@smithers-orchestrator/time-travel':
         specifier: workspace:*
         version: link:../../packages/time-travel
+      '@smithers-orchestrator/usage':
+        specifier: workspace:*
+        version: link:../../packages/usage
       cron-parser:
         specifier: ^5.5.0
         version: 5.5.0
@@ -1286,6 +1289,22 @@ importers:
       react:
         specifier: ^19.2.5
         version: 19.2.5
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/usage:
+    dependencies:
+      '@smithers-orchestrator/accounts':
+        specifier: workspace:*
+        version: link:../accounts
+      '@smithers-orchestrator/errors':
+        specifier: workspace:*
+        version: link:../errors
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.14
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
