@@ -1,54 +1,42 @@
 // smithers-source: authored
-// smithers-display-name: Ship Tickets
 /** @jsxImportSource smithers-orchestrator */
-import { createSmithers, Sequence, Worktree } from "smithers-orchestrator";
+import { Sequence, Task, Worktree, type AgentLike } from "smithers-orchestrator";
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { z } from "zod/v4";
-import { agents } from "../agents";
-import { ValidationLoop, implementOutputSchema, validateOutputSchema } from "../components/ValidationLoop";
-import { reviewOutputSchema } from "../components/Review";
+import { ValidationLoop, implementOutputSchema, validateOutputSchema } from "./ValidationLoop";
+import { reviewOutputSchema } from "./Review";
 import ResearchPrompt from "../prompts/research.mdx";
 import PlanPrompt from "../prompts/plan.mdx";
 
-const researchOutputSchema = z.looseObject({
+export const researchOutputSchema = z.looseObject({
   summary: z.string(),
   keyFindings: z.array(z.string()).default([]),
 });
 
-const planOutputSchema = z.looseObject({
+export const planOutputSchema = z.looseObject({
   summary: z.string(),
   steps: z.array(z.string()).default([]),
 });
 
-const shipResultSchema = z.object({
+export const shipResultSchema = z.object({
   ticketId: z.string(),
   branch: z.string(),
   status: z.enum(["merged", "skipped", "failed"]),
   summary: z.string(),
 });
 
-const manifestSchema = z.object({
+export const manifestSchema = z.object({
   ticketsDir: z.string(),
   tickets: z.array(z.object({ slug: z.string(), title: z.string(), id: z.string() })).default([]),
 });
 
-const inputSchema = z.object({
-  ticketsDir: z.string().default(".smithers/tickets/ultragrill"),
-  baseBranch: z.string().default("main"),
-  tdd: z.boolean().default(false),
-});
-
-const { Workflow, Task, smithers, outputs } = createSmithers({
-  input: inputSchema,
-  research: researchOutputSchema,
-  plan: planOutputSchema,
-  implement: implementOutputSchema,
-  validate: validateOutputSchema,
-  review: reviewOutputSchema,
-  shipResult: shipResultSchema,
-  manifest: manifestSchema,
-});
+// The agent roles ShipTickets uses. The pack's `agents` registry satisfies this.
+export type ShipTicketsAgents = {
+  smart: AgentLike[];
+  smartTool: AgentLike[];
+  cheapFast: AgentLike[];
+};
 
 /** Pull a human title from a ticket's frontmatter or first H1, falling back to the slug. */
 function parseTitle(content: string, fallback: string): string {
@@ -133,7 +121,13 @@ Do exactly this, using bash:
 
 Report status "merged" on success or "failed" if you could not land it cleanly, with a one-line summary.`;
 
-function renderTicket(ctx: any, ticket: { id: string; slug: string; title: string; content: string }) {
+function renderTicket(
+  ctx: any,
+  ticket: { id: string; slug: string; title: string; content: string },
+  baseBranch: string,
+  tdd: boolean,
+  agents: ShipTicketsAgents,
+) {
   const { slug } = ticket;
   const research = ctx.outputMaybe("research", { nodeId: `${slug}:research` });
   const plan = ctx.outputMaybe("plan", { nodeId: `${slug}:plan` });
@@ -148,19 +142,19 @@ function renderTicket(ctx: any, ticket: { id: string; slug: string; title: strin
   const planPrompt = [
     base,
     researchBlock,
-    ctx.input.tdd ? "IMPORTANT: Write tests FIRST. The plan MUST start with test steps before any implementation steps." : null,
+    tdd ? "IMPORTANT: Write tests FIRST. The plan MUST start with test steps before any implementation steps." : null,
   ].filter(Boolean).join("\n\n---\n");
 
   const implementPrompt = [
     base,
     researchBlock,
     plan ? `IMPLEMENTATION PLAN:\n${plan.summary}\n\nSteps:\n${plan.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n")}` : null,
-    ctx.input.tdd ? "IMPORTANT: Follow the plan's test-first approach — tests before production code." : null,
+    tdd ? "IMPORTANT: Follow the plan's test-first approach — tests before production code." : null,
   ].filter(Boolean).join("\n\n---\n");
 
   return (
     <Sequence key={slug}>
-      <Worktree path={`.worktrees/ship-${slug}`} branch={`ship/${slug}`} baseBranch={ctx.input.baseBranch}>
+      <Worktree path={`.worktrees/ship-${slug}`} branch={`ship/${slug}`} baseBranch={baseBranch}>
         <Sequence>
           <Task id={`${slug}:research`} output={researchOutputSchema} agent={agents.smartTool}>
             <ResearchPrompt prompt={base} />
@@ -182,32 +176,43 @@ function renderTicket(ctx: any, ticket: { id: string; slug: string; title: strin
       </Worktree>
 
       {/* Outside the worktree: commit the branch and merge it into the base branch. */}
-      <Task id={`${slug}:merge`} output={outputs.shipResult} agent={agents.smart} continueOnFail>
-        {mergePrompt(slug, ticket.id, ctx.input.baseBranch)}
+      <Task id={`${slug}:merge`} output={shipResultSchema} agent={agents.smart} continueOnFail>
+        {mergePrompt(slug, ticket.id, baseBranch)}
       </Task>
     </Sequence>
   );
 }
 
-export default smithers((ctx) => {
-  const tickets = discoverTickets(resolve(process.cwd(), ctx.input.ticketsDir));
+export type ShipTicketsProps = {
+  ctx: any;
+  ticketsDir: string;
+  baseBranch: string;
+  tdd: boolean;
+  agents: ShipTicketsAgents;
+};
+
+/**
+ * Discover the ticket queue in `ticketsDir` and ship each ticket SERIALLY:
+ * research → plan → implement → validate → review in its own git worktree, then
+ * commit + merge onto `baseBranch` — so the branch advances one ticket at a time
+ * and later tickets build on already-landed work. The `manifest` task publishes
+ * the full ordered list so a monitoring UI can render the whole pipeline,
+ * including not-yet-started tickets, from one read. Tickets are re-discovered
+ * each render frame, so the pipeline self-populates once an upstream step
+ * (e.g. VerifiableGoals) writes the queue.
+ */
+export function ShipTickets({ ctx, ticketsDir, baseBranch, tdd, agents }: ShipTicketsProps) {
+  const tickets = discoverTickets(resolve(process.cwd(), ticketsDir));
 
   return (
-    <Workflow name="ship-tickets">
-      {/* Serial: each ticket is fully implemented, committed, and merged to the
-          base branch before the next one starts — so main advances per commit
-          and later tickets build on already-landed work. */}
-      <Sequence>
-        {/* Manifest: the full ordered ticket list, so the monitoring UI can render
-            the whole pipeline — including not-yet-started tickets — from one read. */}
-        <Task id="manifest" output={outputs.manifest}>
-          {{
-            ticketsDir: ctx.input.ticketsDir,
-            tickets: tickets.map((t) => ({ slug: t.slug, title: t.title, id: t.id })),
-          }}
-        </Task>
-        {tickets.map((ticket) => renderTicket(ctx, ticket))}
-      </Sequence>
-    </Workflow>
+    <Sequence>
+      <Task id="manifest" output={manifestSchema}>
+        {{
+          ticketsDir,
+          tickets: tickets.map((t) => ({ slug: t.slug, title: t.title, id: t.id })),
+        }}
+      </Task>
+      {tickets.map((ticket) => renderTicket(ctx, ticket, baseBranch, tdd, agents))}
+    </Sequence>
   );
-});
+}

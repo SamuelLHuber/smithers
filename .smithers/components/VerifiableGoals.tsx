@@ -1,11 +1,11 @@
 // smithers-source: authored
-// smithers-display-name: Verifiable Goals
 /** @jsxImportSource smithers-orchestrator */
-import { createSmithers } from "smithers-orchestrator";
+import { Sequence, Task, type AgentLike } from "smithers-orchestrator";
 import { z } from "zod/v4";
-import { agents } from "../agents";
 
-const ticketSchema = z.object({
+// One verifiable goal per ticket: small enough to research→plan→implement in a
+// single focused pass, with an e2e-test spec that is its definition of done.
+export const ticketSchema = z.object({
   slug: z.string(),
   title: z.string(),
   goal: z.string(),
@@ -15,26 +15,14 @@ const ticketSchema = z.object({
   dependsOn: z.array(z.string()).default([]),
 });
 
-const goalsSchema = z.looseObject({
+export const goalsSchema = z.looseObject({
   summary: z.string(),
   tickets: z.array(ticketSchema).default([]),
 });
 
-const writtenSchema = z.object({
+export const writtenSchema = z.object({
   dir: z.string(),
   files: z.array(z.string()).default([]),
-});
-
-const inputSchema = z.object({
-  prompt: z.string().default("Break the work into independently verifiable goals."),
-  source: z.string().default(".smithers/proposals/real-time-collaboration.md"),
-  ticketsDir: z.string().default(".smithers/tickets/ultragrill"),
-});
-
-const { Workflow, Task, Sequence, smithers } = createSmithers({
-  input: inputSchema,
-  goals: goalsSchema,
-  written: writtenSchema,
 });
 
 const goalsPrompt = (source: string, prompt: string) =>
@@ -60,11 +48,26 @@ For each ticket:
 
 Prefer more small verifiable goals over a few big ones. Be exhaustive about coverage; keep each ticket tight.`;
 
-export default smithers((ctx) => (
-  <Workflow name="verifiable-goals">
+export type VerifiableGoalsProps = {
+  ctx: any;
+  source: string;
+  prompt: string;
+  ticketsDir: string;
+  agents: AgentLike[];
+};
+
+/**
+ * Decompose a proposal into independently verifiable-goal tickets and write them
+ * to `ticketsDir` as markdown — the queue a downstream pipeline (see ShipTickets)
+ * discovers and ships. The `goals` agent grounds each ticket in the real
+ * codebase; the `write` task persists them with frontmatter + an e2e-verification
+ * "definition of done" section.
+ */
+export function VerifiableGoals({ ctx, source, prompt, ticketsDir, agents }: VerifiableGoalsProps) {
+  return (
     <Sequence>
-      <Task id="goals" output={goalsSchema} agent={agents.smartTool}>
-        {goalsPrompt(ctx.input.source, ctx.input.prompt)}
+      <Task id="goals" output={goalsSchema} agent={agents}>
+        {goalsPrompt(source, prompt)}
       </Task>
 
       <Task id="write" output={writtenSchema}>
@@ -73,7 +76,7 @@ export default smithers((ctx) => (
           const path = await import("node:path");
           const current = ctx.outputMaybe("goals", { nodeId: "goals" });
           if (!current) throw new Error("goals task produced no output");
-          const dir = path.resolve(process.cwd(), ctx.input.ticketsDir);
+          const dir = path.resolve(process.cwd(), ticketsDir);
           fs.mkdirSync(dir, { recursive: true });
           const files: string[] = [];
           current.tickets.forEach((t: any, i: number) => {
@@ -104,9 +107,9 @@ export default smithers((ctx) => (
             fs.writeFileSync(file, body, "utf8");
             files.push(path.relative(process.cwd(), file));
           });
-          return { dir: ctx.input.ticketsDir, files };
+          return { dir: ticketsDir, files };
         }}
       </Task>
     </Sequence>
-  </Workflow>
-));
+  );
+}
