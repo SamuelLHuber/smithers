@@ -216,6 +216,7 @@
         "group": "Agent Support",
         "pages": [
           "agents/overview",
+          "agents/setup",
           "agents/claude-code",
           "agents/codex",
           "agents/cursor",
