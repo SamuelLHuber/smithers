@@ -3,9 +3,19 @@
 > Name: **UltraGrill** (id `ultra-grill`) — the real-time, parallel,
 > voice-driven evolution of `grill-me`.
 
-Status: **DECISIONS LOCKED (round 2).** Core architecture below; the decision log
-captures every choice made in the question rounds. Remaining items are
-implementation detail, not open product questions.
+Status: **V1 BUILT (2026-06-03).** The product ships as `ultragrill` —
+`.smithers/workflows/ultragrill.tsx` + `.smithers/ui/ultragrill.tsx`, e2e-tested
+end to end against a real gateway + browser (`.smithers/tests/ultragrill.e2e.test.ts`).
+What's live: the durable open-ended session (intake `<Loop>` of
+`<WaitForEvent>` fed by `utterance` signals + `end` to finish — D8), dynamic
+worker dispatch with a living markdown artifact (D7), and a rolling question
+pool surfaced from worker output. **Follow-ons** (deliberately not in v1, because
+the proposal's own #1 risk — interleaving many async durable waits in a
+never-ending run — is real): voice transcription (D1), the dev-server iframe
+(D5), and the durable-`<HumanTask>`-with-TTL question pool (D6). v1 keeps a
+single durable wait in flight so the run cycles deterministically.
+
+Decision log below captures every choice from the question rounds.
 
 ## Decision log
 
