@@ -2585,6 +2585,9 @@ const cli = Cli.create({
     .command("init", {
     description: "Install the local Smithers workflow pack into .smithers/.",
     options: initOptions,
+    // The interactive run narrates its own progress + next steps; suppress the
+    // raw result dump in a human TTY while keeping full JSON for piped/agent use.
+    outputPolicy: "agent-only",
     async run(c) {
         const fail = (opts) => {
             commandExitOverride = opts.exitCode ?? 1;
