@@ -9,7 +9,7 @@ import {
   useGatewayRuns,
 } from "smithers-orchestrator/gateway-react";
 
-const WORKFLOW_KEY = "ship-tickets";
+const WORKFLOW_KEY = "ultragrill";
 
 type RunSummary = { runId: string; workflowKey?: string; status?: string; createdAtMs?: number };
 
@@ -528,11 +528,11 @@ function App() {
   }
 
   return (
-    <main className="shell" data-testid="ship-tickets-ui">
+    <main className="shell" data-testid="ultragrill-ui">
       <style>{styles}</style>
       <header className="topbar">
         <div className="title-group">
-          <h1>Ship Tickets</h1>
+          <h1>UltraGrill</h1>
           <span className="pill" data-testid="ship-runid"><span className="mono">{hasRun ? shortRunId(activeRunId) : "No run"}</span></span>
           {hasRun ? <span className={"badge " + statusClass(runStatus)} data-testid="ship-status">{runStatus ?? "idle"}</span> : null}
           {hasRun && tickets.length > 0 ? (
