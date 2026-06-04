@@ -61,7 +61,8 @@
     "bun"
   ],
   "scripts": {
-    "dev": "bun apps/smithers-studio-2/scripts/dev.ts",
+    "dev": "pnpm --filter @smithers-orchestrator/smithers dev",
+    "dev:studio": "bun apps/smithers-studio-2/scripts/dev.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:examples": "tsc -p examples/tsconfig.json --noEmit",
     "lint": "oxlint --react-plugin --node-plugin --import-plugin --ignore-path .gitignore -A react/no-children-prop -A unicorn/no-thenable --ignore-pattern 'packages/*/src/**/*.d.ts' packages/*/src packages/*/tests",
