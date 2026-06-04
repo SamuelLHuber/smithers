@@ -303,8 +303,18 @@ button {
     0 20px 48px rgb(var(--shadow-rgb) / 0.14);
 }
 
+/* The input shares the top line with the theme toggle + command pill: input
+   grows to fill the row, the controls sit right-aligned beside it. */
+.composer-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .composer-input {
-  padding: 6px 4px 0;
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
 }
 
 .composer-input input {
@@ -603,8 +613,8 @@ button {
   background: var(--hover);
 }
 
-/* View controls (back/forward + command pill) live inside the chat box, as a
-   right-aligned row in its upper-right corner. */
+/* View controls (theme toggle + command pill) sit right-aligned on the input's
+   top line, beside the text. */
 .top-controls {
   display: flex;
   align-items: center;
