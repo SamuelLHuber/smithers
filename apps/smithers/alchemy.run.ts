@@ -15,7 +15,7 @@
 import alchemy from "alchemy";
 import { Website } from "alchemy/cloudflare";
 
-const app = await alchemy("huey-search-pwa");
+const app = await alchemy("smithers");
 
 const cerebrasApiKey = process.env.CEREBRAS_API_KEY;
 if (!cerebrasApiKey) {

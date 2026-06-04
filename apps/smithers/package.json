@@ -1,7 +1,7 @@
 {
-  "name": "@smithers-orchestrator/search-pwa",
+  "name": "@smithers-orchestrator/smithers",
   "version": "0.1.0",
-  "description": "React PWA search autocomplete shell",
+  "description": "Smithers — Cerebras chat PWA, deployable to Cloudflare via Alchemy",
   "private": true,
   "type": "module",
   "scripts": {

@@ -20,6 +20,8 @@ import {
 import { WorkflowGraph } from "./askme/WorkflowGraph";
 import { Toasts } from "./notifications/Toasts";
 import { useNotifications } from "./notifications/useNotifications";
+import { WorkflowStore } from "./store/WorkflowStore";
+import type { StoreWorkflow } from "./store/workflows";
 import "./styles.css";
 
 const PROJECTS = ["Huey Web", "Personal", "Sandbox", "Marketing Site"] as const;
@@ -98,6 +100,25 @@ function Composer() {
   const [project, setProject] = useState<string>(PROJECTS[0]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [listening, setListening] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const stored = window.localStorage.getItem("huey.theme");
+    if (stored === "light" || stored === "dark") {
+      return stored;
+    }
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  });
+
+  // Apply the theme to <html> (CSS reads [data-theme]) and remember the choice.
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      window.localStorage.setItem("huey.theme", theme);
+    } catch {
+      // Storage disabled (private mode); the theme still applies this session.
+    }
+  }, [theme]);
   const [navDir, setNavDir] = useState<"back" | "forward">("forward");
   // Command navigation: the back/forward arrows step through COMMANDS; the
   // pill jumps straight to one. `commandIndex` is the active view.
@@ -114,10 +135,11 @@ function Composer() {
 
   const command = COMMANDS[commandIndex].id;
   const showGraph = command === "askme";
+  const showStore = command === "store";
   const canGoBack = commandIndex > 0;
   const canGoForward = commandIndex < COMMANDS.length - 1;
-  // Ask Me always shows its graph, so it docks the composer immediately.
-  const isChat = messages.length > 0 || showGraph;
+  // Ask Me (graph) and Store both dock the composer immediately.
+  const isChat = messages.length > 0 || showGraph || showStore;
 
   const goToIndex = useCallback(
     (index: number) => {
@@ -145,6 +167,27 @@ function Composer() {
   const goForward = useCallback(
     () => goToIndex(commandIndex + 1),
     [goToIndex, commandIndex],
+  );
+
+  // Open a workflow picked from the store: jump to its view, or drop into chat
+  // with a starter prompt prefilled.
+  const openWorkflow = useCallback(
+    (workflow: StoreWorkflow) => {
+      if (workflow.command) {
+        goToCommand(workflow.command);
+      } else if (workflow.starter) {
+        goToCommand("chat");
+        setQuery(workflow.starter);
+        requestAnimationFrame(() => inputRef.current?.focus());
+      }
+      notify({
+        title: workflow.name,
+        detail: "Workflow opened",
+        kind: "transient",
+        command: workflow.command,
+      });
+    },
+    [goToCommand, notify],
   );
 
   const nextId = () => {
@@ -252,11 +295,18 @@ function Composer() {
         return;
       }
 
-      // A leading "/askme" or "/chat" switches the active view; the rest of the
-      // line (if any) is sent as the message.
+      // Asking to open the store, in plain language, opens it.
+      if (/^(open |show |go to )?(the )?store$/i.test(raw)) {
+        setQuery("");
+        goToCommand("store");
+        return;
+      }
+
+      // A leading "/askme", "/chat", or "/store" switches the active view; the
+      // rest of the line (if any) is sent as the message.
       let text = raw;
       let active = command;
-      const slash = raw.match(/^\/(askme|chat)\b\s*([\s\S]*)$/i);
+      const slash = raw.match(/^\/(askme|chat|store)\b\s*([\s\S]*)$/i);
       if (slash) {
         active = slash[1].toLowerCase() as CommandId;
         text = slash[2].trim();
@@ -266,6 +316,10 @@ function Composer() {
       }
 
       setQuery("");
+      // The store is a browse view, not a chat target — opening it is enough.
+      if (active === "store") {
+        return;
+      }
       if (!text) {
         // Bare "/askme" — switch the view, nothing to send yet.
         return;
@@ -390,6 +444,36 @@ function Composer() {
   const composer = (
     <form className="composer-card" onSubmit={handleSubmit} ref={cardRef}>
       <nav className="top-controls" aria-label="View navigation">
+        <button
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          className="nav-button"
+          type="button"
+          onClick={() =>
+            setTheme((value) => (value === "dark" ? "light" : "dark"))
+          }
+        >
+          {theme === "dark" ? (
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+              <path
+                d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M5 19l1.4-1.4M17.6 6.4 19 5"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="2"
+              />
+            </svg>
+          ) : (
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+              <path
+                d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              />
+            </svg>
+          )}
+        </button>
         <button
           aria-label="Back"
           className="nav-button"
@@ -544,11 +628,17 @@ function Composer() {
       />
 
       <div className="view" data-dir={navDir} key={commandIndex}>
-        {isChat ? (
+        {showStore ? (
+          <WorkflowStore onOpen={openWorkflow} />
+        ) : isChat ? (
           <>
             {showGraph ? (
               <div className="askme-graph">
-                <WorkflowGraph nodes={GRILL_NODES} edges={GRILL_EDGES} />
+                <WorkflowGraph
+                  nodes={GRILL_NODES}
+                  edges={GRILL_EDGES}
+                  theme={theme}
+                />
               </div>
             ) : null}
             <div

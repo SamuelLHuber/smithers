@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
-export type CommandId = "chat" | "askme";
+export type CommandId = "chat" | "askme" | "store";
 
 export type Command = {
   id: CommandId;
@@ -16,6 +16,12 @@ export const COMMANDS: Command[] = [
     label: "Ask Me",
     color: "#6d56d8",
     hint: "Huey grills you to sharpen an idea",
+  },
+  {
+    id: "store",
+    label: "Store",
+    color: "#bf5b16",
+    hint: "Browse the workflow app store",
   },
 ];
 
