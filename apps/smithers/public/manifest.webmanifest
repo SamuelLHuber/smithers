@@ -1,7 +1,7 @@
 {
-  "name": "Huey",
-  "short_name": "Huey",
-  "description": "Huey — describe what you want to build.",
+  "name": "Smithers",
+  "short_name": "Smithers",
+  "description": "Smithers — describe what you want to build.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -21,7 +21,7 @@ export const STORE_WORKFLOWS: StoreWorkflow[] = [
     id: "askme",
     name: "Ask Me",
     description:
-      "Huey interviews you one question at a time to turn a rough idea into a clear spec.",
+      "Smithers interviews you one question at a time to turn a rough idea into a clear spec.",
     icon: "🎤",
     category: "Planning",
     color: "#6d56d8",

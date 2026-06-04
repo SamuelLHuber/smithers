@@ -1,5 +1,5 @@
 /**
- * Alchemy infrastructure-as-code for Huey.
+ * Alchemy infrastructure-as-code for Smithers.
  *
  * Deploys the PWA to Cloudflare as a single Worker that:
  *   - serves the built Vite app (dist/) as static assets with SPA routing, and
@@ -24,7 +24,7 @@ if (!cerebrasApiKey) {
   );
 }
 
-export const site = await Website("huey", {
+export const site = await Website("smithers", {
   // The Worker entry that serves /api/chat. Static assets come from `assets`.
   entrypoint: "src/worker.ts",
   // Build the PWA before deploying; output lands in dist/.
@@ -40,6 +40,6 @@ export const site = await Website("huey", {
   },
 });
 
-console.log(`Huey deployed → ${site.url}`);
+console.log(`Smithers deployed → ${site.url}`);
 
 await app.finalize();

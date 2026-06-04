@@ -10,12 +10,12 @@ export type Command = {
 };
 
 export const COMMANDS: Command[] = [
-  { id: "chat", label: "Chat", color: "#356fd2", hint: "Talk to Huey" },
+  { id: "chat", label: "Chat", color: "#356fd2", hint: "Talk to Smithers" },
   {
     id: "askme",
     label: "Ask Me",
     color: "#6d56d8",
-    hint: "Huey grills you to sharpen an idea",
+    hint: "Smithers grills you to sharpen an idea",
   },
   {
     id: "store",

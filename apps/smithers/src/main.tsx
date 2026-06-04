@@ -24,9 +24,9 @@ import { WorkflowStore } from "./store/WorkflowStore";
 import type { StoreWorkflow } from "./store/workflows";
 import "./styles.css";
 
-const PROJECTS = ["Huey Web", "Personal", "Sandbox", "Marketing Site"] as const;
+const PROJECTS = ["Smithers Web", "Personal", "Sandbox", "Marketing Site"] as const;
 
-const API_KEY_STORAGE = "huey.cerebras.apiKey";
+const API_KEY_STORAGE = "smithers.cerebras.apiKey";
 
 const KEY_HELP =
   "Add a Cerebras API key to chat. Set VITE_CEREBRAS_API_KEY at build time, or reload and paste a key when prompted.";
@@ -101,7 +101,7 @@ function Composer() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
-    const stored = window.localStorage.getItem("huey.theme");
+    const stored = window.localStorage.getItem("smithers.theme");
     if (stored === "light" || stored === "dark") {
       return stored;
     }
@@ -114,7 +114,7 @@ function Composer() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
-      window.localStorage.setItem("huey.theme", theme);
+      window.localStorage.setItem("smithers.theme", theme);
     } catch {
       // Storage disabled (private mode); the theme still applies this session.
     }
@@ -136,8 +136,6 @@ function Composer() {
   const command = COMMANDS[commandIndex].id;
   const showGraph = command === "askme";
   const showStore = command === "store";
-  const canGoBack = commandIndex > 0;
-  const canGoForward = commandIndex < COMMANDS.length - 1;
   // Ask Me (graph) and Store both dock the composer immediately.
   const isChat = messages.length > 0 || showGraph || showStore;
 
@@ -158,15 +156,6 @@ function Composer() {
       }
     },
     [goToIndex],
-  );
-
-  const goBack = useCallback(
-    () => goToIndex(commandIndex - 1),
-    [goToIndex, commandIndex],
-  );
-  const goForward = useCallback(
-    () => goToIndex(commandIndex + 1),
-    [goToIndex, commandIndex],
   );
 
   // Open a workflow picked from the store: jump to its view, or drop into chat
@@ -443,85 +432,61 @@ function Composer() {
 
   const composer = (
     <form className="composer-card" onSubmit={handleSubmit} ref={cardRef}>
-      <nav className="top-controls" aria-label="View navigation">
-        <button
-          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          className="nav-button"
-          type="button"
-          onClick={() =>
-            setTheme((value) => (value === "dark" ? "light" : "dark"))
-          }
-        >
-          {theme === "dark" ? (
-            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
-              <path
-                d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M5 19l1.4-1.4M17.6 6.4 19 5"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2"
-              />
-            </svg>
-          ) : (
-            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-              <path
-                d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              />
-            </svg>
-          )}
-        </button>
-        <button
-          aria-label="Back"
-          className="nav-button"
-          disabled={!canGoBack}
-          type="button"
-          onClick={goBack}
-        >
-          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-            <path
-              d="m15 6-6 6 6 6"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-            />
-          </svg>
-        </button>
-        <button
-          aria-label="Forward"
-          className="nav-button"
-          disabled={!canGoForward}
-          type="button"
-          onClick={goForward}
-        >
-          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-            <path
-              d="m9 6 6 6-6 6"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-            />
-          </svg>
-        </button>
-        <CommandMenu active={command} onSelect={goToCommand} />
-      </nav>
+      <div className="composer-top-row">
+        <div className="composer-input">
+          <input
+            aria-label="Message Smithers"
+            autoComplete="off"
+            id={inputId}
+            placeholder="Ask Smithers to build…"
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
 
-      <div className="composer-input">
-        <input
-          aria-label="Message Huey"
-          autoComplete="off"
-          id={inputId}
-          placeholder="Ask Huey to build…"
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <nav className="top-controls" aria-label="View navigation">
+          <button
+            aria-label={
+              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+            }
+            className="nav-button"
+            type="button"
+            onClick={() =>
+              setTheme((value) => (value === "dark" ? "light" : "dark"))
+            }
+          >
+            {theme === "dark" ? (
+              <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M5 19l1.4-1.4M17.6 6.4 19 5"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="2"
+                />
+              </svg>
+            ) : (
+              <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                <path
+                  d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </svg>
+            )}
+          </button>
+          <CommandMenu active={command} onSelect={goToCommand} />
+        </nav>
       </div>
 
       <div className="composer-toolbar">
@@ -668,7 +633,7 @@ function Composer() {
                   <div className="message assistant">
                     <div
                       className="bubble typing"
-                      aria-label="Huey is thinking"
+                      aria-label="Smithers is thinking"
                     >
                       <span />
                       <span />

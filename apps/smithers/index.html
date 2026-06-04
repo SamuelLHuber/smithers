@@ -6,17 +6,17 @@
     <meta name="theme-color" content="#ffffff" />
     <meta
       name="description"
-      content="Huey — describe what you want to build."
+      content="Smithers — describe what you want to build."
     />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-    <title>Huey</title>
+    <title>Smithers</title>
     <script>
       // Resolve the theme before first paint so there's no flash of the wrong
       // mode. The React app keeps data-theme in sync afterwards.
       (function () {
         try {
-          var t = localStorage.getItem("huey.theme");
+          var t = localStorage.getItem("smithers.theme");
           if (t !== "light" && t !== "dark") {
             t = matchMedia("(prefers-color-scheme: dark)").matches
               ? "dark"
