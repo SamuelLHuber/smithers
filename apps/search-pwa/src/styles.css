@@ -1,4 +1,6 @@
 :root {
+  color-scheme: light;
+
   /* Color tokens. Dark-mode overrides live in the prefers-color-scheme block
      and under :root[data-theme="dark"] further down. */
   --bg: #ffffff;
@@ -914,5 +916,89 @@ button {
   .toast,
   .toast-detail {
     animation: none;
+  }
+}
+
+/* ---- Dark theme ----
+   Follows the OS by default; the in-app toggle sets data-theme="dark|light" on
+   <html> to force a choice. The token list is duplicated so it applies both
+   from the OS preference and from an explicit toggle. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0b0d;
+  --text: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-faint: #8b8b93;
+  --text-placeholder: #6b6b73;
+  --surface: #18181b;
+  --surface-glass: rgba(24, 24, 27, 0.72);
+  --surface-glass-strong: rgba(24, 24, 27, 0.85);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --border-solid: #2a2a2e;
+  --hover: #26262b;
+  --hover-subtle: rgba(255, 255, 255, 0.05);
+  --bubble-user-bg: #f4f4f5;
+  --bubble-user-text: #0a0a0a;
+  --bubble-assistant-bg: #26262b;
+  --bubble-assistant-text: #f4f4f5;
+  --inverse-bg: #f4f4f5;
+  --inverse-bg-hover: #d4d4d8;
+  --inverse-text: #0a0a0a;
+  --code-bg: #09090b;
+  --code-text: #e4e4e7;
+  --inline-code-bg: rgba(255, 255, 255, 0.1);
+  --brand: #8b78e6;
+  --success: #2ec9a8;
+  --danger: #f2555a;
+  --shadow-rgb: 0 0 0;
+  --graph-bg: #0e0e11;
+  --graph-border: #2a2a2e;
+  --graph-dots: #2a2a2e;
+  --node-bg: #18181b;
+  --node-border: #2a2a2e;
+  --node-title: #f4f4f5;
+  --node-muted: #9a9aa6;
+  --node-shadow: rgb(0 0 0 / 45%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0b0b0d;
+    --text: #f4f4f5;
+    --text-muted: #a1a1aa;
+    --text-faint: #8b8b93;
+    --text-placeholder: #6b6b73;
+    --surface: #18181b;
+    --surface-glass: rgba(24, 24, 27, 0.72);
+    --surface-glass-strong: rgba(24, 24, 27, 0.85);
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.18);
+    --border-solid: #2a2a2e;
+    --hover: #26262b;
+    --hover-subtle: rgba(255, 255, 255, 0.05);
+    --bubble-user-bg: #f4f4f5;
+    --bubble-user-text: #0a0a0a;
+    --bubble-assistant-bg: #26262b;
+    --bubble-assistant-text: #f4f4f5;
+    --inverse-bg: #f4f4f5;
+    --inverse-bg-hover: #d4d4d8;
+    --inverse-text: #0a0a0a;
+    --code-bg: #09090b;
+    --code-text: #e4e4e7;
+    --inline-code-bg: rgba(255, 255, 255, 0.1);
+    --brand: #8b78e6;
+    --success: #2ec9a8;
+    --danger: #f2555a;
+    --shadow-rgb: 0 0 0;
+    --graph-bg: #0e0e11;
+    --graph-border: #2a2a2e;
+    --graph-dots: #2a2a2e;
+    --node-bg: #18181b;
+    --node-border: #2a2a2e;
+    --node-title: #f4f4f5;
+    --node-muted: #9a9aa6;
+    --node-shadow: rgb(0 0 0 / 45%);
   }
 }

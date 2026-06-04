@@ -28,15 +28,18 @@ const nodeTypes = { smithersTask: SmithersTaskNode };
 export function WorkflowGraph({
   nodes,
   edges,
+  theme = "light",
 }: {
   nodes: SmithersFlowNode[];
   edges: Edge[];
+  theme?: "light" | "dark";
 }) {
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      colorMode={theme}
       fitView
       fitViewOptions={{ padding: 0.18 }}
       minZoom={0.35}
@@ -44,7 +47,7 @@ export function WorkflowGraph({
       nodesConnectable={false}
       proOptions={{ hideAttribution: true }}
     >
-      <Background gap={26} color="#e2e7ef" />
+      <Background gap={26} color={theme === "dark" ? "#2a2a2e" : "#e2e7ef"} />
       <Controls showInteractive={false} />
     </ReactFlow>
   );
