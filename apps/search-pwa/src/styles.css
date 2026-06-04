@@ -1,0 +1,879 @@
+:root {
+  color: #0a0a0a;
+  background: #ffffff;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+input,
+button {
+  font: inherit;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+/* Home (empty): heading + composer centered as a group in the viewport. */
+.app-shell[data-mode="home"] {
+  justify-content: center;
+}
+
+/* Chat state: scrollable transcript with the composer floating over the bottom. */
+.conversation {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(100%, 720px);
+  margin: 0 auto;
+  /* Bottom padding clears the floating composer so the last message is visible. */
+  padding: 36px 24px 140px;
+}
+
+.message {
+  display: flex;
+  animation: message-in 140ms ease-out both;
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+.bubble {
+  max-width: 80%;
+  padding: 11px 15px;
+  border-radius: 18px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message.user .bubble {
+  color: #ffffff;
+  background: #0a0a0a;
+  border-bottom-right-radius: 6px;
+}
+
+.message.assistant .bubble {
+  color: #0a0a0a;
+  background: #f4f4f4;
+  border-bottom-left-radius: 6px;
+}
+
+.bubble.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 15px;
+}
+
+.bubble.typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a3a3a3;
+  animation: typing-blink 1.3s ease-in-out infinite;
+}
+
+.bubble.typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.bubble.typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-blink {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+/* Assistant replies are rendered Markdown — let the block elements flow
+   normally instead of inheriting the bubble's pre-wrap. */
+.message.assistant .bubble {
+  white-space: normal;
+}
+
+.bubble > :first-child {
+  margin-top: 0;
+}
+
+.bubble > :last-child {
+  margin-bottom: 0;
+}
+
+.md-p {
+  margin: 0 0 0.65em;
+}
+
+.md-heading {
+  margin: 0.5em 0 0.35em;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.md-h1 {
+  font-size: 1.15rem;
+}
+
+.md-h2 {
+  font-size: 1.08rem;
+}
+
+.md-h3,
+.md-h4,
+.md-h5,
+.md-h6 {
+  font-size: 1rem;
+}
+
+.md-list {
+  margin: 0 0 0.65em;
+  padding-left: 1.4em;
+}
+
+.md-list li {
+  margin: 0.15em 0;
+}
+
+.md-inline-code {
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.07);
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.86em;
+}
+
+.md-code-block {
+  margin: 0 0 0.65em;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #0a0a0a;
+  color: #f4f4f4;
+  overflow-x: auto;
+}
+
+.md-code-block code {
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.composer-dock {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 16px 24px;
+  background: transparent;
+}
+
+/* Chat: lift the composer off the bottom edge and let messages scroll behind
+   its frosted glass. No bar dividing the transcript from the input. */
+.app-shell[data-mode="chat"] .composer-dock {
+  position: fixed;
+  right: 0;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: 0;
+  padding: 0 24px;
+}
+
+.composer-title {
+  margin: 0 0 22px;
+  color: #0a0a0a;
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.1rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.composer-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(100%, 720px);
+  padding: 16px;
+  border: 1px solid rgba(10, 10, 10, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    0 1px 2px rgba(10, 10, 10, 0.04),
+    0 16px 40px rgba(10, 10, 10, 0.1);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.composer-card:focus-within {
+  border-color: rgba(10, 10, 10, 0.14);
+  box-shadow:
+    0 1px 2px rgba(10, 10, 10, 0.05),
+    0 20px 48px rgba(10, 10, 10, 0.14);
+}
+
+.composer-input {
+  padding: 6px 4px 0;
+}
+
+.composer-input input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #0a0a0a;
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.composer-input input::placeholder {
+  color: #a3a3a3;
+}
+
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ghost-pill,
+.mic-button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  cursor: pointer;
+  color: #525252;
+  background: transparent;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.ghost-pill {
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.ghost-pill:hover {
+  color: #0a0a0a;
+  background: #f4f4f4;
+}
+
+.chevron {
+  width: 15px;
+  height: 15px;
+  color: #a3a3a3;
+}
+
+.project-control {
+  position: relative;
+}
+
+.project-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid #ededed;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(10, 10, 10, 0.04),
+    0 12px 32px rgba(10, 10, 10, 0.12);
+}
+
+.project-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: #0a0a0a;
+  background: transparent;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.project-option:hover {
+  background: #f4f4f4;
+}
+
+.project-option .check {
+  width: 15px;
+  height: 15px;
+  color: #0a0a0a;
+}
+
+.mic-button {
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #0a0a0a;
+}
+
+.mic-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.mic-button:hover {
+  background: #262626;
+}
+
+.mic-button.is-listening {
+  background: #e5484d;
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(229, 72, 77, 0);
+  }
+}
+
+/* Corner toast stack: workflow + background-run notifications. */
+.toast-stack {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(320px, calc(100vw - 32px));
+}
+
+.toast {
+  position: relative;
+  border: 1px solid rgba(10, 10, 10, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  box-shadow:
+    0 1px 2px rgba(10, 10, 10, 0.05),
+    0 14px 36px rgba(10, 10, 10, 0.14);
+  animation: toast-in 160ms ease-out both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.toast-main {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toast-main:hover {
+  background: rgba(10, 10, 10, 0.03);
+}
+
+.toast-spinner {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(109, 86, 216, 0.25);
+  border-top-color: #6d56d8;
+  border-radius: 50%;
+  animation: toast-spin 0.7s linear infinite;
+}
+
+@keyframes toast-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toast-check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.toast-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.toast-title {
+  overflow: hidden;
+  color: #0a0a0a;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toast-detail {
+  overflow: hidden;
+  color: #8a8a8a;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: toast-text-in 240ms ease-out both;
+}
+
+@keyframes toast-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.toast-status {
+  flex: none;
+  color: #6d56d8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.toast-done .toast-status {
+  color: #0f8f78;
+}
+
+.toast-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  padding: 6px;
+  border: 1px solid #ededed;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(10, 10, 10, 0.04),
+    0 12px 32px rgba(10, 10, 10, 0.14);
+}
+
+.toast-action {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: #0a0a0a;
+  background: transparent;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.toast-action:hover {
+  background: #f4f4f4;
+}
+
+/* View controls (back/forward + command pill) live inside the chat box, as a
+   right-aligned row in its upper-right corner. */
+.top-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(10, 10, 10, 0.08);
+  border-radius: 10px;
+  color: #525252;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  backdrop-filter: blur(12px) saturate(160%);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    transform 0.08s ease;
+}
+
+.nav-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.nav-button:hover:not(:disabled) {
+  color: #0a0a0a;
+  background: #f4f4f4;
+}
+
+.nav-button:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.nav-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Colored command dropdown pill. */
+.command-menu {
+  position: relative;
+}
+
+.command-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--cmd-color) 35%, transparent);
+  border-radius: 999px;
+  color: var(--cmd-color);
+  background: color-mix(in srgb, var(--cmd-color) 12%, #ffffff);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    transform 0.08s ease;
+}
+
+.command-pill:hover {
+  background: color-mix(in srgb, var(--cmd-color) 18%, #ffffff);
+}
+
+.command-pill:active {
+  transform: scale(0.96);
+}
+
+.command-pill .chevron {
+  color: var(--cmd-color);
+  opacity: 0.65;
+}
+
+.command-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cmd-color);
+}
+
+.command-list {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 240px;
+  padding: 6px;
+  border: 1px solid #ededed;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(10, 10, 10, 0.04),
+    0 12px 32px rgba(10, 10, 10, 0.14);
+}
+
+.command-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.command-option:hover {
+  background: #f4f4f4;
+}
+
+.command-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.command-label {
+  color: #0a0a0a;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.command-hint {
+  color: #8a8a8a;
+  font-size: 0.75rem;
+}
+
+.command-option .check {
+  width: 15px;
+  height: 15px;
+  margin-left: auto;
+  color: var(--cmd-color);
+}
+
+/* View transition: each back/forward/select replays a fast directional slide. */
+.view {
+  display: flex;
+  flex-direction: column;
+  animation: view-in 150ms ease-out both;
+}
+
+.view[data-dir="back"] {
+  animation-name: view-in-back;
+}
+
+.app-shell[data-mode="chat"] .view {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes view-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Ask Me workflow graph panel. */
+.askme-graph {
+  flex: none;
+  height: clamp(200px, 30vh, 300px);
+  border-bottom: 1px solid #eef0f3;
+  background: #fafbfc;
+}
+
+.askme-graph .react-flow {
+  height: 100%;
+}
+
+.askme-hint {
+  margin: 0;
+  padding: 8px 12px;
+  color: #8a8a8a;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+/* Smithers workflow nodes (from the smithers-demo POC). */
+.smithers-node {
+  display: grid;
+  gap: 6px;
+  align-content: center;
+  width: 220px;
+  min-height: 96px;
+  padding: 14px 16px;
+  border: 1px solid #d7e0eb;
+  border-left-width: 5px;
+  border-radius: 7px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgb(30 42 60 / 10%);
+}
+
+.smithers-node-agent {
+  border-left-color: #0f8f78;
+}
+
+.smithers-node-approval {
+  border-left-color: #bf5b16;
+}
+
+.smithers-node-compute {
+  border-left-color: #356fd2;
+}
+
+.smithers-node-loop {
+  border-left-color: #6d56d8;
+}
+
+.smithers-node-branch,
+.smithers-node-signal {
+  border-left-color: #61738a;
+}
+
+.smithers-node-merge {
+  border-left-color: #2670a9;
+}
+
+.smithers-node-human {
+  border-left-color: #a34d9f;
+}
+
+.node-kicker {
+  color: #607087;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.node-title {
+  color: #182230;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.node-output {
+  overflow: hidden;
+  color: #607087;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .messages {
+    padding: 24px 14px 124px;
+  }
+
+  .askme-graph {
+    height: clamp(170px, 26vh, 230px);
+  }
+
+  .composer-dock {
+    padding: 14px;
+  }
+
+  .app-shell[data-mode="chat"] .composer-dock {
+    padding: 0 14px;
+  }
+
+  .composer-card {
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+  .bubble {
+    max-width: 88%;
+  }
+
+  .ghost-pill {
+    padding: 0 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message,
+  .bubble.typing span,
+  .mic-button.is-listening,
+  .view,
+  .toast,
+  .toast-detail {
+    animation: none;
+  }
+}
