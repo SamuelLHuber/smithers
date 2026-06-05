@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -13,7 +13,6 @@ const realNodeModules = resolve(repoRoot, "node_modules");
 const RUN_ID = "open-code-review-e2e-run";
 
 let tempRepo = "";
-let binDir = "";
 let proc: ChildProcess | undefined;
 let port = 0;
 let base = "";
@@ -70,33 +69,12 @@ beforeAll(async () => {
   write(join(tempRepo, "src/app.ts"), "export function risky(value: string | null) {\n  return value!.trim().toUpperCase();\n}\n");
   write(join(tempRepo, "src/app.test.ts"), "test('risky', () => {});\n");
 
-  binDir = mkdtempSync(join(tmpdir(), "open-code-review-bin-"));
-  const fakeOcr = [
-    "#!/usr/bin/env bash",
-    "set -euo pipefail",
-    "cat <<'JSON'",
-    "{",
-    '  "status": "success",',
-    '  "summary": { "files_reviewed": 1, "comments": 1, "total_tokens": 321, "input_tokens": 300, "output_tokens": 21, "elapsed": "1s" },',
-    '  "comments": [',
-    '    { "path": "src/app.ts", "content": "Guard against null before trimming.", "existing_code": "return value!.trim().toUpperCase();", "suggestion_code": "if (value == null) return \\"\\";\\nreturn value.trim().toUpperCase();", "start_line": 2, "end_line": 2 }',
-    "  ],",
-    '  "warnings": []',
-    "}",
-    "JSON",
-    "",
-  ].join("\n");
-  write(join(binDir, "ocr"), fakeOcr);
-  chmodSync(join(binDir, "ocr"), 0o755);
-
   port = await findOpenPort();
   base = `http://127.0.0.1:${port}`;
   proc = spawn(process.execPath, [runnerScript], {
     cwd: tempRepo,
     env: {
       ...process.env,
-      PATH: `${binDir}:${process.env.PATH}`,
-      OCR_BIN: join(binDir, "ocr"),
       OCR_REPO: tempRepo,
       OCR_PORT: String(port),
       OCR_RUN_ID: RUN_ID,
@@ -109,7 +87,6 @@ beforeAll(async () => {
 afterAll(() => {
   try { proc?.kill("SIGTERM"); } catch {}
   try { rmSync(tempRepo, { recursive: true, force: true }); } catch {}
-  try { rmSync(binDir, { recursive: true, force: true }); } catch {}
 });
 
 test("Open Code Review UI renders a real workflow run", async () => {

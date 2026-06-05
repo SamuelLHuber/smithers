@@ -38,11 +38,10 @@ type ReviewComment = {
 type ReviewOutput = {
   status: string;
   ok: boolean;
+  reviewer?: string;
   message?: string;
   comments: ReviewComment[];
   warnings: { file?: string; message?: string; type?: string }[];
-  command?: string;
-  stderr?: string;
   error?: string;
   summary?: { filesReviewed?: number; comments?: number; totalTokens?: number; elapsed?: string } | null;
 };
@@ -110,6 +109,7 @@ function extractReview(value: unknown): ReviewOutput | null {
   return {
     status: asString(row.status) ?? "failed",
     ok: asBool(row.ok) ?? false,
+    reviewer: asString(row.reviewer),
     message: asString(row.message),
     comments: Array.isArray(row.comments)
       ? row.comments.filter(isRecord).map((comment) => ({
@@ -128,8 +128,6 @@ function extractReview(value: unknown): ReviewOutput | null {
           type: asString(warning.type),
         }))
       : [],
-    command: asString(row.command),
-    stderr: asString(row.stderr),
     error: asString(row.error),
     summary: isRecord(row.summary)
       ? {
@@ -382,7 +380,7 @@ function App() {
             </label>
             <label className="check">
               <input data-testid="ocr-input-run-review" type="checkbox" checked={runReview} onChange={(e) => setRunReview(e.currentTarget.checked)} />
-              <span>Execute OCR</span>
+              <span>Run native review</span>
             </label>
           </div>
 
@@ -434,7 +432,6 @@ function App() {
           )}
 
           {review?.error ? <div className="alert err" data-testid="ocr-error">{review.error}</div> : null}
-          {review?.stderr ? <div className="alert warn" data-testid="ocr-stderr">{review.stderr}</div> : null}
 
           <div className="panel" data-testid="ocr-comments-panel">
             <div className="panel-title">
@@ -497,7 +494,7 @@ function App() {
           <div className="form">
             <div className="field"><span>Mode</span><div className="mono">{asString(target?.mode) ?? "-"}</div></div>
             <div className="field"><span>Ref</span><div className="mono">{asString(target?.ref) ?? "-"}</div></div>
-            <div className="field"><span>Command</span><div className="mono muted">{review?.command ?? "-"}</div></div>
+            <div className="field"><span>Reviewer</span><div className="mono muted">{review?.reviewer ?? "smithers-native"}</div></div>
           </div>
           <div className="section-head"><span>Review queue</span><span>{reviewableEntries.length}</span></div>
           {reviewableEntries.map((entry, index) => (

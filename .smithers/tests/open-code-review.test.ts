@@ -4,9 +4,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
-  buildReviewArgs,
+  buildNativeReviewPrompt,
+  finalizeNativeReview,
   globMatch,
-  parseReviewJson,
   previewOpenCodeReview,
   validateReviewInput,
   type OpenCodeReviewInput,
@@ -50,11 +50,7 @@ function input(repo: string, overrides: Partial<OpenCodeReviewInput> = {}): Open
     commit: "",
     background: "",
     rule: "",
-    tools: "",
-    concurrency: 8,
     timeout: 10,
-    maxTools: 0,
-    ocrBin: "ocr",
     runReview: true,
     ...overrides,
   };
@@ -69,57 +65,69 @@ describe("OpenCodeReview compatibility helpers", () => {
     expect(globMatch("vendor/**", "src/vendorized/main.go")).toBe(false);
   });
 
-  test("review args mirror OCR review flags and validation", () => {
+  test("review mode validation rejects ambiguous refs", () => {
     expect(() => validateReviewInput(input(".", { from: "main" }))).toThrow("--to is required");
     expect(() => validateReviewInput(input(".", { from: "main", to: "feature", commit: "abc" }))).toThrow("Only one review mode");
-    expect(buildReviewArgs(input("/repo", { from: "main", to: "feature", background: "security pass" }), false)).toEqual([
-      "review",
-      "--repo",
-      "/repo",
-      "--from",
-      "main",
-      "--to",
-      "feature",
-      "--background",
-      "security pass",
-      "--concurrency",
-      "8",
-      "--timeout",
-      "10",
-      "--format",
-      "json",
-      "--audience",
-      "agent",
-    ]);
   });
 
-  test("parses OCR JSON output with snake_case fields", () => {
-    const parsed = parseReviewJson(JSON.stringify({
+  test("native review prompt includes reviewable diffs and excludes default filtered diffs", async () => {
+    const repo = tempRepo();
+    write(join(repo, "src/app.ts"), "export const value = 1;\nexport const next = 2;\n");
+    write(join(repo, "src/app.test.ts"), "test('x', () => {});\n");
+
+    const preview = await previewOpenCodeReview(input(repo, { background: "security pass" }));
+    const prepared = await buildNativeReviewPrompt(input(repo, { background: "security pass" }), preview);
+
+    expect(prepared.shouldReview).toBe(true);
+    expect(prepared.reviewableFiles).toBe(1);
+    expect(prepared.prompt).toContain("Smithers native code-review agent");
+    expect(prepared.prompt).toContain("Requirement background: security pass");
+    expect(prepared.prompt).toContain("## File: src/app.ts");
+    expect(prepared.prompt).not.toContain("## File: src/app.test.ts");
+    expect(prepared.prompt).toContain("Return only structured data matching the Smithers output schema.");
+  });
+
+  test("native review finalizer normalizes output and drops out-of-scope comments", async () => {
+    const repo = tempRepo();
+    write(join(repo, "src/app.ts"), "export const value = 1;\nexport const next = 2;\n");
+    write(join(repo, "src/app.test.ts"), "test('x', () => {});\n");
+
+    const reviewInput = input(repo);
+    const preview = await previewOpenCodeReview(reviewInput);
+    const prepared = await buildNativeReviewPrompt(reviewInput, preview);
+    const finalized = finalizeNativeReview(reviewInput, prepared, preview, {
       status: "success",
-      summary: {
-        files_reviewed: 1,
-        comments: 1,
-        total_tokens: 123,
-        input_tokens: 100,
-        output_tokens: 23,
-        elapsed: "1s",
-      },
+      message: "",
+      summary: { filesReviewed: 99, comments: 99, totalTokens: 123, inputTokens: 100, outputTokens: 23, elapsed: "1s" },
       comments: [
         {
           path: "src/app.ts",
           content: "Check this.",
-          suggestion_code: "safe();",
-          existing_code: "unsafe();",
-          start_line: 4,
-          end_line: 4,
+          suggestionCode: "safe();",
+          existingCode: "unsafe();",
+          startLine: 4,
+          endLine: 4,
+          thinking: "",
+        },
+        {
+          path: "src/app.test.ts",
+          content: "Out of scope.",
+          suggestionCode: "",
+          existingCode: "",
+          startLine: 1,
+          endLine: 1,
+          thinking: "",
         },
       ],
-    }));
-    expect(parsed.summary?.filesReviewed).toBe(1);
-    expect(parsed.summary?.totalTokens).toBe(123);
-    expect(parsed.comments[0].suggestionCode).toBe("safe();");
-    expect(parsed.comments[0].existingCode).toBe("unsafe();");
-    expect(parsed.comments[0].startLine).toBe(4);
+      warnings: [],
+    });
+
+    expect(finalized.status).toBe("completed_with_warnings");
+    expect(finalized.summary?.filesReviewed).toBe(1);
+    expect(finalized.summary?.totalTokens).toBe(123);
+    expect(finalized.comments).toHaveLength(1);
+    expect(finalized.comments[0].suggestionCode).toBe("safe();");
+    expect(finalized.warnings[0].type).toBe("out_of_scope_comment");
   });
 
   test("workspace preview matches OCR source, test, and extension filtering", async () => {

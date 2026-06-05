@@ -117,11 +117,7 @@ export const openCodeReviewInputSchema = z.object({
   commit: z.string().default(""),
   background: z.string().default(""),
   rule: z.string().default(""),
-  tools: z.string().default(""),
-  concurrency: z.number().int().positive().default(8),
   timeout: z.number().int().positive().default(10),
-  maxTools: z.number().int().nonnegative().default(0),
-  ocrBin: z.string().default(process.env.OCR_BIN ?? "ocr"),
   runReview: z.boolean().default(true),
 });
 
@@ -131,8 +127,6 @@ export const reviewTargetSchema = z.object({
   repoDir: z.string(),
   mode: z.enum(["workspace", "range", "commit"]),
   ref: z.string(),
-  ocrBin: z.string(),
-  reviewArgs: z.array(z.string()),
 });
 
 export type ReviewTarget = z.infer<typeof reviewTargetSchema>;
@@ -185,17 +179,38 @@ export const reviewSummarySchema = z.object({
 export const reviewRunOutputSchema = z.object({
   status: z.enum(["success", "skipped", "completed_with_warnings", "completed_with_errors", "failed"]),
   ok: z.boolean(),
+  reviewer: z.string().default("smithers-native"),
   message: z.string().default(""),
   summary: reviewSummarySchema.nullable().default(null),
-  comments: z.array(reviewCommentSchema),
+  comments: z.array(reviewCommentSchema).default([]),
   warnings: z.array(warningSchema).default([]),
-  command: z.string(),
-  exitCode: z.number().int(),
-  stderr: z.string().default(""),
   error: z.string().default(""),
 });
 
 export type ReviewRunOutput = z.infer<typeof reviewRunOutputSchema>;
+
+export const nativeReviewPromptSchema = z.object({
+  shouldReview: z.boolean(),
+  repoDir: z.string(),
+  mode: z.enum(["workspace", "range", "commit"]),
+  ref: z.string(),
+  reviewableFiles: z.number().int().nonnegative(),
+  excludedFiles: z.number().int().nonnegative(),
+  prompt: z.string(),
+  message: z.string().default(""),
+});
+
+export type NativeReviewPrompt = z.infer<typeof nativeReviewPromptSchema>;
+
+export const nativeReviewAgentOutputSchema = z.object({
+  status: z.enum(["success", "completed_with_warnings", "completed_with_errors", "failed"]).default("success"),
+  message: z.string().default(""),
+  summary: reviewSummarySchema.nullable().default(null),
+  comments: z.array(reviewCommentSchema).default([]),
+  warnings: z.array(warningSchema).default([]),
+});
+
+export type NativeReviewAgentOutput = z.infer<typeof nativeReviewAgentOutputSchema>;
 
 export const workflowSummarySchema = z.object({
   status: z.enum(["success", "skipped", "completed_with_warnings", "completed_with_errors", "failed"]),
@@ -241,25 +256,6 @@ export function normalizeOpenCodeReviewInput(value: unknown): OpenCodeReviewInpu
     if (record[key] === null) delete record[key];
   }
   return openCodeReviewInputSchema.parse(record);
-}
-
-function camelizeRecord(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(camelizeRecord);
-  if (value === null || typeof value !== "object") return value;
-  const out: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    out[key.replace(/_([a-z])/g, (_, ch: string) => ch.toUpperCase())] = camelizeRecord(entry);
-  }
-  return out;
-}
-
-function commandLine(command: string, args: string[]) {
-  return [command, ...args.map((arg) => (/\s/.test(arg) ? JSON.stringify(arg) : arg))].join(" ");
-}
-
-function trimForOutput(value: string, limit = 12_000) {
-  if (value.length <= limit) return value;
-  return value.slice(0, limit) + "\n[truncated]";
 }
 
 function runCommand(command: string, args: string[], cwd: string, timeoutMs = 120_000): Promise<CommandResult> {
@@ -338,30 +334,9 @@ export async function resolveReviewTarget(input: OpenCodeReviewInput): Promise<R
     mode === "commit"
       ? input.commit.trim()
       : mode === "range"
-        ? `${input.from.trim()}..${input.to.trim()}`
-        : "workspace";
-  const reviewArgs = buildReviewArgs(input, false);
-  return { repoDir, mode, ref, ocrBin: input.ocrBin, reviewArgs };
-}
-
-export function buildReviewArgs(input: OpenCodeReviewInput, preview: boolean) {
-  input = normalizeOpenCodeReviewInput(input);
-  validateReviewInput(input);
-  const args = ["review", "--repo", resolve(input.repo || ".")];
-  if (input.from.trim()) args.push("--from", input.from.trim(), "--to", input.to.trim());
-  if (input.commit.trim()) args.push("--commit", input.commit.trim());
-  if (input.rule.trim()) args.push("--rule", resolve(input.rule.trim()));
-  if (input.tools.trim()) args.push("--tools", resolve(input.tools.trim()));
-  if (input.background.trim()) args.push("--background", input.background.trim());
-  args.push("--concurrency", String(input.concurrency));
-  args.push("--timeout", String(input.timeout));
-  if (input.maxTools > 0) args.push("--max-tools", String(input.maxTools));
-  if (preview) {
-    args.push("--preview");
-  } else {
-    args.push("--format", "json", "--audience", "agent");
-  }
-  return args;
+      ? `${input.from.trim()}..${input.to.trim()}`
+      : "workspace";
+  return { repoDir, mode, ref };
 }
 
 function expandBraces(pattern: string): string[] {
@@ -495,7 +470,7 @@ function parseDiffText(diffText: string): DiffRecord[] {
       };
     }
     if (!current) continue;
-    if (/^Binary files /.test(line)) current.isBinary = true;
+    if (line.startsWith("Binary files ")) current.isBinary = true;
     if (/^--- \/dev\/null$/.test(line) || /^--- a\/dev\/null$/.test(line)) current.isNew = true;
     if (/^\+\+\+ \/dev\/null$/.test(line) || /^\+\+\+ b\/dev\/null$/.test(line)) {
       current.isDeleted = true;
@@ -637,114 +612,238 @@ export async function previewOpenCodeReview(input: OpenCodeReviewInput): Promise
   };
 }
 
-function parseJsonFromStdout(stdout: string) {
-  const trimmed = stdout.trim();
-  if (!trimmed) throw new Error("OCR produced no JSON output.");
-  try {
-    return JSON.parse(trimmed) as unknown;
-  } catch {
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start < 0 || end <= start) throw new Error("OCR output did not contain a JSON object.");
-    return JSON.parse(trimmed.slice(start, end + 1)) as unknown;
+const defaultReviewChecklist = [
+  "Correctness: check logic, missing boundary conditions, error handling, and concurrency safety.",
+  "Security: check injection, XSS, permission checks, and sensitive data handling.",
+  "Performance: check obvious inefficient loops, N+1 access patterns, and resource cleanup.",
+  "Maintainability: check clarity, names, local architecture fit, and test coverage for critical paths.",
+].join("\n");
+
+const tsJsReviewChecklist = [
+  "TypeScript/JavaScript: check strict null handling, async error handling, hook rules, render side effects, equality operators, and unsafe dynamic execution.",
+  "React: check state ownership, effect cleanup/dependencies, memoization only where justified, and safe rendering of user input.",
+].join("\n");
+
+const jsonYamlReviewChecklist = [
+  "Structured config: check required fields, schema compatibility, duplicate keys, invalid value types, and accidental secrets.",
+].join("\n");
+
+function reviewChecklistForPath(path: string) {
+  const lower = path.toLowerCase();
+  if (/\.(ts|tsx|js|jsx|mjs|cjs)$/.test(lower)) {
+    return `${defaultReviewChecklist}\n${tsJsReviewChecklist}`;
   }
+  if (lower.endsWith("package.json") || /\.(json|json5|ya?ml|toml)$/.test(lower)) {
+    return `${defaultReviewChecklist}\n${jsonYamlReviewChecklist}`;
+  }
+  return defaultReviewChecklist;
 }
 
-export function parseReviewJson(stdout: string): Omit<ReviewRunOutput, "command" | "exitCode" | "stderr" | "error" | "ok"> {
-  const raw = camelizeRecord(parseJsonFromStdout(stdout));
-  const record = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const parsedComments = Array.isArray(record.comments) ? record.comments : [];
-  const status = typeof record.status === "string" ? record.status : "success";
-  const normalized = {
-    status,
-    message: typeof record.message === "string" ? record.message : "",
-    summary: record.summary ?? null,
-    comments: parsedComments,
-    warnings: Array.isArray(record.warnings) ? record.warnings : [],
-  };
-  return z
-    .object({
-      status: reviewRunOutputSchema.shape.status,
-      message: z.string().default(""),
-      summary: reviewSummarySchema.nullable().default(null),
-      comments: z.array(reviewCommentSchema),
-      warnings: z.array(warningSchema).default([]),
-    })
-    .parse(normalized);
+function trimForPrompt(value: string, limit = 60_000) {
+  if (value.length <= limit) return value;
+  return `${value.slice(0, limit)}\n[diff truncated for prompt size]`;
 }
 
-export async function runOpenCodeReview(input: OpenCodeReviewInput, preview?: PreviewOutput): Promise<ReviewRunOutput> {
+function reviewableDiffs(diffs: DiffRecord[], filter: FileFilter | null) {
+  return diffs.filter((diff) => whyExcluded(diff, filter) === "" && !diff.isDeleted);
+}
+
+function renderDiffBlock(diff: DiffRecord, otherChangedFiles: string[]) {
+  const path = effectivePath(diff);
+  const otherFiles = otherChangedFiles.filter((file) => file !== path);
+  return [
+    `## File: ${path}`,
+    `Status: ${diffStatus(diff)}`,
+    `Changed lines: +${diff.insertions} -${diff.deletions}`,
+    "Other changed files:",
+    otherFiles.length > 0 ? otherFiles.map((file) => `- ${file}`).join("\n") : "- none",
+    "Review checklist:",
+    reviewChecklistForPath(path),
+    "Unified diff:",
+    "```diff",
+    trimForPrompt(diff.diff),
+    "```",
+  ].join("\n");
+}
+
+export async function buildNativeReviewPrompt(input: OpenCodeReviewInput, preview: PreviewOutput): Promise<NativeReviewPrompt> {
   input = normalizeOpenCodeReviewInput(input);
   const target = await resolveReviewTarget(input);
   if (!input.runReview) {
-    return {
-      status: "skipped",
-      ok: true,
+    return nativeReviewPromptSchema.parse({
+      shouldReview: false,
+      repoDir: target.repoDir,
+      mode: target.mode,
+      ref: target.ref,
+      reviewableFiles: preview.reviewableCount,
+      excludedFiles: preview.excludedCount,
+      prompt: "",
       message: "Review execution disabled by input.runReview.",
-      summary: null,
-      comments: [],
-      warnings: [],
-      command: commandLine(input.ocrBin, target.reviewArgs),
-      exitCode: 0,
-      stderr: "",
-      error: "",
-    };
+    });
   }
-  if (preview && preview.reviewableCount === 0) {
-    return {
-      status: "skipped",
-      ok: true,
+  if (preview.reviewableCount === 0) {
+    return nativeReviewPromptSchema.parse({
+      shouldReview: false,
+      repoDir: target.repoDir,
+      mode: target.mode,
+      ref: target.ref,
+      reviewableFiles: 0,
+      excludedFiles: preview.excludedCount,
+      prompt: "",
       message: "No supported files changed.",
-      summary: null,
-      comments: [],
-      warnings: [],
-      command: commandLine(input.ocrBin, target.reviewArgs),
-      exitCode: 0,
-      stderr: "",
-      error: "",
-    };
+    });
   }
 
-  const result = await runCommand(input.ocrBin, target.reviewArgs, target.repoDir, (input.timeout + 2) * 60_000);
-  const command = commandLine(input.ocrBin, target.reviewArgs);
-  if (result.exitCode !== 0) {
-    return {
-      status: "failed",
-      ok: false,
-      message: "OpenCodeReview failed.",
-      summary: null,
-      comments: [],
-      warnings: [],
-      command,
-      exitCode: result.exitCode,
-      stderr: trimForOutput(result.stderr),
-      error: trimForOutput(result.stderr || result.stdout || "OpenCodeReview exited with a non-zero status."),
-    };
+  const filter = buildFileFilter(target.repoDir, input.rule.trim());
+  const diffs = reviewableDiffs(await loadDiffs(target.repoDir, input), filter);
+  if (diffs.length === 0) {
+    return nativeReviewPromptSchema.parse({
+      shouldReview: false,
+      repoDir: target.repoDir,
+      mode: target.mode,
+      ref: target.ref,
+      reviewableFiles: 0,
+      excludedFiles: preview.excludedCount,
+      prompt: "",
+      message: "No supported files changed.",
+    });
   }
 
-  try {
-    const parsed = parseReviewJson(result.stdout);
-    return {
-      ...parsed,
-      ok: parsed.status !== "failed",
-      command,
-      exitCode: result.exitCode,
-      stderr: trimForOutput(result.stderr),
-      error: "",
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return {
+  const changedFiles = preview.entries.map((entry) => entry.path);
+  const background = input.background.trim() || "No additional requirement background was provided.";
+  const fileBlocks = diffs.map((diff) => renderDiffBlock(diff, changedFiles));
+  const prompt = [
+    "You are a Smithers native code-review agent.",
+    "Review the supplied unified diffs and produce structured review comments.",
+    "",
+    "Scope rules:",
+    "- Focus on newly added or modified code in the diffs.",
+    "- Do not comment on deleted code except as context for a changed line.",
+    "- Do not comment on unchanged code or files outside the reviewable file set.",
+    "- If context from another file suggests a problem, only comment when the issue is in one of the supplied diffs.",
+    "- Prefer high-signal findings: correctness, security, data loss, crashes, performance regressions, and maintainability issues with concrete impact.",
+    "- Avoid style-only comments unless they identify a real bug or substantial maintainability risk.",
+    "",
+    "Output contract:",
+    "- Return only structured data matching the Smithers output schema.",
+    "- Each comment must include path, content, existingCode, suggestionCode when useful, and startLine/endLine in the new file when you can identify them.",
+    "- If there are no findings, return an empty comments array, status \"success\", and message \"No comments generated. Looks good to me.\"",
+    "- Use warnings only for files you could not review or relevant uncertainty that affects the result.",
+    "",
+    `Repository: ${target.repoDir}`,
+    `Review mode: ${target.mode}`,
+    `Review ref: ${target.ref}`,
+    `Requirement background: ${background}`,
+    "",
+    `Reviewable files: ${diffs.length}`,
+    fileBlocks.join("\n\n"),
+  ].join("\n");
+
+  return nativeReviewPromptSchema.parse({
+    shouldReview: true,
+    repoDir: target.repoDir,
+    mode: target.mode,
+    ref: target.ref,
+    reviewableFiles: diffs.length,
+    excludedFiles: preview.excludedCount,
+    prompt,
+    message: `Prepared native review for ${diffs.length} file(s).`,
+  });
+}
+
+function skippedReviewOutput(prepared: NativeReviewPrompt): ReviewRunOutput {
+  return reviewRunOutputSchema.parse({
+    status: "skipped",
+    ok: true,
+    reviewer: "smithers-native",
+    message: prepared.message || "Review skipped.",
+    summary: null,
+    comments: [],
+    warnings: [],
+    error: "",
+  });
+}
+
+function normalizedComment(comment: z.infer<typeof reviewCommentSchema>) {
+  const startLine = Math.max(0, comment.startLine || 0);
+  const endLine = Math.max(startLine, comment.endLine || startLine);
+  return {
+    ...comment,
+    path: comment.path.trim(),
+    content: comment.content.trim(),
+    suggestionCode: comment.suggestionCode.trim(),
+    existingCode: comment.existingCode.trim(),
+    thinking: comment.thinking.trim(),
+    startLine,
+    endLine,
+  };
+}
+
+export function finalizeNativeReview(
+  input: OpenCodeReviewInput,
+  prepared: NativeReviewPrompt,
+  preview: PreviewOutput,
+  agentOutput?: NativeReviewAgentOutput | null,
+): ReviewRunOutput {
+  input = normalizeOpenCodeReviewInput(input);
+  prepared = nativeReviewPromptSchema.parse(prepared);
+  if (!prepared.shouldReview || !input.runReview) return skippedReviewOutput(prepared);
+
+  if (!agentOutput) {
+    return reviewRunOutputSchema.parse({
       status: "failed",
       ok: false,
-      message: "Could not parse OpenCodeReview JSON output.",
+      reviewer: "smithers-native",
+      message: "Native Smithers review did not produce output.",
       summary: null,
       comments: [],
       warnings: [],
-      command,
-      exitCode: result.exitCode,
-      stderr: trimForOutput(result.stderr),
-      error: message,
-    };
+      error: "review-agent output was missing.",
+    });
   }
+
+  const parsed = nativeReviewAgentOutputSchema.parse(agentOutput);
+  const reviewablePaths = new Set(preview.entries.filter((entry) => entry.willReview).map((entry) => entry.path));
+  const comments = parsed.comments
+    .map(normalizedComment)
+    .filter((comment) => comment.content && reviewablePaths.has(comment.path));
+  const droppedComments = parsed.comments.length - comments.length;
+  const warnings = [...parsed.warnings];
+  if (droppedComments > 0) {
+    warnings.push({
+      file: "",
+      type: "out_of_scope_comment",
+      message: `Dropped ${droppedComments} comment(s) outside the reviewable file set.`,
+    });
+  }
+
+  const summary = reviewSummarySchema.parse({
+    filesReviewed: prepared.reviewableFiles,
+    comments: comments.length,
+    totalTokens: parsed.summary?.totalTokens ?? 0,
+    inputTokens: parsed.summary?.inputTokens ?? 0,
+    outputTokens: parsed.summary?.outputTokens ?? 0,
+    elapsed: parsed.summary?.elapsed ?? "",
+  });
+  const status =
+    parsed.status === "failed"
+      ? "failed"
+      : parsed.status === "success" && warnings.length > 0
+        ? "completed_with_warnings"
+        : parsed.status;
+
+  return reviewRunOutputSchema.parse({
+    status,
+    ok: status !== "failed",
+    reviewer: "smithers-native",
+    message:
+      parsed.message ||
+      (comments.length > 0
+        ? `Reviewed ${prepared.reviewableFiles} file(s) and produced ${comments.length} comment(s).`
+        : "No comments generated. Looks good to me."),
+    summary,
+    comments,
+    warnings,
+    error: status === "failed" ? parsed.message || "Native Smithers review failed." : "",
+  });
 }
