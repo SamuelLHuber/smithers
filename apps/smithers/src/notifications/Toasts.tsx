@@ -1,96 +1,44 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from "react";
-import type { Notification } from "./useNotifications";
+import { type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { goToView } from "../app/navigation";
+import { useUiStore } from "../app/uiStore";
+import { MenuBackdrop } from "../components/MenuBackdrop";
+import { useNotificationsStore, type Notification } from "./notificationsStore";
 
-/** Transient toasts vanish after this long; workflow toasts only after done. */
-const TRANSIENT_MS = 4000;
-const DONE_LINGER_MS = 4500;
+/** Focus the first action when the toast menu opens. */
+function focusFirst(menu: HTMLDivElement | null): void {
+  if (!menu) {
+    return;
+  }
+  menu.querySelector<HTMLElement>('[role^="menuitem"]')?.focus();
+}
 
-function Toast({
-  notification,
-  onView,
-  onDismiss,
-}: {
-  notification: Notification;
-  onView: (notification: Notification) => void;
-  onDismiss: (id: string) => void;
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+function Toast({ notification }: { notification: Notification }) {
+  const menuId = `toast-${notification.id}`;
+  const open = useUiStore((state) => state.openMenuId === menuId);
+  const toggleMenu = useUiStore((state) => state.toggleMenu);
+  const setOpenMenu = useUiStore((state) => state.setOpenMenu);
+  const dismiss = useNotificationsStore((state) => state.dismiss);
   const running = notification.status === "running";
 
-  // Close the actions menu and return focus to the trigger, per the APG pattern.
-  const closeMenu = useCallback(() => {
-    setMenuOpen(false);
-    triggerRef.current?.focus();
-  }, []);
-
-  // Auto-dismiss: transient toasts on a timer, workflow toasts once they finish.
-  useEffect(() => {
-    const timed = notification.kind === "transient" || !running;
-    if (!timed) {
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === "Escape") {
+      setOpenMenu(null);
       return;
     }
-    const delay = running ? TRANSIENT_MS : DONE_LINGER_MS;
-    const timer = window.setTimeout(() => onDismiss(notification.id), delay);
-    return () => window.clearTimeout(timer);
-  }, [notification.kind, notification.id, running, onDismiss]);
-
-  useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
-    const onPointerDown = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
-        closeMenu();
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeMenu();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [menuOpen, closeMenu]);
-
-  // On open, move focus to the first action so the menu is keyboard-operable.
-  useEffect(() => {
-    if (!menuOpen) {
-      return;
-    }
-    const items = menuRef.current?.querySelectorAll<HTMLElement>(
-      '[role^="menuitem"]',
-    );
-    items?.[0]?.focus();
-  }, [menuOpen]);
-
-  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(
-      menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [],
+      event.currentTarget.querySelectorAll<HTMLElement>('[role^="menuitem"]'),
     );
     if (items.length === 0) {
       return;
     }
-    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+    const current = items.indexOf(document.activeElement as HTMLElement);
     let nextIndex: number | null = null;
     switch (event.key) {
       case "ArrowDown":
-        nextIndex = (currentIndex + 1) % items.length;
+        nextIndex = (current + 1) % items.length;
         break;
       case "ArrowUp":
-        nextIndex = (currentIndex - 1 + items.length) % items.length;
+        nextIndex = (current - 1 + items.length) % items.length;
         break;
       case "Home":
         nextIndex = 0;
@@ -106,14 +54,13 @@ function Toast({
   };
 
   return (
-    <div className={`toast toast-${notification.status}`} ref={ref}>
+    <div className={`toast toast-${notification.status}`}>
       <button
-        aria-expanded={menuOpen}
+        aria-expanded={open}
         aria-haspopup="menu"
         className="toast-main"
-        ref={triggerRef}
         type="button"
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={() => toggleMenu(menuId)}
       >
         {running ? (
           <span className="toast-spinner" aria-hidden="true" />
@@ -146,65 +93,60 @@ function Toast({
         <span className="toast-status">{running ? "Running" : "Done"}</span>
       </button>
 
-      {menuOpen ? (
-        <div
-          className="toast-menu"
-          ref={menuRef}
-          role="menu"
-          onKeyDown={onMenuKeyDown}
-        >
-          {notification.command ? (
+      {open ? (
+        <>
+          <MenuBackdrop />
+          <div
+            className="toast-menu"
+            ref={focusFirst}
+            role="menu"
+            onKeyDown={onMenuKeyDown}
+          >
+            {notification.command ? (
+              <button
+                className="toast-action"
+                role="menuitem"
+                type="button"
+                onClick={() => {
+                  goToView(
+                    notification.command === "chat"
+                      ? "home"
+                      : (notification.command ?? "askme"),
+                  );
+                  setOpenMenu(null);
+                }}
+              >
+                View workflow
+              </button>
+            ) : null}
             <button
               className="toast-action"
               role="menuitem"
               type="button"
               onClick={() => {
-                onView(notification);
-                closeMenu();
+                dismiss(notification.id);
+                setOpenMenu(null);
               }}
             >
-              View workflow
+              Dismiss
             </button>
-          ) : null}
-          <button
-            className="toast-action"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              onDismiss(notification.id);
-              closeMenu();
-            }}
-          >
-            Dismiss
-          </button>
-        </div>
+          </div>
+        </>
       ) : null}
     </div>
   );
 }
 
 /** Corner stack of toasts for background/workflow runs. */
-export function Toasts({
-  notifications,
-  onView,
-  onDismiss,
-}: {
-  notifications: Notification[];
-  onView: (notification: Notification) => void;
-  onDismiss: (id: string) => void;
-}) {
+export function Toasts() {
+  const notifications = useNotificationsStore((state) => state.notifications);
   if (notifications.length === 0) {
     return null;
   }
   return (
     <div className="toast-stack" aria-live="polite">
       {notifications.map((notification) => (
-        <Toast
-          key={notification.id}
-          notification={notification}
-          onView={onView}
-          onDismiss={onDismiss}
-        />
+        <Toast key={notification.id} notification={notification} />
       ))}
     </div>
   );
