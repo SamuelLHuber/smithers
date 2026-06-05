@@ -2,7 +2,7 @@ import { makeWorkflowSession, } from "@smithers-orchestrator/scheduler";
 import { ReactWorkflowDriver } from "@smithers-orchestrator/react-reconciler/driver";
 import { SmithersRenderer } from "@smithers-orchestrator/react-reconciler/dom/renderer";
 import { SmithersCtx } from "@smithers-orchestrator/driver/SmithersCtx";
-import { loadInput, loadOutputs } from "@smithers-orchestrator/db/snapshot";
+import { loadInput, loadOutputs, loadRunOutputRowsEffect } from "@smithers-orchestrator/db/snapshot";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { selectOutputRow, validateOutput, validateExistingOutput, describeSchemaShape, buildOutputRow, stripAutoColumns, } from "@smithers-orchestrator/db/output";
@@ -838,6 +838,29 @@ function buildInputRow(inputTable, runId, input) {
     return { runId, ...input };
 }
 /**
+ * Insert the input row, ignoring an existing row (ON CONFLICT DO NOTHING).
+ * Dialect-aware: Drizzle/bun:sqlite for SQLite, the @effect/sql adapter for a
+ * Postgres connection descriptor (which exposes no Drizzle query builder).
+ * @param {any} db
+ * @param {SmithersDb} adapter
+ * @param {SQLiteTable} inputTable
+ * @param {Record<string, unknown>} inputRow
+ * @param {string} [label]
+ */
+async function insertInputRowIgnore(db, adapter, inputTable, inputRow, label = "insert input row") {
+    if (db && typeof db === "object" && db.dialect === "postgres") {
+        await adapter.internalStorage.insertIgnore(getTableName(inputTable), inputRow);
+        return;
+    }
+    const insertQuery = db.insert(inputTable).values(inputRow);
+    if (typeof insertQuery.onConflictDoNothing === "function") {
+        await withSqliteWriteRetry(() => db.insert(inputTable).values(inputRow).onConflictDoNothing(), { label });
+    }
+    else {
+        await withSqliteWriteRetry(() => db.insert(inputTable).values(inputRow), { label });
+    }
+}
+/**
  * @param {any} row
  * @returns {Record<string, unknown>}
  */
@@ -897,13 +920,18 @@ async function restoreDurableStateFromSnapshot(adapter, db, schema, inputTable, 
         });
     }
     const inputCols = getTableColumns(inputTable);
-    await withSqliteWriteRetry(() => db
-        .insert(inputTable)
-        .values(inputRow)
-        .onConflictDoUpdate({
-        target: inputCols.runId,
-        set: inputRow,
-    }), { label: "restore input row from snapshot" });
+    if (db && typeof db === "object" && db.dialect === "postgres") {
+        await adapter.internalStorage.upsert(getTableName(inputTable), inputRow, ["runId"]);
+    }
+    else {
+        await withSqliteWriteRetry(() => db
+            .insert(inputTable)
+            .values(inputRow)
+            .onConflictDoUpdate({
+            target: inputCols.runId,
+            set: inputRow,
+        }), { label: "restore input row from snapshot" });
+    }
     for (const node of Object.values(parsed.nodes)) {
         await Effect.runPromise(adapter.insertNode({
             runId,
@@ -962,13 +990,21 @@ async function restoreDurableStateFromSnapshot(adapter, db, schema, inputTable, 
             const target = outputCols.iteration
                 ? [outputCols.runId, outputCols.nodeId, outputCols.iteration]
                 : [outputCols.runId, outputCols.nodeId];
-            await withSqliteWriteRetry(() => db
-                .insert(table)
-                .values(restoredRow)
-                .onConflictDoUpdate({
-                target: target,
-                set: restoredRow,
-            }), { label: `restore output ${tableName} from snapshot` });
+            if (db && typeof db === "object" && db.dialect === "postgres") {
+                const conflictColumns = outputCols.iteration
+                    ? ["runId", "nodeId", "iteration"]
+                    : ["runId", "nodeId"];
+                await adapter.internalStorage.upsert(tableName, restoredRow, conflictColumns);
+            }
+            else {
+                await withSqliteWriteRetry(() => db
+                    .insert(table)
+                    .values(restoredRow)
+                    .onConflictDoUpdate({
+                    target: target,
+                    set: restoredRow,
+                }), { label: `restore output ${tableName} from snapshot` });
+            }
         }
     }
     return true;
@@ -1103,6 +1139,130 @@ function buildCarriedInputRow(inputTable, newRunId, sourceInputRow, continuation
     return row;
 }
 /**
+ * Postgres sibling of the synchronous bun:sqlite continue-as-new handoff. Runs
+ * the same sequence — spawn child run, carry input, copy run-scoped output rows,
+ * carry ralph state, record the branch, mark the source run `continued`, and
+ * append the RunContinuedAsNew event — atomically via the dialect-aware adapter
+ * transaction + @effect/sql storage (no bun:sqlite client).
+ *
+ * @param {{
+ *   adapter: SmithersDb;
+ *   inputTableName: string;
+ *   inputRow: Record<string, unknown>;
+ *   outputTables: Array<unknown>;
+ *   carriedRalphState: RalphStateMap;
+ *   runId: string;
+ *   targetRunId: string;
+ *   sourceRun: Record<string, unknown>;
+ *   workflowPath: string | null;
+ *   runMetadata: RunDurabilityMetadata;
+ *   currentFrameNo: number;
+ *   continuation: ContinueAsNewRequest;
+ *   nextConfigJson: string;
+ *   continuationEvent: Record<string, unknown>;
+ *   ts: number;
+ * }} params
+ * @returns {Promise<void>}
+ */
+async function continueRunAsNewPostgres(params) {
+    const { adapter, inputTableName, inputRow, outputTables, carriedRalphState, runId, targetRunId, sourceRun, workflowPath, runMetadata, currentFrameNo, continuation, nextConfigJson, continuationEvent, ts, } = params;
+    const storage = adapter.internalStorage;
+    await Effect.runPromise(adapter.withTransactionEffect("continue-as-new handoff", Effect.gen(function* () {
+        // Re-check cancellation inside the transaction (matches the sqlite path).
+        const cancelState = yield* Effect.tryPromise({
+            try: () => storage.queryOne("SELECT cancel_requested_at_ms AS cancelRequestedAtMs FROM _smithers_runs WHERE run_id = ? LIMIT 1", [runId]),
+            catch: (cause) => toSmithersError(cause, "check cancel state", { code: "DB_QUERY_FAILED", details: { runId } }),
+        });
+        if (cancelState?.cancelRequestedAtMs) {
+            return yield* Effect.fail(new SmithersError("RUN_CANCELLED", `Run ${runId} was cancelled before continue-as-new handoff`, { runId }));
+        }
+        // Spawn the child run (a brand-new runId, so insertIgnore is exact).
+        yield* adapter.insertRun({
+            runId: targetRunId,
+            parentRunId: runId,
+            workflowName: sourceRun.workflowName ?? "workflow",
+            workflowPath: workflowPath ?? sourceRun.workflowPath ?? null,
+            workflowHash: runMetadata.workflowHash ?? sourceRun.workflowHash ?? null,
+            status: "running",
+            createdAtMs: ts,
+            startedAtMs: ts,
+            finishedAtMs: null,
+            heartbeatAtMs: null,
+            runtimeOwnerId: null,
+            cancelRequestedAtMs: null,
+            hijackRequestedAtMs: null,
+            hijackTarget: null,
+            vcsType: runMetadata.vcsType ?? sourceRun.vcsType ?? null,
+            vcsRoot: runMetadata.vcsRoot ?? sourceRun.vcsRoot ?? null,
+            vcsRevision: runMetadata.vcsRevision ?? sourceRun.vcsRevision ?? null,
+            errorJson: null,
+            configJson: nextConfigJson,
+        });
+        // Carry the input row.
+        yield* Effect.tryPromise({
+            try: () => storage.insertIgnore(inputTableName, inputRow),
+            catch: (cause) => toSmithersError(cause, "carry continuation input", { code: "DB_WRITE_FAILED", details: { runId: targetRunId } }),
+        });
+        // Copy run-scoped output rows, remapping run_id to the child. INSERT…SELECT
+        // is valid in both dialects; column names are identical.
+        for (const table of outputTables) {
+            const tableName = getTableName(table);
+            const columnEntries = getTableColumnEntries(table);
+            const runIdColumn = columnEntries.find((entry) => entry.key === "runId");
+            if (!runIdColumn) continue;
+            const insertColumnsSql = columnEntries.map((entry) => quoteSqlIdent(entry.sqlName)).join(", ");
+            const selectColumnsSql = columnEntries
+                .map((entry) => (entry.key === "runId" ? "?" : quoteSqlIdent(entry.sqlName)))
+                .join(", ");
+            yield* Effect.tryPromise({
+                try: () => storage.execute(`INSERT INTO ${quoteSqlIdent(tableName)} (${insertColumnsSql}) SELECT ${selectColumnsSql} FROM ${quoteSqlIdent(tableName)} WHERE ${quoteSqlIdent(runIdColumn.sqlName)} = ?`, [targetRunId, runId]),
+                catch: (cause) => toSmithersError(cause, `copy output ${tableName}`, { code: "DB_WRITE_FAILED", details: { runId: targetRunId, tableName } }),
+            });
+        }
+        // Carry ralph state.
+        for (const [ralphId, state] of carriedRalphState.entries()) {
+            yield* adapter.insertOrUpdateRalph({
+                runId: targetRunId,
+                ralphId,
+                iteration: state.iteration,
+                done: Boolean(state.done),
+                updatedAtMs: ts,
+            });
+        }
+        // Record the fork relationship.
+        yield* Effect.tryPromise({
+            try: () => storage.upsert("_smithers_branches", {
+                runId: targetRunId,
+                parentRunId: runId,
+                parentFrameNo: currentFrameNo,
+                branchLabel: "continue-as-new",
+                forkDescription: `continue-as-new:${continuation.reason}`,
+                createdAtMs: ts,
+            }, ["runId"]),
+            catch: (cause) => toSmithersError(cause, "record continuation branch", { code: "DB_WRITE_FAILED", details: { runId: targetRunId } }),
+        });
+        // Mark the source run as continued.
+        yield* Effect.tryPromise({
+            try: () => storage.execute(`UPDATE _smithers_runs
+             SET status = ?, finished_at_ms = ?, heartbeat_at_ms = NULL, runtime_owner_id = NULL,
+                 cancel_requested_at_ms = NULL, hijack_requested_at_ms = NULL, hijack_target = NULL
+             WHERE run_id = ?`, ["continued", ts, runId]),
+            catch: (cause) => toSmithersError(cause, "mark run continued", { code: "DB_WRITE_FAILED", details: { runId } }),
+        });
+        // Append the RunContinuedAsNew event with the next sequence number.
+        const seqRow = yield* Effect.tryPromise({
+            try: () => storage.queryOne("SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM _smithers_events WHERE run_id = ?", [runId]),
+            catch: (cause) => toSmithersError(cause, "compute next event seq", { code: "DB_QUERY_FAILED", details: { runId } }),
+        });
+        const nextEventSeq = Number(seqRow?.seq ?? 0);
+        yield* Effect.tryPromise({
+            try: () => storage.execute(`INSERT INTO _smithers_events (run_id, seq, timestamp_ms, type, payload_json)
+             VALUES (?, ?, ?, ?, ?)`, [runId, nextEventSeq, ts, continuationEvent.type, JSON.stringify(continuationEvent)]),
+            catch: (cause) => toSmithersError(cause, "append continuation event", { code: "DB_WRITE_FAILED", details: { runId } }),
+        });
+    })));
+}
+/**
  * @param {{ db: BunSQLiteDatabase; adapter: SmithersDb; schema: Record<string, unknown>; inputTable: SQLiteTable; runId: string; workflowPath: string | null; runMetadata: RunDurabilityMetadata; currentFrameNo: number; continuation: ContinueAsNewRequest; ralphState: RalphStateMap; }} params
  * @returns {Promise<ContinueAsNewTransition>}
  */
@@ -1180,6 +1340,30 @@ async function continueRunAsNew(params) {
         ancestryDepth: ancestryDepth + 1,
         timestampMs: ts,
     };
+    if (db && typeof db === "object" && db.dialect === "postgres") {
+        await continueRunAsNewPostgres({
+            adapter,
+            inputTableName,
+            inputRow,
+            outputTables,
+            carriedRalphState,
+            runId,
+            targetRunId,
+            sourceRun,
+            workflowPath,
+            runMetadata,
+            currentFrameNo,
+            continuation,
+            nextConfigJson,
+            continuationEvent,
+            ts,
+        });
+        return {
+            newRunId: targetRunId,
+            ancestryDepth: ancestryDepth + 1,
+            carriedStateBytes,
+        };
+    }
     await withSqliteWriteRetry(async () => {
         const client = db.$client;
         if (!client || typeof client.run !== "function" || typeof client.query !== "function") {
@@ -4845,18 +5029,7 @@ async function runWorkflowBodyDriver(workflow, opts) {
         const outputTable = schema.output;
         let output = undefined;
         if (outputTable) {
-            const cols = getTableColumns(outputTable);
-            const runIdCol = cols.runId;
-            if (runIdCol) {
-                const rows = await db
-                    .select()
-                    .from(outputTable)
-                    .where(eq(runIdCol, runId));
-                output = rows;
-            }
-            else {
-                output = await db.select().from(outputTable);
-            }
+            output = await Effect.runPromise(loadRunOutputRowsEffect(db, outputTable, runId));
         }
         return { runId, status: "finished", output };
     };
@@ -4941,15 +5114,7 @@ async function runWorkflowBodyDriver(workflow, opts) {
                     issues: validation.error?.issues,
                 });
             }
-            const insertQuery = db.insert(inputTable).values(inputRow);
-            if (typeof insertQuery.onConflictDoNothing === "function") {
-                await withSqliteWriteRetry(() => db.insert(inputTable).values(inputRow).onConflictDoNothing(), { label: "insert input row" });
-            }
-            else {
-                await withSqliteWriteRetry(() => db.insert(inputTable).values(inputRow), {
-                    label: "insert input row",
-                });
-            }
+            await insertInputRowIgnore(db, adapter, inputTable, inputRow);
         }
         else {
             let existingInput = await loadInput(db, inputTable, runId);
@@ -4964,7 +5129,7 @@ async function runWorkflowBodyDriver(workflow, opts) {
                 // (run_id, payload) table. Insert an empty row so resume can proceed.
                 const fallbackRow = buildInputRow(inputTable, runId, {});
                 try {
-                    await withSqliteWriteRetry(() => db.insert(inputTable).values(fallbackRow).onConflictDoNothing(), { label: "insert fallback input row for resume" });
+                    await insertInputRowIgnore(db, adapter, inputTable, fallbackRow, "insert fallback input row for resume");
                     existingInput = await loadInput(db, inputTable, runId);
                 }
                 catch {
@@ -5498,15 +5663,7 @@ async function runWorkflowBodyLegacy(workflow, opts) {
                     issues: validation.error?.issues,
                 });
             }
-            const insertQuery = db.insert(inputTable).values(inputRow);
-            if (typeof insertQuery.onConflictDoNothing === "function") {
-                await withSqliteWriteRetry(() => db.insert(inputTable).values(inputRow).onConflictDoNothing(), { label: "insert input row" });
-            }
-            else {
-                await withSqliteWriteRetry(() => db.insert(inputTable).values(inputRow), {
-                    label: "insert input row",
-                });
-            }
+            await insertInputRowIgnore(db, adapter, inputTable, inputRow);
         }
         else {
             let existingInput = await loadInput(db, inputTable, runId);
@@ -5521,7 +5678,7 @@ async function runWorkflowBodyLegacy(workflow, opts) {
                 // (run_id, payload) table. Insert an empty row so resume can proceed.
                 const fallbackRow = buildInputRow(inputTable, runId, {});
                 try {
-                    await withSqliteWriteRetry(() => db.insert(inputTable).values(fallbackRow).onConflictDoNothing(), { label: "insert fallback input row for resume" });
+                    await insertInputRowIgnore(db, adapter, inputTable, fallbackRow, "insert fallback input row for resume");
                     existingInput = await loadInput(db, inputTable, runId);
                 }
                 catch {
@@ -6868,18 +7025,7 @@ async function runWorkflowBodyLegacy(workflow, opts) {
                 const outputTable = schema.output;
                 let output = undefined;
                 if (outputTable) {
-                    const cols = getTableColumns(outputTable);
-                    const runIdCol = cols.runId;
-                    if (runIdCol) {
-                        const rows = await db
-                            .select()
-                            .from(outputTable)
-                            .where(eq(runIdCol, runId));
-                        output = rows;
-                    }
-                    else {
-                        output = await db.select().from(outputTable);
-                    }
+                    output = await Effect.runPromise(loadRunOutputRowsEffect(db, outputTable, runId));
                 }
                 return {
                     type: "return",
