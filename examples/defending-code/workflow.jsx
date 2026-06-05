@@ -184,6 +184,20 @@ const patchAgent = agent(
 // ---------------------------------------------------------------------------
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+// Keep the first item per key. Fan-out Task ids derive from model-authored
+// strings; without this, two findings that slug to the same id would collide and
+// throw DUPLICATE_ID at graph extraction, failing the whole run. Deduping keeps
+// ids content-based (stable across the durable re-renders) and unique.
+const uniqueBy = (arr, keyOf) => {
+	const seen = new Set();
+	return arr.filter((x) => {
+		const k = keyOf(x);
+		if (seen.has(k)) return false;
+		seen.add(k);
+		return true;
+	});
+};
+
 const reconPrompt = (work) => `Recon the target program before fuzzing.
 
 Read the source at ${work}/card_parser.c and the target config at
@@ -318,16 +332,19 @@ export default smithers((ctx) => {
 	const verifies = ctx.outputs.verify ?? [];
 	const dedupe = ctx.outputMaybe("dedupe", { nodeId: "dedupe" });
 
-	const crashed = finds.filter((f) => f.crashed);
+	const crashed = uniqueBy(
+		finds.filter((f) => f.crashed),
+		(f) => slug(f.subsystemId),
+	);
 	const verifiedOk = verifies.filter((v) => v.reproduced);
-	const uniqueBugs = dedupe?.uniqueBugs ?? [];
+	const uniqueBugs = uniqueBy(dedupe?.uniqueBugs ?? [], (b) => slug(b.bugId));
 	const patch = ctx.outputMaybe("patch", { nodeId: "patch" });
 
 	return (
 		<Workflow name="defending-code">
 			<Sequence>
 				{/* 1. BUILD: compile the target with ASAN into a throwaway copy. */}
-				<Task id="build" output={outputs.build}>
+				<Task id="build" output={outputs.build} retries={0}>
 					{async () => {
 						const { execFileSync } = await import("node:child_process");
 						const { mkdirSync, rmSync, copyFileSync, existsSync } = await import(
@@ -349,6 +366,12 @@ export default smithers((ctx) => {
 							log = `${e?.stdout ?? ""}${e?.stderr ?? ""}${e?.message ?? e}`;
 							ok = false;
 						}
+						// Fail the run loudly on a broken build. Returning {ok:false}
+						// would mark this task finished, skip every gated stage, and
+						// report a misleading all-zeros success.
+						if (!ok) {
+							throw new Error(`ASAN build failed:\n${log.slice(0, 4000)}`);
+						}
 						return {
 							ok,
 							binaryPath: binary,
@@ -368,7 +391,7 @@ export default smithers((ctx) => {
 				{/* 3. FIND: one agent per subsystem, in parallel. */}
 				{recon && (
 					<Parallel maxConcurrency={FANOUT}>
-						{recon.subsystems.map((s) => (
+						{uniqueBy(recon.subsystems, (s) => slug(s.id)).map((s) => (
 							<Task
 								key={s.id}
 								id={`find-${slug(s.id)}`}
