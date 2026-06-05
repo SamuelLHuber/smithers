@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
 } from "react";
 import { createRoot } from "react-dom/client";
@@ -22,6 +23,7 @@ import { Toasts } from "./notifications/Toasts";
 import { useNotifications } from "./notifications/useNotifications";
 import { WorkflowStore } from "./store/WorkflowStore";
 import type { StoreWorkflow } from "./store/workflows";
+import { useRailWidth } from "./layout/useRailWidth";
 import "./styles.css";
 
 const PROJECTS = ["Smithers Web", "Personal", "Sandbox", "Marketing Site"] as const;
@@ -142,6 +144,10 @@ function Composer() {
       ? "sidebar"
       : "normal",
   );
+
+  // Drag-to-resize width + collapse state for the sidebar rail (sidebar layout
+  // only). Owns its own persistence; see useRailWidth.
+  const rail = useRailWidth();
 
   useEffect(() => {
     try {
@@ -279,6 +285,11 @@ function Composer() {
     const prev = prevRectRef.current;
     prevRectRef.current = next;
     if (!prev) {
+      return;
+    }
+    // When the rail collapses/expands the composer is hidden (zero-size) on one
+    // side of the transition — skip FLIP so it doesn't fly in from the corner.
+    if (next.width === 0 || prev.width === 0) {
       return;
     }
     const dx = prev.left - next.left;
@@ -702,7 +713,11 @@ function Composer() {
   );
 
   return (
-    <main className="app-shell" data-command={command} data-mode={mode}>
+    <main
+      className={rail.resizing ? "app-shell is-resizing" : "app-shell"}
+      data-command={command}
+      data-mode={mode}
+    >
       <Toasts
         notifications={notifications}
         onDismiss={dismiss}
@@ -711,7 +726,11 @@ function Composer() {
 
       {layout === "sidebar" ? (
         <>
-          <aside className="chat-rail">
+          <aside
+            className="chat-rail"
+            hidden={rail.collapsed}
+            style={{ "--rail-width": `${rail.width}px` } as CSSProperties}
+          >
             <header className="rail-head">
               <span className="rail-brand">
                 <span className="rail-dot" />
@@ -729,7 +748,30 @@ function Composer() {
             {messagesLog}
             <div className="composer-dock">{composer}</div>
           </aside>
+          {/* Always mounted, even while collapsed: if it unmounted mid-drag the
+              pointer capture would orphan and the resize gesture would never
+              end. When collapsed it tucks behind the reopen tab. */}
+          <div
+            aria-label="Resize chat panel"
+            aria-orientation="vertical"
+            className="rail-resizer"
+            role="separator"
+            onPointerDown={rail.onResizeStart}
+            onPointerMove={rail.onResizeMove}
+            onPointerUp={rail.onResizeEnd}
+            onPointerCancel={rail.onResizeEnd}
+          />
           <section className="main-canvas" data-dir={navDir} key={commandIndex}>
+            {rail.collapsed ? (
+              <button
+                aria-label="Show chat panel"
+                className="nav-button rail-restore"
+                type="button"
+                onClick={rail.expand}
+              >
+                <PanelLeftIcon />
+              </button>
+            ) : null}
             {canvas}
           </section>
         </>

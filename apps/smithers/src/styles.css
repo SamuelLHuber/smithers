@@ -1005,12 +1005,83 @@ button {
   display: flex;
   flex: none;
   flex-direction: column;
-  width: clamp(280px, 25vw, 340px);
+  /* Width is owned by the drag handle, fed in as --rail-width. A custom
+     property (not an inline width) lets the narrow-screen media query below
+     still override to 100% when the rail stacks above the canvas. */
+  width: var(--rail-width, 320px);
+  min-width: 0;
   height: 100%;
+  overflow: hidden;
   border-right: 1px solid var(--border);
   background: var(--surface-glass);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
+  transition: width 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* `.chat-rail { display: flex }` outranks the UA [hidden] rule, so collapse
+   has to re-assert display: none explicitly. */
+.chat-rail[hidden] {
+  display: none;
+}
+
+/* While dragging, lock the cursor across the whole shell, suppress text
+   selection, and drop the rail's eased transition so it tracks the pointer. */
+.app-shell.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.app-shell.is-resizing .chat-rail {
+  transition: none;
+}
+
+/* The drag handle sits on the seam between rail and canvas. Negative margins
+   straddle the 7px hit area over the border so it contributes no layout width.
+   A hairline reveals on hover (and throughout a drag) to signal it's grabbable. */
+.rail-resizer {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  width: 7px;
+  margin: 0 -3.5px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.rail-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.rail-resizer:hover::after,
+.app-shell.is-resizing .rail-resizer::after {
+  background: var(--brand);
+}
+
+/* Reopen affordance for a fully collapsed rail: a slim tab pinned to the
+   canvas's left edge, vertically centered so it never collides with a view's
+   header. Overrides the square .nav-button shape. */
+.rail-restore {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 52px;
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  z-index: 6;
+}
+
+.rail-restore:active:not(:disabled) {
+  /* Don't shrink-translate away from the edge on press. */
+  transform: translateY(-50%) scale(0.92);
 }
 
 .rail-head {
@@ -1069,8 +1140,10 @@ button {
   flex-wrap: wrap;
 }
 
-/* The main canvas holds the active view and lets it own its scroll. */
+/* The main canvas holds the active view and lets it own its scroll. position
+   is the anchor for the floating "show chat" button when the rail is shut. */
 .main-canvas {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -1103,10 +1176,16 @@ button {
 
   .chat-rail {
     flex: 1 1 55%;
+    /* Stacked vertically — ignore the dragged width. */
     width: 100%;
     height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  /* Horizontal resize is meaningless once the panes stack. */
+  .rail-resizer {
+    display: none;
   }
 
   .main-canvas {
