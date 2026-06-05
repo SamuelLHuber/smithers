@@ -2,11 +2,11 @@ import { chat, toServerSentEventsResponse } from "@tanstack/ai";
 import { openaiCompatible } from "@tanstack/ai-openai/compatible";
 import type { CloudflareEnv } from "./env";
 
-/** Cerebras' OpenAI-compatible Chat Completions endpoint. */
-const CEREBRAS_BASE_URL = "https://api.cerebras.ai/v1";
+/** Cerebras' OpenAI-compatible Chat Completions endpoint (default upstream). */
+const DEFAULT_CEREBRAS_BASE_URL = "https://api.cerebras.ai/v1";
 
 /** The Cerebras model the chat runs on — the very fast gpt-oss-120b. */
-const CEREBRAS_MODEL = "gpt-oss-120b";
+const DEFAULT_CEREBRAS_MODEL = "gpt-oss-120b";
 
 /** Most messages we will forward to Cerebras in a single request. */
 const MAX_MESSAGES = 100;
@@ -137,15 +137,17 @@ async function handleChat(request: Request, env: CloudflareEnv): Promise<Respons
   }
   const body = validation.body;
 
+  const baseURL = env.CEREBRAS_BASE_URL ?? DEFAULT_CEREBRAS_BASE_URL;
+  const model = env.CEREBRAS_MODEL ?? DEFAULT_CEREBRAS_MODEL;
   const cerebras = openaiCompatible({
     name: "cerebras",
-    baseURL: CEREBRAS_BASE_URL,
+    baseURL,
     apiKey: env.CEREBRAS_API_KEY,
-    models: [CEREBRAS_MODEL],
+    models: [model],
   });
 
   const stream = chat({
-    adapter: cerebras(CEREBRAS_MODEL),
+    adapter: cerebras(model),
     messages: body.messages,
     systemPrompts: body.system ? [body.system] : undefined,
   });
