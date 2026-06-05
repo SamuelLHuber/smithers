@@ -4,12 +4,13 @@ export type ApiChatMessage = {
 };
 
 /**
- * Stream a chat reply from the Cloudflare Worker backend (POST /api/chat). The
- * Worker runs Cerebras server-side and returns Server-Sent Events; this parses
- * those events and yields the assistant's answer one delta at a time.
+ * An SSE client for the chat backend. POSTs the conversation to /api/chat,
+ * where the Cloudflare Worker runs the model server-side and streams back
+ * Server-Sent Events. This parses those events and yields the assistant's
+ * answer one delta at a time so the UI can render as it arrives.
  *
- * Drop-in for the client-side `streamCerebrasReply` but with no API key — the
- * key lives only on the Worker. `signal` cancels the in-flight request.
+ * No API key is involved on the client: the key lives only on the Worker.
+ * `signal` cancels the in-flight request.
  */
 export async function* streamReplyViaApi({
   messages,
