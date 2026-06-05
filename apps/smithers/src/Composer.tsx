@@ -673,7 +673,11 @@ export function Composer() {
       className="conversation"
       ref={conversationRef}
       role="log"
-      aria-live="polite"
+      // role=log already implies an aria-live="polite" region, so the explicit
+      // attribute is redundant. aria-busy holds announcements while a reply
+      // streams so a screen reader reads the finished message once instead of
+      // re-announcing the whole bubble on every token.
+      aria-busy={pending || streaming}
     >
       <div className="messages">
         {messages.length === 0 && showGraph ? (
