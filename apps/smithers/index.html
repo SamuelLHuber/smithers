@@ -41,7 +41,13 @@
           meta.setAttribute("content", theme === "dark" ? DARK : LIGHT);
         }
         try {
-          var t = localStorage.getItem("smithers.theme");
+          // Resolve the theme from the persisted preferences store
+          // ("smithers.prefs" blob, written by zustand persist) before React
+          // boots, so there is no flash of the wrong mode.
+          var t;
+          try {
+            t = JSON.parse(localStorage.getItem("smithers.prefs")).state.theme;
+          } catch (e) {}
           if (t !== "light" && t !== "dark") {
             t = matchMedia("(prefers-color-scheme: dark)").matches
               ? "dark"

@@ -1,36 +1,13 @@
 import {
-  useCallback,
-  useEffect,
   useRef,
-  useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-
-export type CommandId = "chat" | "askme" | "store";
-
-export type Command = {
-  id: CommandId;
-  label: string;
-  color: string;
-  hint: string;
-};
-
-export const COMMANDS: Command[] = [
-  { id: "chat", label: "Chat", color: "#356fd2", hint: "Talk to Smithers" },
-  {
-    id: "askme",
-    label: "Ask Me",
-    color: "#6d56d8",
-    hint: "Smithers grills you to sharpen an idea",
-  },
-  {
-    id: "store",
-    label: "Store",
-    color: "#bf5b16",
-    hint: "Browse the workflow app store",
-  },
-];
+import { goToView } from "./app/navigation";
+import { useRouteStore } from "./app/routeStore";
+import { useUiStore } from "./app/uiStore";
+import { COMMANDS, type CommandId } from "./commands";
+import { MenuBackdrop } from "./components/MenuBackdrop";
 
 const ChevronDown = () => (
   <svg aria-hidden="true" className="chevron" fill="none" viewBox="0 0 24 24">
@@ -44,67 +21,41 @@ const ChevronDown = () => (
   </svg>
 );
 
-/** A colored dropdown pill that selects the active command/view. */
-export function CommandMenu({
-  active,
-  onSelect,
-}: {
-  active: CommandId;
-  onSelect: (id: CommandId) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+/** Focus the checked item on open, else the first (APG menu pattern). */
+function focusChecked(menu: HTMLDivElement | null): void {
+  if (!menu) {
+    return;
+  }
+  const items = Array.from(
+    menu.querySelectorAll<HTMLElement>('[role^="menuitem"]'),
+  );
+  const checked = items.find((item) => item.getAttribute("aria-checked") === "true");
+  (checked ?? items[0])?.focus();
+}
+
+/** A colored dropdown pill that selects the active view. */
+export function CommandMenu() {
+  const view = useRouteStore((state) => state.view);
+  const open = useUiStore((state) => state.openMenuId === "command");
+  const toggleMenu = useUiStore((state) => state.toggleMenu);
+  const setOpenMenu = useUiStore((state) => state.setOpenMenu);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // Close the menu and hand focus back to the trigger, per the APG menu pattern.
-  const close = useCallback(() => {
-    setOpen(false);
+  const active: CommandId = view === "home" ? "chat" : view;
+  const current = COMMANDS.find((command) => command.id === active) ?? COMMANDS[0];
+
+  const close = (): void => {
+    setOpenMenu(null);
     triggerRef.current?.focus();
-  }, []);
+  };
 
-  useEffect(() => {
-    if (!open) {
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === "Escape") {
+      close();
       return;
     }
-    const onPointerDown = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) {
-        close();
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        close();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, close]);
-
-  // On open, move focus into the menu: the checked item if present, else the first.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const items = listRef.current?.querySelectorAll<HTMLElement>(
-      '[role^="menuitem"]',
-    );
-    if (!items || items.length === 0) {
-      return;
-    }
-    const checked = Array.from(items).find(
-      (item) => item.getAttribute("aria-checked") === "true",
-    );
-    (checked ?? items[0]).focus();
-  }, [open]);
-
-  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(
-      listRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [],
+      event.currentTarget.querySelectorAll<HTMLElement>('[role^="menuitem"]'),
     );
     if (items.length === 0) {
       return;
@@ -131,10 +82,8 @@ export function CommandMenu({
     items[nextIndex].focus();
   };
 
-  const current = COMMANDS.find((command) => command.id === active) ?? COMMANDS[0];
-
   return (
-    <div className="command-menu" ref={ref}>
+    <div className="command-menu">
       <button
         aria-expanded={open}
         aria-haspopup="menu"
@@ -142,7 +91,7 @@ export function CommandMenu({
         ref={triggerRef}
         style={{ "--cmd-color": current.color } as CSSProperties}
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => toggleMenu("command")}
       >
         <span className="command-dot" />
         <span>{current.label}</span>
@@ -150,49 +99,52 @@ export function CommandMenu({
       </button>
 
       {open ? (
-        <div
-          className="command-list"
-          ref={listRef}
-          role="menu"
-          onKeyDown={onMenuKeyDown}
-        >
-          {COMMANDS.map((command) => (
-            <button
-              aria-checked={command.id === active}
-              className="command-option"
-              key={command.id}
-              role="menuitemradio"
-              style={{ "--cmd-color": command.color } as CSSProperties}
-              type="button"
-              onClick={() => {
-                onSelect(command.id);
-                close();
-              }}
-            >
-              <span className="command-dot" />
-              <span className="command-text">
-                <span className="command-label">{command.label}</span>
-                <span className="command-hint">{command.hint}</span>
-              </span>
-              {command.id === active ? (
-                <svg
-                  aria-hidden="true"
-                  className="check"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="m5 13 4 4L19 7"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                  />
-                </svg>
-              ) : null}
-            </button>
-          ))}
-        </div>
+        <>
+          <MenuBackdrop />
+          <div
+            className="command-list"
+            ref={focusChecked}
+            role="menu"
+            onKeyDown={onMenuKeyDown}
+          >
+            {COMMANDS.map((command) => (
+              <button
+                aria-checked={command.id === active}
+                className="command-option"
+                key={command.id}
+                role="menuitemradio"
+                style={{ "--cmd-color": command.color } as CSSProperties}
+                type="button"
+                onClick={() => {
+                  goToView(command.id === "chat" ? "home" : command.id);
+                  close();
+                }}
+              >
+                <span className="command-dot" />
+                <span className="command-text">
+                  <span className="command-label">{command.label}</span>
+                  <span className="command-hint">{command.hint}</span>
+                </span>
+                {command.id === active ? (
+                  <svg
+                    aria-hidden="true"
+                    className="check"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="m5 13 4 4L19 7"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
     </div>
   );

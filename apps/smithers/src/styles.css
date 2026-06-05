@@ -401,6 +401,18 @@ button {
   position: relative;
 }
 
+/* Full-viewport click-catcher behind an open menu (see MenuBackdrop). Sits
+   under every menu's z-index so a click outside lands here and closes it. */
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+
 .project-menu {
   position: absolute;
   bottom: calc(100% + 8px);
