@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 export type CommandId = "chat" | "askme" | "store";
 
@@ -47,6 +54,14 @@ export function CommandMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Close the menu and hand focus back to the trigger, per the APG menu pattern.
+  const close = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -54,12 +69,12 @@ export function CommandMenu({
     }
     const onPointerDown = (event: PointerEvent) => {
       if (!ref.current?.contains(event.target as Node)) {
-        setOpen(false);
+        close();
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setOpen(false);
+        close();
       }
     };
     document.addEventListener("pointerdown", onPointerDown);
@@ -68,7 +83,53 @@ export function CommandMenu({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
+  }, [open, close]);
+
+  // On open, move focus into the menu: the checked item if present, else the first.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const items = listRef.current?.querySelectorAll<HTMLElement>(
+      '[role^="menuitem"]',
+    );
+    if (!items || items.length === 0) {
+      return;
+    }
+    const checked = Array.from(items).find(
+      (item) => item.getAttribute("aria-checked") === "true",
+    );
+    (checked ?? items[0]).focus();
   }, [open]);
+
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(
+      listRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [],
+    );
+    if (items.length === 0) {
+      return;
+    }
+    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+    let nextIndex: number | null = null;
+    switch (event.key) {
+      case "ArrowDown":
+        nextIndex = (currentIndex + 1) % items.length;
+        break;
+      case "ArrowUp":
+        nextIndex = (currentIndex - 1 + items.length) % items.length;
+        break;
+      case "Home":
+        nextIndex = 0;
+        break;
+      case "End":
+        nextIndex = items.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    items[nextIndex].focus();
+  };
 
   const current = COMMANDS.find((command) => command.id === active) ?? COMMANDS[0];
 
@@ -78,6 +139,7 @@ export function CommandMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         className="command-pill"
+        ref={triggerRef}
         style={{ "--cmd-color": current.color } as CSSProperties}
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -88,7 +150,12 @@ export function CommandMenu({
       </button>
 
       {open ? (
-        <div className="command-list" role="menu">
+        <div
+          className="command-list"
+          ref={listRef}
+          role="menu"
+          onKeyDown={onMenuKeyDown}
+        >
           {COMMANDS.map((command) => (
             <button
               aria-checked={command.id === active}
@@ -99,7 +166,7 @@ export function CommandMenu({
               type="button"
               onClick={() => {
                 onSelect(command.id);
-                setOpen(false);
+                close();
               }}
             >
               <span className="command-dot" />
