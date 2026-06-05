@@ -1,7 +1,7 @@
 // smithers-source: authored
 // smithers-display-name: Open Code Review
 /** @jsxImportSource smithers-orchestrator */
-import { createSmithers, Sequence, type AgentLike } from "smithers-orchestrator";
+import { createSmithers, Parallel, Sequence, type AgentLike } from "smithers-orchestrator";
 import { agents } from "../agents";
 import {
   buildNativeReviewPrompt,
@@ -32,6 +32,8 @@ export function createOpenCodeReviewWorkflow(reviewAgents: AgentLike[] = agents.
   return smithers((ctx) => {
     const input = normalizeOpenCodeReviewInput(ctx.input);
     const prepared = ctx.outputMaybe(outputs.reviewPrompt, { nodeId: "prepare-review" });
+    const reviewFiles = prepared?.files ?? [];
+    const reviewFileIds = reviewFiles.map((file) => file.id);
     return (
       <Workflow name="open-code-review">
         <Sequence>
@@ -51,27 +53,37 @@ export function createOpenCodeReviewWorkflow(reviewAgents: AgentLike[] = agents.
             }}
           </Task>
 
-          <Task
-            id="review-agent"
-            output={outputs.agentReview}
-            agent={reviewAgents}
-            dependsOn={["prepare-review"]}
-            skipIf={prepared ? !prepared.shouldReview : false}
-            timeoutMs={input.timeout * 60_000}
-            heartbeatTimeoutMs={Math.max(60_000, Math.min(input.timeout * 60_000, 600_000))}
-            noRetry
-          >
-            {prepared?.prompt ?? "Review prompt is not ready yet."}
-          </Task>
+          {prepared?.shouldReview ? (
+            <Parallel maxConcurrency={input.concurrency}>
+              {reviewFiles.map((file) => (
+                <Task
+                  key={file.id}
+                  id={file.id}
+                  output={outputs.agentReview}
+                  agent={reviewAgents}
+                  dependsOn={["prepare-review"]}
+                  timeoutMs={input.timeout * 60_000}
+                  heartbeatTimeoutMs={Math.max(60_000, Math.min(input.timeout * 60_000, 600_000))}
+                  continueOnFail
+                  noRetry
+                >
+                  {file.prompt}
+                </Task>
+              ))}
+            </Parallel>
+          ) : null}
 
-          <Task id="review" output={outputs.review} dependsOn={["prepare-review", "review-agent"]} noRetry>
+          <Task id="review" output={outputs.review} dependsOn={["prepare-review", ...reviewFileIds]} noRetry>
             {() => {
               const preview = ctx.outputMaybe(outputs.preview, { nodeId: "preview" });
               const reviewPrompt = ctx.outputMaybe(outputs.reviewPrompt, { nodeId: "prepare-review" });
-              const agentReview = ctx.outputMaybe(outputs.agentReview, { nodeId: "review-agent" });
               if (!preview) throw new Error("preview did not complete");
               if (!reviewPrompt) throw new Error("review prompt did not complete");
-              return finalizeNativeReview(input, reviewPrompt, preview, agentReview);
+              const fileResults = reviewPrompt.files.map((file) => ({
+                file,
+                output: ctx.outputMaybe(outputs.agentReview, { nodeId: file.id }),
+              }));
+              return finalizeNativeReview(input, reviewPrompt, preview, fileResults);
             }}
           </Task>
 

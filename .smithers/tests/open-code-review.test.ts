@@ -50,6 +50,7 @@ function input(repo: string, overrides: Partial<OpenCodeReviewInput> = {}): Open
     commit: "",
     background: "",
     rule: "",
+    concurrency: 8,
     timeout: 10,
     runReview: true,
     ...overrides,
@@ -80,53 +81,90 @@ describe("OpenCodeReview compatibility helpers", () => {
 
     expect(prepared.shouldReview).toBe(true);
     expect(prepared.reviewableFiles).toBe(1);
-    expect(prepared.prompt).toContain("Smithers native code-review agent");
-    expect(prepared.prompt).toContain("Requirement background: security pass");
-    expect(prepared.prompt).toContain("## File: src/app.ts");
-    expect(prepared.prompt).not.toContain("## File: src/app.test.ts");
-    expect(prepared.prompt).toContain("Return only structured data matching the Smithers output schema.");
+    expect(prepared.files).toHaveLength(1);
+    expect(prepared.files[0].id).toMatch(/^review-file-1-src-app-ts$/);
+    expect(prepared.files[0].prompt).toContain("OpenCodeReview per-file review flow");
+    expect(prepared.files[0].prompt).toContain("Requirement background: security pass");
+    expect(prepared.files[0].prompt).toContain("Current file path: src/app.ts");
+    expect(prepared.files[0].prompt).not.toContain("Current file path: src/app.test.ts");
+    expect(prepared.files[0].prompt).toContain("Return only structured data matching the Smithers output schema.");
   });
 
-  test("native review finalizer normalizes output and drops out-of-scope comments", async () => {
+  test("native review prompt creates one Smithers review task per reviewable file", async () => {
     const repo = tempRepo();
     write(join(repo, "src/app.ts"), "export const value = 1;\nexport const next = 2;\n");
+    write(join(repo, "src/other.ts"), "export const other = 3;\n");
+
+    const reviewInput = input(repo);
+    const preview = await previewOpenCodeReview(reviewInput);
+    const prepared = await buildNativeReviewPrompt(reviewInput, preview);
+
+    expect(prepared.files.map((file) => file.path).sort()).toEqual(["src/app.ts", "src/other.ts"]);
+    expect(prepared.files.find((file) => file.path === "src/app.ts")?.prompt).toContain("ADDED   src/other.ts");
+    expect(prepared.files.find((file) => file.path === "src/other.ts")?.prompt).toContain("MODIFIED   src/app.ts");
+  });
+
+  test("native review finalizer aggregates per-file outputs, injects paths, resolves lines, and drops out-of-scope comments", async () => {
+    const repo = tempRepo();
+    write(join(repo, "src/app.ts"), "export const value = 1;\nexport const next = 2;\n");
+    write(join(repo, "src/other.ts"), "export const other = 3;\n");
     write(join(repo, "src/app.test.ts"), "test('x', () => {});\n");
 
     const reviewInput = input(repo);
     const preview = await previewOpenCodeReview(reviewInput);
     const prepared = await buildNativeReviewPrompt(reviewInput, preview);
-    const finalized = finalizeNativeReview(reviewInput, prepared, preview, {
-      status: "success",
-      message: "",
-      summary: { filesReviewed: 99, comments: 99, totalTokens: 123, inputTokens: 100, outputTokens: 23, elapsed: "1s" },
-      comments: [
-        {
-          path: "src/app.ts",
-          content: "Check this.",
-          suggestionCode: "safe();",
-          existingCode: "unsafe();",
-          startLine: 4,
-          endLine: 4,
-          thinking: "",
+    const appFile = prepared.files.find((file) => file.path === "src/app.ts")!;
+    const otherFile = prepared.files.find((file) => file.path === "src/other.ts")!;
+    const finalized = finalizeNativeReview(reviewInput, prepared, preview, [
+      {
+        file: appFile,
+        output: {
+          status: "success",
+          message: "",
+          summary: { filesReviewed: 1, comments: 2, totalTokens: 123, inputTokens: 100, outputTokens: 23, elapsed: "1s" },
+          comments: [
+            {
+              path: "",
+              content: "Check this.",
+              suggestionCode: "safe();",
+              existingCode: "export const next = 2;",
+              startLine: 0,
+              endLine: 0,
+              thinking: "",
+            },
+            {
+              path: "src/app.test.ts",
+              content: "Out of scope.",
+              suggestionCode: "",
+              existingCode: "",
+              startLine: 1,
+              endLine: 1,
+              thinking: "",
+            },
+          ],
+          warnings: [],
         },
-        {
-          path: "src/app.test.ts",
-          content: "Out of scope.",
-          suggestionCode: "",
-          existingCode: "",
-          startLine: 1,
-          endLine: 1,
-          thinking: "",
+      },
+      {
+        file: otherFile,
+        output: {
+          status: "success",
+          message: "",
+          summary: { filesReviewed: 1, comments: 0, totalTokens: 7, inputTokens: 4, outputTokens: 3, elapsed: "1s" },
+          comments: [],
+          warnings: [],
         },
-      ],
-      warnings: [],
-    });
+      },
+    ]);
 
     expect(finalized.status).toBe("completed_with_warnings");
-    expect(finalized.summary?.filesReviewed).toBe(1);
-    expect(finalized.summary?.totalTokens).toBe(123);
+    expect(finalized.summary?.filesReviewed).toBe(2);
+    expect(finalized.summary?.totalTokens).toBe(130);
     expect(finalized.comments).toHaveLength(1);
+    expect(finalized.comments[0].path).toBe("src/app.ts");
     expect(finalized.comments[0].suggestionCode).toBe("safe();");
+    expect(finalized.comments[0].startLine).toBe(2);
+    expect(finalized.comments[0].endLine).toBe(2);
     expect(finalized.warnings[0].type).toBe("out_of_scope_comment");
   });
 

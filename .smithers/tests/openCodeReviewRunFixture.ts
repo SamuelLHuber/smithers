@@ -24,7 +24,6 @@ const fakeReviewAgent: AgentLike = {
         summary: { filesReviewed: 1, comments: 1, totalTokens: 321, inputTokens: 300, outputTokens: 21, elapsed: "1s" },
         comments: [
           {
-            path: "src/app.ts",
             content: "Guard against null before trimming.",
             existingCode: "return value!.trim().toUpperCase();",
             suggestionCode: "if (value == null) return \"\";\nreturn value.trim().toUpperCase();",

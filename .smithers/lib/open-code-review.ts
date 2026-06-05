@@ -117,6 +117,7 @@ export const openCodeReviewInputSchema = z.object({
   commit: z.string().default(""),
   background: z.string().default(""),
   rule: z.string().default(""),
+  concurrency: z.number().int().positive().default(8),
   timeout: z.number().int().positive().default(10),
   runReview: z.boolean().default(true),
 });
@@ -152,7 +153,7 @@ export const previewOutputSchema = z.object({
 export type PreviewOutput = z.infer<typeof previewOutputSchema>;
 
 export const reviewCommentSchema = z.object({
-  path: z.string(),
+  path: z.string().default(""),
   content: z.string().default(""),
   suggestionCode: z.string().default(""),
   existingCode: z.string().default(""),
@@ -189,6 +190,18 @@ export const reviewRunOutputSchema = z.object({
 
 export type ReviewRunOutput = z.infer<typeof reviewRunOutputSchema>;
 
+export const nativeReviewFileSchema = z.object({
+  id: z.string(),
+  path: z.string(),
+  status: z.string(),
+  insertions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+  diff: z.string(),
+  prompt: z.string(),
+});
+
+export type NativeReviewFile = z.infer<typeof nativeReviewFileSchema>;
+
 export const nativeReviewPromptSchema = z.object({
   shouldReview: z.boolean(),
   repoDir: z.string(),
@@ -196,7 +209,7 @@ export const nativeReviewPromptSchema = z.object({
   ref: z.string(),
   reviewableFiles: z.number().int().nonnegative(),
   excludedFiles: z.number().int().nonnegative(),
-  prompt: z.string(),
+  files: z.array(nativeReviewFileSchema).default([]),
   message: z.string().default(""),
 });
 
@@ -244,6 +257,27 @@ type DiffRecord = {
 type FileFilter = {
   include: string[];
   exclude: string[];
+};
+
+type NativeReviewFileResult = {
+  file: NativeReviewFile;
+  output?: NativeReviewAgentOutput | null;
+};
+
+type HunkLine = {
+  type: "context" | "added" | "deleted";
+  content: string;
+};
+
+type Hunk = {
+  oldStart: number;
+  newStart: number;
+  lines: HunkLine[];
+};
+
+type IndexedLine = {
+  lineNum: number;
+  content: string;
 };
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -648,17 +682,80 @@ function reviewableDiffs(diffs: DiffRecord[], filter: FileFilter | null) {
   return diffs.filter((diff) => whyExcluded(diff, filter) === "" && !diff.isDeleted);
 }
 
-function renderDiffBlock(diff: DiffRecord, otherChangedFiles: string[]) {
+export function reviewFileTaskId(path: string, index: number) {
+  const slug = path
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 72);
+  return `review-file-${index + 1}-${slug || "file"}`;
+}
+
+function changedFileLine(diff: DiffRecord) {
+  const status =
+    diff.isNew
+      ? "ADDED"
+      : diff.isDeleted
+        ? "DELETED"
+        : diff.oldPath !== diff.newPath
+          ? "RENAMED"
+          : "MODIFIED";
+  return `${status}   ${effectivePath(diff)}`;
+}
+
+function otherChangedFiles(diffs: DiffRecord[], currentPath: string) {
+  const lines = diffs
+    .filter((diff) => !diff.isBinary)
+    .filter((diff) => diff.newPath !== currentPath && diff.oldPath !== currentPath)
+    .map(changedFileLine);
+  return lines.length > 0 ? lines.join("\n") : "none";
+}
+
+function renderFileReviewPrompt(target: ReviewTarget, input: OpenCodeReviewInput, diff: DiffRecord, allDiffs: DiffRecord[]) {
   const path = effectivePath(diff);
-  const otherFiles = otherChangedFiles.filter((file) => file !== path);
+  const changeLines = diff.insertions + diff.deletions;
+  const planGuidance =
+    changeLines >= 50
+      ? "This file has a larger diff. First internally identify risk points before deciding whether to emit comments."
+      : "This file is below the larger-diff planning threshold; review directly and emit only confirmed findings.";
+  const background = input.background.trim() || "No additional requirement background was provided.";
   return [
-    `## File: ${path}`,
-    `Status: ${diffStatus(diff)}`,
+    "You are a Smithers native code-review agent following the OpenCodeReview per-file review flow.",
+    "",
+    "Role and scope:",
+    "- Review only the current file diff below.",
+    "- Focus on newly added or modified code in the unified diff.",
+    "- Deleted and unchanged lines are context only.",
+    "- Do not comment on other files; the other changed files list is context only.",
+    "- If another file suggests a concern, only emit a comment when the actual issue is in the current file diff.",
+    "- Prefer high-signal correctness, security, data-loss, crash, performance, and maintainability findings.",
+    "- Avoid style-only comments unless there is concrete impact.",
+    "",
+    "Output contract:",
+    "- Return only structured data matching the Smithers output schema.",
+    "- Comments may omit path; Smithers will attach the current file path.",
+    "- Include existingCode for the smallest contiguous snippet related to the issue.",
+    "- Include suggestionCode when a concrete replacement is useful.",
+    "- Include startLine/endLine in the new file when you can identify them; Smithers will attempt deterministic fallback matching from existingCode.",
+    "- If there are no findings, return status \"success\", message \"No comments generated. Looks good to me.\", and an empty comments array.",
+    "",
+    `Repository: ${target.repoDir}`,
+    `Review mode: ${target.mode}`,
+    `Review ref: ${target.ref}`,
+    `Current file path: ${path}`,
+    `Current file status: ${diffStatus(diff)}`,
     `Changed lines: +${diff.insertions} -${diff.deletions}`,
+    `Requirement background: ${background}`,
+    "",
     "Other changed files:",
-    otherFiles.length > 0 ? otherFiles.map((file) => `- ${file}`).join("\n") : "- none",
+    otherChangedFiles(allDiffs, path),
+    "",
     "Review checklist:",
     reviewChecklistForPath(path),
+    "",
+    "Review plan guidance:",
+    planGuidance,
+    "",
     "Unified diff:",
     "```diff",
     trimForPrompt(diff.diff),
@@ -677,7 +774,7 @@ export async function buildNativeReviewPrompt(input: OpenCodeReviewInput, previe
       ref: target.ref,
       reviewableFiles: preview.reviewableCount,
       excludedFiles: preview.excludedCount,
-      prompt: "",
+      files: [],
       message: "Review execution disabled by input.runReview.",
     });
   }
@@ -689,13 +786,14 @@ export async function buildNativeReviewPrompt(input: OpenCodeReviewInput, previe
       ref: target.ref,
       reviewableFiles: 0,
       excludedFiles: preview.excludedCount,
-      prompt: "",
+      files: [],
       message: "No supported files changed.",
     });
   }
 
   const filter = buildFileFilter(target.repoDir, input.rule.trim());
-  const diffs = reviewableDiffs(await loadDiffs(target.repoDir, input), filter);
+  const allDiffs = await loadDiffs(target.repoDir, input);
+  const diffs = reviewableDiffs(allDiffs, filter);
   if (diffs.length === 0) {
     return nativeReviewPromptSchema.parse({
       shouldReview: false,
@@ -704,40 +802,23 @@ export async function buildNativeReviewPrompt(input: OpenCodeReviewInput, previe
       ref: target.ref,
       reviewableFiles: 0,
       excludedFiles: preview.excludedCount,
-      prompt: "",
+      files: [],
       message: "No supported files changed.",
     });
   }
 
-  const changedFiles = preview.entries.map((entry) => entry.path);
-  const background = input.background.trim() || "No additional requirement background was provided.";
-  const fileBlocks = diffs.map((diff) => renderDiffBlock(diff, changedFiles));
-  const prompt = [
-    "You are a Smithers native code-review agent.",
-    "Review the supplied unified diffs and produce structured review comments.",
-    "",
-    "Scope rules:",
-    "- Focus on newly added or modified code in the diffs.",
-    "- Do not comment on deleted code except as context for a changed line.",
-    "- Do not comment on unchanged code or files outside the reviewable file set.",
-    "- If context from another file suggests a problem, only comment when the issue is in one of the supplied diffs.",
-    "- Prefer high-signal findings: correctness, security, data loss, crashes, performance regressions, and maintainability issues with concrete impact.",
-    "- Avoid style-only comments unless they identify a real bug or substantial maintainability risk.",
-    "",
-    "Output contract:",
-    "- Return only structured data matching the Smithers output schema.",
-    "- Each comment must include path, content, existingCode, suggestionCode when useful, and startLine/endLine in the new file when you can identify them.",
-    "- If there are no findings, return an empty comments array, status \"success\", and message \"No comments generated. Looks good to me.\"",
-    "- Use warnings only for files you could not review or relevant uncertainty that affects the result.",
-    "",
-    `Repository: ${target.repoDir}`,
-    `Review mode: ${target.mode}`,
-    `Review ref: ${target.ref}`,
-    `Requirement background: ${background}`,
-    "",
-    `Reviewable files: ${diffs.length}`,
-    fileBlocks.join("\n\n"),
-  ].join("\n");
+  const files = diffs.map((diff, index) => {
+    const path = effectivePath(diff);
+    return {
+      id: reviewFileTaskId(path, index),
+      path,
+      status: diffStatus(diff),
+      insertions: diff.insertions,
+      deletions: diff.deletions,
+      diff: diff.diff,
+      prompt: renderFileReviewPrompt(target, input, diff, allDiffs),
+    };
+  });
 
   return nativeReviewPromptSchema.parse({
     shouldReview: true,
@@ -746,7 +827,7 @@ export async function buildNativeReviewPrompt(input: OpenCodeReviewInput, previe
     ref: target.ref,
     reviewableFiles: diffs.length,
     excludedFiles: preview.excludedCount,
-    prompt,
+    files,
     message: `Prepared native review for ${diffs.length} file(s).`,
   });
 }
@@ -764,12 +845,101 @@ function skippedReviewOutput(prepared: NativeReviewPrompt): ReviewRunOutput {
   });
 }
 
-function normalizedComment(comment: z.infer<typeof reviewCommentSchema>) {
+function parseHunks(diffText: string): Hunk[] {
+  const hunks: Hunk[] = [];
+  let current: Hunk | null = null;
+  for (const line of diffText.split("\n")) {
+    const header = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+    if (header) {
+      current = { oldStart: Number(header[1]), newStart: Number(header[2]), lines: [] };
+      hunks.push(current);
+      continue;
+    }
+    if (!current) continue;
+    if (line.startsWith("+") && !line.startsWith("+++")) {
+      current.lines.push({ type: "added", content: line.slice(1) });
+    } else if (line.startsWith("-") && !line.startsWith("---")) {
+      current.lines.push({ type: "deleted", content: line.slice(1) });
+    } else if (line.startsWith(" ")) {
+      current.lines.push({ type: "context", content: line.slice(1) });
+    }
+  }
+  return hunks;
+}
+
+function normalizeCodeLine(value: string) {
+  return value.trim().replace(/^[+-]/, "").trim();
+}
+
+function splitAndNormalizeCode(value: string) {
+  return value
+    .split("\n")
+    .map(normalizeCodeLine)
+    .filter(Boolean);
+}
+
+function extractSideLines(hunk: Hunk, newSide: boolean): IndexedLine[] {
+  const result: IndexedLine[] = [];
+  let oldLine = hunk.oldStart;
+  let newLine = hunk.newStart;
+  for (const line of hunk.lines) {
+    if (line.type === "context") {
+      result.push({ lineNum: newSide ? newLine : oldLine, content: normalizeCodeLine(line.content) });
+      oldLine += 1;
+      newLine += 1;
+    } else if (line.type === "added") {
+      if (newSide) result.push({ lineNum: newLine, content: normalizeCodeLine(line.content) });
+      newLine += 1;
+    } else {
+      if (!newSide) result.push({ lineNum: oldLine, content: normalizeCodeLine(line.content) });
+      oldLine += 1;
+    }
+  }
+  return result;
+}
+
+function matchConsecutive(sideLines: IndexedLine[], targetLines: string[]) {
+  if (targetLines.length === 0 || sideLines.length < targetLines.length) return null;
+  for (let i = 0; i <= sideLines.length - targetLines.length; i += 1) {
+    let matched = true;
+    for (let j = 0; j < targetLines.length; j += 1) {
+      if (sideLines[i + j].content !== targetLines[j]) {
+        matched = false;
+        break;
+      }
+    }
+    if (matched) {
+      return {
+        startLine: sideLines[i].lineNum,
+        endLine: sideLines[i + targetLines.length - 1].lineNum,
+      };
+    }
+  }
+  return null;
+}
+
+function resolveCommentLineNumbers(comment: z.infer<typeof reviewCommentSchema>, diffText: string) {
+  if (comment.startLine > 0 || comment.endLine > 0 || !comment.existingCode.trim()) return comment;
+  const targetLines = splitAndNormalizeCode(comment.existingCode);
+  if (targetLines.length === 0) return comment;
+  const hunks = parseHunks(diffText);
+  for (const hunk of hunks) {
+    const match = matchConsecutive(extractSideLines(hunk, true), targetLines);
+    if (match) return { ...comment, ...match };
+  }
+  for (const hunk of hunks) {
+    const match = matchConsecutive(extractSideLines(hunk, false), targetLines);
+    if (match) return { ...comment, ...match };
+  }
+  return comment;
+}
+
+function normalizedComment(comment: z.infer<typeof reviewCommentSchema>, defaultPath: string) {
   const startLine = Math.max(0, comment.startLine || 0);
   const endLine = Math.max(startLine, comment.endLine || startLine);
   return {
     ...comment,
-    path: comment.path.trim(),
+    path: comment.path.trim() || defaultPath,
     content: comment.content.trim(),
     suggestionCode: comment.suggestionCode.trim(),
     existingCode: comment.existingCode.trim(),
@@ -783,32 +953,71 @@ export function finalizeNativeReview(
   input: OpenCodeReviewInput,
   prepared: NativeReviewPrompt,
   preview: PreviewOutput,
-  agentOutput?: NativeReviewAgentOutput | null,
+  fileResults: NativeReviewFileResult[] | NativeReviewAgentOutput | NativeReviewAgentOutput[] | null | undefined,
 ): ReviewRunOutput {
   input = normalizeOpenCodeReviewInput(input);
   prepared = nativeReviewPromptSchema.parse(prepared);
   if (!prepared.shouldReview || !input.runReview) return skippedReviewOutput(prepared);
 
-  if (!agentOutput) {
-    return reviewRunOutputSchema.parse({
-      status: "failed",
-      ok: false,
-      reviewer: "smithers-native",
-      message: "Native Smithers review did not produce output.",
-      summary: null,
-      comments: [],
-      warnings: [],
-      error: "review-agent output was missing.",
-    });
+  const results: NativeReviewFileResult[] =
+    Array.isArray(fileResults)
+      ? fileResults.map((entry, index) => {
+          if (isPlainRecord(entry) && "file" in entry) return entry as NativeReviewFileResult;
+          return { file: prepared.files[index], output: entry as NativeReviewAgentOutput };
+        }).filter((entry) => entry.file)
+      : fileResults && isPlainRecord(fileResults) && "file" in fileResults
+        ? [fileResults as NativeReviewFileResult]
+        : fileResults
+          ? prepared.files.length === 1
+            ? [{ file: prepared.files[0], output: fileResults as NativeReviewAgentOutput }]
+            : []
+          : [];
+
+  const byFileId = new Map(results.map((result) => [result.file.id, result]));
+  const orderedResults = prepared.files.map((file) => byFileId.get(file.id) ?? { file, output: null });
+
+  const reviewablePaths = new Set(preview.entries.filter((entry) => entry.willReview).map((entry) => entry.path));
+  const warnings: Array<z.infer<typeof warningSchema>> = [];
+  const comments: Array<z.infer<typeof reviewCommentSchema>> = [];
+  let totalTokens = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let failedFiles = 0;
+  let explicitFailure = false;
+
+  for (const result of orderedResults) {
+    if (!result.output) {
+      failedFiles += 1;
+      warnings.push({
+        file: result.file.path,
+        type: "subtask_error",
+        message: "Native Smithers file review did not produce output.",
+      });
+      continue;
+    }
+    const parsed = nativeReviewAgentOutputSchema.parse(result.output);
+    if (parsed.status === "failed") {
+      explicitFailure = true;
+      failedFiles += 1;
+      warnings.push({
+        file: result.file.path,
+        type: "subtask_error",
+        message: parsed.message || "Native Smithers file review failed.",
+      });
+    }
+    warnings.push(...parsed.warnings);
+    totalTokens += parsed.summary?.totalTokens ?? 0;
+    inputTokens += parsed.summary?.inputTokens ?? 0;
+    outputTokens += parsed.summary?.outputTokens ?? 0;
+    comments.push(
+      ...parsed.comments
+        .map((comment) => normalizedComment(comment, result.file.path))
+        .map((comment) => resolveCommentLineNumbers(comment, result.file.diff)),
+    );
   }
 
-  const parsed = nativeReviewAgentOutputSchema.parse(agentOutput);
-  const reviewablePaths = new Set(preview.entries.filter((entry) => entry.willReview).map((entry) => entry.path));
-  const comments = parsed.comments
-    .map(normalizedComment)
-    .filter((comment) => comment.content && reviewablePaths.has(comment.path));
-  const droppedComments = parsed.comments.length - comments.length;
-  const warnings = [...parsed.warnings];
+  const scopedComments = comments.filter((comment) => comment.content && reviewablePaths.has(comment.path));
+  const droppedComments = comments.length - scopedComments.length;
   if (droppedComments > 0) {
     warnings.push({
       file: "",
@@ -819,31 +1028,31 @@ export function finalizeNativeReview(
 
   const summary = reviewSummarySchema.parse({
     filesReviewed: prepared.reviewableFiles,
-    comments: comments.length,
-    totalTokens: parsed.summary?.totalTokens ?? 0,
-    inputTokens: parsed.summary?.inputTokens ?? 0,
-    outputTokens: parsed.summary?.outputTokens ?? 0,
-    elapsed: parsed.summary?.elapsed ?? "",
+    comments: scopedComments.length,
+    totalTokens,
+    inputTokens,
+    outputTokens,
+    elapsed: "",
   });
   const status =
-    parsed.status === "failed"
+    failedFiles >= prepared.files.length || explicitFailure && prepared.files.length === 1
       ? "failed"
-      : parsed.status === "success" && warnings.length > 0
+      : warnings.length > 0
         ? "completed_with_warnings"
-        : parsed.status;
+        : "success";
 
   return reviewRunOutputSchema.parse({
     status,
     ok: status !== "failed",
     reviewer: "smithers-native",
-    message:
-      parsed.message ||
-      (comments.length > 0
-        ? `Reviewed ${prepared.reviewableFiles} file(s) and produced ${comments.length} comment(s).`
-        : "No comments generated. Looks good to me."),
+    message: status === "failed"
+      ? `All ${prepared.files.length} file review(s) failed.`
+      : scopedComments.length > 0
+        ? `Reviewed ${prepared.reviewableFiles} file(s) and produced ${scopedComments.length} comment(s).`
+        : "No comments generated. Looks good to me.",
     summary,
-    comments,
+    comments: scopedComments,
     warnings,
-    error: status === "failed" ? parsed.message || "Native Smithers review failed." : "",
+    error: status === "failed" ? "Native Smithers review failed." : "",
   });
 }
