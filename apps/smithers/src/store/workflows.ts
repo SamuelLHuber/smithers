@@ -1,4 +1,4 @@
-import type { CommandId } from "../CommandMenu";
+import type { CommandId } from "../commands";
 
 export type StoreWorkflow = {
   id: string;
