@@ -24,6 +24,7 @@ import { EventBus } from "./events.js";
 import { AgentTraceCollector } from "./AgentTraceCollector.js";
 import { getJjPointer, runJj, workspaceAdd } from "@smithers-orchestrator/vcs/jj";
 import { findVcsRoot } from "@smithers-orchestrator/vcs/find-root";
+import { vcsToolingStatus } from "@smithers-orchestrator/vcs/vcsToolingStatus";
 import * as BunContext from "@effect/platform-bun/BunContext";
 import { eq, getTableName } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm/utils";
@@ -589,7 +590,12 @@ async function ensureWorktree(rootDir, worktreePath, branch, baseBranch) {
     // Walk up from rootDir to find the actual VCS root
     const vcs = Effect.runSync(findVcsRoot(rootDir));
     if (!vcs) {
-        throw new SmithersError("VCS_NOT_FOUND", `Cannot create worktree: no git or jj repository found from ${rootDir}`, { rootDir });
+        // Distinguish "no VCS tooling installed" from "tooling present, but not
+        // inside a repo" so the error tells the user what to actually fix.
+        if (!vcsToolingStatus().ok) {
+            throw new SmithersError("VCS_NOT_FOUND", `Cannot create worktree: no jj or git found. Smithers bundles jj via the optional @smithers-orchestrator/jj-<platform> package; if it could not install for your platform, install jj (https://github.com/jj-vcs/jj) or git, or set SMITHERS_JJ_PATH.`, { rootDir });
+        }
+        throw new SmithersError("VCS_NOT_FOUND", `Cannot create worktree: no git or jj repository found from ${rootDir}. Run Smithers inside a git or jj repository (or initialize one first).`, { rootDir });
     }
     // Best effort: refresh remote refs for git so origin/main can be used as a
     // base when local main is absent.

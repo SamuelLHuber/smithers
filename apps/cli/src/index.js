@@ -20,6 +20,7 @@ import { SmithersCtx } from "@smithers-orchestrator/driver";
 import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { runFork, runPromise } from "./smithersRuntime.js";
 import { trackEvent } from "@smithers-orchestrator/observability/metrics";
+import { vcsToolingStatus } from "@smithers-orchestrator/vcs/vcsToolingStatus";
 import { revertToAttempt } from "@smithers-orchestrator/time-travel/revert";
 import { retryTask } from "@smithers-orchestrator/time-travel/retry-task";
 import { timeTravel } from "@smithers-orchestrator/time-travel/timetravel";
@@ -2029,7 +2030,16 @@ const workflowCli = Cli.create({
         // Primary local pack (nearest .smithers, walking up) for back-compat fields.
         const localPack = packs.find((pack) => pack.scope === "local");
         const workflowRoot = localPack?.packDir ?? resolve(process.cwd(), ".smithers");
+        const vcs = vcsToolingStatus();
+        if (!vcs.ok && c.format !== "json") {
+            process.stderr.write(
+                `${pc.yellow("⚠ No jj or git found.")} Smithers needs one to snapshot and isolate agent work.\n` +
+                `  Smithers bundles jj via the optional @smithers-orchestrator/jj-<platform> package; if it could not\n` +
+                `  install for your platform, install jj (https://github.com/jj-vcs/jj) or git, or set SMITHERS_JJ_PATH.\n`,
+            );
+        }
         return c.ok({
+            vcs,
             workflowRoot,
             packs,
             workflows,

@@ -258,6 +258,9 @@ importers:
       '@smithers-orchestrator/usage':
         specifier: workspace:*
         version: link:../../packages/usage
+      '@smithers-orchestrator/vcs':
+        specifier: workspace:*
+        version: link:../../packages/vcs
       cron-parser:
         specifier: ^5.5.0
         version: 5.5.0
