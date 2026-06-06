@@ -10,6 +10,9 @@ import { PromptsCard } from "../prompts/PromptsCard";
 import { RunCard } from "../runs/RunCard";
 import { ScoresCard } from "../scores/ScoresCard";
 import type { Card } from "./Card";
+// Styles for every feature card and canvas surface. Imported here (a statically
+// loaded module) so they inject globally without editing the shared styles.css.
+import "./featureCards.css";
 
 /** Render the component for an inline card. The one place card.kind is fanned out. */
 export function CardView({ card }: { card: Card }) {
