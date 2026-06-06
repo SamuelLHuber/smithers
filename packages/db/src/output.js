@@ -5,7 +5,7 @@ import { Effect } from "effect";
 import { z } from "zod";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
-import { isPostgresDb, pgRowToDrizzle } from "./snapshot.js";
+import { getJsonColumnKeys, isPostgresDb, pgRowToDrizzle } from "./snapshot.js";
 import { withSqliteWriteRetryEffect } from "./write-retry.js";
 /** @typedef {import("drizzle-orm").AnyColumn} AnyColumn */
 /** @typedef {import("./output/OutputKey.ts").OutputKey} _OutputKey */
@@ -79,6 +79,7 @@ export function buildKeyWhere(table, key) {
 export function selectOutputRowEffect(db, table, key) {
     const cols = getKeyColumns(table);
     const hasIteration = Boolean(cols.iteration);
+    const jsonKeys = getJsonColumnKeys(table);
     return Effect.tryPromise({
         try: () => {
             if (isPostgresDb(db)) {
@@ -91,7 +92,7 @@ export function selectOutputRowEffect(db, table, key) {
                 }
                 return db.connection
                     .query({ text: `SELECT * FROM "${tableName}" WHERE ${clauses.join(" AND ")} LIMIT 1`, values })
-                    .then((result) => (result.rows[0] ? [pgRowToDrizzle(result.rows[0])] : []));
+                    .then((result) => (result.rows[0] ? [pgRowToDrizzle(result.rows[0], jsonKeys)] : []));
             }
             return db.select().from(table).where(buildKeyWhere(table, key)).limit(1);
         },
