@@ -5,6 +5,9 @@
  *
  * 1. Every object node **must** include `"type": "object"`.
  * 2. Structured output object nodes must set `additionalProperties: false`.
+ * 3. When `additionalProperties: false`, every key in `properties` must also
+ *    appear in `required` (strict mode treats all listed properties as
+ *    required; truly-optional fields should be modeled as nullable).
  *
  * Zod v4's `toJSONSchema()` can violate these rules when loose/passthrough
  * objects are used. Codex rejects those schemas unless they are strict.
@@ -24,6 +27,15 @@ export function sanitizeForOpenAI(node) {
     // Rule 2: Codex/OpenAI structured outputs require strict object schemas.
     if (obj.type === "object" && obj.additionalProperties !== false) {
         obj.additionalProperties = false;
+    }
+    // Rule 3: With `additionalProperties: false`, OpenAI strict mode requires
+    // every key in `properties` to also appear in `required`. Zod omits
+    // optional fields from `required`, which strict mode rejects. List all
+    // property keys (truly-optional fields should be modeled as nullable).
+    if (obj.additionalProperties === false &&
+        obj.properties != null &&
+        typeof obj.properties === "object") {
+        obj.required = Object.keys(obj.properties);
     }
     // Recurse into all sub-schemas
     for (const value of Object.values(obj)) {
