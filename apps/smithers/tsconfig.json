@@ -8,8 +8,8 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "strict": true,
-    "types": []
+    "typeRoots": ["../../node_modules", "../../node_modules/@types"],
+    "types": ["bun-types"]
   },
-  "include": ["src", "vite.config.ts"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+  "include": ["src", "vite.config.ts"]
 }
