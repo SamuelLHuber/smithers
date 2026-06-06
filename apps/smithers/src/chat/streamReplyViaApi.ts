@@ -1,3 +1,5 @@
+import { authFetch } from "../auth/authClient";
+
 export type ApiChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -23,7 +25,7 @@ export async function* streamReplyViaApi({
   signal?: AbortSignal;
   endpoint?: string;
 }): AsyncGenerator<string> {
-  const response = await fetch(endpoint, {
+  const response = await authFetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ messages, system }),
