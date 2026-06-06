@@ -114,7 +114,16 @@ function buildFakeInstallTree() {
     );
     writeFile(
         join(accountsDir, "src/index.js"),
-        "export function listAccounts() { return []; }\n",
+        [
+            'import { homedir } from "node:os";',
+            'import { join } from "node:path";',
+            "export function listAccounts() { return []; }",
+            "export function accountsRoot(env = process.env) {",
+            "  if (env.SMITHERS_HOME) return env.SMITHERS_HOME;",
+            '  return join(env.HOME ?? homedir(), ".smithers");',
+            "}",
+            "",
+        ].join("\n"),
     );
 
     // Fake zod + typescript so require.resolve finds versions.
