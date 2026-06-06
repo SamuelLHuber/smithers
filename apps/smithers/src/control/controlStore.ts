@@ -63,7 +63,7 @@ export const useControlStore = create<ControlState>((set, get) => ({
       for (const directive of directives) {
         if (directive.tool === "releaseControl") {
           get().releaseControl();
-          continue;
+          break;
         }
         if (directive.tool === "requestControl") {
           continue;
