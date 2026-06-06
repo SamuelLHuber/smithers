@@ -1,4 +1,4 @@
-import { type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { goToView } from "../app/navigation";
 import { useUiStore } from "../app/uiStore";
 import { MenuBackdrop } from "../components/MenuBackdrop";
@@ -18,11 +18,18 @@ function Toast({ notification }: { notification: Notification }) {
   const toggleMenu = useUiStore((state) => state.toggleMenu);
   const setOpenMenu = useUiStore((state) => state.setOpenMenu);
   const dismiss = useNotificationsStore((state) => state.dismiss);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const running = notification.status === "running";
+
+  // Close the actions menu and return focus to the trigger, per the APG pattern.
+  const close = (): void => {
+    setOpenMenu(null);
+    triggerRef.current?.focus();
+  };
 
   const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
     if (event.key === "Escape") {
-      setOpenMenu(null);
+      close();
       return;
     }
     const items = Array.from(
@@ -59,6 +66,7 @@ function Toast({ notification }: { notification: Notification }) {
         aria-expanded={open}
         aria-haspopup="menu"
         className="toast-main"
+        ref={triggerRef}
         type="button"
         onClick={() => toggleMenu(menuId)}
       >
@@ -113,7 +121,7 @@ function Toast({ notification }: { notification: Notification }) {
                       ? "home"
                       : (notification.command ?? "askme"),
                   );
-                  setOpenMenu(null);
+                  close();
                 }}
               >
                 View workflow
@@ -125,7 +133,7 @@ function Toast({ notification }: { notification: Notification }) {
               type="button"
               onClick={() => {
                 dismiss(notification.id);
-                setOpenMenu(null);
+                close();
               }}
             >
               Dismiss
