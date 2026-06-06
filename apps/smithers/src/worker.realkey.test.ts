@@ -3,14 +3,16 @@ import worker from "./worker";
 import type { CloudflareEnv } from "./env";
 
 /**
- * The REAL Cerebras check. Skipped until a real key is present, then it runs in
- * the normal `bun test` pass and proves the gateway reaches the actual upstream
- * (no fixture, no base-URL override — env defaults to api.cerebras.ai).
+ * The REAL Cerebras check. Opt-in only: it hits the actual upstream (no fixture,
+ * no base-URL override — env defaults to api.cerebras.ai), which is a billed,
+ * network-dependent call. It is gated behind an explicit CEREBRAS_LIVE flag and a
+ * dedicated key var so a plain `bun test` never touches the live upstream merely
+ * because the CEREBRAS_API_KEY deploy secret is exported in the environment.
  *
- * Enable it by exporting a real key before the run:
- *   CEREBRAS_API_KEY=sk-... bun test src/worker.realkey.test.ts
+ * Enable it by opting in and supplying a real key before the run:
+ *   CEREBRAS_LIVE=1 CEREBRAS_LIVE_API_KEY=sk-... bun test src/worker.realkey.test.ts
  */
-const REAL_KEY = process.env.CEREBRAS_API_KEY;
+const REAL_KEY = process.env.CEREBRAS_LIVE === "1" ? process.env.CEREBRAS_LIVE_API_KEY : undefined;
 const ORIGIN = "http://127.0.0.1:9100";
 
 function reassembleReply(sse: string): string {
