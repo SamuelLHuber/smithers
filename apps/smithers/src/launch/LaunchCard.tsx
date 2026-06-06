@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useApp } from "../app/AppContext";
+import { useCardUiStore } from "../cards/cardUiStore";
+import { useChatStore } from "../chat/chatStore";
+import { useRunsStore } from "../runs/runsStore";
 import { findLaunchable } from "./launchables";
 
 function SearchIcon() {
@@ -13,9 +14,11 @@ function SearchIcon() {
 
 /** A small launch form: just the inputs the workflow needs, then a run card. */
 export function LaunchCard({ workflowId }: { workflowId: string }) {
-  const { engine, postCard } = useApp();
+  const launch = useRunsStore((state) => state.launch);
+  const postCard = useChatStore((state) => state.postCard);
   const workflow = findLaunchable(workflowId);
-  const [depth, setDepth] = useState("Standard");
+  const depth = useCardUiStore((state) => state.depthByWorkflow[workflowId] ?? "Standard");
+  const setDepth = useCardUiStore((state) => state.setDepth);
 
   if (!workflow) {
     return null;
@@ -44,7 +47,7 @@ export function LaunchCard({ workflowId }: { workflowId: string }) {
                     key={option}
                     type="button"
                     className={option === depth ? "opt is-pick" : "opt"}
-                    onClick={() => setDepth(option)}
+                    onClick={() => setDepth(workflowId, option)}
                   >
                     {option}
                   </button>
@@ -64,7 +67,7 @@ export function LaunchCard({ workflowId }: { workflowId: string }) {
           className="btn btn-brand"
           type="button"
           onClick={() => {
-            const id = engine.launch(`${workflow.name} · run`);
+            const id = launch(`${workflow.name} · run`);
             postCard({ kind: "run", runId: id }, `Launched ${workflow.name}.`);
           }}
         >

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useApp } from "../app/AppContext";
+import { useCardUiStore } from "../cards/cardUiStore";
+import { useChatStore } from "../chat/chatStore";
 
 function SignalIcon() {
   return (
@@ -17,8 +17,9 @@ function SignalIcon() {
 
 /** A run blocked on an external event; deliver the signal or let it fire. */
 export function SignalCard({ event }: { event: string }) {
-  const { say } = useApp();
-  const [delivered, setDelivered] = useState(false);
+  const say = useChatStore((state) => state.say);
+  const delivered = useCardUiStore((state) => state.deliveredByEvent[event] ?? false);
+  const deliver = useCardUiStore((state) => state.deliverSignal);
 
   return (
     <article className="list-card" data-testid="signal-card">
@@ -45,7 +46,7 @@ export function SignalCard({ event }: { event: string }) {
             className="btn btn-brand"
             type="button"
             onClick={() => {
-              setDelivered(true);
+              deliver(event);
               say(`Delivered signal "${event}". The run resumed.`);
             }}
           >

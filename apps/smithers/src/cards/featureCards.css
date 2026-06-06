@@ -451,3 +451,197 @@
 .slash-name { font: 600 13px/1 ui-monospace, Menlo, monospace; color: var(--brand); }
 .slash-summary { color: var(--text); font-size: 13px; }
 .slash-hint { margin-left: auto; color: var(--text-faint); font: 500 11px/1 ui-monospace, Menlo, monospace; }
+
+/* ---- VCS / Changes: working-tree status + change list + bookmarks ---- */
+.vcs-glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font: 700 11px/1 ui-monospace, Menlo, monospace;
+  color: var(--st-info);
+  background: color-mix(in srgb, var(--st-info) 13%, var(--surface));
+}
+.vcs-glyph.is-added { color: var(--st-ok); background: color-mix(in srgb, var(--st-ok) 13%, var(--surface)); }
+.vcs-glyph.is-modified { color: var(--st-waiting); background: color-mix(in srgb, var(--st-waiting) 13%, var(--surface)); }
+.vcs-glyph.is-deleted { color: var(--st-failed); background: color-mix(in srgb, var(--st-failed) 13%, var(--surface)); }
+.vcs-glyph.is-renamed { color: var(--st-running); background: color-mix(in srgb, var(--st-running) 13%, var(--surface)); }
+.vcs-glyph.is-untracked { color: var(--text-faint); background: var(--hover); }
+.vcs-path { font: 500 12.5px/1.4 ui-monospace, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vcs-mono { font: 600 11.5px/1 ui-monospace, Menlo, monospace; color: var(--text-muted); }
+.vcs-more { padding: 6px 2px 2px; font-size: 12px; color: var(--text-faint); }
+.vcs-card .list-row { gap: 9px; }
+
+/* Canvas action bar */
+.vcs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Canvas body: change list + bookmarks rail */
+.vcs-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 250px; }
+.vcs-changes { padding: 12px 16px; overflow: auto; }
+.vcs-section-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 7px;
+  font: 600 11px/1 Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.vcs-section-head:first-child { margin-top: 2px; }
+.vcs-count {
+  font: 600 10.5px/1 ui-monospace, Menlo, monospace;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--hover);
+  color: var(--text-muted);
+}
+.vcs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.vcs-row:hover { background: var(--hover); }
+.vcs-row .vcs-path { flex: 1; min-width: 0; }
+.vcs-delta { flex: none; display: flex; gap: 6px; font-size: 11.5px; }
+.vcs-label { flex: none; width: 74px; text-align: right; font-size: 11px; color: var(--text-faint); }
+.vcs-empty { padding: 8px; font-size: 12.5px; color: var(--text-faint); }
+
+.vcs-bookmarks { border-left: 1px solid var(--border); padding: 12px 14px; overflow: auto; background: var(--surface); }
+.vcs-bookmark { display: flex; align-items: center; gap: 9px; padding: 8px 6px; border-radius: 8px; }
+.vcs-bookmark.is-current { background: color-mix(in srgb, var(--brand) 9%, var(--surface)); }
+.vcs-bookmark-text { min-width: 0; }
+.vcs-bookmark-name { font: 600 12.5px/1.3 ui-monospace, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; }
+.vcs-bookmark-meta { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+
+/* ---- Review surfaces: issues, tickets, landings (list + detail) ----
+   One shared vocabulary so the three cards and canvases render alike. Color =
+   state through the --tone tokens: a .state-badge or .rev-dot carries an extra
+   tone-* class and reads --tone from it. Seeded/mock like the other cards. */
+.tone-info { --tone: var(--st-info); }
+
+.state-badge {
+  flex: none;
+  font: 700 9.5px/1 ui-monospace, Menlo, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  border-radius: 5px;
+  color: var(--tone, var(--text-muted));
+  background: color-mix(in srgb, var(--tone, var(--text-muted)) 14%, var(--surface));
+}
+.rev-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--tone, var(--text-placeholder));
+}
+.rev-num { font: 600 11px/1 ui-monospace, Menlo, monospace; color: var(--text-faint); }
+.rev-more { padding: 6px 2px 2px; font-size: 12px; color: var(--text-faint); }
+
+/* A .mini-tag carrying a tone-* class (e.g. a review status) picks up its colour. */
+.mini-tag.tone-ok,
+.mini-tag.tone-info,
+.mini-tag.tone-running,
+.mini-tag.tone-waiting,
+.mini-tag.tone-failed,
+.mini-tag.tone-idle {
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 13%, var(--surface));
+}
+
+/* Card list rows lean on .list-row; the detail dot needs no top margin there. */
+.list-row .rev-dot { margin-top: 0; }
+
+/* Canvas: list rail + detail pane. */
+.rev-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 320px 1fr; }
+.rev-list { border-right: 1px solid var(--border); overflow: auto; padding: 8px; background: var(--surface); }
+.rev-detail { min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
+.rev-detail-empty { display: grid; place-items: center; height: 100%; color: var(--text-faint); font-size: 13px; }
+.rev-detail-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  row-gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.rev-detail-title { font-weight: 650; font-size: 16px; letter-spacing: -0.01em; }
+.rev-detail-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+/* Inline review-note field (landings) stays compact instead of stretching. */
+.rev-detail-actions input.field-input { flex: none; width: 180px; }
+.rev-detail-scroll { flex: 1; min-height: 0; padding: 16px 20px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.rev-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+
+/* List rows (canvas). */
+.rev-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.rev-row:hover { background: var(--hover); }
+.rev-row.is-on { background: color-mix(in srgb, var(--brand) 11%, var(--surface)); }
+.rev-row-main { flex: 1; min-width: 0; }
+.rev-row-title { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rev-row-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11.5px; color: var(--text-muted); }
+.rev-row-tags { flex: none; display: flex; align-items: center; gap: 6px; }
+.rev-empty { display: grid; place-items: center; gap: 6px; min-height: 160px; padding: 20px; text-align: center; color: var(--text-faint); font-size: 13px; }
+
+/* Create form. */
+.rev-create {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--hover-subtle);
+}
+.rev-create-head { font: 700 10px/1 ui-monospace, Menlo, monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
+.rev-create textarea.field-input { min-height: 68px; resize: vertical; font-family: inherit; }
+.rev-create-actions { display: flex; gap: 8px; }
+
+/* Detail body text + monospace editor. */
+.rev-prose { font-size: 13.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+.rev-editor {
+  flex: 1;
+  width: 100%;
+  min-height: 300px;
+  border: 0;
+  resize: none;
+  padding: 16px 20px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  font: 500 13px/1.7 ui-monospace, Menlo, monospace;
+}
+.rev-editor:focus { outline: none; }
+
+/* A search field docked to the right of a surface header (tickets). */
+.surface-head input.field-input { flex: none; width: 220px; margin-left: auto; }

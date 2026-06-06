@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useApp } from "../app/AppContext";
+import { useCardUiStore } from "../cards/cardUiStore";
+import { useChatStore } from "../chat/chatStore";
 
 function ChatIcon() {
   return (
@@ -18,8 +18,9 @@ const OPTIONS = ["staging", "production", "cancel"];
 
 /** A human task: the run asks a question; you answer with an option chip. */
 export function HumanCard() {
-  const { say } = useApp();
-  const [picked, setPicked] = useState<string | null>(null);
+  const say = useChatStore((state) => state.say);
+  const picked = useCardUiStore((state) => state.humanPicked);
+  const pick = useCardUiStore((state) => state.pickHuman);
 
   return (
     <article className="gate-card is-human" data-testid="human-card">
@@ -41,7 +42,7 @@ export function HumanCard() {
               type="button"
               className={option === picked ? "opt is-pick" : "opt"}
               onClick={() => {
-                setPicked(option);
+                pick(option);
                 say(`Deploy target: ${option}.`);
               }}
             >
