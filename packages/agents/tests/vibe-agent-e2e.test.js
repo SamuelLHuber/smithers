@@ -126,21 +126,34 @@ describe.skipIf(!isVibeInstalled || !supportsVibeE2EFlags)(
   }, 120_000);
 
   it("respects maxTurns option", async () => {
+    const maxTurns = 1;
+
+    /** @type {import("../src/BaseCliAgent/index.ts").AgentCliEvent[]} */
+    const events = [];
+
     const agent = new VibeAgent({
       agent: "auto-approve",
-      maxTurns: 1,
+      maxTurns,
     });
 
     const result = await agent.generate({
       prompt:
         "First say 'one', then say 'two', then say 'three'. Say each on a new line.",
       rootDir: tmpDir,
+      onEvent: (event) => events.push(event),
     });
 
     expect(result).toBeDefined();
     expect(result.text.length).toBeGreaterThan(0);
-    // With maxTurns=1, the agent may only produce one assistant turn
-    expect(result.finishReason).toBeDefined();
+
+    // The interpreter emits one assistant 'turn' action per model turn.
+    // With --max-turns wired through buildCommand, the cap must hold: dropping
+    // the flag lets the agent run all three turns and this assertion fails.
+    const turnEvents = events.filter(
+      (e) => e.type === "action" && e.action?.kind === "turn",
+    );
+    expect(turnEvents.length).toBeGreaterThan(0);
+    expect(turnEvents.length).toBeLessThanOrEqual(maxTurns);
   }, 120_000);
   }
 );
