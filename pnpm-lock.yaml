@@ -559,6 +559,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.53
         version: 3.0.53(zod@4.3.6)
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@4.3.6)
       '@smithers-orchestrator/driver':
         specifier: workspace:*
         version: link:../driver
@@ -930,6 +933,16 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+
+  packages/jj-darwin-arm64: {}
+
+  packages/jj-darwin-x64: {}
+
+  packages/jj-linux-arm64: {}
+
+  packages/jj-linux-x64: {}
+
+  packages/jj-win32-x64: {}
 
   packages/memory:
     dependencies:
@@ -1432,6 +1445,22 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+    optionalDependencies:
+      '@smithers-orchestrator/jj-darwin-arm64':
+        specifier: workspace:*
+        version: link:../jj-darwin-arm64
+      '@smithers-orchestrator/jj-darwin-x64':
+        specifier: workspace:*
+        version: link:../jj-darwin-x64
+      '@smithers-orchestrator/jj-linux-arm64':
+        specifier: workspace:*
+        version: link:../jj-linux-arm64
+      '@smithers-orchestrator/jj-linux-x64':
+        specifier: workspace:*
+        version: link:../jj-linux-x64
+      '@smithers-orchestrator/jj-win32-x64':
+        specifier: workspace:*
+        version: link:../jj-win32-x64
 
 packages:
 

@@ -44,11 +44,15 @@ describe("resolveJjBinary", () => {
 		expect(resolved.source).not.toBe("env");
 	});
 
-	test("falls back to bare \"jj\" on PATH when nothing is bundled or overridden", () => {
+	test("without an override, resolves either a bundled binary or PATH (never env)", () => {
 		delete process.env[ENV_KEY];
-		// No platform packages are installed in this workspace, so the only
-		// remaining branch is the PATH fallback.
-		expect(resolveJjBinary()).toEqual({ path: "jj", source: "path" });
+		const resolved = resolveJjBinary();
+		// Robust whether or not `pnpm fetch:jj` has populated a bundled binary:
+		// no override means the bundled branch or the PATH fallback, and the
+		// PATH fallback is exactly the bare "jj".
+		expect(resolved.source).not.toBe("env");
+		if (resolved.source === "path") expect(resolved.path).toBe("jj");
+		else expect(resolved.source).toBe("bundled");
 	});
 
 	test("runJj spawns the resolved binary (override branch)", async () => {
