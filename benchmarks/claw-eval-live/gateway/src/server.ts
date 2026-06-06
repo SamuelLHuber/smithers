@@ -11,7 +11,32 @@
  * unaffected — this server only decides the content of each assistant turn.
  */
 
-import { decideTurn, type OAIMessage, type OAITool } from "./mixture.ts";
+// Bun caps idleTimeout at 255s, and a turn is idle on the socket for its whole
+// gather+synthesis duration (the response is only written after both phases
+// finish). mixture.ts reads its per-phase budgets from CLAW_GPT_TIMEOUT_MS +
+// CLAW_OPUS_TIMEOUT_MS at module load, and their defaults (120s + 150s = 270s)
+// exceed that ceiling, so a slow synthesis turn would be killed by Bun before
+// it could respond. Clamp the sum to fit under idleTimeout (with margin) BEFORE
+// importing mixture.ts so the per-phase timeouts become the real constraint.
+const IDLE_TIMEOUT_S = 255; // Bun's documented maximum.
+const PHASE_BUDGET_MS = (IDLE_TIMEOUT_S - 5) * 1000; // leave headroom for I/O.
+{
+  const opus = Number(process.env.CLAW_OPUS_TIMEOUT_MS ?? 150_000);
+  const gpt = Number(process.env.CLAW_GPT_TIMEOUT_MS ?? 120_000);
+  if (opus + gpt > PHASE_BUDGET_MS) {
+    const scale = PHASE_BUDGET_MS / (opus + gpt);
+    process.env.CLAW_GPT_TIMEOUT_MS = String(Math.floor(gpt * scale));
+    process.env.CLAW_OPUS_TIMEOUT_MS = String(Math.floor(opus * scale));
+    console.warn(
+      `[gateway] gather+synthesis budget ${opus + gpt}ms exceeds idle ceiling; ` +
+        `clamped to CLAW_GPT_TIMEOUT_MS=${process.env.CLAW_GPT_TIMEOUT_MS} ` +
+        `CLAW_OPUS_TIMEOUT_MS=${process.env.CLAW_OPUS_TIMEOUT_MS}`,
+    );
+  }
+}
+
+const { decideTurn } = await import("./mixture.ts");
+import type { OAIMessage, OAITool } from "./mixture.ts";
 
 // A single bad turn (provider hiccup, CLI subprocess error) must never take the
 // whole gateway down mid-batch — log and keep serving. The benchmark retries
@@ -57,7 +82,7 @@ function chatResponse(decision: Awaited<ReturnType<typeof decideTurn>>) {
 
 const server = Bun.serve({
   port: PORT,
-  idleTimeout: 255, // allow long synthesis turns
+  idleTimeout: IDLE_TIMEOUT_S, // Bun's max; gather+synthesis budgets are clamped to fit under it.
   async fetch(req) {
     const url = new URL(req.url);
 
@@ -89,7 +114,7 @@ const server = Bun.serve({
         const tag =
           decision.finish_reason === "tool_calls"
             ? `gather (${(decision.meta as any).tool_calls} tool_calls)`
-            : `synthesis winner=${(decision.meta as any).winner}`;
+            : `synthesis writer=${(decision.meta as any).writer}`;
         console.log(`[req ${id}] ${tag} in ${dt}ms`);
         return Response.json(chatResponse(decision));
       } catch (err) {

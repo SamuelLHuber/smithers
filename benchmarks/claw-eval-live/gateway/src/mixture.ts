@@ -15,17 +15,17 @@
  *               multi-turn tool use. Native `tool_calls` are passed straight
  *               through, so the benchmark executes them exactly as it would for
  *               any model.
- *   - SYNTHESIS: the moment gpt-5.5 is ready to answer (no tool_calls), BOTH
- *               Claude Opus 4.8 (via Smithers ClaudeCodeAgent, subscription) and
- *               gpt-5.5 produce a final answer from the SAME gathered context,
- *               and a NEUTRAL arbiter (Gemini — neither contestant) picks the
- *               stronger one. That is the genuine "mixture of Opus 4.8 + Codex
- *               5.5" and it lands on the turn the graders actually measure.
+ *   - SYNTHESIS: the moment gpt-5.5 is ready to answer (no tool_calls), Claude
+ *               Opus 4.8 (via Smithers ClaudeCodeAgent, subscription) writes the
+ *               final answer from the gathered context. That is the role-split
+ *               "mixture of Opus 4.8 + Codex 5.5" (gpt-5.5 gathers, Opus 4.8
+ *               synthesizes) and it lands on the turn the graders actually
+ *               measure. If Opus is unavailable, the turn falls back to gpt-5.5's
+ *               own final answer. The brain contains no LLM judge of its own.
  *
  * Fairness invariants (see README): the brain only ever sees what the benchmark
  * sends it (task prompt + real tool results). No task fixtures, oracle answers,
- * grader files, or per-task logic ever reach it. The arbiter selects on quality
- * alone and has no ground truth.
+ * grader files, or per-task logic ever reach it.
  */
 
 import { ClaudeCodeAgent, OpenAIAgent } from "@smithers-orchestrator/agents";
@@ -36,18 +36,10 @@ import { ClaudeCodeAgent, OpenAIAgent } from "@smithers-orchestrator/agents";
 const GATHER_MODEL = process.env.CLAW_GATHER_MODEL ?? "gpt-5.5";
 const GPT_SYNTH_MODEL = process.env.CLAW_GPT_MODEL ?? "gpt-5.5";
 const OPUS_MODEL = process.env.CLAW_OPUS_MODEL ?? "opus"; // -> claude-opus-4-8
-// Neutral arbiter: NOT one of the two contestants, to avoid self-preference.
-// Uses a DIFFERENT Gemini model than the benchmark judge (gemini-2.5-flash-lite)
-// so the two never compete for the same per-model free-tier quota. Arbiter 429s
-// degrade gracefully (fall back to the longer draft), so this is the safe slot.
-const ARBITER_MODEL = process.env.CLAW_ARBITER_MODEL ?? "gemini-3.5-flash";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY ?? "";
-const GEMINI_KEY = process.env.GEMINI_API_KEY ?? "";
 
 const OPUS_TIMEOUT_MS = Number(process.env.CLAW_OPUS_TIMEOUT_MS ?? 150_000);
 const GPT_TIMEOUT_MS = Number(process.env.CLAW_GPT_TIMEOUT_MS ?? 120_000);
@@ -298,43 +290,6 @@ async function gptDraft(transcript: string): Promise<string> {
     timeout: GPT_TIMEOUT_MS,
   });
   return (res?.text ?? "").trim();
-}
-
-// ---- neutral arbiter -------------------------------------------------------
-async function arbitrate(
-  task: string,
-  draftA: string,
-  draftB: string,
-): Promise<{ winner: "A" | "B"; reason: string }> {
-  const body = {
-    model: ARBITER_MODEL,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a neutral judge selecting the better of two candidate FINAL answers to a task. " +
-          "Judge ONLY on which answer more completely and accurately satisfies every explicit requirement " +
-          "of the task, is better structured, and includes the specific entities/figures/tables requested. " +
-          "You have no answer key; judge on intrinsic quality and fidelity to the task and its data. " +
-          'Respond with JSON only: {"winner": "A" | "B", "reason": "<one sentence>"}.',
-      },
-      {
-        role: "user",
-        content: `## Task\n${task}\n\n## Candidate A\n${draftA}\n\n## Candidate B\n${draftB}`,
-      },
-    ],
-    max_tokens: 1024,
-    reasoning_effort: "none", // gemini-3 is a thinking model; disable so the JSON verdict is not truncated
-  };
-  const json = await postJSON(GEMINI_URL, GEMINI_KEY, body, 60_000);
-  const raw = String(json?.choices?.[0]?.message?.content ?? "");
-  // Robustly extract the JSON object even if wrapped in prose/fences.
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error(`arbiter non-JSON: ${raw.slice(0, 120)}`);
-  const parsed = JSON.parse(raw.slice(start, end + 1));
-  const winner = parsed?.winner === "B" ? "B" : "A";
-  return { winner, reason: String(parsed?.reason ?? "") };
 }
 
 // ---- public entrypoint -----------------------------------------------------
