@@ -755,46 +755,57 @@ async function createBuilderDbPostgres(config, handles) {
         });
         connectionString = `postgres://postgres@127.0.0.1:${port}/postgres`;
     }
-    const client = new pg.Client(connectionString ? { connectionString } : config.connection);
-    await client.connect();
-    teardown.push(async () => {
-        await client.end().catch(() => {});
-    });
-    // Drizzle table metadata (used by the engine to resolve the input/output
-    // schema via resolveSchema). The connection is Postgres; these table objects
-    // are only consulted for their column/name metadata, never to issue SQLite
-    // queries against the descriptor.
-    const inputTable = createInputTable();
-    const schema = { input: inputTable };
-    for (const handle of handles) {
-        schema[handle.tableKey] = handle.table;
-    }
-    const descriptor = { dialect: "postgres", connection: client, schema };
-    // Durable engine schema (idempotent), then the builder's input + output tables.
-    const adapter = new SmithersDb(descriptor);
-    await adapter.internalStorage.ensureSchema();
-    await client.query({ text: `CREATE TABLE IF NOT EXISTS "input" (run_id TEXT PRIMARY KEY, payload TEXT)` });
-    for (const handle of handles) {
-        const escaped = handle.tableName.replaceAll(`"`, `""`);
-        await client.query({
-            text: `CREATE TABLE IF NOT EXISTS "${escaped}" (` +
-                `run_id TEXT NOT NULL, ` +
-                `node_id TEXT NOT NULL, ` +
-                `iteration BIGINT NOT NULL DEFAULT 0, ` +
-                `payload TEXT, ` +
-                `PRIMARY KEY (run_id, node_id, iteration)` +
-                `)`,
+    try {
+        const client = new pg.Client(connectionString ? { connectionString } : config.connection);
+        await client.connect();
+        teardown.push(async () => {
+            await client.end().catch(() => {});
         });
+        // Drizzle table metadata (used by the engine to resolve the input/output
+        // schema via resolveSchema). The connection is Postgres; these table objects
+        // are only consulted for their column/name metadata, never to issue SQLite
+        // queries against the descriptor.
+        const inputTable = createInputTable();
+        const schema = { input: inputTable };
+        for (const handle of handles) {
+            schema[handle.tableKey] = handle.table;
+        }
+        const descriptor = { dialect: "postgres", connection: client, schema };
+        // Durable engine schema (idempotent), then the builder's input + output tables.
+        const adapter = new SmithersDb(descriptor);
+        await adapter.internalStorage.ensureSchema();
+        await client.query({ text: `CREATE TABLE IF NOT EXISTS "input" (run_id TEXT PRIMARY KEY, payload TEXT)` });
+        for (const handle of handles) {
+            const escaped = handle.tableName.replaceAll(`"`, `""`);
+            await client.query({
+                text: `CREATE TABLE IF NOT EXISTS "${escaped}" (` +
+                    `run_id TEXT NOT NULL, ` +
+                    `node_id TEXT NOT NULL, ` +
+                    `iteration BIGINT NOT NULL DEFAULT 0, ` +
+                    `payload TEXT, ` +
+                    `PRIMARY KEY (run_id, node_id, iteration)` +
+                    `)`,
+            });
+        }
+        return {
+            db: descriptor,
+            connection: client,
+            close: async () => {
+                for (const fn of teardown.reverse()) {
+                    await fn();
+                }
+            },
+        };
     }
-    return {
-        db: descriptor,
-        connection: client,
-        close: async () => {
-            for (const fn of teardown.reverse()) {
-                await fn();
-            }
-        },
-    };
+    catch (error) {
+        // Setup failed after the socket server / connection were started. Run the
+        // teardown closures (reversed, error-swallowing) so the PGlite socket
+        // server, embedded db, and pg client are not orphaned, then rethrow.
+        for (const fn of teardown.reverse()) {
+            await fn().catch(() => {});
+        }
+        throw error;
+    }
 }
 /**
  * @param {any} db
