@@ -19,7 +19,7 @@ openable workflow UIs, and toast notifications.
 
 Every prior iteration put the *machinery* in front of the user: tabs per session,
 a sidebar of 25 views (the "spaceship"), explicit buttons for every capability.
-Users had to think like the system. The classic tabbed shell ([../docs/UX.md](./UX.md))
+Users had to think like the system. The classic tabbed shell ([UX.md](./UX.md))
 and Smithers Studio 1 (deprecated) are that lineage.
 
 Studio 2 inverts it. **You talk; the agent operates.** The UI renders the
