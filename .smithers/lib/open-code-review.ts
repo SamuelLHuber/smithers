@@ -277,6 +277,7 @@ type Hunk = {
 
 type IndexedLine = {
   lineNum: number;
+  anchorLine: number;
   content: string;
 };
 
@@ -559,11 +560,11 @@ async function loadDiffs(repoDir: string, input: OpenCodeReviewInput) {
   const mode = reviewMode(input);
   let diffText = "";
   if (mode === "range") {
-    const base = (await git(repoDir, ["merge-base", input.from.trim(), input.to.trim()])).trim();
+    const base = (await git(repoDir, ["merge-base", "--end-of-options", input.from.trim(), input.to.trim()])).trim();
     if (!base) throw new Error(`Cannot find merge-base between ${input.from} and ${input.to}.`);
-    diffText = await git(repoDir, ["diff", "--no-color", `-U${DIFF_CONTEXT_LINES}`, base, input.to.trim(), "--"]);
+    diffText = await git(repoDir, ["diff", "--no-color", `-U${DIFF_CONTEXT_LINES}`, "--end-of-options", base, input.to.trim(), "--"]);
   } else if (mode === "commit") {
-    diffText = await git(repoDir, ["show", "--no-color", `-U${DIFF_CONTEXT_LINES}`, input.commit.trim()]);
+    diffText = await git(repoDir, ["show", "--no-color", `-U${DIFF_CONTEXT_LINES}`, "--end-of-options", input.commit.trim()]);
   } else {
     diffText = await workspaceDiffText(repoDir);
   }
@@ -884,22 +885,25 @@ function extractSideLines(hunk: Hunk, newSide: boolean): IndexedLine[] {
   let newLine = hunk.newStart;
   for (const line of hunk.lines) {
     if (line.type === "context") {
-      result.push({ lineNum: newSide ? newLine : oldLine, content: normalizeCodeLine(line.content) });
+      result.push({ lineNum: newSide ? newLine : oldLine, anchorLine: newLine, content: normalizeCodeLine(line.content) });
       oldLine += 1;
       newLine += 1;
     } else if (line.type === "added") {
-      if (newSide) result.push({ lineNum: newLine, content: normalizeCodeLine(line.content) });
+      if (newSide) result.push({ lineNum: newLine, anchorLine: newLine, content: normalizeCodeLine(line.content) });
       newLine += 1;
     } else {
-      if (!newSide) result.push({ lineNum: oldLine, content: normalizeCodeLine(line.content) });
+      // Deleted line: anchor on the nearest following new-side line so any resolved
+      // position stays in new-file numbering (newLine is not advanced for deletions).
+      if (!newSide) result.push({ lineNum: oldLine, anchorLine: newLine, content: normalizeCodeLine(line.content) });
       oldLine += 1;
     }
   }
   return result;
 }
 
-function matchConsecutive(sideLines: IndexedLine[], targetLines: string[]) {
-  if (targetLines.length === 0 || sideLines.length < targetLines.length) return null;
+function collectMatches(sideLines: IndexedLine[], targetLines: string[]) {
+  const matches: Array<{ startLine: number; endLine: number }> = [];
+  if (targetLines.length === 0 || sideLines.length < targetLines.length) return matches;
   for (let i = 0; i <= sideLines.length - targetLines.length; i += 1) {
     let matched = true;
     for (let j = 0; j < targetLines.length; j += 1) {
@@ -909,13 +913,14 @@ function matchConsecutive(sideLines: IndexedLine[], targetLines: string[]) {
       }
     }
     if (matched) {
-      return {
-        startLine: sideLines[i].lineNum,
-        endLine: sideLines[i + targetLines.length - 1].lineNum,
-      };
+      // anchorLine is always in new-file numbering (equal to lineNum on the new side).
+      matches.push({
+        startLine: sideLines[i].anchorLine,
+        endLine: sideLines[i + targetLines.length - 1].anchorLine,
+      });
     }
   }
-  return null;
+  return matches;
 }
 
 function resolveCommentLineNumbers(comment: z.infer<typeof reviewCommentSchema>, diffText: string) {
@@ -923,13 +928,14 @@ function resolveCommentLineNumbers(comment: z.infer<typeof reviewCommentSchema>,
   const targetLines = splitAndNormalizeCode(comment.existingCode);
   if (targetLines.length === 0) return comment;
   const hunks = parseHunks(diffText);
-  for (const hunk of hunks) {
-    const match = matchConsecutive(extractSideLines(hunk, true), targetLines);
-    if (match) return { ...comment, ...match };
-  }
-  for (const hunk of hunks) {
-    const match = matchConsecutive(extractSideLines(hunk, false), targetLines);
-    if (match) return { ...comment, ...match };
+  // Only assign a position when the snippet matches exactly one place; a non-unique
+  // snippet (e.g. a closing brace) would otherwise be anchored to the wrong location.
+  // Resolve against the new side first, then fall back to deleted lines (whose anchor
+  // is the nearest following new-file line) so positions stay in new-file numbering.
+  for (const newSide of [true, false]) {
+    const matches = hunks.flatMap((hunk) => collectMatches(extractSideLines(hunk, newSide), targetLines));
+    if (matches.length === 1) return { ...comment, ...matches[0] };
+    if (matches.length > 1) return comment;
   }
   return comment;
 }
