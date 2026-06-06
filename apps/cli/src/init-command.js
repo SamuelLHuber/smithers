@@ -22,12 +22,18 @@ export const initOptions = z.object({
 
 /**
  * Whether this invocation is an interactive human terminal. Piped/agent runs
- * (and explicit `--json`) keep the structured output untouched.
+ * (and any explicit `--format`) keep the structured output untouched.
  *
- * @param {{ options?: { json?: boolean }; format?: string }} c
+ * The incur framework renders the structured dump under this command's
+ * agent-only policy exactly when `formatExplicit` is set (Cli renderOutput =
+ * !(human && !formatExplicit && policy === 'agent-only')). So the ceremony must
+ * stand down whenever an explicit format was passed, otherwise both the
+ * interactive ceremony and the raw structured output hit stdout.
+ *
+ * @param {{ options?: { json?: boolean }; format?: string; formatExplicit?: boolean }} c
  */
 function isHumanTty(c) {
-    if (c.options?.json || c.format === "json" || c.format === "jsonl") return false;
+    if (c.options?.json || c.formatExplicit) return false;
     return process.stdout.isTTY === true;
 }
 
@@ -95,7 +101,10 @@ export async function runInitCommand(c, fail) {
         if (human) {
             // The ceremony already narrated the work; render the CTA inline and
             // suppress the structured dump via the command's agent-only policy.
-            if (cta) renderInitNextSteps(cta);
+            // Always terminate the ceremony: renderInitNextSteps emits the
+            // closing clack outro() (even for an empty CTA, e.g. --agents-only),
+            // matching the unconditional intro() in runInitCeremony.
+            renderInitNextSteps(cta ?? { commands: [] });
             return c.ok(result);
         }
         return c.ok(result, cta ? { cta: { ...cta, description: "Next steps:" } } : undefined);
