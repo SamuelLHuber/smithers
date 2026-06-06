@@ -1,4 +1,16 @@
+import { openSurface } from "../app/navigation";
+import type { Surface } from "../app/Surface";
 import { AGENTS } from "./agents";
+import { useAgentsStore } from "./agentsStore";
+
+/**
+ * The agents-registry surface kind. The integrator adds `{ kind: "agents" }` to
+ * the central `Surface` union + the `openSurface` switch; until then this cast
+ * keeps the card compiling without editing the DO-NOT-TOUCH navigation files.
+ */
+function openAgentsRegistry(): void {
+  openSurface({ kind: "agents" } as unknown as Surface);
+}
 
 function AgentIcon() {
   return (
@@ -16,6 +28,7 @@ function AgentIcon() {
 /** The agents/providers card: one row per provider with availability + auth. */
 export function AgentsCard() {
   const ready = AGENTS.filter((agent) => agent.available).length;
+  const openRegister = useAgentsStore((state) => state.openRegister);
 
   return (
     <article className="list-card" data-testid="agents-card">
@@ -29,6 +42,9 @@ export function AgentsCard() {
             {ready} ready · {AGENTS.length - ready} not detected
           </div>
         </div>
+        <button className="card-link" type="button" onClick={openAgentsRegistry}>
+          Open registry ›
+        </button>
       </header>
       <div className="card-body card-body-flush">
         {AGENTS.map((agent) => (
@@ -51,6 +67,18 @@ export function AgentsCard() {
           </div>
         ))}
       </div>
+      <footer className="card-foot">
+        <button
+          className="btn btn-brand"
+          type="button"
+          onClick={() => {
+            openRegister();
+            openAgentsRegistry();
+          }}
+        >
+          Register
+        </button>
+      </footer>
     </article>
   );
 }

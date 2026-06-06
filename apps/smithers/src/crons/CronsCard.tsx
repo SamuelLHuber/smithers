@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useApp } from "../app/AppContext";
-import { CRONS } from "./crons";
+import { openSurface } from "../app/navigation";
+import { sortCrons, summarizeCrons } from "./crons";
+import { useCronsStore } from "./cronsStore";
 
 function ClockIcon() {
   return (
@@ -11,10 +11,12 @@ function ClockIcon() {
   );
 }
 
-/** Schedules card: trigger rows + an inline "new schedule" affordance. */
+/** The inline triggers card: enabled count and the first few triggers. */
 export function CronsCard() {
-  const { say } = useApp();
-  const [adding, setAdding] = useState(false);
+  const crons = useCronsStore((state) => state.crons);
+  const openCreate = useCronsStore((state) => state.openCreate);
+  const summary = summarizeCrons(crons);
+  const shown = sortCrons(crons).slice(0, 4);
 
   return (
     <article className="list-card" data-testid="crons-card">
@@ -23,46 +25,47 @@ export function CronsCard() {
           <ClockIcon />
         </span>
         <div className="card-headings">
-          <div className="card-title">Schedules</div>
-          <div className="card-sub">{CRONS.length} active triggers</div>
+          <div className="card-title">Triggers</div>
+          <div className="card-sub">
+            {summary.enabled} enabled trigger{summary.enabled === 1 ? "" : "s"}
+          </div>
         </div>
+        <button className="card-link" type="button" onClick={() => openSurface({ kind: "crons" })}>
+          Open triggers ›
+        </button>
       </header>
+
       <div className="card-body card-body-flush">
-        {CRONS.map((cron) => (
+        {shown.map((cron) => (
           <div className="list-row" key={cron.id}>
             <div className="list-text">
               <div className="list-name">{cron.name}</div>
               <div className="list-meta">
-                <code className="cron-pattern">{cron.pattern}</code> · {cron.workflow}
+                <code className="cron-pattern">{cron.pattern}</code> · {cron.workflowPath}
               </div>
             </div>
             <div className="list-tags">
-              <span className="mini-tag">next {cron.next}</span>
-              <span className="ready-dot is-on" />
+              <span className={`ready-dot${cron.enabled ? " is-on" : ""}`} />
             </div>
           </div>
         ))}
-        {adding ? (
-          <div className="cron-new-form">
-            <div className="field-input is-mono">0 * * * *</div>
-            <div className="field-input">workflow…</div>
-            <button
-              className="btn btn-brand"
-              type="button"
-              onClick={() => {
-                setAdding(false);
-                say("Schedule created.");
-              }}
-            >
-              Add
-            </button>
-          </div>
-        ) : (
-          <button className="cron-add" type="button" onClick={() => setAdding(true)}>
-            <span className="cron-add-plus">＋</span> New schedule
-          </button>
-        )}
+        {summary.total > shown.length ? (
+          <div className="rev-more">+{summary.total - shown.length} more</div>
+        ) : null}
       </div>
+
+      <footer className="card-foot">
+        <button
+          className="btn"
+          type="button"
+          onClick={() => {
+            openCreate();
+            openSurface({ kind: "crons" });
+          }}
+        >
+          New trigger
+        </button>
+      </footer>
     </article>
   );
 }

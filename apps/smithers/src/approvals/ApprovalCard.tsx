@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { useApp } from "../app/AppContext";
+import { useCardUiStore } from "../cards/cardUiStore";
+import { useChatStore } from "../chat/chatStore";
+import { useRunsStore } from "../runs/runsStore";
+import { selectApproval } from "../runs/selectApproval";
+import { selectRun } from "../runs/selectRun";
 import { useElapsed } from "../runs/useElapsed";
 
 function WarnIcon() {
@@ -20,10 +23,14 @@ function WarnIcon() {
  * Approve/Deny resolve the gate on the engine and the run resumes (or fails).
  */
 export function ApprovalCard({ runId }: { runId: string }) {
-  const { engine, say } = useApp();
-  const [note, setNote] = useState("");
-  const approval = engine.getApproval(runId);
-  const run = engine.getRun(runId);
+  const runs = useRunsStore((state) => state.runs);
+  const approve = useRunsStore((state) => state.approve);
+  const deny = useRunsStore((state) => state.deny);
+  const say = useChatStore((state) => state.say);
+  const note = useCardUiStore((state) => state.noteByRun[runId] ?? "");
+  const setNote = useCardUiStore((state) => state.setNote);
+  const approval = selectApproval(runs, runId);
+  const run = selectRun(runs, runId);
   const elapsed = useElapsed(run?.startedAtMs ?? Date.now(), approval?.status === "pending");
 
   if (!approval) {
@@ -77,7 +84,7 @@ export function ApprovalCard({ runId }: { runId: string }) {
           data-testid="approval-note"
           placeholder="Add a note (optional)…"
           value={note}
-          onChange={(event) => setNote(event.target.value)}
+          onChange={(event) => setNote(runId, event.target.value)}
         />
       </div>
 
@@ -87,7 +94,7 @@ export function ApprovalCard({ runId }: { runId: string }) {
           type="button"
           data-testid="approval-approve"
           onClick={() => {
-            engine.approve(runId, note || undefined);
+            approve(runId, note || undefined);
             say("Approved. Deploying auth refactor to production…");
           }}
         >
@@ -98,7 +105,7 @@ export function ApprovalCard({ runId }: { runId: string }) {
           type="button"
           data-testid="approval-deny"
           onClick={() => {
-            engine.deny(runId, note || undefined);
+            deny(runId, note || undefined);
             say("Denied. The deploy gate was rejected; the run is stopped.");
           }}
         >

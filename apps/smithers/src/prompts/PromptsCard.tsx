@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useApp } from "../app/AppContext";
+import { useCardUiStore } from "../cards/cardUiStore";
+import { useChatStore } from "../chat/chatStore";
 import { fillTemplate, PROMPT_TEMPLATES } from "./promptTemplates";
 
 function ListIcon() {
@@ -12,8 +12,10 @@ function ListIcon() {
 
 /** Prompt picker card: choose a template, preview it, send it to the composer. */
 export function PromptsCard() {
-  const { fillComposer } = useApp();
-  const [activeId, setActiveId] = useState(PROMPT_TEMPLATES[0].id);
+  const fill = useChatStore((state) => state.fill);
+  const storedId = useCardUiStore((state) => state.promptActiveId);
+  const setPromptActive = useCardUiStore((state) => state.setPromptActive);
+  const activeId = storedId ?? PROMPT_TEMPLATES[0].id;
   const active = PROMPT_TEMPLATES.find((entry) => entry.id === activeId)!;
   const parts = active.body.split("{target}");
 
@@ -35,7 +37,7 @@ export function PromptsCard() {
               key={template.id}
               type="button"
               className={template.id === activeId ? "file-tab is-on" : "file-tab"}
-              onClick={() => setActiveId(template.id)}
+              onClick={() => setPromptActive(template.id)}
             >
               {template.name}
             </button>
@@ -55,7 +57,7 @@ export function PromptsCard() {
         <button
           className="btn btn-brand"
           type="button"
-          onClick={() => fillComposer(fillTemplate(active, ""))}
+          onClick={() => fill(fillTemplate(active, ""))}
         >
           Use prompt
         </button>

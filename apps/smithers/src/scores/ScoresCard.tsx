@@ -1,3 +1,4 @@
+import { openSurface } from "../app/navigation";
 import { findReport } from "./scoreReport";
 
 function ChartIcon() {
@@ -36,6 +37,13 @@ export function ScoresCard({ reportId }: { reportId: string }) {
             <span className="status-dot" />
             {report.delta}
           </span>
+          <button
+            className="card-link"
+            type="button"
+            onClick={() => openSurface({ kind: "scores" })}
+          >
+            Open scores ›
+          </button>
         </div>
       </header>
       <div className="card-body">

@@ -1,3 +1,4 @@
+import { openSurface } from "../app/navigation";
 import { recall } from "./memoryFacts";
 
 function MemoryIcon() {
@@ -15,7 +16,8 @@ function MemoryIcon() {
 
 /** Memory recall card: the query, then matching facts by similarity. */
 export function MemoryCard({ query }: { query: string }) {
-  const results = recall(query);
+  // Cap the chat preview at the top 3 hits; the canvas exposes the full topK.
+  const results = recall(query, undefined, null, 3);
 
   return (
     <article className="list-card" data-testid="memory-card">
@@ -27,6 +29,9 @@ export function MemoryCard({ query }: { query: string }) {
           <div className="card-title">Memory · recall</div>
           <div className="card-sub">top {results.length} matches</div>
         </div>
+        <button className="card-link" type="button" onClick={() => openSurface({ kind: "memory" })}>
+          Open memory ›
+        </button>
       </header>
       <div className="card-body">
         <div className="recall-query">
@@ -36,11 +41,11 @@ export function MemoryCard({ query }: { query: string }) {
           </svg>
           {query || "browse all facts"}
         </div>
-        {results.map((fact) => (
-          <div className="fact-row" key={fact.id}>
-            <span className="ns-chip">{fact.namespace}</span>
-            <span className="fact-text">{fact.text}</span>
-            <span className="fact-sim">{fact.sim.toFixed(2)}</span>
+        {results.map((result, index) => (
+          <div className="fact-row" key={`${result.metadata ?? "r"}-${index}`}>
+            {result.metadata ? <span className="ns-chip">{result.metadata.split("/")[0]}</span> : null}
+            <span className="fact-text">{result.content}</span>
+            <span className="fact-sim">{result.score.toFixed(2)}</span>
           </div>
         ))}
       </div>
