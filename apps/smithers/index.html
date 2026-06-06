@@ -37,6 +37,15 @@
             meta = document.createElement("meta");
             meta.setAttribute("name", "theme-color");
             document.head.appendChild(meta);
+            // Drop the media-scoped metas (they only covered the pre-script
+            // paint). They sit earlier in tree order, so the browser would pick
+            // one of them over this dynamic meta whenever the in-app toggle
+            // disagrees with the OS preference.
+            document
+              .querySelectorAll('meta[name="theme-color"][media]')
+              .forEach(function (m) {
+                m.parentNode.removeChild(m);
+              });
           }
           meta.setAttribute("content", theme === "dark" ? DARK : LIGHT);
         }
