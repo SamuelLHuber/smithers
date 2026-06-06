@@ -49,6 +49,7 @@ tui-buffer.txt
 .claude/
 .claude/scheduled_tasks.lock
 .kanban-reports/
+pg_durable-smithers-report.html
 
 # Profiling artifacts
 default.profraw
