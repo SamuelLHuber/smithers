@@ -390,15 +390,19 @@ text = text
   .join("\n");
 text = text.replace(/\n{4,}/g, "\n\n\n");
 
-if (text === before) {
-  console.log("No changes.");
-  process.exit(0);
-}
-
+// Always write TARGET and the packaged mirrors, even on a no-op against
+// TARGET: generate-llms.ts overwrites the mirrors with the UN-optimized
+// bundle, so only this loop brings them to the optimized form. Skipping it
+// when TARGET is already optimized would leave the CLI/skill mirrors stale.
 writeFileSync(TARGET, text);
 for (const mirror of MIRRORS) {
   mkdirSync(dirname(mirror), { recursive: true });
   writeFileSync(mirror, text);
+}
+
+if (text === before) {
+  console.log("No changes to docs/llms-full.txt; mirrors refreshed.");
+  process.exit(0);
 }
 const beforeBytes = before.length;
 const afterBytes = text.length;
