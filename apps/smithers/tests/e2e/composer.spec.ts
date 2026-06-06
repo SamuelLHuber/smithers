@@ -64,8 +64,10 @@ test.describe("composer controls", () => {
     await pill.click();
     await expect(pill).toHaveAttribute("aria-expanded", "true");
 
-    // Click the composer input, which sits outside the project control.
-    await page.getByRole("textbox", { name: "Message Smithers" }).click();
+    // An open menu renders a full-viewport backdrop (MenuBackdrop) that catches
+    // any outside pointer-down and closes the menu — clicking it is the outside
+    // click (it sits above the input, intercepting the pointer).
+    await page.locator(".menu-backdrop").click();
     await expect(pill).toHaveAttribute("aria-expanded", "false");
     await expect(
       page.getByRole("menuitemradio", { name: "Personal" }),

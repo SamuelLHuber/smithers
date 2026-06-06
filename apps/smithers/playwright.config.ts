@@ -11,8 +11,12 @@ import { defineConfig, devices } from "@playwright/test";
  *      so the whole gateway path runs without a real key.
  *   2. workerHost.ts       — the real Cloudflare Worker (src/worker.ts) hosted
  *      on a port, with CEREBRAS_BASE_URL pointed at the upstream above.
- *   3. vite                — the app, proxying /api/chat to the Worker host
- *      (same-origin) so the browser's real fetch path is exercised.
+ *   3. gatewayFixture.tsx  — a real Smithers gateway running one workflow that
+ *      ships a custom UI, executed to a completed run. Exercises the gateway
+ *      custom-UI feature end to end (RPC, the served UI bundle, the iframe).
+ *   4. vite                — the app, proxying /api/chat to the Worker host and
+ *      /v1/rpc + /health + /workflows to the gateway (same-origin) so the
+ *      browser's real fetch + iframe paths are exercised.
  *
  * Every port is env-configurable so parallel runs can offset the whole stack.
  */
@@ -20,9 +24,32 @@ import { defineConfig, devices } from "@playwright/test";
 const testPort = process.env.SMITHERS_TEST_PORT || "5275";
 const workerPort = process.env.SMITHERS_WORKER_TEST_PORT || "5276";
 const upstreamPort = process.env.SMITHERS_UPSTREAM_TEST_PORT || "5277";
+const gatewayPort = process.env.SMITHERS_GATEWAY_TEST_PORT || "5278";
 
 const workerUrl = `http://127.0.0.1:${workerPort}`;
 const upstreamUrl = `http://127.0.0.1:${upstreamPort}`;
+const gatewayUrl = `http://127.0.0.1:${gatewayPort}`;
+
+/**
+ * Seed the first-run onboarding flag as "completed" for the test origin, so the
+ * onboarding overlay (which otherwise covers a brand-new visitor) does not block
+ * the rest of the suite. The onboarding spec overrides this with empty storage
+ * via `test.use({ storageState })` to drive the real first run.
+ */
+const onboardedStorageState = {
+  cookies: [],
+  origins: [
+    {
+      origin: `http://127.0.0.1:${testPort}`,
+      localStorage: [
+        {
+          name: "smithers.onboarding",
+          value: JSON.stringify({ state: { completed: true }, version: 0 }),
+        },
+      ],
+    },
+  ],
+};
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -36,6 +63,7 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${testPort}`,
     trace: "on-first-retry",
+    storageState: onboardedStorageState,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
@@ -57,11 +85,21 @@ export default defineConfig({
       },
     },
     {
+      command: `bun tests/fixtures/gatewayFixture.tsx`,
+      url: `${gatewayUrl}/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+      env: { SMITHERS_GATEWAY_PORT: gatewayPort },
+    },
+    {
       command: `vite --host 127.0.0.1 --port ${testPort} --strictPort`,
       port: parseInt(testPort, 10),
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-      env: { SMITHERS_CHAT_PROXY_TARGET: workerUrl },
+      env: {
+        SMITHERS_CHAT_PROXY_TARGET: workerUrl,
+        SMITHERS_GATEWAY_PROXY_TARGET: gatewayUrl,
+      },
     },
   ],
 });

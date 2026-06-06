@@ -4,6 +4,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { GRILL_SYSTEM_PROMPT } from "../askme/grillMe";
+import { withAgentSystem } from "../control/agentSystemPrompt";
 import { useChatStore } from "../chat/chatStore";
 import { CommandMenu } from "../CommandMenu";
 import { ChevronDownIcon } from "../icons/ChevronDownIcon";
@@ -125,8 +126,10 @@ export function ComposerBar() {
       return;
     }
 
-    // Ask Me runs the grill-me interview; plain chat has no system prompt.
-    const system = active === "askme" ? GRILL_SYSTEM_PROMPT : undefined;
+    // Ask Me runs the grill-me interview; plain chat starts from no base prompt.
+    // Either way, withAgentSystem appends the app-control protocol so the agent
+    // can drive the UI (gated by the approval ring) from any view.
+    const system = withAgentSystem(active === "askme" ? GRILL_SYSTEM_PROMPT : undefined);
     const notifId =
       active === "askme"
         ? useNotificationsStore.getState().notify({

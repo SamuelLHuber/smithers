@@ -80,4 +80,15 @@ test.describe("workflow store", () => {
 
     await expect(page.getByText("Tell me what to grill you on")).toBeVisible();
   });
+
+  test("mobile header is not covered by the auth chip", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 780 });
+    await openStore(page);
+
+    const chip = await page.getByTestId("auth-status").boundingBox();
+    const title = await page.getByRole("heading", { name: "Workflow Store" }).boundingBox();
+    expect(chip).not.toBeNull();
+    expect(title).not.toBeNull();
+    expect(title!.y).toBeGreaterThan(chip!.y + chip!.height + 4);
+  });
 });
