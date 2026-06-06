@@ -25,6 +25,18 @@ function chatRequest(body: unknown, init: RequestInit = {}): Request {
 
 const keyEnv: CloudflareEnv = { CEREBRAS_API_KEY: "fixture-key" };
 
+function startFixtureServer(fetch: (request: Request) => Response | Promise<Response>) {
+  const server = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    fetch,
+  });
+  return {
+    origin: `http://127.0.0.1:${server.port}`,
+    stop: () => server.stop(true),
+  };
+}
+
 /** Parse an SSE body into the AG-UI chunk objects it carried. */
 function parseSse(text: string): Array<Record<string, unknown>> {
   const chunks: Array<Record<string, unknown>> = [];
@@ -116,6 +128,310 @@ describe("worker routing + guards", () => {
   test("unknown path with no ASSETS binding → 404", async () => {
     const res = await worker.fetch(new Request(`${ORIGIN}/nope`), keyEnv);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("worker auth and gateway proxy", () => {
+  test("proxies /api/user to the configured Plue auth API", async () => {
+    let seenCookie = "";
+    const auth = startFixtureServer((request) => {
+      const url = new URL(request.url);
+      if (url.pathname !== "/api/user") return new Response("missing", { status: 404 });
+      seenCookie = request.headers.get("cookie") ?? "";
+      return new Response(JSON.stringify({ id: 7, username: "will", is_admin: false }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/api/user`, {
+          headers: { cookie: "smithers_session=ok" },
+        }),
+        { ...keyEnv, AUTH_API_BASE_URL: auth.origin },
+      );
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ id: 7, username: "will" });
+      expect(seenCookie).toContain("smithers_session=ok");
+    } finally {
+      auth.stop();
+    }
+  });
+
+  test("rewrites proxied OAuth authorize redirect_uri back to the Smithers origin", async () => {
+    const auth = startFixtureServer(() => {
+      const location = new URL("https://workos.example/user_management/authorize");
+      location.searchParams.set("client_id", "client_123");
+      location.searchParams.set(
+        "redirect_uri",
+        "https://api.plue.example/api/auth/workos/callback",
+      );
+      location.searchParams.set("state", "state_123");
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: location.toString(),
+          "set-cookie": "smithers_oauth_state=verifier; Path=/; HttpOnly; Secure; SameSite=Lax",
+        },
+      });
+    });
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/api/auth/workos/authorize?provider=GitHubOAuth`, {
+          redirect: "manual",
+        }),
+        { ...keyEnv, AUTH_API_BASE_URL: auth.origin },
+      );
+      expect(res.status).toBe(302);
+      const location = new URL(res.headers.get("location") ?? "");
+      expect(location.searchParams.get("redirect_uri")).toBe(
+        `${ORIGIN}/api/auth/workos/callback`,
+      );
+      expect(res.headers.get("set-cookie")).toContain("smithers_oauth_state=");
+    } finally {
+      auth.stop();
+    }
+  });
+
+  test("proxies /api/repos to GO_API_BASE_URL, forwarding credentials, path, and query", async () => {
+    let seenPath = "";
+    let seenQuery = "";
+    let seenCookie = "";
+    const platform = startFixtureServer((request) => {
+      const url = new URL(request.url);
+      seenPath = url.pathname;
+      seenQuery = url.search;
+      seenCookie = request.headers.get("cookie") ?? "";
+      return new Response(JSON.stringify([{ full_name: "acme/widgets" }]), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/api/repos/acme/widgets/landing-requests?state=open`, {
+          headers: { cookie: "smithers_session=ok" },
+        }),
+        { ...keyEnv, GO_API_BASE_URL: platform.origin },
+      );
+      expect(res.status).toBe(200);
+      expect(seenPath).toBe("/api/repos/acme/widgets/landing-requests");
+      expect(seenQuery).toBe("?state=open");
+      expect(seenCookie).toContain("smithers_session=ok");
+    } finally {
+      platform.stop();
+    }
+  });
+
+  test("platform routes fall back to AUTH_API_BASE_URL when GO_API_BASE_URL is unset", async () => {
+    let seenPath = "";
+    const auth = startFixtureServer((request) => {
+      seenPath = new URL(request.url).pathname;
+      return new Response("[]", { headers: { "content-type": "application/json" } });
+    });
+
+    try {
+      const res = await worker.fetch(new Request(`${ORIGIN}/api/orgs/acme/teams`), {
+        ...keyEnv,
+        AUTH_API_BASE_URL: auth.origin,
+      });
+      expect(res.status).toBe(200);
+      expect(seenPath).toBe("/api/orgs/acme/teams");
+    } finally {
+      auth.stop();
+    }
+  });
+
+  test("platform route with no API base configured → 404", async () => {
+    const res = await worker.fetch(new Request(`${ORIGIN}/api/search/code?q=foo`), keyEnv);
+    expect(res.status).toBe(404);
+  });
+
+  test("validates a Plue session before minting trusted gateway headers", async () => {
+    let authSeenAuthorization = "";
+    const auth = startFixtureServer((request) => {
+      const cookie = request.headers.get("cookie") ?? "";
+      authSeenAuthorization = request.headers.get("authorization") ?? "";
+      if (!cookie.includes("smithers_session=ok")) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      return new Response(JSON.stringify({ id: 7, username: "will", is_admin: true }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const gateway = startFixtureServer((request) => {
+      return new Response(
+        JSON.stringify({
+          userId: request.headers.get("x-user-id"),
+          role: request.headers.get("x-user-role"),
+          scopes: request.headers.get("x-user-scopes"),
+          tokenId: request.headers.get("x-smithers-token-id"),
+          authorization: request.headers.get("authorization"),
+          smithersKey: request.headers.get("x-smithers-key"),
+        }),
+        { headers: { "content-type": "application/json" } },
+      );
+    });
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/v1/rpc/listRuns`, {
+          method: "POST",
+          headers: {
+            cookie: "smithers_session=ok",
+            authorization: "Bearer plue-token",
+            "x-smithers-key": "browser-gateway-token",
+            "x-user-id": "spoofed",
+          },
+          body: "{}",
+        }),
+        {
+          ...keyEnv,
+          AUTH_API_BASE_URL: auth.origin,
+          GATEWAY_BASE_URL: gateway.origin,
+        },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.userId).toBe("7");
+      expect(body.role).toBe("admin");
+      expect(body.scopes).toContain("run:admin");
+      expect(body.tokenId).toBe("plue:7");
+      expect(body.authorization).toBe(null);
+      expect(body.smithersKey).toBe(null);
+      expect(authSeenAuthorization).toBe("Bearer plue-token");
+    } finally {
+      gateway.stop();
+      auth.stop();
+    }
+  });
+
+  test("returns a v1 RPC auth frame when Plue session validation fails", async () => {
+    let gatewayHits = 0;
+    const auth = startFixtureServer(() => new Response("unauthorized", { status: 401 }));
+    const gateway = startFixtureServer(() => {
+      gatewayHits += 1;
+      return new Response("should not be reached");
+    });
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/v1/rpc/listRuns`, { method: "POST", body: "{}" }),
+        {
+          ...keyEnv,
+          AUTH_API_BASE_URL: auth.origin,
+          GATEWAY_BASE_URL: gateway.origin,
+        },
+      );
+      expect(res.status).toBe(401);
+      expect(await res.json()).toMatchObject({
+        type: "res",
+        ok: false,
+        error: { code: "UNAUTHORIZED" },
+      });
+      expect(gatewayHits).toBe(0);
+    } finally {
+      gateway.stop();
+      auth.stop();
+    }
+  });
+
+  test("fails closed when a gateway is configured without Plue auth or a worker gateway token", async () => {
+    let gatewayHits = 0;
+    const gateway = startFixtureServer(() => {
+      gatewayHits += 1;
+      return new Response("should not be reached");
+    });
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/v1/rpc/listRuns`, {
+          method: "POST",
+          headers: {
+            authorization: "Bearer junk",
+            "x-smithers-key": "junk",
+          },
+          body: "{}",
+        }),
+        {
+          ...keyEnv,
+          GATEWAY_BASE_URL: gateway.origin,
+        },
+      );
+      expect(res.status).toBe(401);
+      expect(await res.json()).toMatchObject({
+        type: "res",
+        ok: false,
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Gateway authentication service is not configured",
+        },
+      });
+      expect(gatewayHits).toBe(0);
+    } finally {
+      gateway.stop();
+    }
+  });
+
+  test("passes worker gateway tokens without trusting browser credential or identity headers", async () => {
+    let authHits = 0;
+    const auth = startFixtureServer(() => {
+      authHits += 1;
+      return new Response("unexpected", { status: 500 });
+    });
+    const gateway = startFixtureServer((request) => {
+      return new Response(
+        JSON.stringify({
+          authorization: request.headers.get("authorization"),
+          smithersKey: request.headers.get("x-smithers-key"),
+          userId: request.headers.get("x-user-id"),
+        }),
+        { headers: { "content-type": "application/json" } },
+      );
+    });
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/v1/rpc/listRuns`, {
+          method: "POST",
+          headers: {
+            authorization: "Bearer browser-plue-token",
+            "x-smithers-key": "browser-gateway-token",
+            "x-user-id": "spoofed",
+          },
+          body: "{}",
+        }),
+        {
+          ...keyEnv,
+          AUTH_API_BASE_URL: auth.origin,
+          GATEWAY_BASE_URL: gateway.origin,
+          GATEWAY_AUTH_TOKEN: "gateway-token",
+        },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.authorization).toBe("Bearer gateway-token");
+      expect(body.smithersKey).toBe(null);
+      expect(body.userId).toBe(null);
+      expect(authHits).toBe(0);
+    } finally {
+      gateway.stop();
+      auth.stop();
+    }
+  });
+
+  test("can require auth before /api/chat reaches the model gateway", async () => {
+    const auth = startFixtureServer(() => new Response("unauthorized", { status: 401 }));
+    try {
+      const res = await worker.fetch(chatRequest({ messages: [] }), {
+        ...keyEnv,
+        AUTH_API_BASE_URL: auth.origin,
+      });
+      expect(res.status).toBe(401);
+    } finally {
+      auth.stop();
+    }
   });
 });
 

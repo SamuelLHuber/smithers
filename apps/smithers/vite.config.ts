@@ -22,6 +22,29 @@ if (chatTarget) {
   };
 }
 
+// Optional Plue-compatible auth API for local remote-mode development. The
+// deployed Worker owns this proxy in production; Vite mirrors it for dev and
+// preview when pointed at a sibling/local Plue API.
+const authTarget = process.env.SMITHERS_AUTH_PROXY_TARGET;
+if (authTarget) {
+  proxy["/api/auth"] = { target: authTarget, changeOrigin: true };
+  proxy["/api/user"] = { target: authTarget, changeOrigin: true };
+}
+
+// A connected Smithers gateway (its own process — `smithers up` on
+// 127.0.0.1:7331, or the e2e fixture). The app's gateway client and the embedded
+// custom-UI iframes call same-origin paths; proxy them to the gateway so the
+// browser's real fetch / iframe path runs with NO mocking. Unset (the deployed
+// PWA and most dev) leaves the app gateway-less: these paths 404 and the gateway
+// store reads that as "offline". `/workflows` can't shadow an app route — the
+// router owns none under that prefix.
+const gatewayTarget = process.env.SMITHERS_GATEWAY_PROXY_TARGET;
+if (gatewayTarget) {
+  proxy["/v1/rpc"] = { target: gatewayTarget, changeOrigin: true, ws: true };
+  proxy["/health"] = { target: gatewayTarget, changeOrigin: true };
+  proxy["/workflows"] = { target: gatewayTarget, changeOrigin: true };
+}
+
 export default defineConfig({
   plugins: [react()],
   server: {
