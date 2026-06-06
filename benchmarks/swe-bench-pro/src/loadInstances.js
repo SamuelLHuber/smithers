@@ -3,26 +3,85 @@ import { readFileSync } from "node:fs";
 import { config } from "./config.js";
 
 /**
+ * Decode a Python `repr`-style list of strings into a JS string array.
+ *
+ * Handles single- or double-quoted elements, embedded quotes, and the standard
+ * backslash escapes (`\'`, `\"`, `\\`, `\n`, `\t`, `\r`). A blanket
+ * single→double quote swap is wrong here: a name containing a literal double
+ * quote, or an escaped apostrophe (`\'`), would produce invalid or corrupted
+ * JSON. We scan the literal character-by-character instead.
+ *
+ * @param {string} text   The trimmed list literal, e.g. `"['Test', \"a\\\"b\"]"`.
+ * @returns {string[]}
+ */
+function parsePythonListLiteral(text) {
+  if (!text.startsWith("[") || !text.endsWith("]")) {
+    throw new SyntaxError("not a list literal");
+  }
+  const out = [];
+  let i = 1;
+  const end = text.length - 1;
+  while (i < end) {
+    const ch = text[i];
+    if (ch === " " || ch === "," || ch === "\t" || ch === "\n" || ch === "\r") {
+      i += 1;
+      continue;
+    }
+    if (ch !== "'" && ch !== '"') {
+      throw new SyntaxError(`unexpected character ${JSON.stringify(ch)} at ${i}`);
+    }
+    const quote = ch;
+    i += 1;
+    let value = "";
+    while (i < end && text[i] !== quote) {
+      if (text[i] === "\\") {
+        const next = text[i + 1];
+        switch (next) {
+          case "n": value += "\n"; break;
+          case "t": value += "\t"; break;
+          case "r": value += "\r"; break;
+          case "\\": value += "\\"; break;
+          case "'": value += "'"; break;
+          case '"': value += '"'; break;
+          default: value += next ?? "\\"; break;
+        }
+        i += 2;
+      } else {
+        value += text[i];
+        i += 1;
+      }
+    }
+    if (i >= end) throw new SyntaxError("unterminated string in list literal");
+    i += 1; // consume closing quote
+    out.push(value);
+  }
+  return out;
+}
+
+/**
  * The list-typed columns in SWE-Bench Pro are stored as *strings* containing a
  * Python/JSON list literal (e.g. `"['TestLoad']"`). The canonical evaluator
  * decodes them with `eval()`; we keep the original string verbatim for byte-for
  * byte fidelity in the scoring container and additionally expose a parsed array.
  *
  * @param {string} raw
+ * @param {string} [rowId]   Instance id, surfaced in the error if parsing fails.
  * @returns {string[]}
  */
-function parseListLiteral(raw) {
+function parseListLiteral(raw, rowId) {
   if (raw == null || raw === "") return [];
   if (Array.isArray(raw)) return raw;
   const text = String(raw).trim();
   try {
     return JSON.parse(text);
   } catch {
-    // Python repr uses single quotes — convert to JSON, preserving escapes.
     try {
-      return JSON.parse(text.replace(/'/g, '"'));
-    } catch {
-      return [];
+      return parsePythonListLiteral(text);
+    } catch (err) {
+      const where = rowId ? ` for instance "${rowId}"` : "";
+      throw new Error(
+        `failed to parse list literal${where}: ${err.message} (value: ${JSON.stringify(text.slice(0, 200))})`,
+      );
     }
   }
 }
@@ -84,9 +143,9 @@ export function loadInstances(opts = {}) {
       problemStatement: row.problem_statement ?? "",
       requirements: row.requirements ?? "",
       interface: row.interface ?? "",
-      failToPass: parseListLiteral(row.fail_to_pass),
-      passToPass: parseListLiteral(row.pass_to_pass),
-      selectedTestFiles: parseListLiteral(row.selected_test_files_to_run),
+      failToPass: parseListLiteral(row.fail_to_pass, row.instance_id),
+      passToPass: parseListLiteral(row.pass_to_pass, row.instance_id),
+      selectedTestFiles: parseListLiteral(row.selected_test_files_to_run, row.instance_id),
       goldPatch: row.patch ?? "",
       testPatch: row.test_patch ?? "",
       raw: row,

@@ -85,6 +85,12 @@ export function runWorkflowForInstance(instance, repoDir, opts = {}) {
     pipe(child.stdout);
     pipe(child.stderr);
 
+    child.on("error", () => {
+      if (timer) clearTimeout(timer);
+      out.end();
+      resolve({ code: -1, runId, logPath, timedOut });
+    });
+
     child.on("close", (code) => {
       if (timer) clearTimeout(timer);
       out.end();

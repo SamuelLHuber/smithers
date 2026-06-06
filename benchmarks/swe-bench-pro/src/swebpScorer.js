@@ -32,6 +32,12 @@ export const swebpScorer = {
 
     const patch = extractPatch(repoDir);
     const result = await scorePatch(instance, patch, { prefix: "scorer" });
+    // Mirror runInstance's `excluded-no-tests` gate: an empty-required instance
+    // is vacuously "resolved" (scorePatch.js:108-115), so without this guard a
+    // no-op patch would score a free 1.0. No required tests ⇒ not scorable.
+    if (result.required.length === 0) {
+      return { score: 0, reason: "no required tests — excluded" };
+    }
     return {
       score: result.resolved ? 1 : 0,
       reason: result.resolved

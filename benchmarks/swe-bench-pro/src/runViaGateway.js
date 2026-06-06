@@ -70,10 +70,25 @@ export function startGatewayServer(opts = {}) {
 
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + 60_000;
+    // Stop buffering gateway logs once startup resolves: the gateway is a
+    // long-lived process serving the whole run, so leaving the data listeners
+    // attached would grow `out` unbounded for hours.
+    const stopBuffering = () => {
+      child.stdout.removeAllListeners("data");
+      child.stderr.removeAllListeners("data");
+      // Removing the sole "data" listener pauses the stream; libuv then keeps
+      // reading the OS pipe into the stream's internal buffer, which is never
+      // drained and grows unbounded for the life of the long-lived gateway.
+      // resume() returns it to flowing mode with no consumer, so the bytes are
+      // discarded instead of accumulated.
+      child.stdout.resume();
+      child.stderr.resume();
+    };
     const check = setInterval(() => {
       const text = out.join("");
       if (text.includes("[gateway] READY")) {
         clearInterval(check);
+        stopBuffering();
         log(`[gateway] ready`);
         resolve({
           baseUrl: `http://${host}:${port}`,
@@ -83,6 +98,7 @@ export function startGatewayServer(opts = {}) {
         });
       } else if (Date.now() > deadline || child.exitCode != null) {
         clearInterval(check);
+        stopBuffering();
         child.kill("SIGKILL");
         reject(new Error(`gateway failed to start:\n${out.join("")}`));
       }
