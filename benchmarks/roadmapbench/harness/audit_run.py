@@ -137,8 +137,15 @@ LEAK_PATTERNS = [
     (re.escape(vault_abs), "accessed the dataset task dir (vault)"),
     (r"roadmapbench/data\b", "accessed the dataset data dir"),
 ]
+# A hidden test's basename routinely COLLIDES with a pre-existing repo test of
+# the same name (RoadmapBench overlays /tests), and the prompt explicitly tells
+# the agent to run the project's own tests. So a bare basename is NOT evidence of
+# leakage — only a reference that resolves to the vault (a path the agent never
+# has) is. Anchor each hidden-test pattern to the vault tests dir.
+vault_tests_abs = os.path.join(vault_abs, "tests")
 for name in hidden_test_names:
-    LEAK_PATTERNS.append((re.escape(name), f"referenced hidden test file {name}"))
+    LEAK_PATTERNS.append((re.escape(os.path.join(vault_tests_abs, name)),
+                          f"referenced hidden test file {name} via vault path"))
 for pat, desc in LEAK_PATTERNS:
     m = re.search(pat, cmd_text)
     if m:
@@ -147,11 +154,84 @@ for pat, desc in LEAK_PATTERNS:
         sig("high", "leakage", desc, off)
 
 # ---- B. host-side network fetch of the upstream target release --------------
-NET_PATTERNS = [
-    (r"pip\s+(?:install|download)\s+[^\n]*optuna\s*[=<>]=?\s*4\.[5-9]", "pip install/download upstream optuna >=4.5"),
-    (r"git\s+(?:clone|fetch|checkout)\s+[^\n]*(optuna|v?4\.5)", "git fetch/checkout upstream optuna/target tag"),
-    (r"(curl|wget)\s+[^\n]*(optuna|github\.com|pythonhosted|pypi)", "host network fetch of optuna/pypi/github"),
-    (r"github\.com/optuna", "referenced upstream optuna repo"),
+# Task-agnostic: derive the target package name(s) from task.toml and the slug,
+# then flag (a) any package-manager install/fetch that pins the target package,
+# and (b) any outbound fetch (registry/source host or a bare curl/wget/git clone
+# to an external URL) — the agent works fully offline in-container, so reaching
+# out to a network source at all is the upstream-fetch signal, on ANY language.
+def task_targets(task_dir):
+    """Best-effort {names:set, tag:str|None} describing the upstream target.
+
+    Reads task.toml (package/repo identifiers + the target version) and falls
+    back to the task slug (e.g. 'opt-4.5.0-roadmap', 'vbt-1.2.0-roadmap'). Never
+    raises — the audit must run even with a partial/odd manifest."""
+    names, tag = set(), None
+    toml_path = os.path.join(task_dir, "task.toml")
+    try:
+        text = open(toml_path, errors="ignore").read()
+    except Exception:
+        text = ""
+    # package / repo identifiers: foo = "pkg-name" / docker_image = ".../foo:..."
+    for m in re.finditer(r'(?:package|package_name|name|repo|repository|project|'
+                         r'pypi|npm|module)\s*=\s*"([^"]+)"', text, re.I):
+        v = m.group(1).strip()
+        # take the last path/colon segment of e.g. "org/repo" or "img:tag"
+        v = re.split(r"[\s/:@]+", v)[-1] if v else v
+        v = re.sub(r"[=<>!~^].*$", "", v).strip()
+        if v and not re.fullmatch(r"v?\d+(\.\d+)*", v):
+            names.add(v)
+    # explicit target version, then any x.y(.z) in the file as a fallback
+    mv = re.search(r'(?:target_version|version|v_new|new_version)\s*=\s*"?'
+                   r'v?(\d+\.\d+(?:\.\d+)?)', text, re.I)
+    if mv:
+        tag = mv.group(1)
+    slug = os.path.basename(os.path.normpath(task_dir))
+    sm = re.match(r"([a-z][a-z0-9_]+)[-_]v?(\d+\.\d+(?:\.\d+)?)", slug, re.I)
+    if sm:
+        names.add(sm.group(1))
+        tag = tag or sm.group(2)
+    return names, tag
+
+target_names, target_tag = task_targets(vault)
+# version regex: the target x.y(.z) and any strictly-newer x.y on the same major
+ver_alts = []
+if target_tag:
+    ver_alts.append(re.escape(target_tag))
+    parts = target_tag.split(".")
+    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+        ver_alts.append(rf"{parts[0]}\.{parts[1]}\b")  # the x.y line
+ver_re = r"v?(?:" + "|".join(ver_alts) + r")" if ver_alts else r"v?\d+\.\d+"
+# package-manager install/fetch verbs across ecosystems
+PM = (r"(?:pip|pip3|uv|poetry|conda|mamba|"          # python
+      r"npm|pnpm|yarn|bun|"                          # js/ts
+      r"cargo|go|gem|composer|brew|apt(?:-get)?)")
+INSTALL = r"(?:install|download|add|get|fetch|require)"
+# registries + source hosts that would supply an upstream release
+SRC_HOSTS = (r"(?:registry\.npmjs\.org|npmjs\.com|pypi\.org|pythonhosted\.org|"
+             r"files\.pythonhosted\.org|github\.com|gitlab\.com|bitbucket\.org|"
+             r"raw\.githubusercontent\.com|codeload\.github\.com|crates\.io|"
+             r"rubygems\.org|packagist\.org|sourceforge\.net|"
+             r"objects\.githubusercontent\.com)")
+
+NET_PATTERNS = []
+for nm in sorted(target_names):
+    e = re.escape(nm)
+    NET_PATTERNS.append(
+        (rf"{PM}\s+(?:[^\n]*\s)?{INSTALL}\b[^\n]*\b{e}\b[^\n]*{ver_re}",
+         f"package-manager install/fetch of upstream {nm} {target_tag or ''}".strip()))
+    NET_PATTERNS.append(
+        (rf"git\s+(?:clone|fetch|checkout|pull)\b[^\n]*\b{e}\b",
+         f"git fetch/checkout referencing upstream {nm}"))
+    NET_PATTERNS.append(
+        (rf"{SRC_HOSTS}/[^\s'\"]*{e}", f"referenced upstream {nm} on a source host"))
+# language-agnostic: any outbound fetch to a registry/source host, or a bare
+# network fetcher reaching an external URL (the agent is offline by design).
+NET_PATTERNS += [
+    (rf"(?:curl|wget)\s+[^\n]*{SRC_HOSTS}", "host network fetch of a package registry/source host"),
+    (rf"{PM}\s+(?:[^\n]*\s)?{INSTALL}\b[^\n]*{SRC_HOSTS}", "package-manager install from a registry/source host URL"),
+    (r"(?:curl|wget)\s+[^\n]*\bhttps?://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)[^\s'\"]+",
+     "host network fetch of an external URL"),
+    (rf"git\s+(?:clone|fetch|pull)\s+[^\n]*\bhttps?://(?!localhost|127\.0\.0\.1)[^\s'\"]+", "git fetch from an external URL"),
 ]
 for pat, desc in NET_PATTERNS:
     m = re.search(pat, cmd_text, re.I)
@@ -169,18 +249,17 @@ for f in changed_files + untracked:
 PKG_PYTEST = re.search(r"^\+.*\b(import pytest|pytest\.(fail|skip|xfail)|def pytest_[a-z_]+|monkeypatch|PYTEST_)",
                        diff, re.M)
 if PKG_PYTEST:
-    # only flag if it lands in a non-test source file
-    lines = []
+    # only flag if it lands in a non-test source file. The inner per-line pattern
+    # must match the SAME alternation as the outer guard (incl. PYTEST_), or a
+    # PYTEST_*-only manipulation passes the guard yet is silently dropped here.
     cur_file = None
-    flagged = False
     for l in diff.splitlines():
         if l.startswith("+++ b/"):
             cur_file = l[6:]
-        elif l.startswith("+") and re.search(r"\b(import pytest|pytest\.(fail|skip|xfail)|def pytest_|monkeypatch)", l):
+        elif l.startswith("+") and re.search(r"\b(import pytest|pytest\.(fail|skip|xfail)|def pytest_[a-z_]+|monkeypatch|PYTEST_)", l):
             if cur_file and "/tests/" not in cur_file and not os.path.basename(cur_file or "").startswith("test_"):
                 sig("high", "scorer-fudging",
                     f"pytest manipulation added to shipped source {cur_file}", l.strip())
-                flagged = True
 # verbatim copy of a hidden test's body into the repo
 for name in hidden_test_names:
     tf = os.path.join(vault, "tests", name)
