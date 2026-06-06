@@ -43,14 +43,26 @@ export function resolveSmithersDocsSource(input) {
         return { kind: "remote", url: `${LATEST_DOCS_BASE_URL}/${input.file}` };
     }
 
-    const version = normalizeDocsVersion(input.version ?? input.packageVersion);
-    const url = versionedDocsUrl(input.file, version);
-    if (!input.version) {
-        for (const localDocsRoot of input.localDocsRoots ?? []) {
-            const localPath = resolve(localDocsRoot, input.file);
-            if (existsSync(localPath)) {
-                return { kind: "local", path: localPath, url };
-            }
+    // An explicit --docs-version must be a valid semver tag; surface the error.
+    // When the version comes only from the package (e.g. the literal "unknown"
+    // from an unreadable package.json), fall back to packaged local docs before
+    // erroring so a confusing version message never hides on-disk docs.
+    if (input.version) {
+        const version = normalizeDocsVersion(input.version);
+        return { kind: "remote", url: versionedDocsUrl(input.file, version) };
+    }
+
+    let url;
+    try {
+        url = versionedDocsUrl(input.file, input.packageVersion);
+    }
+    catch {
+        url = `${LATEST_DOCS_BASE_URL}/${input.file}`;
+    }
+    for (const localDocsRoot of input.localDocsRoots ?? []) {
+        const localPath = resolve(localDocsRoot, input.file);
+        if (existsSync(localPath)) {
+            return { kind: "local", path: localPath, url };
         }
     }
 
