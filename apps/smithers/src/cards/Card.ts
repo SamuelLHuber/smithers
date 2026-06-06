@@ -15,4 +15,13 @@ export type Card =
   | { kind: "crons" }
   | { kind: "human" }
   | { kind: "signal"; event: string }
-  | { kind: "prompts" };
+  | { kind: "prompts" }
+  | { kind: "vcs" }
+  | { kind: "issues" }
+  | { kind: "tickets" }
+  | { kind: "landings" }
+  | { kind: "runsList" }
+  | { kind: "approvalsList" }
+  | { kind: "promptsEditor" }
+  | { kind: "workflowEditor" }
+  | { kind: "palette" };

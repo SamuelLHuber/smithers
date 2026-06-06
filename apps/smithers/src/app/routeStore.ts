@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import type { Surface } from "./Surface";
 
-/** The three top-level views. `home` is the chat landing at `/`. */
-export type View = "home" | "askme" | "store";
+/** The top-level views. `home` is the chat landing at `/`. */
+export type View = "home" | "askme" | "store" | "login";
 
 export type RouteState = {
   view: View;

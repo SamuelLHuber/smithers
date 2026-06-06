@@ -1,6 +1,19 @@
 import type { RouteState } from "./routeStore";
 
 /**
+ * Decode a path segment, falling back to the raw value on a malformed percent
+ * sequence. decodeURIComponent throws URIError on inputs like "%"; a malformed
+ * deep link must not break the route store's only writer.
+ */
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+/**
  * Map a resolved location to route state. Pure and decoupled from the route
  * tree: the router owns history and validation, this reads the result. Run
  * surfaces are matched before the bare inspector so the longer paths win.
@@ -17,8 +30,8 @@ export function deriveRoute(
       view: "home",
       surface: {
         kind: "diff",
-        runId: decodeURIComponent(diff[1]),
-        diffId: decodeURIComponent(diff[2]),
+        runId: safeDecode(diff[1]),
+        diffId: safeDecode(diff[2]),
       },
       project,
     };
@@ -27,7 +40,7 @@ export function deriveRoute(
   if (logs) {
     return {
       view: "home",
-      surface: { kind: "logs", runId: decodeURIComponent(logs[1]) },
+      surface: { kind: "logs", runId: safeDecode(logs[1]) },
       project,
     };
   }
@@ -35,7 +48,7 @@ export function deriveRoute(
   if (timeline) {
     return {
       view: "home",
-      surface: { kind: "timeline", runId: decodeURIComponent(timeline[1]) },
+      surface: { kind: "timeline", runId: safeDecode(timeline[1]) },
       project,
     };
   }
@@ -43,15 +56,74 @@ export function deriveRoute(
   if (inspector) {
     return {
       view: "home",
-      surface: { kind: "inspector", runId: decodeURIComponent(inspector[1]) },
+      surface: { kind: "inspector", runId: safeDecode(inspector[1]) },
       project,
     };
+  }
+  const gatewayRun = pathname.match(/^\/gw\/([^/]+)\/([^/]+)\/?$/);
+  if (gatewayRun) {
+    return {
+      view: "home",
+      surface: {
+        kind: "gatewayRun",
+        workflowKey: safeDecode(gatewayRun[1]),
+        runId: safeDecode(gatewayRun[2]),
+      },
+      project,
+    };
+  }
+  const workflowEditor = pathname.match(/^\/workflow\/([^/]+)\/?$/);
+  if (workflowEditor) {
+    return {
+      view: "home",
+      surface: { kind: "workflowEditor", id: safeDecode(workflowEditor[1]) },
+      project,
+    };
+  }
+  if (pathname === "/vcs") {
+    return { view: "home", surface: { kind: "vcs" }, project };
+  }
+  if (pathname === "/issues") {
+    return { view: "home", surface: { kind: "issues" }, project };
+  }
+  if (pathname === "/tickets") {
+    return { view: "home", surface: { kind: "tickets" }, project };
+  }
+  if (pathname === "/landings") {
+    return { view: "home", surface: { kind: "landings" }, project };
+  }
+  if (pathname === "/runs") {
+    return { view: "home", surface: { kind: "runs" }, project };
+  }
+  if (pathname === "/approvals") {
+    return { view: "home", surface: { kind: "approvals" }, project };
+  }
+  if (pathname === "/agents") {
+    return { view: "home", surface: { kind: "agents" }, project };
+  }
+  if (pathname === "/memory") {
+    return { view: "home", surface: { kind: "memory" }, project };
+  }
+  if (pathname === "/prompts") {
+    return { view: "home", surface: { kind: "prompts" }, project };
+  }
+  if (pathname === "/scores") {
+    return { view: "home", surface: { kind: "scores" }, project };
+  }
+  if (pathname === "/crons") {
+    return { view: "home", surface: { kind: "crons" }, project };
+  }
+  if (pathname === "/palette") {
+    return { view: "home", surface: { kind: "palette" }, project };
   }
   if (pathname === "/askme") {
     return { view: "askme", surface: null, project };
   }
   if (pathname === "/store") {
     return { view: "store", surface: null, project };
+  }
+  if (pathname === "/login") {
+    return { view: "login", surface: null, project };
   }
   return { view: "home", surface: null, project };
 }
