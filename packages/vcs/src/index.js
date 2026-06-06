@@ -10,3 +10,4 @@ export * from "./RunJjResult.js";
 export * from "./WorkspaceAddOptions.js";
 export * from "./WorkspaceInfo.js";
 export * from "./WorkspaceResult.js";
+export * from "./WorkspaceSnapshot.js";
