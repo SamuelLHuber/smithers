@@ -33,7 +33,7 @@ import { findAndOpenDb } from "./find-db.js";
 import { chatAttemptKey, formatChatAttemptHeader, formatChatBlock, parseAgentEvent, parseChatAttemptMeta, parseNodeOutputEvent, selectChatAttempts, } from "./chat.js";
 import { buildHijackLaunchSpec, isNativeHijackCandidate, launchHijackSession, resolveHijackCandidate, waitForHijackCandidate, } from "./hijack.js";
 import { parseAgentWiringArgv } from "./agent-wiring/parseAgentWiringArgv.js";
-import { wireExtraAgents } from "./agent-wiring/wireExtraAgents.js";
+import { EXTRA_MCP_AGENTS, EXTRA_SKILL_AGENTS, wireExtraAgents } from "./agent-wiring/wireExtraAgents.js";
 import { launchConversationHijackSession, persistConversationHijackHandoff, } from "./hijack-session.js";
 import { colorizeEventText, formatAge, formatElapsedCompact, formatEventLine, formatRelativeOffset, } from "./format.js";
 import { EVENT_CATEGORY_VALUES, eventTypesForCategory, normalizeEventCategory, } from "./event-categories.js";
@@ -5802,17 +5802,27 @@ async function main() {
     // `mcp add` / `skills add` register Smithers into the agents the underlying
     // framework knows about. Reach the rest — Hermes/OpenClaw (native MCP config)
     // and Pi (skills dir) — as a best-effort supplementary step on success.
-    if (exitCodeFromServe === undefined || exitCodeFromServe === 0) {
+    const wiring = parseAgentWiringArgv(argv);
+    // incur's `mcp add` / `skills add` doesn't know about Hermes/OpenClaw (native
+    // MCP config) or Pi (skills dir). When the user explicitly targets ONLY those
+    // agents, incur exits non-zero for the "unknown agent" — but those are exactly
+    // the agents wired here, so that failure must not skip our wiring. Once we
+    // wire them, the command has succeeded, so clear the spurious exit code.
+    const extraIds = wiring?.kind === "skills" ? EXTRA_SKILL_AGENTS : EXTRA_MCP_AGENTS;
+    const targetsOnlyExtra = Boolean(wiring?.agents?.length && wiring.agents.every((id) => extraIds.includes(id)));
+    const serveSucceeded = exitCodeFromServe === undefined || exitCodeFromServe === 0;
+    if (wiring && (serveSucceeded || targetsOnlyExtra)) {
         try {
-            const wiring = parseAgentWiringArgv(argv);
-            if (wiring) {
-                const results = wireExtraAgents(wiring);
-                for (const r of results) {
-                    if (r.registered) console.error(`✓ ${r.agent}: ${r.path}`);
-                    else if (Array.isArray(r.linked) && r.linked.length) console.error(`✓ ${r.agent}: ${r.path} (${r.linked.length} skill${r.linked.length === 1 ? "" : "s"})`);
-                    else if (r.reason && r.reason !== "not-detected" && r.reason !== "no-source-skills") console.error(`⚠ ${r.agent}: skipped (${r.reason})`);
-                }
+            const results = wireExtraAgents(wiring);
+            for (const r of results) {
+                if (r.registered) console.error(`✓ ${r.agent}: ${r.path}`);
+                else if (Array.isArray(r.linked) && r.linked.length) console.error(`✓ ${r.agent}: ${r.path} (${r.linked.length} skill${r.linked.length === 1 ? "" : "s"})`);
+                else if (r.reason && r.reason !== "not-detected" && r.reason !== "no-source-skills") console.error(`⚠ ${r.agent}: skipped (${r.reason})`);
             }
+            // The command targeted only agents incur cannot handle; our wiring is
+            // the real work, so a serve failure caused solely by the unknown agent
+            // is a success once the wiring step has run.
+            if (targetsOnlyExtra && !serveSucceeded) exitCodeFromServe = 0;
         }
         catch (err) {
             console.error(`⚠ Smithers agent wiring skipped: ${err?.message ?? String(err)}`);
