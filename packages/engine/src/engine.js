@@ -2971,7 +2971,19 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                 let forkSeedMessages = null;
                 if (desc.forkSource && !(guidedResumeMessages?.length)) {
                     const forkSourceAttempts = await Effect.runPromise(adapter.listAttemptsForRun(runId));
-                    forkSeedMessages = resolveForkSessionMessages(forkSourceAttempts, desc.forkSource, desc.nodeId);
+                    try {
+                        forkSeedMessages = resolveForkSessionMessages(forkSourceAttempts, desc.forkSource, desc.nodeId);
+                    }
+                    catch (err) {
+                        // The fork source is terminal (the scheduler only runs a
+                        // forked task once its source reaches a terminal state) but
+                        // produced no usable session — it was skipped, cancelled,
+                        // or a continueOnFail/non-agent source. Retrying can never
+                        // make it forkable, so fail fast instead of burning the
+                        // retry budget on a deterministic failure.
+                        attemptMeta.failureRetryable = false;
+                        throw err;
+                    }
                     attemptMeta.forkedFromSource = desc.forkSource;
                 }
                 if (desc.hijack) {
