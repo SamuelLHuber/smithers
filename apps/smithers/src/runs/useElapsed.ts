@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useClockStore } from "./clockStore";
 
 /** Format a millisecond duration as "2m14s" / "8s" / "1h03m". */
 export function formatElapsed(ms: number): string {
@@ -16,17 +16,12 @@ export function formatElapsed(ms: number): string {
 }
 
 /**
- * A live elapsed-time label that ticks once a second while `running`. Frozen at
- * the final value once the run stops, so finished cards don't keep counting.
+ * A live elapsed-time label that ticks once a second while `running`, off the
+ * shared clock store. Frozen at the final value once the run stops, so finished
+ * cards don't keep counting. While stopped the selector is constant, so the card
+ * never re-renders on the tick and reads the clock once during render.
  */
 export function useElapsed(startedAtMs: number, running: boolean): string {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!running) {
-      return;
-    }
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [running]);
-  return formatElapsed((running ? now : Date.now()) - startedAtMs);
+  const tick = useClockStore((state) => (running ? state.nowMs : 0));
+  return formatElapsed((running ? tick : Date.now()) - startedAtMs);
 }
