@@ -44,6 +44,7 @@ const workflowSummarySchema = z.object({
     id: z.string(),
     metadataVersion: z.number().int(),
     displayName: z.string(),
+    scope: z.enum(["local", "global"]),
     entryFile: z.string(),
     sourceType: z.string(),
     description: z.string(),
@@ -629,6 +630,7 @@ async function loadWorkflowById(workflowId, cwd) {
             id: discovered.id,
             metadataVersion: discovered.metadataVersion,
             displayName: discovered.displayName,
+            scope: discovered.scope,
             entryFile: discovered.entryFile,
             sourceType: discovered.sourceType,
             description: discovered.description,
@@ -774,7 +776,7 @@ export function createSemanticToolDefinitions(options = {}) {
     return [
         {
             name: "list_workflows",
-            description: "List discovered local Smithers workflows.",
+            description: "List discovered Smithers workflows (local repo .smithers pack plus the global ~/.smithers pack; local shadows global on id collisions).",
             inputSchema: listWorkflowsInputSchema,
             outputSchema: resultSchema(listWorkflowsDataSchema),
             annotations: { readOnlyHint: true },

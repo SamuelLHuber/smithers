@@ -44,7 +44,7 @@ import { getUsageForAccounts, formatUsageReports } from "@smithers-orchestrator/
 import { runAgentAdd, pingAccount } from "./agent-commands/runAgentAdd.js";
 import { agentAddWizard } from "./agent-commands/agentAddWizard.js";
 import { getWorkflowFollowUpCtas } from "./workflow-pack.js";
-import { discoverWorkflows, resolveWorkflow, createWorkflowFile, renderWorkflowSkill, writeWorkflowSkillFiles } from "./workflows.js";
+import { discoverWorkflows, resolveWorkflow, createWorkflowFile, renderWorkflowSkill, writeWorkflowSkillFiles, resolvePackDirs } from "./workflows.js";
 import {
     assertEvalRunIdsAvailable,
     assertEvalReportWritable,
@@ -1442,6 +1442,10 @@ const workflowSkillArgs = z.object({
 const workflowSkillOptions = z.object({
     output: z.string().optional().describe("Output file for one workflow, or output directory for all workflows"),
     force: z.boolean().default(false).describe("Overwrite existing skill files"),
+    global: z.boolean().default(false).describe("Write skills into the global ~/.smithers pack (honors SMITHERS_HOME) instead of the local .smithers"),
+});
+const workflowCreateOptions = z.object({
+    global: z.boolean().default(false).describe("Create the workflow in the global ~/.smithers pack (honors SMITHERS_HOME) instead of the local .smithers"),
 });
 const workflowRunOptions = upOptions.extend({
     prompt: z.string().optional().describe("Prompt text mapped to input.prompt when --input is omitted"),
@@ -1932,15 +1936,16 @@ const workflowCli = Cli.create({
     },
 })
     .command("create", {
-    description: "Create a new flat workflow scaffold in .smithers/workflows.",
+    description: "Create a new flat workflow scaffold in .smithers/workflows (or the global ~/.smithers with --global).",
     args: workflowPathArgs,
+    options: workflowCreateOptions,
     run(c) {
         const fail = (opts) => {
             commandExitOverride = opts.exitCode ?? 1;
             return c.error(opts);
         };
         try {
-            return c.ok(createWorkflowFile(c.args.name, process.cwd()));
+            return c.ok(createWorkflowFile(c.args.name, process.cwd(), { global: c.options.global }));
         }
         catch (err) {
             if (err instanceof SmithersError) {
@@ -1983,6 +1988,7 @@ const workflowCli = Cli.create({
                 workflowId: c.args.name ?? "all",
                 output: c.options.output,
                 force: c.options.force,
+                global: c.options.global,
             }));
         }
         catch (err) {
@@ -2008,15 +2014,30 @@ const workflowCli = Cli.create({
         const workflows = c.args.name
             ? [resolveWorkflow(c.args.name, process.cwd())]
             : discoverWorkflows(process.cwd());
-        const workflowRoot = resolve(process.cwd(), ".smithers");
+        const packs = resolvePackDirs(process.cwd()).map(({ scope, packDir }) => ({
+            scope,
+            packDir,
+            preload: {
+                path: resolve(packDir, "preload.ts"),
+                exists: existsSync(resolve(packDir, "preload.ts")),
+            },
+            bunfig: {
+                path: resolve(packDir, "bunfig.toml"),
+                exists: existsSync(resolve(packDir, "bunfig.toml")),
+            },
+        }));
+        // Primary local pack (nearest .smithers, walking up) for back-compat fields.
+        const localPack = packs.find((pack) => pack.scope === "local");
+        const workflowRoot = localPack?.packDir ?? resolve(process.cwd(), ".smithers");
         return c.ok({
             workflowRoot,
+            packs,
             workflows,
-            preload: {
+            preload: localPack?.preload ?? {
                 path: resolve(workflowRoot, "preload.ts"),
                 exists: existsSync(resolve(workflowRoot, "preload.ts")),
             },
-            bunfig: {
+            bunfig: localPack?.bunfig ?? {
                 path: resolve(workflowRoot, "bunfig.toml"),
                 exists: existsSync(resolve(workflowRoot, "bunfig.toml")),
             },
