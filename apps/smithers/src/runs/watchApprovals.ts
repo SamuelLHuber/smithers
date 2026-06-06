@@ -28,7 +28,7 @@ export function startApprovalWatcher(): void {
         });
         pendingToast.set(run.id, toastId);
       } else if (
-        (run.gate === "approved" || run.gate === "denied") &&
+        (run.gate === "approved" || run.gate === "denied" || run.canceled) &&
         pendingToast.has(run.id)
       ) {
         const toastId = pendingToast.get(run.id);
