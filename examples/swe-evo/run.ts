@@ -111,7 +111,28 @@ async function readScore(db: unknown, tables: unknown, runId: string): Promise<S
     >;
     const rows = out?.score ?? [];
     return (rows[rows.length - 1] as ScoreRow) ?? null;
-  } catch {
+  } catch (e: unknown) {
+    // A swallowed read error is indistinguishable from a 0-score run, which would
+    // silently drive the whole benchmark toward 0%. Surface it on stderr so a
+    // systemic DB read failure is visible rather than masquerading as results.
+    process.stderr.write(`[score] read failed for ${runId}: ${(e as Error)?.message ?? String(e)}\n`);
+    return null;
+  }
+}
+
+// The engine's terminal run status lives in the internal `_smithers_runs` table,
+// not in the user output tables loadOutputs reads. Query it via the raw bun:sqlite
+// client so we can tell a genuinely failed/cancelled run from a 0-score run.
+function readRunStatus(db: unknown, runId: string): string | null {
+  try {
+    const client = (db as { $client?: unknown; session?: { client?: unknown } });
+    const sqlite = (client.session?.client ?? client.$client ?? db) as {
+      query: (sql: string) => { get: (...params: unknown[]) => { status?: string } | null };
+    };
+    const row = sqlite.query("SELECT status FROM _smithers_runs WHERE run_id = ? LIMIT 1").get(runId);
+    return row?.status ?? null;
+  } catch (e: unknown) {
+    process.stderr.write(`[status] read failed for ${runId}: ${(e as Error)?.message ?? String(e)}\n`);
     return null;
   }
 }
@@ -175,14 +196,31 @@ async function runViaGateway(instances: Instance[], args: Args): Promise<RunOutc
         await (gateway as never as {
           startRun: (k: string, i: unknown, a: unknown, r: string, o: unknown) => Promise<unknown>;
         }).startRun("swe-evo", instance, auth, runId, { resume: false });
+        // The inflight promise reliably resolves only after the run completes, but
+        // the gateway deliberately erases its status/error (it stores
+        // runPromise.then(() => undefined, () => undefined)), so we cannot read the
+        // outcome from it. Await it purely as a completion barrier, then read the
+        // terminal status from the DB.
         const inflight = (gateway as never as { inflightRuns: Map<string, Promise<unknown>> })
           .inflightRuns.get(runId);
-        const result = (inflight ? await inflight : undefined) as { status?: string } | undefined;
+        if (inflight) await inflight;
+        const runStatus = readRunStatus((api as { db: unknown }).db, runId);
         const score = await readScore((api as { db: unknown }).db, (api as { tables: unknown }).tables, runId);
+        // A failed/cancelled run must not be counted as a legitimate 0-score: surface
+        // it as an explicit error with a null score so aggregate() doesn't conflate it.
+        if (runStatus === "failed" || runStatus === "cancelled") {
+          return {
+            instance_id: instance.instance_id,
+            repo: instance.repo,
+            status: runStatus,
+            score: null,
+            error: `gateway run ${runStatus}`,
+          };
+        }
         return {
           instance_id: instance.instance_id,
           repo: instance.repo,
-          status: result?.status ?? (score ? "finished" : "unknown"),
+          status: runStatus ?? (score ? "finished" : "unknown"),
           score,
         };
       } catch (e: unknown) {
