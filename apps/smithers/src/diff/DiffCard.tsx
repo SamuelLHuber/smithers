@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useApp } from "../app/AppContext";
+import { openSurface } from "../app/navigation";
 import { AUTH_REFACTOR_DIFF } from "./authRefactorDiff";
+import { detectBinary, diffTotals } from "./diffPaginate";
+import { useDiffStore } from "./diffStore";
 import { DiffHunks } from "./DiffHunks";
 
 function DiffIcon() {
@@ -19,10 +20,13 @@ function DiffIcon() {
 
 /** The inline diff card: file tabs + the selected file's hunks (Image: Diff). */
 export function DiffCard({ runId }: { runId: string }) {
-  const { openSurface } = useApp();
   const diff = AUTH_REFACTOR_DIFF;
-  const [active, setActive] = useState(0);
-  const hidden = 8 - diff.files.length;
+  const totals = diffTotals(diff);
+  // Selection is owned by diffStore now; the card keys it by runId so the chat
+  // card and the canvas keep their own active file independently.
+  const active = useDiffStore((state) => state.activeByDiff[runId] ?? 0);
+  const selectFile = useDiffStore((state) => state.selectFile);
+  const file = diff.files[active];
 
   return (
     <article className="diff-card" data-testid="diff-card">
@@ -33,8 +37,8 @@ export function DiffCard({ runId }: { runId: string }) {
         <div className="card-headings">
           <div className="card-title">{diff.title}</div>
           <div className="card-sub">
-            8 files · <span className="delta-add">+{diff.totalAdd}</span>{" "}
-            <span className="delta-del">−{diff.totalDel}</span>
+            {totals.files} files · <span className="delta-add">+{totals.add}</span>{" "}
+            <span className="delta-del">−{totals.del}</span>
           </div>
         </div>
         <button
@@ -48,19 +52,22 @@ export function DiffCard({ runId }: { runId: string }) {
 
       <div className="card-body">
         <div className="file-tabs">
-          {diff.files.map((file, index) => (
+          {diff.files.map((entry, index) => (
             <button
-              key={file.path}
+              key={entry.path}
               type="button"
               className={index === active ? "file-tab is-on" : "file-tab"}
-              onClick={() => setActive(index)}
+              onClick={() => selectFile(runId, index)}
             >
-              {file.path}
+              {entry.path}
             </button>
           ))}
-          {hidden > 0 ? <span className="file-tab is-more">+{hidden}</span> : null}
         </div>
-        <DiffHunks file={diff.files[active]} />
+        {file && detectBinary(file) ? (
+          <div className="diff-binary-body">Binary file</div>
+        ) : file ? (
+          <DiffHunks file={file} />
+        ) : null}
       </div>
     </article>
   );
