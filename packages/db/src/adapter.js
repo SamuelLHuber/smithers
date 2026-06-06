@@ -1898,6 +1898,44 @@ export class SmithersDb {
          ORDER BY attempt ASC, seq ASC`, [runId, nodeId, iteration]));
     }
     /**
+   * Record a distinct working-copy state (deduped by jj commit id). Upsert so a
+   * re-snapshot of the same tree refreshes the operation handle.
+   * @param {Record<string, unknown>} row
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    upsertWorkspaceState(row) {
+        return this.write(`upsert workspace state ${row.jjCommitId}`, () => this.internalStorage.upsert("_smithers_workspace_states", row, ["runId", "jjCwd", "jjCommitId"]));
+    }
+    /**
+   * @param {string} runId
+   * @returns {RunnableEffect<Array<Record<string, unknown>>, SmithersError>}
+   */
+    listWorkspaceStates(runId) {
+        return this.read(`list workspace states ${runId}`, () => this.internalStorage.queryAll(`SELECT *
+         FROM _smithers_workspace_states
+         WHERE run_id = ?
+         ORDER BY created_at_ms ASC`, [runId]));
+    }
+    /**
+   * Record a snapshot checkpoint event. One row per tool/watch boundary; never
+   * deduped, so a Tier 1 boundary always has a seq to bind a resume to.
+   * @param {Record<string, unknown>} row
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    insertWorkspaceCheckpoint(row) {
+        return this.write(`insert workspace checkpoint ${row.nodeId}#${row.seq}`, () => this.internalStorage.insertIgnore("_smithers_workspace_checkpoints", row));
+    }
+    /**
+   * @param {string} runId
+   * @returns {RunnableEffect<Array<Record<string, unknown>>, SmithersError>}
+   */
+    listWorkspaceCheckpoints(runId) {
+        return this.read(`list workspace checkpoints ${runId}`, () => this.internalStorage.queryAll(`SELECT *
+         FROM _smithers_workspace_checkpoints
+         WHERE run_id = ?
+         ORDER BY seq ASC`, [runId]));
+    }
+    /**
    * @param {Record<string, unknown>} row
    * @returns {RunnableEffect<void, SmithersError>}
    */

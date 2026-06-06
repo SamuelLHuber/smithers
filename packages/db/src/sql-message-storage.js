@@ -215,6 +215,30 @@ const CREATE_TABLE_STATEMENTS = [
     error_json TEXT,
     PRIMARY KEY (run_id, node_id, iteration, attempt, seq)
   )`,
+    `CREATE TABLE IF NOT EXISTS _smithers_workspace_states (
+    run_id TEXT NOT NULL,
+    jj_cwd TEXT NOT NULL,
+    jj_commit_id TEXT NOT NULL,
+    jj_operation_id TEXT NOT NULL,
+    jj_change_id TEXT,
+    created_at_ms INTEGER NOT NULL,
+    PRIMARY KEY (run_id, jj_cwd, jj_commit_id)
+  )`,
+    `CREATE TABLE IF NOT EXISTS _smithers_workspace_checkpoints (
+    run_id TEXT NOT NULL,
+    node_id TEXT NOT NULL,
+    iteration INTEGER NOT NULL DEFAULT 0,
+    attempt INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    jj_cwd TEXT NOT NULL,
+    jj_commit_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    tier INTEGER NOT NULL,
+    label TEXT,
+    tool_use_id TEXT,
+    created_at_ms INTEGER NOT NULL,
+    PRIMARY KEY (run_id, node_id, iteration, attempt, seq)
+  )`,
     `CREATE TABLE IF NOT EXISTS _smithers_events (
     run_id TEXT NOT NULL,
     seq INTEGER NOT NULL,

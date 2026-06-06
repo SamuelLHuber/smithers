@@ -453,6 +453,26 @@ function buildMigrations(context) {
                 return { statementCount: context.createIndexStatements.length + EXTRA_INDEX_STATEMENTS.length };
             },
         },
+        {
+            id: "0015_add_workspace_states",
+            name: "Add workspace snapshot states table",
+            checksum: "packages/db/migrations/0015_add_workspace_states.sql",
+            isApplied: (sqlite) => tableExists(sqlite, "_smithers_workspace_states"),
+            up: (sqlite) => {
+                sqlite.run(createTableStatementFor("_smithers_workspace_states", context.createTableStatements));
+                return { table: "_smithers_workspace_states" };
+            },
+        },
+        {
+            id: "0016_add_workspace_checkpoints",
+            name: "Add workspace snapshot checkpoints table",
+            checksum: "packages/db/migrations/0016_add_workspace_checkpoints.sql",
+            isApplied: (sqlite) => tableExists(sqlite, "_smithers_workspace_checkpoints"),
+            up: (sqlite) => {
+                sqlite.run(createTableStatementFor("_smithers_workspace_checkpoints", context.createTableStatements));
+                return { table: "_smithers_workspace_checkpoints" };
+            },
+        },
     ];
 }
 
