@@ -116,4 +116,33 @@ type WorkspaceAddOptions = WorkspaceAddOptions$1;
 type WorkspaceInfo = WorkspaceInfo$1;
 type WorkspaceResult = WorkspaceResult$1;
 
-export { findVcsRoot, getJjPointer, isJjRepo, revertToJjPointer, runJj, workspaceAdd, workspaceClose, workspaceList };
+/**
+ * A resolved VCS executable plus where Smithers found it.
+ *
+ * - `env`: an explicit override (e.g. `SMITHERS_JJ_PATH`)
+ * - `bundled`: a binary shipped inside a `@smithers-orchestrator/jj-<platform>` package
+ * - `path`: the bare command name, left for the OS to resolve against `PATH`
+ */
+type ResolvedBinary$1 = {
+    path: string;
+    source: "env" | "bundled" | "path";
+};
+
+/**
+ * Resolve the `jj` executable Smithers should spawn.
+ *
+ * Order of preference:
+ *   1. `SMITHERS_JJ_PATH` — an explicit override pointing at a real file.
+ *   2. A binary bundled via `@smithers-orchestrator/jj-<platform>`.
+ *   3. The bare `"jj"`, left for the OS to resolve against `PATH`.
+ *
+ * Always returns a spawnable command. When jj is genuinely absent the bare
+ * `"jj"` simply fails to spawn, which `runJj` already normalizes to exit code
+ * 127, so callers keep their soft-failure behavior.
+ *
+ * @returns {ResolvedBinary}
+ */
+declare function resolveJjBinary(): ResolvedBinary;
+type ResolvedBinary = ResolvedBinary$1;
+
+export { findVcsRoot, getJjPointer, isJjRepo, resolveJjBinary, revertToJjPointer, runJj, workspaceAdd, workspaceClose, workspaceList };

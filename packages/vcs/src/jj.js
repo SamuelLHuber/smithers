@@ -10,6 +10,7 @@
 import * as Command from "@effect/platform/Command";
 import { Duration, Effect, Fiber, Metric, Stream } from "effect";
 import { vcsDuration } from "@smithers-orchestrator/observability/metrics";
+import { resolveJjBinary } from "./resolveJjBinary.js";
 
 const JJ_POINTER_TIMEOUT_MS = 1_500;
 /**
@@ -29,7 +30,7 @@ function collectUtf8(stream) {
  * @returns {Effect.Effect<RunJjResult, never, import("@effect/platform/CommandExecutor").CommandExecutor>}
  */
 export function runJj(args, opts = {}) {
-    let command = Command.make("jj", ...args);
+    let command = Command.make(resolveJjBinary().path, ...args);
     if (opts.cwd) {
         command = Command.workingDirectory(command, opts.cwd);
     }
