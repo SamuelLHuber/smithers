@@ -495,41 +495,54 @@ export async function createSmithersPostgres(schemas, opts) {
         connectionString = `postgres://postgres@127.0.0.1:${port}/postgres`;
     }
     const client = new pg.Client(connectionString ? { connectionString } : opts?.connection);
-    await client.connect();
-    teardown.push(async () => {
-        await client.end().catch(() => {});
-    });
-    // 3. Postgres descriptor consumed by the engine + adapter. The Drizzle table
-    // objects (snake_case columns identical to the DDL below) are attached only
-    // for column/name metadata; the engine's reads/writes against this descriptor
-    // are dialect-aware and go through the @effect/sql adapter or raw $n queries.
-    const descriptor = { dialect: "postgres", connection: client, schema: drizzleSchema };
-    const adapter = new SmithersDb(descriptor);
-    // 4. Durable engine schema (idempotent), then the input + output tables with
-    // Postgres-typed DDL derived from the Zod schemas.
-    await adapter.internalStorage.ensureSchema();
-    if (schemas.input) {
-        await client.query({ text: zodToCreateTableSQL("input", schemas.input, { isInput: true, dialect: POSTGRES }) });
+    /** @type {{ api: import("./CreateSmithersApi.ts").CreateSmithersApi<Schemas> }} */
+    let built;
+    try {
+        await client.connect();
+        teardown.push(async () => {
+            await client.end().catch(() => {});
+        });
+        // 3. Postgres descriptor consumed by the engine + adapter. The Drizzle table
+        // objects (snake_case columns identical to the DDL below) are attached only
+        // for column/name metadata; the engine's reads/writes against this descriptor
+        // are dialect-aware and go through the @effect/sql adapter or raw $n queries.
+        const descriptor = { dialect: "postgres", connection: client, schema: drizzleSchema };
+        const adapter = new SmithersDb(descriptor);
+        // 4. Durable engine schema (idempotent), then the input + output tables with
+        // Postgres-typed DDL derived from the Zod schemas.
+        await adapter.internalStorage.ensureSchema();
+        if (schemas.input) {
+            await client.query({ text: zodToCreateTableSQL("input", schemas.input, { isInput: true, dialect: POSTGRES }) });
+        }
+        else {
+            await client.query({ text: `CREATE TABLE IF NOT EXISTS "input" (run_id TEXT PRIMARY KEY, payload TEXT)` });
+        }
+        for (const [name, zodSchema] of Object.entries(schemas)) {
+            if (name === "input")
+                continue;
+            const tableName = camelToSnake(name);
+            await client.query({ text: zodToCreateTableSQL(tableName, zodSchema, { dialect: POSTGRES }) });
+        }
+        // 5. Build the public API around the descriptor + table metadata.
+        built = buildSmithersApi({
+            db: descriptor,
+            tables,
+            schemaRegistry,
+            outputs,
+            zodToKeyName,
+            ambiguousZodSchemas,
+            opts,
+        });
     }
-    else {
-        await client.query({ text: `CREATE TABLE IF NOT EXISTS "input" (run_id TEXT PRIMARY KEY, payload TEXT)` });
+    catch (e) {
+        // Drain any teardown registered so far (socket server, pg client) so a
+        // failure after boot does not leak the port / connection.
+        for (const fn of teardown.reverse()) {
+            await fn().catch(() => {});
+        }
+        throw e;
     }
-    for (const [name, zodSchema] of Object.entries(schemas)) {
-        if (name === "input")
-            continue;
-        const tableName = camelToSnake(name);
-        await client.query({ text: zodToCreateTableSQL(tableName, zodSchema, { dialect: POSTGRES }) });
-    }
-    // 5. Build the public API around the descriptor + table metadata.
-    const { api } = buildSmithersApi({
-        db: descriptor,
-        tables,
-        schemaRegistry,
-        outputs,
-        zodToKeyName,
-        ambiguousZodSchemas,
-        opts,
-    });
+    const { api } = built;
     return {
         ...api,
         close: async () => {
