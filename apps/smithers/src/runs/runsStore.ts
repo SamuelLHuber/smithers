@@ -11,6 +11,10 @@ export type RunState = {
   runId: string;
   startedAtMs: number;
   frame: number;
+  /** Furthest frame the heartbeat has reached. Scrubbing moves `frame` back to
+   *  view history; `maxFrame` stays put, so the timeline can tell "historical"
+   *  (frame < maxFrame) from "live" and offer Return-to-live. */
+  maxFrame: number;
   gate: RunGate;
   note?: string;
   /** Scrubbed via time-travel — auto-advance leaves it alone. */
@@ -29,8 +33,8 @@ export type Approval = {
 /**
  * The engine seam: run state plus the actions that mutate it. Derived views
  * (`getRun`, `getApproval`) live in selectors, not here, so subscribing to a run
- * never returns a fresh object every render. `AppContext` composes this store
- * and the selectors into the `EngineApi` that cards and surfaces consume.
+ * never returns a fresh object every render. Cards and surfaces read this store
+ * directly and compose it with `selectRun`/`selectApproval` themselves.
  */
 export type EngineApi = {
   runs: RunState[];
@@ -40,8 +44,18 @@ export type EngineApi = {
   approve: (runId: string, note?: string) => void;
   deny: (runId: string, note?: string) => void;
   cancel: (runId: string) => void;
+  /** Resume a failed/cancelled run: clear the stop flag and let it advance. */
+  resume: (runId: string) => void;
   /** Time-travel: preview a past frame (pauses auto-advance for that run). */
   scrub: (runId: string, frame: number) => void;
+  /** Explicitly pause or unpause auto-advance (the timeline Play/Pause toggle). */
+  setPaused: (runId: string, paused: boolean) => void;
+  /** Snap back to the furthest frame reached and unpause (Return to live). */
+  returnToLive: (runId: string) => void;
+  /** Step the viewed frame by ±1 (pauses, like scrub). */
+  step: (runId: string, delta: number) => void;
+  /** Destructive rewind: drop frames after `frame` and resume from there. */
+  rewindTo: (runId: string, frame: number) => void;
   /** Branch a new run from the current frame. */
   fork: (runId: string) => string | undefined;
 };
@@ -57,7 +71,7 @@ let seq = 4820;
  * deployment swaps the module interval below for streamed gateway events
  * mutating the same RunState shape.
  */
-export const useRunsStore = create<RunsState>((set) => {
+export const useRunsStore = create<RunsState>((set, get) => {
   function patch(id: string, next: Partial<RunState>): void {
     set((state) => ({
       runs: state.runs.map((run) => (run.id === id ? { ...run, ...next } : run)),
@@ -82,6 +96,7 @@ export const useRunsStore = create<RunsState>((set) => {
             startedAtMs: Date.now() - 134_000,
             // Open at the screenshot state, then run on.
             frame: 2,
+            maxFrame: 2,
             gate: "none",
           },
         ],
@@ -91,11 +106,50 @@ export const useRunsStore = create<RunsState>((set) => {
     approve: (runId, note) => patch(runId, { gate: "approved", note }),
     deny: (runId, note) => patch(runId, { gate: "denied", note }),
     cancel: (runId) => patch(runId, { canceled: true }),
+    resume: (runId) =>
+      set((state) => ({
+        runs: state.runs.map((run) =>
+          run.id === runId
+            ? {
+                ...run,
+                canceled: false,
+                paused: false,
+                gate: run.gate === "denied" ? "approved" : run.gate,
+              }
+            : run,
+        ),
+      })),
     scrub: (runId, frame) =>
       patch(runId, {
         frame: Math.max(0, Math.min(LAST_FRAME, frame)),
         paused: true,
       }),
+    setPaused: (runId, paused) => patch(runId, { paused }),
+    returnToLive: (runId) => {
+      const run = get().runs.find((entry) => entry.id === runId);
+      if (!run) return;
+      patch(runId, { frame: run.maxFrame, paused: false });
+    },
+    step: (runId, delta) => {
+      const run = get().runs.find((entry) => entry.id === runId);
+      if (!run) return;
+      patch(runId, {
+        frame: Math.max(0, Math.min(LAST_FRAME, run.frame + delta)),
+        paused: true,
+      });
+    },
+    rewindTo: (runId, frame) => {
+      const clamped = Math.max(0, Math.min(LAST_FRAME, frame));
+      patch(runId, {
+        frame: clamped,
+        maxFrame: clamped,
+        paused: false,
+        canceled: false,
+        // Re-arm the gate to match where the truncated head now sits, so the
+        // heartbeat keeps advancing (mirrors fork's gate logic).
+        gate: clamped < GATE_FRAME ? "none" : clamped > GATE_FRAME ? "approved" : "pending",
+      });
+    },
     fork: (runId) => {
       let forkedId: string | undefined;
       set((state) => {
@@ -124,6 +178,7 @@ export const useRunsStore = create<RunsState>((set) => {
               id: forkedId,
               runId: newRunId,
               title: `${source.title} (fork)`,
+              maxFrame: source.frame,
               gate: forkGate,
               paused: false,
               canceled: false,
@@ -148,10 +203,16 @@ window.setInterval(() => {
       }
       if (run.gate === "none" && run.frame < GATE_FRAME) {
         const frame = run.frame + 1;
-        return { ...run, frame, gate: frame === GATE_FRAME ? "pending" : "none" };
+        return {
+          ...run,
+          frame,
+          maxFrame: Math.max(run.maxFrame, frame),
+          gate: frame === GATE_FRAME ? "pending" : "none",
+        };
       }
       if (run.gate === "approved" && run.frame < LAST_FRAME) {
-        return { ...run, frame: run.frame + 1 };
+        const frame = run.frame + 1;
+        return { ...run, frame, maxFrame: Math.max(run.maxFrame, frame) };
       }
       return run;
     }),

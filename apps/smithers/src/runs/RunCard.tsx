@@ -1,7 +1,9 @@
-import { useApp } from "../app/AppContext";
+import { openSurface } from "../app/navigation";
 import { StatusPill } from "../cards/StatusPill";
 import { runSteps } from "./Run";
 import { useElapsed } from "./useElapsed";
+import { useRunsStore } from "./runsStore";
+import { selectRun } from "./selectRun";
 import { statusTone } from "./statusMeta";
 
 function BoltIcon() {
@@ -25,11 +27,12 @@ function StepDot({ tone }: { tone: string }) {
 /**
  * The live run card — the agent's reply to a launch. Shows the top-level steps,
  * a ticking elapsed clock, and the run actions. Reads the run live from the
- * engine by id so the card updates in place as frames advance.
+ * engine store by id so the card updates in place as frames advance.
  */
 export function RunCard({ runId }: { runId: string }) {
-  const { engine, openSurface } = useApp();
-  const run = engine.getRun(runId);
+  const runs = useRunsStore((state) => state.runs);
+  const cancel = useRunsStore((state) => state.cancel);
+  const run = selectRun(runs, runId);
   const running = run?.status === "running" || run?.status === "waiting";
   const elapsed = useElapsed(run?.startedAtMs ?? Date.now(), running);
 
@@ -37,7 +40,7 @@ export function RunCard({ runId }: { runId: string }) {
     return null;
   }
 
-  const moreCount = engine.runs.length - 1;
+  const moreCount = runs.length - 1;
 
   return (
     <article className="run-card" data-testid="run-card">
@@ -91,7 +94,7 @@ export function RunCard({ runId }: { runId: string }) {
           <button
             className="btn"
             type="button"
-            onClick={() => engine.cancel(runId)}
+            onClick={() => cancel(runId)}
           >
             Cancel
           </button>

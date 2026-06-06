@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCardUiStore } from "../cards/cardUiStore";
 import type { RunNode } from "./Run";
 import { RunTreeRow } from "./RunTreeRow";
 
@@ -17,7 +17,8 @@ function rows(
   );
 }
 
-/** The run's node tree with expand/collapse and a single selected node. */
+/** The run's node tree with expand/collapse and a single selected node. The
+ *  collapsed set lives in the consolidated card-UI store. */
 export function RunTree({
   root,
   selectedId,
@@ -27,17 +28,9 @@ export function RunTree({
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-  const toggle = (id: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+  const collapsedIds = useCardUiStore((state) => state.inspectorCollapsed);
+  const toggleCollapsed = useCardUiStore((state) => state.toggleCollapsed);
+  const collapsed = new Set(collapsedIds);
 
   return (
     <div className="run-tree">
@@ -48,7 +41,7 @@ export function RunTree({
           depth={depth}
           selected={node.id === selectedId}
           collapsed={collapsed.has(node.id)}
-          onToggle={() => toggle(node.id)}
+          onToggle={() => toggleCollapsed(node.id)}
           onSelect={() => onSelect(node.id)}
         />
       ))}
