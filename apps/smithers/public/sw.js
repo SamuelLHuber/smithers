@@ -92,7 +92,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Everything else (cross-origin, non-asset same-origin): cache-first as a best
-  // effort, but isCacheable() keeps opaque/non-OK responses out of the cache.
-  event.respondWith(cacheFirst(request));
+  // Everything else (cross-origin, and non-asset same-origin like /api/*,
+  // /health, /workflows) is dynamic and often user-specific. Pass it straight
+  // through to the network and never write it to the cache, so authenticated
+  // GETs (e.g. /api/user) can never be pinned and served stale across logins.
 });
