@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  authProviderSelectionEnabled,
   normalizeAuthToken,
   normalizeGatewayBaseUrl,
   providerAuthorizeUrl,
@@ -29,6 +30,29 @@ describe("authClient redirect helpers", () => {
     );
     expect(email.searchParams.get("provider")).toBe("authkit");
     expect(email.searchParams.get("login_hint")).toBe("will@example.com");
+  });
+
+  test("builds generic Auth0 authorize URLs without WorkOS-only provider params", () => {
+    const env = import.meta.env as Record<string, string | undefined>;
+    const previous = env.VITE_SMITHERS_AUTH_STRATEGY;
+    env.VITE_SMITHERS_AUTH_STRATEGY = "auth0";
+    try {
+      const auth0 = new URL(
+        providerAuthorizeUrl("google", { email: "will@example.com", redirect: "/store" }),
+        "https://smithers.local",
+      );
+      expect(auth0.pathname).toBe("/api/auth/auth0/authorize");
+      expect(auth0.searchParams.get("provider")).toBe(null);
+      expect(auth0.searchParams.get("login_hint")).toBe(null);
+      expect(auth0.searchParams.get("redirect")).toBe("/store");
+      expect(authProviderSelectionEnabled()).toBe(false);
+    } finally {
+      if (previous === undefined) {
+        delete env.VITE_SMITHERS_AUTH_STRATEGY;
+      } else {
+        env.VITE_SMITHERS_AUTH_STRATEGY = previous;
+      }
+    }
   });
 });
 
