@@ -1,6 +1,10 @@
 import type { CSSProperties, ReactElement } from "react";
+import { openSurface } from "../app/navigation";
+import { RemoteModePanel } from "../auth/RemoteModePanel";
+import { GatewayWorkflowsSection } from "../gateway/GatewayWorkflowsSection";
 import { EXAMPLE_WORKFLOWS } from "./exampleWorkflows";
 import { openWorkflow } from "./openWorkflow";
+import { WORKFLOW_DOCS } from "./workflowDocs";
 import { useWorkflowsStore } from "./workflowsStore";
 import { STORE_WORKFLOWS, type StoreWorkflow } from "./workflows";
 
@@ -9,6 +13,9 @@ const ALL_WORKFLOWS = [...STORE_WORKFLOWS, ...EXAMPLE_WORKFLOWS];
 
 // The default pack ships pre-installed — these ids are always "installed".
 const DEFAULT_INSTALLED = STORE_WORKFLOWS.map((workflow) => workflow.id);
+
+// The ids the workflow editor seeds a document for — only these can be edited.
+const EDITABLE_IDS = new Set(WORKFLOW_DOCS.map((doc) => doc.id));
 
 /** The "app store" of workflows — a browsable grid of cards you can open. */
 export function WorkflowStore() {
@@ -30,6 +37,8 @@ export function WorkflowStore() {
           </p>
         </header>
 
+        <RemoteModePanel />
+
         <StoreSection
           count={`${installed.length} ready to run`}
           title="Installed"
@@ -43,7 +52,35 @@ export function WorkflowStore() {
               onClick={() => openWorkflow(workflow)}
             >
               <StoreCardBody workflow={workflow} />
-              <span className="store-open">Open →</span>
+              <span
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}
+              >
+                <span className="store-open">Open →</span>
+                {EDITABLE_IDS.has(workflow.id) ? (
+                  // Edit jumps straight to the workflow editor surface. It lives
+                  // inside the card button, so stop the click from also firing
+                  // the card's Open handler.
+                  <span
+                    className="store-open"
+                    role="button"
+                    tabIndex={0}
+                    style={{ opacity: 0.85 }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openSurface({ kind: "workflowEditor", id: workflow.id });
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        openSurface({ kind: "workflowEditor", id: workflow.id });
+                      }
+                    }}
+                  >
+                    Edit ›
+                  </span>
+                ) : null}
+              </span>
             </button>
           )}
         />
@@ -71,6 +108,8 @@ export function WorkflowStore() {
             )}
           />
         ) : null}
+
+        <GatewayWorkflowsSection />
       </div>
     </div>
   );
