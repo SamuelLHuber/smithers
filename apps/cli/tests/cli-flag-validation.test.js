@@ -167,13 +167,12 @@ describe("--annotations streaming via stdin", () => {
                     catch (err) {
                         // The detached child writes this SQLite DB concurrently, so a
                         // read can race the early CREATE TABLE (no such table) or hit the
-                        // writer's lock (database is locked/busy). All three are transient
+                        // writer's lock (database is locked). Both are transient
                         // — keep polling rather than failing the test.
                         const message = String(err?.message ?? err);
                         const transient =
                             message.includes("no such table: _smithers_runs") ||
-                            message.includes("database is locked") ||
-                            message.includes("database is busy");
+                            message.includes("database is locked");
                         if (!transient) {
                             throw err;
                         }

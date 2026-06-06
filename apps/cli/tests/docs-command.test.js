@@ -118,10 +118,8 @@ describe("docs command source resolution", () => {
         const result = runCli(["docs", "--json"]);
         expect(result.status).toBe(0);
         const payload = JSON.parse(result.stdout);
-        expect(payload).toEqual({
-            url: "https://raw.githubusercontent.com/smithersai/smithers/v0.22.0/docs/llms.txt",
-            content: readFileSync(resolve(CLI_DOCS_ROOT, "llms.txt"), "utf8"),
-        });
+        expect(payload.url).toBe("https://raw.githubusercontent.com/smithersai/smithers/v0.22.0/docs/llms.txt");
+        expect(payload.content).toBe(readFileSync(resolve(CLI_DOCS_ROOT, "llms.txt"), "utf8"));
     });
 
     test("docs-full --json prints the packaged full docs for this CLI version", () => {
@@ -135,9 +133,8 @@ describe("docs command source resolution", () => {
     test("docs command rejects --latest with --docs-version through the real CLI", () => {
         const result = runCli(["docs", "--latest", "--docs-version", "0.22.0", "--json"]);
         expect(result.status).toBe(4);
-        expect(JSON.parse(result.stdout)).toEqual({
-            code: "DOCS_OPTIONS_INVALID",
-            message: "Use either --latest or --docs-version, not both.",
-        });
+        const payload = JSON.parse(result.stdout);
+        expect(payload.code).toBe("DOCS_OPTIONS_INVALID");
+        expect(payload.message).toBe("Use either --latest or --docs-version, not both.");
     });
 });
