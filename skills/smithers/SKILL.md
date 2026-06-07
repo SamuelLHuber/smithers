@@ -24,6 +24,45 @@ So when a task is bigger than one prompt — it has stages, needs to survive a
 crash, needs a human to approve a step, or needs to loop until something is
 true — don't hand-roll it turn by turn. Run a Smithers workflow.
 
+### ⚠️ Orchestrator-only: Smithers does the work, your subagents do not
+
+**This is a hard rule. Read it twice.**
+
+You are an **orchestrator, not an implementer.** For any task that runs in the
+background, takes more than a couple of minutes, has multiple steps, or could
+fail and need a retry — **do NOT spawn your own subagents (the Task tool,
+sub-tasks, "let me fan out N parallel agents") to do the work. Run a Smithers
+workflow instead.** Smithers is the durable layer your ad-hoc subagents are not:
+its steps persist the instant they finish, resume after a crash, retry on
+failure, loop until a condition holds, run in isolated worktrees, and stay
+inspectable for days. Hand-rolled subagents lose all of that the moment your
+turn ends or the process dies — their work is gone and there is nothing to
+resume from.
+
+The division of labor is strict:
+
+- **Smithers does the work.** Every real, long-running, or multi-step task —
+  implement, debug, research, plan, review, migrate, audit, "keep going until
+  X" — goes into a Smithers run. Smithers spawns the *worker* agents (Claude
+  Code, Codex, …) inside the workflow; that is where implementation happens. You
+  do not re-implement it yourself or in your own Task subagents.
+- **You orchestrate and observe.** Your job is to translate the human's request
+  into the right workflow, launch it, watch it (`ps`, `inspect --watch`,
+  `chat --follow`, `events --watch`, `logs -f`), clear approval gates, feed
+  failures back in, and report evidence. Most of your time should be spent
+  *observing a run*, not typing the work yourself.
+- **Subagents are for monitoring, never for the background work.** If you want
+  parallel help, point your own subagents at *watching Smithers* — tailing a
+  run, summarizing its events, flagging when a gate needs the human, diffing a
+  node's output — not at building, fixing, or researching the thing a Smithers
+  workflow should own. Monitoring with subagents: fine. Doing the actual
+  background task outside Smithers: not fine.
+
+Rule of thumb: **if you're about to spawn a subagent to "go build / fix /
+research / migrate this," that is the exact signal to run a Smithers workflow
+instead.** The only agents you launch directly are the lightweight ones watching
+a Smithers run for you.
+
 ### Smithers is your plan mode, with muscle
 
 Think of Smithers as a **powerful version of plan mode**. Plan mode lets you lay
