@@ -2,6 +2,14 @@
 
 Durable AI workflow orchestration as a JSX runtime.
 
+## Audience split
+
+- Human docs: the website's For Humans Guide. Humans use Smithers by talking to
+  their coding agent and reading prompt/examples-oriented pages.
+- Agent docs: these llms files plus the website's For Agents reference. Agents
+  consume this material, run Smithers commands themselves, watch runs, verify
+  with backpressure, and report evidence back to the human.
+
 ## Documentation
 
 - [Core docs](/llms-core.txt) — runtime, agent operating playbook, JSX surface, CLI, components, recipes, types, errors

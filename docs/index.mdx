@@ -13,14 +13,28 @@ agent writes the workflow — a composable TypeScript tree — then runs it for 
 days with crash recovery, retries, human approvals, replay, and full observability across
 any agent, any model, and any machine.
 
+<Note>
+These docs are split by audience. **For Humans** explains what you can ask your coding
+agent to do with Smithers. **For Agents** explains how Claude, Codex, and other AI
+harnesses should operate Smithers for the human, including the `llms.txt` and
+`llms-full.txt` bundles.
+</Note>
+
 <CardGroup cols={2}>
-  <Card title="New here? Start with the Guide" icon="compass" href="/guide/what-is-smithers">
-    The plain-language tour: what Smithers is, why it exists, and how to drive it from your
-    agent — no TypeScript required to get started.
+  <Card title="For Humans: start here" icon="compass" href="/guide/what-is-smithers">
+    The plain-language tour for people using Smithers by talking to their coding agent —
+    no CLI or TypeScript required.
   </Card>
-  <Card title="See what you can do" icon="sparkles" href="/guide/what-you-can-do">
-    Concrete jobs you can hand to Smithers today, from a focused change to a long-horizon
-    mission, with the workflow that fits each one.
+  <Card title="For Agents: read this" icon="robot" href="/llms.txt">
+    The LLM-facing docs index. Agents should read it, operate Smithers for the human,
+    verify the run, and report evidence back.
+  </Card>
+  <Card title="Human prompt examples" icon="sparkles" href="/guide/what-you-can-do">
+    Concrete outcomes a human can ask for, from focused changes to long-horizon missions.
+  </Card>
+  <Card title="Agent operating playbook" icon="clipboard-check" href="/guides/agent-operating-playbook">
+    The agent contract: translate human prompts into workflows, backpressure, observability,
+    assumption tests, and reports.
   </Card>
 </CardGroup>
 
@@ -182,11 +196,11 @@ workflow:
 ## Read next
 
 <CardGroup cols={2}>
-  <Card title="Start with the Guide" icon="compass" href="/guide/what-is-smithers">
-    The human-first introduction: what Smithers is and how to use it, in plain language.
+  <Card title="For Humans" icon="compass" href="/guide/what-is-smithers">
+    The human-first introduction: what to ask your agent and what to expect back.
   </Card>
-  <Card title="Install the agent skill" icon="robot" href="/installation#install-the-agent-skill">
-    Make your coding agent drive Smithers for you.
+  <Card title="For Agents" icon="robot" href="/llms.txt">
+    The generated LLM docs index agents should consume before operating Smithers.
   </Card>
   <Card title="Tour" icon="route" href="/tour">
     A 6-step worked example that introduces every core feature.

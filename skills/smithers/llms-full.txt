@@ -3,9 +3,11 @@
 > Durable AI workflow orchestration as a JSX runtime.
 > Repo: github.com/smithersai/smithers · Package: smithers-orchestrator (npm)
 
-This is the complete Smithers documentation in one file. It is the concatenation of every fragment listed in /llms.txt.
+This is the complete agent-facing Smithers documentation in one file. It is the concatenation of every fragment listed in /llms.txt.
 
-If you only need the everyday surface (runtime, JSX, CLI, components, recipes, types, errors) read /llms-core.txt instead — it is roughly half the size and skips the opt-in fragments below.
+Audience split: humans should read the For Humans Guide on the docs site and talk to their coding agent. Agents should read this file, operate Smithers for the human, verify the run, and report evidence back.
+
+If you only need the everyday agent surface (runtime, JSX, CLI, components, recipes, types, errors) read /llms-core.txt instead — it is roughly half the size and skips the opt-in fragments below.
 
 Fragments included in this file:
   1. /llms-core.txt           — core runtime, JSX, CLI, components, recipes, types
@@ -24,7 +26,9 @@ Changelogs are not included; see /docs/changelogs/ on the docs site.
 > Smithers — durable AI workflow orchestration as a JSX runtime.
 > Repo: github.com/smithersai/smithers · Package: smithers-orchestrator (npm)
 
-This file contains the core Smithers documentation. Read top to bottom for a complete picture of the runtime, agent operating playbook, JSX surface, CLI, and components.
+This file is the agent-facing core Smithers documentation. It is for Claude, Codex, and other AI harnesses operating Smithers for a human. Read top to bottom for the runtime, agent operating playbook, JSX surface, CLI, and components.
+
+Human-facing docs live on the website under the For Humans Guide. Humans ask their agent for outcomes; agents consume these llms files and operate Smithers.
 
 Opt-in fragments cover features most users do not need:
   - Memory (cross-run state):       /llms-memory.txt
@@ -51,14 +55,28 @@ agent writes the workflow — a composable TypeScript tree — then runs it for 
 days with crash recovery, retries, human approvals, replay, and full observability across
 any agent, any model, and any machine.
 
+<Note>
+These docs are split by audience. **For Humans** explains what you can ask your coding
+agent to do with Smithers. **For Agents** explains how Claude, Codex, and other AI
+harnesses should operate Smithers for the human, including the `llms.txt` and
+`llms-full.txt` bundles.
+</Note>
+
 <CardGroup cols={2}>
-  <Card title="New here? Start with the Guide" icon="compass" href="/guide/what-is-smithers">
-    The plain-language tour: what Smithers is, why it exists, and how to drive it from your
-    agent — no TypeScript required to get started.
+  <Card title="For Humans: start here" icon="compass" href="/guide/what-is-smithers">
+    The plain-language tour for people using Smithers by talking to their coding agent —
+    no CLI or TypeScript required.
   </Card>
-  <Card title="See what you can do" icon="sparkles" href="/guide/what-you-can-do">
-    Concrete jobs you can hand to Smithers today, from a focused change to a long-horizon
-    mission, with the workflow that fits each one.
+  <Card title="For Agents: read this" icon="robot" href="/llms.txt">
+    The LLM-facing docs index. Agents should read it, operate Smithers for the human,
+    verify the run, and report evidence back.
+  </Card>
+  <Card title="Human prompt examples" icon="sparkles" href="/guide/what-you-can-do">
+    Concrete outcomes a human can ask for, from focused changes to long-horizon missions.
+  </Card>
+  <Card title="Agent operating playbook" icon="clipboard-check" href="/guides/agent-operating-playbook">
+    The agent contract: translate human prompts into workflows, backpressure, observability,
+    assumption tests, and reports.
   </Card>
 </CardGroup>
 
@@ -220,11 +238,11 @@ workflow:
 ## Read next
 
 <CardGroup cols={2}>
-  <Card title="Start with the Guide" icon="compass" href="/guide/what-is-smithers">
-    The human-first introduction: what Smithers is and how to use it, in plain language.
+  <Card title="For Humans" icon="compass" href="/guide/what-is-smithers">
+    The human-first introduction: what to ask your agent and what to expect back.
   </Card>
-  <Card title="Install the agent skill" icon="robot" href="/installation#install-the-agent-skill">
-    Make your coding agent drive Smithers for you.
+  <Card title="For Agents" icon="robot" href="/llms.txt">
+    The generated LLM docs index agents should consume before operating Smithers.
   </Card>
   <Card title="Tour" icon="route" href="/tour">
     A 6-step worked example that introduces every core feature.
@@ -244,6 +262,12 @@ workflow:
 > What Smithers is and when to use it.
 
 Smithers orchestrates AI coding agents at scale with composable, model- and harness-agnostic workflows. Most workflow systems fail quietly. A crash mid-run means lost work and a manual restart from scratch. Smithers solves this with a render-loop execution model: every completed step is persisted immediately, so the runtime always knows exactly what has finished and what to run next.
+
+<Note>
+This page is in the **For Agents** track. It is for AI harnesses and workflow authors who
+need the runtime model. Human-facing docs live in the **For Humans** Guide, starting at
+What Smithers Is.
+</Note>
 
 Your agent writes the workflow as a JSX tree, and Smithers repeatedly renders it every "frame". Each render answers: given what has already finished, what can run now? Tasks produce outputs validated by Zod schemas; the runtime persists them to SQLite. Crashes, restarts, and approvals are first-class, and the runtime resumes from the last persisted state without re-running completed work.
 
@@ -1041,6 +1065,11 @@ const implementer = new AnthropicAgent({ model, instructions: "...", tools: { re
 > How an AI harness should translate human requests into Smithers workflows, verification, observability, and evidence reports.
 
 This page is for the AI agent operating Smithers on a human's behalf.
+
+It belongs to the **For Agents** docs set. The human-facing docs are the
+**For Humans** Guide, starting at What Smithers Is.
+Agents should read this page and the generated `llms.txt` /
+`llms-full.txt` bundles before driving Smithers for a user.
 
 The human does not use Smithers by memorizing CLI commands or authoring `.tsx`
 workflows. The human talks to you. You decide when Smithers is the right tool,
@@ -6700,9 +6729,9 @@ curl http://localhost:8080/health
 
 ## Gateway
 
-> WebSocket / RPC gateway for connecting clients to Smithers runs.
+> WebSocket / RPC gateway for connecting clients and custom UIs to Smithers runs, providing pushed updates, subscriptions, metrics, and resilient reconnection.
 
-`Gateway` is Smithers' headless control plane. Reach for it (instead of `startServer()`) when long-lived clients — bots, dashboards, schedulers — need to authenticate once, stream events over WebSocket, decide approvals, inject signals, and manage cron schedules across many registered workflows. For the single-workflow Hono-based HTTP surface, see Serve Mode (`createServeApp()` / `smithers up --serve`).
+`Gateway` is Smithers' headless control plane. Reach for it (instead of `startServer()`) when long-lived clients — bots, dashboards, schedulers, and custom UIs — need to authenticate once, stream events over WebSocket with resilient reconnection, decide approvals, inject signals, access metrics, and manage cron schedules across many registered workflows. Custom UIs, whether using the vanilla SDK or React hooks, rely on the Gateway to provide pushed updates and a stale-data-free model. For the single-workflow Hono-based HTTP surface, see Serve Mode (`createServeApp()` / `smithers up --serve`).
 
 ## Quick start
 

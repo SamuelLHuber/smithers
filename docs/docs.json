@@ -13,10 +13,10 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Guide",
+        "tab": "For Humans",
         "groups": [
           {
-            "group": "Guide",
+            "group": "Human Guide",
             "pages": [
               "index",
               "guide/what-is-smithers",
@@ -30,7 +30,7 @@
         ]
       },
       {
-        "tab": "Build & Reference",
+        "tab": "For Agents",
         "groups": [
       {
         "group": "Start",

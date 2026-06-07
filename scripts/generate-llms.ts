@@ -199,7 +199,9 @@ const HEADERS = {
     "> Smithers — durable AI workflow orchestration as a JSX runtime.",
     "> Repo: github.com/smithersai/smithers · Package: smithers-orchestrator (npm)",
     "",
-    "This file contains the core Smithers documentation. Read top to bottom for a complete picture of the runtime, agent operating playbook, JSX surface, CLI, and components.",
+    "This file is the agent-facing core Smithers documentation. It is for Claude, Codex, and other AI harnesses operating Smithers for a human. Read top to bottom for the runtime, agent operating playbook, JSX surface, CLI, and components.",
+    "",
+    "Human-facing docs live on the website under the For Humans Guide. Humans ask their agent for outcomes; agents consume these llms files and operate Smithers.",
     "",
     "Opt-in fragments cover features most users do not need:",
     "  - Memory (cross-run state):       /llms-memory.txt",
@@ -256,9 +258,11 @@ for (const b of builds) {
     "> Durable AI workflow orchestration as a JSX runtime.",
     "> Repo: github.com/smithersai/smithers · Package: smithers-orchestrator (npm)",
     "",
-    "This is the complete Smithers documentation in one file. It is the concatenation of every fragment listed in /llms.txt.",
+    "This is the complete agent-facing Smithers documentation in one file. It is the concatenation of every fragment listed in /llms.txt.",
     "",
-    "If you only need the everyday surface (runtime, JSX, CLI, components, recipes, types, errors) read /llms-core.txt instead — it is roughly half the size and skips the opt-in fragments below.",
+    "Audience split: humans should read the For Humans Guide on the docs site and talk to their coding agent. Agents should read this file, operate Smithers for the human, verify the run, and report evidence back.",
+    "",
+    "If you only need the everyday agent surface (runtime, JSX, CLI, components, recipes, types, errors) read /llms-core.txt instead — it is roughly half the size and skips the opt-in fragments below.",
     "",
     "Fragments included in this file:",
     "  1. /llms-core.txt           — core runtime, JSX, CLI, components, recipes, types",
@@ -298,6 +302,14 @@ for (const b of builds) {
 const indexContent = `# Smithers
 
 Durable AI workflow orchestration as a JSX runtime.
+
+## Audience split
+
+- Human docs: the website's For Humans Guide. Humans use Smithers by talking to
+  their coding agent and reading prompt/examples-oriented pages.
+- Agent docs: these llms files plus the website's For Agents reference. Agents
+  consume this material, run Smithers commands themselves, watch runs, verify
+  with backpressure, and report evidence back to the human.
 
 ## Documentation
 
