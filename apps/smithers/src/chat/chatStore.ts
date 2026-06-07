@@ -54,6 +54,8 @@ type ChatState = {
   say: (text: string) => void;
   /** Append an assistant message that renders a card. */
   postCard: (card: Card, text?: string) => void;
+  /** Drop the whole conversation (e.g. replaying onboarding). */
+  clear: () => void;
   registerConversation: (el: HTMLElement | null) => void;
   registerInput: (el: HTMLInputElement | null) => void;
   focusInput: () => void;
@@ -90,6 +92,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ],
     }));
     scrollToBottom(false);
+  },
+  clear: () => {
+    // Abort any in-flight stream so a late delta can't repopulate the cleared log.
+    abort?.abort();
+    abort = null;
+    set({ messages: [], pending: false, streaming: false, query: "" });
   },
   registerConversation: (el) => {
     conversationEl = el;

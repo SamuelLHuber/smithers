@@ -24,4 +24,6 @@ export type Card =
   | { kind: "approvalsList" }
   | { kind: "promptsEditor" }
   | { kind: "workflowEditor" }
-  | { kind: "palette" };
+  | { kind: "palette" }
+  | { kind: "onboardingGoal" }
+  | { kind: "onboardingBuild" };

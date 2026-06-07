@@ -1,18 +1,29 @@
 import type { FormEvent } from "react";
-import { GOAL_SUGGESTIONS, WELCOME_LINES } from "./onboardingScript";
+import { GOAL_SUGGESTIONS } from "./onboardingScript";
 import { useOnboardingStore } from "./onboardingStore";
 
 /**
- * Phase two: Smithers introduces itself and what a workflow is (the scripted
- * lines reveal in sequence), then asks the one question onboarding needs. The
- * goal box is store-backed, so there's no component state; suggestion chips fill
- * common answers, including "I'm not sure yet", which takes the recommended
- * default.
+ * The first inline form Smithers hands you in the conversation: one question,
+ * with one-tap suggestion chips (including "I'm not sure yet", which takes the
+ * recommended default). It is store-backed, so there's no component state. Once
+ * the goal is submitted the card locks to a compact summary of the answer, the
+ * way a sent form reads in a chat.
  */
-export function WelcomeStep() {
+export function OnboardingGoalCard() {
+  const step = useOnboardingStore((state) => state.step);
   const goal = useOnboardingStore((state) => state.draft.goal);
   const setGoal = useOnboardingStore((state) => state.setGoal);
   const submitGoal = useOnboardingStore((state) => state.submitGoal);
+  const skip = useOnboardingStore((state) => state.skip);
+
+  if (step !== "welcome") {
+    return (
+      <div className="ob-card ob-card--locked">
+        <span className="ob-answer-label">You asked for</span>
+        <span className="ob-answer">{goal.trim() || "a starter workflow"}</span>
+      </div>
+    );
+  }
 
   const onSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -20,19 +31,7 @@ export function WelcomeStep() {
   };
 
   return (
-    <div className="ob-welcome">
-      <div className="ob-lines">
-        {WELCOME_LINES.map((line, index) => (
-          <p
-            className="ob-line"
-            key={line.id}
-            style={{ animationDelay: `${index * 360}ms` }}
-          >
-            {line.text}
-          </p>
-        ))}
-      </div>
-
+    <div className="ob-card">
       <form className="ob-goal" onSubmit={onSubmit}>
         <input
           aria-label="What would you like a workflow to do?"
@@ -59,6 +58,10 @@ export function WelcomeStep() {
           </button>
         ))}
       </div>
+
+      <button className="ob-skip-link" type="button" onClick={skip}>
+        Skip setup
+      </button>
     </div>
   );
 }

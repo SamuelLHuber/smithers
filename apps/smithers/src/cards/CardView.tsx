@@ -8,6 +8,8 @@ import { IssuesCard } from "../issues/IssuesCard";
 import { LandingsCard } from "../landings/LandingsCard";
 import { LaunchCard } from "../launch/LaunchCard";
 import { MemoryCard } from "../memory/MemoryCard";
+import { OnboardingGoalCard } from "../onboarding/OnboardingGoalCard";
+import { OnboardingBuildCard } from "../onboarding/OnboardingBuildCard";
 import { PromptsCard } from "../prompts/PromptsCard";
 import { PromptsEditorCard } from "../prompts/PromptsEditorCard";
 import { RunCard } from "../runs/RunCard";
@@ -66,6 +68,10 @@ export function CardView({ card }: { card: Card }) {
       return <WorkflowEditorCard />;
     case "palette":
       return <PaletteCard />;
+    case "onboardingGoal":
+      return <OnboardingGoalCard />;
+    case "onboardingBuild":
+      return <OnboardingBuildCard />;
     default:
       return null;
   }
