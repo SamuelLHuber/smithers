@@ -4,7 +4,7 @@ import { findFirstPositionalIndex, parseMcpSurfaceArgv, rewriteBareResumeFlagArg
 import { CLI_JSON_ARGUMENT_MAX_BYTES, parseJsonArgument, parseJsonInput } from "./json-args.js";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { readFileSync, existsSync, openSync, statSync } from "node:fs";
+import { readFileSync, existsSync, openSync, statSync, writeSync } from "node:fs";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Effect, Fiber } from "effect";
 import { Cli, Mcp as IncurMcp, z } from "incur";
@@ -26,10 +26,11 @@ import { retryTask } from "@smithers-orchestrator/time-travel/retry-task";
 import { timeTravel } from "@smithers-orchestrator/time-travel/timetravel";
 import { runSync } from "./smithersRuntime.js";
 import { spawn } from "node:child_process";
-import { isHumanRequestPastTimeout, validateHumanRequestValue } from "@smithers-orchestrator/engine/human-requests";
+import { buildAgentAskRequestRow, isHumanRequestPastTimeout, validateHumanRequestValue, waitForHumanAnswer, } from "@smithers-orchestrator/engine/human-requests";
 import { SmithersError } from "@smithers-orchestrator/errors";
 import { assertMaxBytes, assertMaxStringLength } from "@smithers-orchestrator/db/input-bounds";
 import { findAndOpenDb } from "./find-db.js";
+import { buildAskKindFields, buildAskPromptText, buildAskUniqueToken, formatAskHumanResolveHelp, parseChoices, resolveAskHumanContext, } from "./ask-human.js";
 import { chatAttemptKey, formatChatAttemptHeader, formatChatBlock, parseAgentEvent, parseChatAttemptMeta, parseNodeOutputEvent, selectChatAttempts, } from "./chat.js";
 import { buildHijackLaunchSpec, isNativeHijackCandidate, launchHijackSession, resolveHijackCandidate, waitForHijackCandidate, } from "./hijack.js";
 import { parseAgentWiringArgv } from "./agent-wiring/parseAgentWiringArgv.js";
@@ -1395,6 +1396,18 @@ const humanArgs = z.object({
 const humanOptions = z.object({
     value: z.string().optional().describe("JSON response for smithers human answer"),
     by: z.string().optional().describe("Name or identifier of the human operator"),
+});
+const askHumanArgs = z.object({
+    prompt: z.string().describe("The decision or question to put to a human"),
+});
+const askHumanOptions = z.object({
+    context: z.string().optional().describe("Extra context appended to the prompt"),
+    choices: z.string().optional().describe("Comma-separated choices; makes this a fixed-choice decision"),
+    runId: z.string().optional().describe("Run to attach to (default: SMITHERS_RUN_ID or the single active run)"),
+    node: z.string().optional().describe("Node id to attach to (default: SMITHERS_NODE_ID or 'agent-ask')"),
+    iteration: z.number().int().min(0).optional().describe("Loop iteration (default: SMITHERS_ITERATION or 0)"),
+    timeout: z.number().min(0).optional().describe("Seconds to wait before the request expires (0/unset = no timeout)"),
+    poll: z.number().min(0.25).optional().describe("Poll interval in seconds while blocking (default 3)"),
 });
 const alertsArgs = z.object({
     action: z.string().describe("Alert action: list, ack, resolve, or silence"),
@@ -4004,6 +4017,143 @@ const cli = Cli.create({
         catch (err) {
             return fail({
                 code: "HUMAN_REQUEST_COMMAND_FAILED",
+                message: err?.message ?? String(err),
+                exitCode: 1,
+            });
+        }
+    },
+})
+    // =========================================================================
+    // smithers ask-human <prompt>
+    // =========================================================================
+    .command("ask-human", {
+    description: "Raise a blocking human-approval request from inside a run and wait for the decision. Use when blocked, uncertain, or about to do something irreversible — never guess.",
+    args: askHumanArgs,
+    options: askHumanOptions,
+    alias: { runId: "r", node: "n" },
+    async run(c) {
+        const fail = (opts) => {
+            commandExitOverride = opts.exitCode ?? 1;
+            return c.error(opts);
+        };
+        const prompt = c.args.prompt?.trim();
+        if (!prompt) {
+            return fail({
+                code: "ASK_HUMAN_PROMPT_REQUIRED",
+                message: "smithers ask-human requires a prompt (the decision to put to a human).",
+                exitCode: 4,
+            });
+        }
+        try {
+            const { adapter, cleanup } = await findAndOpenDb();
+            try {
+                let context;
+                try {
+                    context = await resolveAskHumanContext(adapter, {
+                        runId: c.options.runId,
+                        nodeId: c.options.node,
+                        iteration: c.options.iteration,
+                    });
+                }
+                catch (err) {
+                    return fail({
+                        code: err?.code ?? "ASK_HUMAN_CONTEXT_FAILED",
+                        message: err?.message ?? String(err),
+                        exitCode: 4,
+                    });
+                }
+                const choices = parseChoices(c.options.choices);
+                const kindFields = buildAskKindFields(choices);
+                const requestedAtMs = Date.now();
+                const timeoutAtMs = typeof c.options.timeout === "number" && c.options.timeout > 0
+                    ? requestedAtMs + Math.floor(c.options.timeout * 1_000)
+                    : null;
+                const row = buildAgentAskRequestRow({
+                    runId: context.runId,
+                    nodeId: context.nodeId,
+                    iteration: context.iteration,
+                    prompt: buildAskPromptText(prompt, c.options.context),
+                    unique: buildAskUniqueToken(),
+                    requestedAtMs,
+                    kind: kindFields.kind,
+                    optionsJson: kindFields.optionsJson,
+                    schemaJson: kindFields.schemaJson,
+                    timeoutAtMs,
+                });
+                await adapter.insertHumanRequest(row);
+                // Operator instructions go to stderr so --format json stdout stays clean
+                // for the calling agent to parse. Use a synchronous fd write: when stderr
+                // is a pipe, process.exit() at command end would truncate a buffered
+                // (async) stream write.
+                writeSync(2, `${formatAskHumanResolveHelp(row.requestId, choices)}\n`);
+                const pollIntervalMs = typeof c.options.poll === "number" && c.options.poll > 0
+                    ? Math.floor(c.options.poll * 1_000)
+                    : undefined;
+                const abortController = new AbortController();
+                const onSignal = () => abortController.abort();
+                process.once("SIGINT", onSignal);
+                process.once("SIGTERM", onSignal);
+                let outcome;
+                try {
+                    outcome = await waitForHumanAnswer(adapter, row.requestId, {
+                        pollIntervalMs,
+                        signal: abortController.signal,
+                    });
+                }
+                finally {
+                    process.removeListener("SIGINT", onSignal);
+                    process.removeListener("SIGTERM", onSignal);
+                }
+                const base = {
+                    requestId: row.requestId,
+                    runId: context.runId,
+                    nodeId: context.nodeId,
+                    iteration: context.iteration,
+                    status: outcome.status,
+                };
+                if (outcome.status === "answered") {
+                    let response = null;
+                    try {
+                        response = outcome.responseJson != null
+                            ? JSON.parse(outcome.responseJson)
+                            : null;
+                    }
+                    catch {
+                        response = outcome.responseJson ?? null;
+                    }
+                    return c.ok({
+                        ...base,
+                        decision: "approved",
+                        response,
+                        answeredBy: outcome.answeredBy ?? null,
+                    });
+                }
+                const exitCodeByStatus = {
+                    cancelled: 2,
+                    aborted: 2,
+                    expired: 3,
+                    missing: 4,
+                };
+                const messageByStatus = {
+                    cancelled: `Human request ${row.requestId} was cancelled — do not proceed.`,
+                    aborted: `Waiting on ${row.requestId} was interrupted — do not proceed.`,
+                    expired: `Human request ${row.requestId} expired before a human responded — do not proceed.`,
+                    missing: `Human request ${row.requestId} disappeared from the store.`,
+                };
+                return fail({
+                    code: `ASK_HUMAN_${String(outcome.status).toUpperCase()}`,
+                    message: messageByStatus[outcome.status] ??
+                        `Human request ${row.requestId} ended as ${outcome.status}.`,
+                    exitCode: exitCodeByStatus[outcome.status] ?? 1,
+                });
+            }
+            finally {
+                cleanup();
+            }
+        }
+        catch (err) {
+            return fail({
+                code: "ASK_HUMAN_COMMAND_FAILED",
                 message: err?.message ?? String(err),
                 exitCode: 1,
             });
