@@ -24,6 +24,7 @@ import { EventBus } from "./events.js";
 import { AgentTraceCollector } from "./AgentTraceCollector.js";
 import { getJjPointer, runJj, workspaceAdd } from "@smithers-orchestrator/vcs/jj";
 import { findVcsRoot } from "@smithers-orchestrator/vcs/find-root";
+import { startDurability } from "./startDurability.js";
 import { vcsToolingStatus } from "@smithers-orchestrator/vcs/vcsToolingStatus";
 import * as BunContext from "@effect/platform-bun/BunContext";
 import { eq, getTableName } from "drizzle-orm";
@@ -3227,6 +3228,19 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     })
                     : null;
                 if (traceCollector) traceCollector.begin();
+                // Tier 2 durability: watch the worktree for the life of this
+                // attempt and snapshot settled writes. Env-gated, default off, so
+                // the handle is an inert no-op unless explicitly enabled. Gap
+                // reporting (durable spool) lands with the CLI-hook phase.
+                const durability = await startDurability({
+                    enabled: process.env.SMITHERS_DURABILITY_SNAPSHOTS === "1",
+                    adapter,
+                    runId,
+                    nodeId: desc.nodeId,
+                    iteration: desc.iteration,
+                    attempt: attemptNo,
+                    cwd: taskRoot,
+                });
                 let result;
                 try {
                     try {
@@ -3250,6 +3264,12 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                                     resumeSession,
                                     lastHeartbeat: previousHeartbeat,
                                     rootDir: taskRoot,
+                                    taskContext: {
+                                        runId,
+                                        nodeId: desc.nodeId,
+                                        iteration: desc.iteration,
+                                        attempt: attemptNo,
+                                    },
                                     maxOutputBytes: toolConfig.maxOutputBytes,
                                     timeout: desc.timeoutMs
                                         ? { totalMs: desc.timeoutMs }
@@ -3282,6 +3302,9 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                         if (hijackPollingInterval) {
                             clearInterval(hijackPollingInterval);
                         }
+                        // Close the watcher and flush a final snapshot of the
+                        // attempt's last settled write. No-op when disabled.
+                        await durability.stop();
                     }
                 }
                 catch (error) {
