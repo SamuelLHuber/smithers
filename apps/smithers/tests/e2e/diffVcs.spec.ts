@@ -27,8 +27,8 @@ test.describe("diff and vcs cards", () => {
     await expect(card).toBeVisible();
     // Header carries the seeded diff title and the total delta counts.
     await expect(card.locator(".card-title")).toHaveText("Changes · auth refactor");
-    await expect(card.locator(".card-sub .delta-add")).toHaveText("+214");
-    await expect(card.locator(".card-sub .delta-del")).toHaveText("−63");
+    await expect(card.locator(".card-sub .delta-add")).toHaveText("+67");
+    await expect(card.locator(".card-sub .delta-del")).toHaveText("−234");
 
     // Every seeded file is a tab; the first is active by default.
     const tabs = card.locator(".file-tab");

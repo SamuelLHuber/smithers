@@ -73,7 +73,9 @@ export function platformUrl(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   if (!base) {
     const origin =
-      typeof location !== "undefined" ? location.origin : "http://127.0.0.1:7331";
+      typeof location !== "undefined" && location.origin && location.origin !== "null"
+        ? location.origin
+        : "http://127.0.0.1:7331";
     return `${origin}${normalizedPath}`;
   }
   return new URL(normalizedPath, base).toString();
