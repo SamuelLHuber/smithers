@@ -1,10 +1,9 @@
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { registerHappyDomForTests } from "../test/registerHappyDom";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { resetAuthRedirectForTests } from "./authClient";
 
 beforeAll(() => {
-  if (typeof globalThis.window === "undefined") {
-    GlobalRegistrator.register();
-  }
+  registerHappyDomForTests();
 });
 
 type FetchHandler = (url: string, init?: RequestInit) => Promise<Response> | Response;
@@ -45,6 +44,7 @@ describe("authStore — Plue auth proxy paths", () => {
 
   afterEach(() => {
     restoreFetch();
+    resetAuthRedirectForTests();
   });
 
   test("signInWithToken stores token and refreshes user on valid response", async () => {

@@ -1,8 +1,6 @@
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { registerHappyDomForTests } from "../test/registerHappyDom";
 
-if (typeof window === "undefined") {
-  GlobalRegistrator.register();
-}
+registerHappyDomForTests();
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { GatewayRpcError } from "@smithers-orchestrator/gateway-client";

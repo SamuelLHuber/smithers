@@ -7,8 +7,8 @@ import {
 
 /**
  * The `/runs` list canvas surface. Reads the seeded RunSummary roster from
- * runsList.ts and renders a header toolbar (status seg, workflow chips, age
- * seg, search, Clear) above a grouped row list. Deterministic by design —
+ * runsList.ts and renders a header toolbar (status/workflow/time menus, search,
+ * Clear) above a grouped row list. Deterministic by design —
  * elapsed labels and age buckets are baked into the seed, never computed from a
  * wall-clock — so every count and chip can be derived from the seed module the
  * canvas itself reads.
@@ -36,10 +36,11 @@ test.describe("runs canvas", () => {
     );
     await expect(page.getByTestId("runs-row")).toHaveCount(total);
 
-    // Every distinct workflow renders a chip and a group.
+    // Every distinct workflow is available in the workflow menu and renders a group.
+    await page.getByRole("button", { name: "Workflow: All workflows" }).click();
     for (const name of distinctWorkflows(SEEDED_RUNS)) {
       await expect(
-        page.getByTestId("runs-workflow-chip").filter({ hasText: name }),
+        page.getByRole("menuitemradio", { name }),
       ).toBeVisible();
       await expect(
         page.getByTestId("runs-group").filter({ hasText: name }),
@@ -52,7 +53,7 @@ test.describe("runs canvas", () => {
   }) => {
     await page.goto("/runs");
 
-    // Picking the "Failed" segment trims the list to the seeded failed rows.
+    // Picking the "Failed" status trims the list to the seeded failed rows.
     const failedExpected = filterRuns(SEEDED_RUNS, {
       status: "failed",
       workflow: "all",
@@ -60,10 +61,8 @@ test.describe("runs canvas", () => {
       search: "",
     }).length;
     expect(failedExpected).toBeGreaterThan(0);
-    await page
-      .getByTestId("runs-status-filter")
-      .getByRole("button", { name: "Failed" })
-      .click();
+    await page.getByRole("button", { name: "Status: All statuses" }).click();
+    await page.getByRole("menuitemradio", { name: "Failed" }).click();
     await expect(page.getByTestId("runs-row")).toHaveCount(failedExpected);
 
     // The Clear affordance materialises now that filters are active.

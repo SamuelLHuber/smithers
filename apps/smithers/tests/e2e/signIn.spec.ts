@@ -2,13 +2,18 @@ import { expect, test } from "@playwright/test";
 
 /**
  * The "Sign in" chip opens an overlay instead of navigating to the /login page,
- * so the user keeps their place. The real stack boots signed-out (the worker
- * has no session), so the chip is present from the floor up. We only assert the
- * UI behaviour here — actual OAuth/token exchange lives behind external auth.
+ * so the user keeps their place. The e2e auth fixture boots signed in; sign out
+ * first, then assert overlay behavior. Actual OAuth/token exchange lives behind
+ * external auth.
  */
 test.describe("sign-in modal", () => {
   test("opens as an overlay without leaving the page, and closes", async ({ page }) => {
     await page.goto("/");
+    await expect(page.getByTestId("auth-status").locator(".auth-name")).toHaveText(
+      "Fixture User",
+    );
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
     await page.getByRole("button", { name: "Sign in" }).click();
 

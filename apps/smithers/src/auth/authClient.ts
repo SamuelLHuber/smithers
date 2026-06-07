@@ -182,6 +182,11 @@ export function loginUrlForRedirect(redirectPath = currentRedirectPath()): strin
 
 let authRedirectInFlight = false;
 
+/** Tests only: clear the cross-call redirect guard between isolated test cases. */
+export function resetAuthRedirectForTests(): void {
+  authRedirectInFlight = false;
+}
+
 export function handleAuthRequired(redirectPath = currentRedirectPath()): void {
   // Both gatewayRpc (RPC 401) and SyncClient.onAuthError (stream-side
   // UNAUTHORIZED) can call this back-to-back for the same failure. The guard

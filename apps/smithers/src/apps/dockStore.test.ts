@@ -1,12 +1,10 @@
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { registerHappyDomForTests } from "../test/registerHappyDom";
 import { beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
 // The dock store persists to localStorage; give it a DOM so persistence is a
 // real path under test rather than a no-op.
 beforeAll(() => {
-  if (typeof globalThis.window === "undefined") {
-    GlobalRegistrator.register();
-  }
+  registerHappyDomForTests();
 });
 
 describe("dock store", () => {

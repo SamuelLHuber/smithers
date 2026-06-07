@@ -1,8 +1,6 @@
-import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { registerHappyDomForTests } from "../test/registerHappyDom";
 
-if (typeof window === "undefined") {
-  GlobalRegistrator.register();
-}
+registerHappyDomForTests();
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { GatewayRpcError } from "@smithers-orchestrator/gateway-client";
@@ -20,6 +18,7 @@ import {
   gatewayStreamSubscriptionsTotal,
   resetReconnectHistory,
 } from "../observability/uiMetrics";
+import { resetAuthRedirectForTests } from "../auth/authClient";
 
 /**
  * The app's wrapper around `@smithers-orchestrator/gateway-client`. These tests
@@ -58,6 +57,7 @@ function resetGatewayMetrics(): void {
 
 beforeEach(() => {
   resetGatewayClient();
+  resetAuthRedirectForTests();
   resetGatewayMetrics();
   setLocationOrigin("http://app.local");
   setSessionToken(null);
@@ -72,6 +72,7 @@ afterEach(() => {
   });
   resetGatewayClient();
   setGatewayClientForTests(undefined);
+  resetAuthRedirectForTests();
   resetGatewayMetrics();
 });
 
