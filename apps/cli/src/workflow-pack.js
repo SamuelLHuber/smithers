@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 import { accountsRoot } from "@smithers-orchestrator/accounts";
 import { generateAgentsTs } from "./agent-detection.js";
 import { WORKFLOW_UI_SOURCES } from "./workflowUiSources.js";
+// Seeded workflows authored as canonical files in .smithers/ and emitted by
+// scripts/generate-workflow-pack.ts (single source of truth — no hand-embedding).
+import { GENERATED_SEEDED_FILES } from "./seeded-workflow-pack.generated.js";
 /**
  * @typedef {{ onSkip?: (relPath: string) => void; scaffolded?: (counts: { writtenCount: number; skippedCount: number; preservedCount: number }) => void; installStart?: () => void; installDone?: (result: InitInstallResult, captured?: { stdout: string; stderr: string }) => void; }} InitReporter
  */
@@ -4221,6 +4224,8 @@ function renderTemplateFiles(versions, env, projectRoot) {
         ...renderPrompts(),
         ...renderComponents(),
         ...renderWorkflows(),
+        // Generated seeded workflows (+ their prompts) from .smithers/ canonical sources.
+        ...GENERATED_SEEDED_FILES,
         renderKanbanUiFile(),
         renderPlanUiFile(),
         renderVcsUiFile(),
