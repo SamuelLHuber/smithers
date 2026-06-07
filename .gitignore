@@ -62,6 +62,7 @@ deno.lock
 **/.smithers/executions/
 .tui-test/
 .worktrees/
+worktrees/
 reference/
 !docs/reference/
 !docs/reference/*.mdx
