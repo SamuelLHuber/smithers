@@ -1,5 +1,11 @@
 # 0.23.0
 
+<Note>
+  **Unreleased / upcoming.** This entry documents work landing in the next release. The
+  current published version is `0.22.0` — `0.23.0` has not shipped to npm yet, so treat the
+  features below as in-progress until the release notes go live.
+</Note>
+
 This release takes Smithers' durable engine to a production-grade database, ships two brand-new products, and grows the agent and benchmark surface. The persistence layer now runs unchanged on **PostgreSQL or an embedded PGlite** through a SQL dialect seam, so the same crash-and-resume guarantees that worked on SQLite hold on Postgres. Alongside it: **Smithers**, a streaming Cerebras chat PWA deployable to Cloudflare in one command; **UltraGrill**, an open-ended real-time collaboration workflow with a live custom UI; a `smithers usage` command that reports consumed quota per account across every provider; four new benchmark harnesses (SWE-Bench Pro, SWE-EVO, Claw-Eval-Live, RoadmapBench) plus a defending-code vulnerability-discovery example; a Vibe (Mistral) agent and a corrected Antigravity CLI; new Studio 2 chat overlay surfaces; an interactive `smithers init` ceremony; and a launch article positioning Smithers as the open, durable orchestration layer. A correctness sweep hardens JSON extraction, DevTools stream recovery, agent schemas, and the test gate.
 
 ---

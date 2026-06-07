@@ -11,11 +11,30 @@
     "options": ["copy", "view", "chatgpt", "claude"]
   },
   "navigation": {
-    "groups": [
+    "tabs": [
+      {
+        "tab": "Guide",
+        "groups": [
+          {
+            "group": "Guide",
+            "pages": [
+              "index",
+              "guide/what-is-smithers",
+              "guide/what-you-can-do",
+              "guide/get-started",
+              "guide/talk-to-your-agent",
+              "guide/concepts",
+              "guide/watch-and-steer"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Build & Reference",
+        "groups": [
       {
         "group": "Start",
         "pages": [
-          "index",
           "introduction",
           "installation",
           "quickstart",
@@ -303,6 +322,8 @@
           "changelogs/0.15.1",
           "changelogs/0.15.0",
           "changelogs/0.14.0"
+        ]
+      }
         ]
       }
     ]

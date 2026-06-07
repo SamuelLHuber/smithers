@@ -51,6 +51,17 @@ agent writes the workflow — a composable TypeScript tree — then runs it for 
 days with crash recovery, retries, human approvals, replay, and full observability across
 any agent, any model, and any machine.
 
+<CardGroup cols={2}>
+  <Card title="New here? Start with the Guide" icon="compass" href="/guide/what-is-smithers">
+    The plain-language tour: what Smithers is, why it exists, and how to drive it from your
+    agent — no TypeScript required to get started.
+  </Card>
+  <Card title="See what you can do" icon="sparkles" href="/guide/what-you-can-do">
+    Concrete jobs you can hand to Smithers today, from a focused change to a long-horizon
+    mission, with the workflow that fits each one.
+  </Card>
+</CardGroup>
+
 ```tsx
 /** @jsxImportSource smithers-orchestrator */
 import { createSmithers, Sequence, Task } from "smithers-orchestrator";
@@ -209,6 +220,9 @@ workflow:
 ## Read next
 
 <CardGroup cols={2}>
+  <Card title="Start with the Guide" icon="compass" href="/guide/what-is-smithers">
+    The human-first introduction: what Smithers is and how to use it, in plain language.
+  </Card>
   <Card title="Install the agent skill" icon="robot" href="/installation#install-the-agent-skill">
     Make your coding agent drive Smithers for you.
   </Card>
@@ -1138,7 +1152,7 @@ Always invoke as `bunx smithers-orchestrator <command>` (see Installation for wh
 Commands listed by dotted name. `human` and `alerts` use an action positional instead of nested subcommands.
 
 ```toon
-commands[65]:
+commands[66]:
   - name: init
     purpose: Install the workflow pack into .smithers/ (local) or ~/.smithers/ (--global)
     flags[6]{name,short,type,default,desc}:
@@ -5739,7 +5753,7 @@ The removal dropped the OpenTUI dependency and the `apps/cli/src/tui/` tree from
 | Run detail | `inspect --watch` |
 | Node attempts, tools, and output | `node --watch`, `output`, `diff` |
 | Rendered DevTools tree | `tree --watch` |
-| Desktop control plane | `gui` and the installation guide |
+| Desktop control plane | `gui` and the CLI overview |
 | Remote or browser control plane | `up --serve`, Gateway, and MCP Server |
 
 For a browser or remote control plane, `up --serve` exposes an HTTP API; the Gateway and MCP Server docs explain multi-user and agent-driven access.
@@ -6421,20 +6435,27 @@ ws.onopen = () => ws.send(JSON.stringify({
 
 ## Gateway client SDK
 
-Programmatic clients — bots, schedulers, dashboards — talk to the Gateway through the typed client SDK over the same RPC and WebSocket API.
+Programmatic clients — bots, schedulers, dashboards, third-party UIs — talk to the Gateway through the typed client SDK over the same RPC and WebSocket API. For the full custom-UI guide (declarative queries, pushed updates, stale guards, reconnect/resume, backpressure, optimistic mutations, auth, vanilla JS + React hooks) see Custom UIs.
 
 ```ts
 import { SmithersGatewayClient } from "smithers-orchestrator/gateway-client";
 
 const gateway = new SmithersGatewayClient();
 const workflows = await gateway.listWorkflows();
+
+// Resilient pushed updates: backoff + jitter on reconnect, resume from the last
+// observed seq via run.gap_resync, stop on run.completed or abort.
+for await (const frame of gateway.streamRunEventsResilient({ runId: "run-1" })) {
+  if (frame.event === "run.completed") break;
+}
 ```
 
 Gateway client exports:
 
 | Package | Exports |
 |---|---|
-| `smithers-orchestrator/gateway-client` | `SmithersGatewayClient`, `SmithersGatewayConnection`, `GatewayRpcError`, RPC frame/type-map types, `GatewayUiBootConfig`, `SmithersGatewayClientOptions` |
+| `smithers-orchestrator/gateway-client` | `SmithersGatewayClient`, `SmithersGatewayConnection`, `GatewayRpcError`, `gatewayBackoffDelay`, RPC frame/type-map types, `GatewayUiBootConfig`, `SmithersGatewayClientOptions` |
+| `smithers-orchestrator/gateway-react` | `SmithersGatewayProvider`, `createGatewayReactRoot`, `useGatewayRun`, `useGatewayRuns`, `useGatewayWorkflows`, `useGatewayApprovals`, `useGatewayNodeOutput`, `useGatewayRunEvents`, `useGatewayActions`, `useGatewayRpc`, `useSmithersGateway` |
 
 ## RPC methods (TOON)
 
