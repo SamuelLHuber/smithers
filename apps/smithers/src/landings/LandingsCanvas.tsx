@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { getPlatformBaseUrl } from "../jjhub/platformBaseUrl";
 import {
   canLand,
   filterLandings,
@@ -24,6 +26,60 @@ const TABS: { id: DetailTab; label: string }[] = [
   { id: "diff", label: "Diff" },
   { id: "checks", label: "Checks" },
 ];
+
+/**
+ * Repo selector — visible only when a platform base URL is configured. Picking
+ * `owner/repo` binds the card to that context and pulls live landing requests
+ * from Plue, replacing the seed. With no base URL this row doesn't render and
+ * the seeded stack stays, preserving offline/dev behavior.
+ */
+function RepoContextBar() {
+  const repoContext = useLandingsStore((state) => state.repoContext);
+  const hydrationStatus = useLandingsStore((state) => state.hydrationStatus);
+  const hydrationSource = useLandingsStore((state) => state.hydrationSource);
+  const hydrationError = useLandingsStore((state) => state.hydrationError);
+  const selectRepoContext = useLandingsStore((state) => state.selectRepoContext);
+
+  const initial = repoContext ? `${repoContext.owner}/${repoContext.repo}` : "";
+  const [draft, setDraft] = useState(initial);
+
+  if (!getPlatformBaseUrl()) return null;
+
+  return (
+    <form
+      className="rev-repo-context"
+      data-testid="landings-repo-context"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const parts = draft.trim().split("/");
+        if (parts.length !== 2 || !parts[0] || !parts[1]) return;
+        void selectRepoContext(parts[0], parts[1]);
+      }}
+    >
+      <input
+        type="text"
+        className="field-input"
+        placeholder="owner/repo"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        data-testid="landings-repo-context-input"
+      />
+      <button className="btn" type="submit" data-testid="landings-repo-context-submit">
+        {hydrationStatus === "loading" ? "Loading…" : "Sync from Plue"}
+      </button>
+      {hydrationSource === "platform" ? (
+        <span className="rev-sub" data-testid="landings-hydration-source">
+          live · {repoContext?.owner}/{repoContext?.repo}
+        </span>
+      ) : null}
+      {hydrationStatus === "error" && hydrationError ? (
+        <span className="rev-sub rev-sub-error" data-testid="landings-hydration-error">
+          {hydrationError}
+        </span>
+      ) : null}
+    </form>
+  );
+}
 
 /** The full landings dashboard: a filtered stack on the left, detail on the right. */
 export function LandingsCanvas() {
@@ -61,6 +117,7 @@ export function LandingsCanvas() {
         <span className="surface-sub">
           {summary.total} total · {summary.open} open · {summary.merged} merged
         </span>
+        <RepoContextBar />
         <div className="seg" data-testid="landings-filter">
           {FILTERS.map((option) => (
             <button
