@@ -43,7 +43,7 @@
         ]
       },
       {
-        "group": "But... Why?",
+        "group": "Articles",
         "pages": [
           "why/background-agents",
           "why/durable-open-orchestration",
