@@ -69,6 +69,7 @@
         "pages": [
           "cli/quickstart",
           "cli/overview",
+          "guides/agent-operating-playbook",
           "guides/evals-quickstart",
           "guides/workflow-optimization",
           "guides/tui",

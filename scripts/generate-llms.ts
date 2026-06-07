@@ -41,6 +41,7 @@ const CORE_PAGES = [
   // The two anchor pages
   "tour.mdx",
   "how-it-works.mdx",
+  "guides/agent-operating-playbook.mdx",
   // JSX surface (single page now — installation + quickstart are stubs)
   "jsx/overview.mdx",
   // CLI catalog
@@ -198,7 +199,7 @@ const HEADERS = {
     "> Smithers — durable AI workflow orchestration as a JSX runtime.",
     "> Repo: github.com/smithersai/smithers · Package: smithers-orchestrator (npm)",
     "",
-    "This file contains the core Smithers documentation. Read top to bottom for a complete picture of the runtime, JSX surface, CLI, and components.",
+    "This file contains the core Smithers documentation. Read top to bottom for a complete picture of the runtime, agent operating playbook, JSX surface, CLI, and components.",
     "",
     "Opt-in fragments cover features most users do not need:",
     "  - Memory (cross-run state):       /llms-memory.txt",
@@ -300,13 +301,35 @@ Durable AI workflow orchestration as a JSX runtime.
 
 ## Documentation
 
-- [Core docs](/llms-core.txt) — runtime, JSX surface, CLI, components, recipes, types, errors
+- [Core docs](/llms-core.txt) — runtime, agent operating playbook, JSX surface, CLI, components, recipes, types, errors
 - [Memory fragment](/llms-memory.txt) — cross-run memory: facts, history, recall
 - [OpenAPI tools fragment](/llms-openapi.txt) — generate AI SDK tools from OpenAPI specs
 - [Observability fragment](/llms-observability.txt) — HTTP server, gateway, MCP, OpenTelemetry
 - [Effect fragment](/llms-effect.txt) — Effect-ts authoring API (no JSX)
 - [Integrations fragment](/llms-integrations.txt) — agent runtimes, tools, ecosystem
 - [Events fragment](/llms-events.txt) — full SmithersEvent discriminated union
+
+## Agent operating directive
+
+The human talks to an AI harness; the AI runs Smithers. Do not ask the human to
+run commands directly. Translate human outcomes into durable Smithers work,
+watch the run, verify with backpressure, and report evidence back in plain
+English.
+
+Examples:
+
+- "Build this product idea start to finish" -> interview first, write product and
+  engineering specs, add an approval gate, then run implementation milestones.
+- "Do not stop until this is production-ready" -> encode tests, reviewer approval,
+  evals, and artifact reporting as the finish line.
+- "Prove this third-party service works" -> run assumption tests or service probes
+  before building product code on top of it.
+- "Show me it works" -> capture screenshots, GIFs, video, eval reports, logs,
+  traces, and an HTML or Markdown report.
+- "What happened to the run?" -> inspect why, events, node output, scores, and
+  logs yourself; summarize the blocker and options.
+- "Can I watch it?" -> offer the Smithers UI or Gateway-backed custom UI when a
+  visual run state would help.
 
 ## Pointers
 
