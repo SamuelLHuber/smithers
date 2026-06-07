@@ -1,12 +1,12 @@
 import { useEffect } from "react";
 import { useAuthStore } from "./authStore";
-import { currentRedirectPath, loginUrlForRedirect } from "./authClient";
 
 export function AuthStatus() {
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
   const bootstrap = useAuthStore((state) => state.bootstrap);
   const logout = useAuthStore((state) => state.logout);
+  const openSignIn = useAuthStore((state) => state.openSignIn);
 
   useEffect(() => {
     void bootstrap();
@@ -29,13 +29,7 @@ export function AuthStatus() {
   return (
     <div className="auth-status" data-testid="auth-status">
       <span className="auth-name">{status === "checking" ? "Checking auth" : "Remote mode"}</span>
-      <button
-        className="auth-link"
-        type="button"
-        onClick={() => {
-          window.location.assign(loginUrlForRedirect(currentRedirectPath()));
-        }}
-      >
+      <button className="auth-link" type="button" onClick={openSignIn}>
         Sign in
       </button>
     </div>

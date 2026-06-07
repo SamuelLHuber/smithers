@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 import { Outlet } from "@tanstack/react-router";
+import { Dock } from "../apps/Dock";
 import { AuthStatus } from "../auth/AuthStatus";
+import { SignInModal } from "../auth/SignInModal";
 import { useChatStore } from "../chat/chatStore";
 import { ChatTranscript } from "../chat/ChatTranscript";
 import { PanelLeftIcon } from "../icons/PanelLeftIcon";
@@ -10,6 +12,7 @@ import { ControlRing } from "../control/ControlRing";
 import { ControlRequestDialog } from "../control/ControlRequestDialog";
 import { OnboardingGate } from "../onboarding/OnboardingGate";
 import { ComposerBar } from "./ComposerBar";
+import { CornerLogo } from "./CornerLogo";
 import { usePreferencesStore } from "./preferencesStore";
 import { useRouteStore } from "./routeStore";
 import { useUiStore } from "./uiStore";
@@ -56,9 +59,12 @@ export function AppShell() {
     >
       <Toasts />
       <AuthStatus />
+      <CornerLogo />
       <ControlRing />
       <ControlRequestDialog />
+      <SignInModal />
       <OnboardingGate />
+      <Dock />
 
       {effectiveLayout === "sidebar" ? (
         <>
@@ -72,14 +78,18 @@ export function AppShell() {
                 <span className="rail-dot" />
                 Smithers
               </span>
-              <button
-                aria-label="Exit sidebar layout"
-                className="nav-button"
-                type="button"
-                onClick={toggleLayout}
-              >
-                <PanelLeftIcon />
-              </button>
+              {/* The layout toggle is meaningless while a surface forces the
+                  sidebar (see effectiveLayout), so it only shows off a surface. */}
+              {surface === null ? (
+                <button
+                  aria-label="Exit sidebar layout"
+                  className="nav-button"
+                  type="button"
+                  onClick={toggleLayout}
+                >
+                  <PanelLeftIcon />
+                </button>
+              ) : null}
             </header>
             <ChatTranscript />
             <div className="composer-dock">

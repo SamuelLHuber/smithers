@@ -22,12 +22,15 @@ type AuthState = {
   error: string | null;
   hasToken: boolean;
   gatewayBaseUrl: string;
+  signInOpen: boolean;
   bootstrap: () => Promise<void>;
   refreshUser: () => Promise<AuthUser | null>;
   signInWithProvider: (provider: AuthProvider, options?: { email?: string; redirect?: string }) => void;
   signInWithToken: (token: string) => Promise<boolean>;
   logout: () => Promise<void>;
   setGatewayBaseUrl: (baseUrl: string) => void;
+  openSignIn: () => void;
+  closeSignIn: () => void;
 };
 
 function redirectAfterOAuthIfNeeded(user: AuthUser | null): void {
@@ -43,6 +46,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
   hasToken: hasStoredToken(),
   gatewayBaseUrl: getGatewayBaseUrl(),
+  signInOpen: false,
 
   bootstrap: async () => {
     if (get().status === "checking") return;
@@ -114,4 +118,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     persistGatewayBaseUrl(baseUrl);
     set({ gatewayBaseUrl: getGatewayBaseUrl() });
   },
+
+  openSignIn: () => set({ signInOpen: true, error: null }),
+  closeSignIn: () => set({ signInOpen: false }),
 }));

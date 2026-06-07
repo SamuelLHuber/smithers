@@ -98,6 +98,7 @@
   place-items: center;
   padding: 20px;
   background: rgb(var(--shadow-rgb) / 0.34);
+  -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
   animation: control-fade-in 120ms ease-out;
 }

@@ -49,6 +49,7 @@ export function ComposerBar() {
   const toggleTheme = usePreferencesStore((state) => state.toggleTheme);
   const toggleLayout = usePreferencesStore((state) => state.toggleLayout);
   const project = useRouteStore((state) => state.project) ?? PROJECTS[0];
+  const surface = useRouteStore((state) => state.surface);
   const menuOpen = useUiStore((state) => state.openMenuId === "project");
   const toggleMenu = useUiStore((state) => state.toggleMenu);
   const setOpenMenu = useUiStore((state) => state.setOpenMenu);
@@ -198,17 +199,21 @@ export function ComposerBar() {
         </div>
 
         <nav className="top-controls" aria-label="View navigation">
-          <button
-            aria-label={
-              layout === "sidebar" ? "Exit sidebar layout" : "Switch to sidebar layout"
-            }
-            aria-pressed={layout === "sidebar"}
-            className="nav-button"
-            type="button"
-            onClick={toggleLayout}
-          >
-            <PanelLeftIcon />
-          </button>
+          {/* A surface forces the sidebar layout, so the toggle can't take
+              effect there — hide it instead of leaving a dead button. */}
+          {surface === null ? (
+            <button
+              aria-label={
+                layout === "sidebar" ? "Exit sidebar layout" : "Switch to sidebar layout"
+              }
+              aria-pressed={layout === "sidebar"}
+              className="nav-button"
+              type="button"
+              onClick={toggleLayout}
+            >
+              <PanelLeftIcon />
+            </button>
+          ) : null}
           <button
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             className="nav-button"

@@ -40,6 +40,13 @@
   --node-muted: #607087;
   --node-shadow: rgb(30 42 60 / 10%);
 
+  /* Fixed brand-mark colors. The Smithers glyph is theme-invariant (the same in
+     light and dark), so these have no dark-mode override — one source of truth
+     for both the persistent corner logo and the first-run splash mark. */
+  --logo-bg: #10151f;
+  --logo-ring: #ffffff;
+  --logo-stem: #78d7ba;
+
   color: var(--text);
   background: var(--bg);
   font-family:
@@ -84,6 +91,11 @@ button {
 .login-row input:focus-visible,
 .login-row button:focus-visible,
 .login-secondary:focus-visible,
+.signin-close:focus-visible,
+.btn-brand:focus-visible,
+.ob-goal-send:focus-visible,
+.ob-begin:focus-visible,
+.ob-create:focus-visible,
 .remote-controls input:focus-visible,
 .remote-controls button:focus-visible {
   outline: 2px solid var(--brand);
@@ -110,7 +122,9 @@ button {
 .auth-status {
   position: fixed;
   top: 12px;
-  right: 12px;
+  /* Top-left: the brand mark owns the top-right corner (see CornerLogo). */
+  left: 12px;
+  right: auto;
   z-index: 40;
   display: inline-flex;
   align-items: center;
@@ -176,6 +190,9 @@ button {
 .app-shell[data-mode="sidebar"] .auth-status {
   top: auto;
   bottom: 12px;
+  /* The left rail owns the bottom-left; keep auth clear of it, bottom-right. */
+  left: auto;
+  right: 12px;
 }
 
 /* Login */
@@ -354,6 +371,11 @@ button {
 .login-secondary:hover {
   background: var(--hover);
 }
+
+/* The sign-in modal's own styles (.signin-backdrop/.signin-dialog/.signin-close)
+   live colocated in auth/auth.css, imported by SignInModal — feature CSS stays
+   out of the shared stylesheet. The shared login-* panel rules above back both
+   the /login page and the modal's reused .login-panel. */
 
 /* Chat state: scrollable transcript with the composer floating over the bottom. */
 .conversation {
@@ -1701,6 +1723,11 @@ button {
     left: 10px;
     justify-content: space-between;
     max-width: none;
+  }
+
+  /* The auth bar spans the top edge on phones — no room for the corner mark. */
+  .corner-logo {
+    display: none;
   }
 
   .app-shell:not([data-mode="sidebar"]) .view {

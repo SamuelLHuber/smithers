@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 import { bindRouteStore } from "./app/bindRouteStore";
 import { router } from "./app/router";
+import { bindDock } from "./apps/bindDock";
 import { bindGateway } from "./gateway/bindGateway";
 import { startApprovalWatcher } from "./runs/watchApprovals";
 import { registerServiceWorker } from "./registerServiceWorker";
@@ -13,6 +14,7 @@ import "./styles.css";
 // runs after bindRouteStore so the first resolved route already drives the
 // gateway link (lazy connect, run selection).
 bindRouteStore(router);
+bindDock();
 bindGateway();
 startApprovalWatcher();
 
