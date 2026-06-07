@@ -30,7 +30,6 @@ const WORKFLOW_TOOL_NAMES = new Set([
 ]);
 const APPROVAL_TOOL_NAMES = new Set([
     "approve",
-    "ask_human",
     "deny",
     "list_pending_approvals",
     "resolve_approval",

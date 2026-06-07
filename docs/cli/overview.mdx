@@ -218,6 +218,18 @@ commands[66]:
     flags[2]{name,short,type,default,desc}:
       value,,string,,JSON response for answer
       by,,string,,Human operator identifier
+  - name: ask-human
+    purpose: Raise a blocking human-approval request from inside a run and wait for the decision
+    args[1]{name,type,required,desc}:
+      prompt,string,true,The decision or question to put to a human
+    flags[7]{name,short,type,default,desc}:
+      context,,string,,Extra context appended to the prompt
+      choices,,string,,Comma-separated choices for a fixed-choice decision
+      run-id,r,string,,Run to attach to (SMITHERS_RUN_ID or single active run)
+      node,n,string,,Node id to attach to (SMITHERS_NODE_ID)
+      iteration,,number,0,Loop iteration (SMITHERS_ITERATION or 0)
+      timeout,,number,,Seconds before the request expires
+      poll,,number,3,Poll interval in seconds while blocking
   - name: alerts
     purpose: List and manage durable alert instances
     args[2]{name,type,required,desc}:

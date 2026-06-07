@@ -264,6 +264,47 @@ When a workflow pauses on a human approval or question, the run is durable — i
 waits. Resolve it with `smithers approve` / `smithers deny` / `smithers signal`
 and the run continues from there.
 
+## When you're blocked, ask a human — never guess
+
+The patterns above (`<Approval>`, `<HumanTask>`) are gates you declare **ahead of
+time** in the graph. But an agent often discovers it's stuck **mid-task** — an
+ambiguous decision, missing context, or an irreversible/destructive action it
+shouldn't take on its own. The rule for any agent running inside a Smithers task:
+**stop and ask a human; do not guess or proceed on an assumption.**
+
+There is a first-class, blocking escalation for exactly this:
+
+```bash
+# From inside a run (an agent, a Task's shell, anywhere with the CLI):
+smithers ask-human "Drop and recreate the prod `users` table to fix the migration?"
+
+# Restrict the answer to fixed choices:
+smithers ask-human "Which rollback target?" --choices "v1.4.2,v1.4.1,abort"
+
+# Give up after a while instead of blocking forever:
+smithers ask-human "Proceed with the deploy?" --timeout 1800
+```
+
+`ask-human` creates a **durable** human request bound to the current run and
+**blocks** until a human resolves it. It auto-targets the run from the
+`SMITHERS_RUN_ID` / `SMITHERS_NODE_ID` / `SMITHERS_ITERATION` env vars Smithers
+injects into every agent it spawns (pass `--run-id` to override, or it falls back
+to the single active run). It exits `0` with the answer on approval, and non-zero
+(do **not** proceed) if the request is denied, cancelled, or times out.
+
+Agents on the Smithers MCP surface get the same thing as the **`ask_human`** tool
+— prefer it over inventing your own pause. The behavioral contract is baked into
+the agent prompt: *blocked / uncertain / about to do something irreversible →
+`ask_human` (or `smithers ask-human`) and wait.*
+
+The human (you, or a teammate) resolves it from anywhere:
+
+```bash
+smithers human inbox                                   # everything waiting on a human
+smithers human answer <request-id> --value '"approve"' # unblock with an answer
+smithers human cancel <request-id>                     # refuse — the agent must stop
+```
+
 ## When to use Smithers vs. just answering
 
 - **Use it** when order matters across steps, you need crash recovery, a human
