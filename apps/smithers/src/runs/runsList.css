@@ -56,6 +56,141 @@
   border: 1px solid currentColor;
 }
 
+/* Search field with a leading magnifier glyph. Self-styled (not .field-input)
+   so the .surface-head input rule can't right-dock it out of the toolbar. */
+.runs-search-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.runs-search-wrap .search-glyph {
+  position: absolute;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.runs-search {
+  width: 190px;
+  height: 34px;
+  padding: 0 11px 0 31px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: 400 13px/1 Inter, sans-serif;
+}
+.runs-search::placeholder {
+  color: var(--text-placeholder);
+}
+.runs-search:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--brand) 55%, transparent);
+}
+
+/* A filter dropdown: a compact trigger that opens a downward radio menu. The
+   three filters (status, workflow, time) used to be ~18 wrapping pills. */
+.runs-filter {
+  position: relative;
+}
+.runs-filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  max-width: 200px;
+  padding: 0 8px 0 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: 600 12px/1 Inter, sans-serif;
+  cursor: pointer;
+}
+.runs-filter-trigger:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.runs-filter-trigger[data-active="true"] {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+  background: color-mix(in srgb, var(--brand) 9%, var(--surface));
+}
+.runs-filter-value {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.runs-filter-trigger .chevron {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+/* The dropdown menu opens below the trigger (the toolbar sits at the top) and
+   right-aligns so a long workflow list never runs off the canvas edge. */
+.runs-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 184px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border-solid);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow:
+    0 1px 2px rgb(var(--shadow-rgb) / 0.04),
+    0 12px 32px rgb(var(--shadow-rgb) / 0.12);
+}
+.runs-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: 500 13px/1.2 Inter, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.runs-menu-item:hover {
+  background: var(--hover);
+}
+.runs-menu-item[aria-checked="true"] {
+  color: var(--brand);
+  font-weight: 600;
+}
+.runs-menu-item .check {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+/* The reset link, shown only when a filter is off its default. */
+.runs-clear {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: 600 12px/1 Inter, sans-serif;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.runs-clear:hover {
+  color: var(--text);
+}
+
 /* The scrolling list body and the grouped sections. */
 .runs-scroll {
   flex: 1;

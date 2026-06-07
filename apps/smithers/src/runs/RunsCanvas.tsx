@@ -1,6 +1,11 @@
 import "./runsList.css";
 import { openSurface } from "../app/navigation";
+import { useUiStore } from "../app/uiStore";
 import { StatusPill } from "../cards/StatusPill";
+import { MenuBackdrop } from "../components/MenuBackdrop";
+import { CheckIcon } from "../icons/CheckIcon";
+import { ChevronDownIcon } from "../icons/ChevronDownIcon";
+import { SearchIcon } from "../icons/SearchIcon";
 import {
   distinctWorkflows,
   filterRuns,
@@ -17,9 +22,9 @@ import {
 } from "./runsList";
 import { useRunsListStore } from "./runsListStore";
 
-/** The status segmented control, mirroring RunsView's status Menu. */
+/** The status filter values, mirroring RunsView's status Menu. */
 const STATUS_OPTIONS: { id: RunStatusFilter; label: string }[] = [
-  { id: "all", label: "All" },
+  { id: "all", label: "All statuses" },
   { id: "running", label: "Running" },
   { id: "waiting", label: "Waiting" },
   { id: "finished", label: "Finished" },
@@ -29,11 +34,77 @@ const STATUS_OPTIONS: { id: RunStatusFilter; label: string }[] = [
 
 /** The four date-window options, matched by seeded ageBucket inclusion. */
 const AGE_OPTIONS: { id: AgeFilter; label: string }[] = [
-  { id: "all", label: "All Time" },
+  { id: "all", label: "All time" },
   { id: "today", label: "Today" },
-  { id: "week", label: "This Week" },
-  { id: "month", label: "This Month" },
+  { id: "week", label: "This week" },
+  { id: "month", label: "This month" },
 ];
+
+/**
+ * A compact filter dropdown: a trigger showing the current value that opens a
+ * downward radio menu. Replaces the old wall of segmented pills — three of these
+ * (status, workflow, time) read far calmer than ~18 chips. Open state lives in
+ * the shared `useUiStore` menu slot, so only one filter menu is open at a time.
+ * Generic over the option id so each call stays type-safe with its own setter.
+ */
+function FilterMenu<T extends string>({
+  menuId,
+  label,
+  value,
+  options,
+  onSelect,
+}: {
+  menuId: string;
+  label: string;
+  value: T;
+  options: { id: T; label: string }[];
+  onSelect: (id: T) => void;
+}) {
+  const open = useUiStore((state) => state.openMenuId === menuId);
+  const toggleMenu = useUiStore((state) => state.toggleMenu);
+  const setOpenMenu = useUiStore((state) => state.setOpenMenu);
+  const current = options.find((option) => option.id === value) ?? options[0];
+
+  return (
+    <div className="runs-filter">
+      <button
+        type="button"
+        className="runs-filter-trigger"
+        data-active={value !== "all"}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${label}: ${current.label}`}
+        onClick={() => toggleMenu(menuId)}
+      >
+        <span className="runs-filter-value">{current.label}</span>
+        <ChevronDownIcon />
+      </button>
+      {open ? (
+        <>
+          <MenuBackdrop />
+          <div className="runs-menu" role="menu" aria-label={label}>
+            {options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={option.id === value}
+                className="runs-menu-item"
+                onClick={() => {
+                  onSelect(option.id);
+                  setOpenMenu(null);
+                }}
+              >
+                <span>{option.label}</span>
+                {option.id === value ? <CheckIcon /> : null}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 /** A run row's per-row quick actions + the inline approval / error affordances. */
 function RunRow({ run }: { run: RunSummary }) {
@@ -156,6 +227,10 @@ export function RunsCanvas() {
   const shown = filterRuns(runs, filters);
   const groups = groupRuns(shown);
   const workflows = distinctWorkflows(runs);
+  const workflowOptions = [
+    { id: "all", label: "All workflows" },
+    ...workflows.map((name) => ({ id: name, label: name })),
+  ];
   const showClear = hasActiveFilters(filters);
   const live = streamMode === "live";
 
@@ -176,61 +251,41 @@ export function RunsCanvas() {
         </span>
 
         <div className="runs-toolbar" data-testid="runs-toolbar">
-          <div className="seg" data-testid="runs-status-filter">
-            {STATUS_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={statusFilter === option.id ? "is-on" : ""}
-                onClick={() => setStatusFilter(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="runs-search-wrap">
+            <SearchIcon />
+            <input
+              className="runs-search"
+              placeholder="Search runs…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              data-testid="runs-search"
+            />
           </div>
 
-          <button
-            type="button"
-            className={workflowFilter === "all" ? "chip is-on" : "chip"}
-            onClick={() => setWorkflowFilter("all")}
-          >
-            All workflows
-          </button>
-          {workflows.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={workflowFilter === name ? "chip is-on" : "chip"}
-              onClick={() => setWorkflowFilter(name)}
-              data-testid="runs-workflow-chip"
-            >
-              {name}
-            </button>
-          ))}
-
-          <div className="seg" data-testid="runs-age-filter">
-            {AGE_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={ageFilter === option.id ? "is-on" : ""}
-                onClick={() => setAgeFilter(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
-          <input
-            className="field-input"
-            placeholder="Search runs…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            data-testid="runs-search"
+          <FilterMenu
+            menuId="runs-status"
+            label="Status"
+            value={statusFilter}
+            options={STATUS_OPTIONS}
+            onSelect={setStatusFilter}
+          />
+          <FilterMenu
+            menuId="runs-workflow"
+            label="Workflow"
+            value={workflowFilter}
+            options={workflowOptions}
+            onSelect={setWorkflowFilter}
+          />
+          <FilterMenu
+            menuId="runs-age"
+            label="Time"
+            value={ageFilter}
+            options={AGE_OPTIONS}
+            onSelect={setAgeFilter}
           />
 
           {showClear ? (
-            <button className="card-link" type="button" onClick={clearFilters} data-testid="runs-clear">
+            <button className="runs-clear" type="button" onClick={clearFilters} data-testid="runs-clear">
               Clear
             </button>
           ) : null}
