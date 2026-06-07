@@ -18,6 +18,9 @@ const env: CloudflareEnv = {
   CEREBRAS_API_KEY: process.env.CEREBRAS_API_KEY ?? "fixture-key",
   CEREBRAS_BASE_URL: process.env.CEREBRAS_BASE_URL,
   CEREBRAS_MODEL: process.env.CEREBRAS_MODEL,
+  AUTH_API_BASE_URL: process.env.AUTH_API_BASE_URL,
+  PLUE_API_BASE_URL: process.env.PLUE_API_BASE_URL,
+  GO_API_BASE_URL: process.env.GO_API_BASE_URL,
 };
 
 const port = Number(process.env.SMITHERS_WORKER_PORT ?? 5276);

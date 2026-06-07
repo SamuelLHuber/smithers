@@ -104,6 +104,52 @@ This release adds four self-contained benchmark harnesses and a vulnerability-di
 
 - **Reframed messaging around agent-authored workflows.** The README and docs landing, intro, and starters copy now lead with the idea that your agent writes the workflow via an installed skill rather than you writing it by hand. The usage command, the `@smithers-orchestrator/smithers` and `@smithers-orchestrator/usage` packages, the `ui` / `gui` commands, the Antigravity flags, and the four `TASK_FORK_*` error codes were all documented to keep the docs-coverage gate green.
 
+## Smithers UI Observability
+
+The Smithers PWA now exposes Prometheus metrics and structured logs out of
+the Cloudflare Worker proxy and instruments every gateway-client RPC call
+in the browser. Two registries make the worker/browser split explicit so a
+scrape never advertises metrics it cannot reach:
+
+- **`GET /metrics` on the Worker** exposes `smithers_ui_worker_proxy_*`
+  (request counter by `route_kind`/`method`/`outcome`, duration histogram,
+  inbound payload-size histogram, auth-failure counter) plus a logger-drop
+  counter. A same-origin guard rejects cross-origin browser scrapes; curl
+  with no Origin header still works for Prometheus.
+
+- **Browser-local metrics** (`smithers_ui_gateway_rpc_*`,
+  `smithers_ui_gateway_stream_*`, `smithers_ui_surface_refresh_*`,
+  `smithers_ui_gateway_connection_state`, `smithers_ui_offline_mode_active`)
+  register into a separate browser registry and stay browser-local — they
+  are not federated through the Worker scrape, and the worker test asserts
+  their absence so a future contributor doesn't get false confidence.
+
+- **Gateway-client boundary metrics wrap every SDK call.** The shared
+  `getGatewayClient()` wrapper instruments `rpcRaw`, typed SDK methods,
+  extension RPCs, sync/custom-UI direct calls, and stream subscriptions, so
+  metrics are no longer a `gatewayStore` call-site convention. The resilient
+  run-event stream exposes its reconnect/backoff callback to the wrapper;
+  `HTTP_4XX`/`HTTP_5XX` buckets and a closed error-code allow-list keep RPC
+  labels bounded. Stale frames (aborted vs selection-changed) still tick at
+  the store boundary where selection state is known, and the reconnect-storm
+  window remains a true sliding count so PagerDuty sees a continuous rate
+  during sustained outages, not one tick every five reconnects.
+
+- **Defense-in-depth proxy header strip.** Every upstream proxy call now
+  drops attacker-supplied `x-user-id`, `x-user-scopes`, `x-user-role`,
+  and `x-smithers-token-id` headers. The gateway path re-adds them after
+  validating the session; auth/platform/chat upstreams no longer see
+  client-forged values.
+
+- **Structured JSON logger** (`apps/smithers/src/observability/logger.ts`)
+  redacts `authorization`, `cookie`, `set-cookie`, `x-smithers-key`, the
+  trusted-proxy headers, and OAuth query parameters before serialization.
+  Serialization or sink failures bump `smithers_ui_logger_drops_total`
+  so silent drops are observable instead of vanishing.
+
+See `.smithers/specs/smithers-ui-observability.md` for the full table of
+metric names, labels, alert thresholds, and the local-scrape workflow.
+
 ## Reliability & Correctness
 
 - **Extracted the outer final JSON object after prose.** `extractLastBalancedJson` scanned backward from the last `{`, which returned an inner nested object when the final JSON itself contained nested objects. It now picks the balanced object that ends latest (the true outer object), with the helpers moved to `packages/engine/src/json-extraction.js` and a regression test.
@@ -117,3 +163,11 @@ This release adds four self-contained benchmark harnesses and a vulnerability-di
 - **Tolerated transient SQLite lock contention while polling a detached run.** The read-only poll in the detached-runs test could hit `database is locked` or `is busy` mid-write from the detached child, not just `no such table` during early init. The poll loop now treats all three as transient and keeps polling, so a lock race under CI load no longer fails the test.
 
 - **Type declarations and checks.** Regenerated the type declarations and removed the architecture line-budget check, and synced the workflow-pack tests with the shipped `ui` feature.
+
+- **Tracked the Smithers logs canvas surface.** `apps/smithers/src/logs/` was shadowed by the repo-root `logs` ignore rule, so `runLogsRoute.tsx`'s `../logs/LogsCanvas` import broke typecheck on a clean checkout. `.gitignore` now negates the surface (`!apps/smithers/src/logs/**`) so the four sources (`LogsCanvas.tsx`, `logLines.ts`, `logsPrefsStore.ts`, `logsScores.test.ts`) ship in the index, with a new `logsPrefsStore.test.ts` covering the toggle defaults and pure flips the canvas binds against.
+
+- **End-to-end coverage for every Smithers PWA canvas surface.** Twelve new Playwright specs cover the surfaces that previously had only feature-card or domain-test coverage: `/runs` (filters, search, Live/Polling badge, inline approval), `/approvals` (Pending/History tabs, deny confirm), `/agents` (filter seg, register drawer, account detail), `/crons` (toggle, delete-confirm, pattern validation), `/scores` (Summary/Metrics/Recent tabs), `/memory` (Facts/Recall modes, namespace filter, keyboard Enter), `/prompts` (tab swap, dirty-guard, save), `/palette` (sigil mode switch, ArrowDown selection, empty-state Ask AI), `/workflow/$id` (rail + source + Launch tab Doctor/DAG), `/login` (token form gating + bogus-token error), the auth-status chip, the toast stack, deep-link smoke, command-menu keyboard, long-message and mobile-viewport corner cases. All against the real backend (no route mocking), bringing the listed e2e suite to 100 passing tests out of 102 total.
+
+## Smithers PWA Feature Slideshow
+
+- **Validation slideshow capture pipeline.** `apps/smithers/scripts/capture/` adds a Playwright-driven harness (`capture.ts` + `surfaces.ts` + `generateSlideshow.ts`) that visits every Smithers PWA surface, captures deterministic light, dark, and mobile screenshots (and short motion frame sequences for the first-run onboarding flow), and emits a Markdown + zero-dependency static HTML slideshow at `apps/smithers/docs/slideshow/`. Every slide carries a feature description and a link to the Playwright spec that proves the surface. Run with `pnpm -C apps/smithers capture` (or `capture:dry` for a no-browser plan) and render the deck with `pnpm -C apps/smithers capture:slideshow`. Corner cases the manifest already covers: reduced motion (opt in with `SMITHERS_CAPTURE_REDUCED_MOTION=1`), dark + light themes per surface, mobile 390×844 viewport, empty-state surfaces (e.g. `data-testid="scores-empty"`), long-label flex via manifest data, and capture failures recorded as placeholder slides with non-zero exit so regressions are loud. New: `apps/smithers/docs/slideshow-capture.md` (full usage) and a `bun test` suite for the planner.

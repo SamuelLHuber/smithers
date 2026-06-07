@@ -53,6 +53,16 @@ describe("parseLinkCursor", () => {
     expect(parseLinkCursor('</x?limit=30>; rel="next"')).toBe(null);
     expect(parseLinkCursor("<malformed")).toBe(null);
   });
+
+  test("tolerates unquoted rel values (RFC 8288 permits them)", () => {
+    expect(parseLinkCursor("</api/x?cursor=abc>; rel=next")).toBe("abc");
+    expect(parseLinkCursor("</api/x?cursor=abc>;rel=next;type=text")).toBe("abc");
+    expect(
+      parseLinkCursor("</api/x>; rel=prev, </api/x?cursor=def>; rel=next"),
+    ).toBe("def");
+    // A `rel` whose unquoted value isn't `next` still resolves to null.
+    expect(parseLinkCursor("</api/x?cursor=abc>; rel=prev")).toBe(null);
+  });
 });
 
 describe("PlatformError", () => {

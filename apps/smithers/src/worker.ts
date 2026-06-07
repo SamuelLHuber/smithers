@@ -1,6 +1,18 @@
 import { chat, toServerSentEventsResponse } from "@tanstack/ai";
 import { openaiCompatible } from "@tanstack/ai-openai/compatible";
 import type { CloudflareEnv } from "./env";
+import { error as logError, redactHeaders, redactUrl } from "./observability/logger";
+import { workerRegistry } from "./observability/metrics";
+import { renderPrometheus } from "./observability/promExposition";
+import {
+  proxyAuthFailuresTotal,
+  proxyDurationMs,
+  proxyOutcomeFor,
+  proxyPayloadBytes,
+  proxyRequestsTotal,
+  proxyRouteKindFor,
+  type ProxyRouteKind,
+} from "./observability/uiMetrics";
 
 /** Cerebras' OpenAI-compatible Chat Completions endpoint (default upstream). */
 const DEFAULT_CEREBRAS_BASE_URL = "https://api.cerebras.ai/v1";
@@ -192,8 +204,45 @@ function proxyTargetUrl(request: Request, base: URL): URL {
   return joinedTargetUrl(base, source.pathname, source.search);
 }
 
+/**
+ * jjhub (Plue) puts the signed-in user's own repos, workspaces, orgs, starred,
+ * readable-repos, etc. under `/api/user/<sub>`. Identity itself stays at
+ * `/api/user` (exact). These subpaths must route to the platform base (jjhub),
+ * not the auth base, when auth and Plue are split. In the monolith case the
+ * platform base falls back to auth, so the same dispatch keeps working.
+ *
+ * Adding a new subpath here is intentionally cheap: the set is small and
+ * easy to audit. Anything not listed stays on the auth proxy (e.g. account
+ * settings, tokens).
+ */
+const PLATFORM_USER_SUBPATHS = [
+  "/api/user/repos",
+  "/api/user/readable-repos",
+  "/api/user/workspaces",
+  "/api/user/orgs",
+  "/api/user/starred",
+  "/api/user/issues",
+  "/api/user/landings",
+  "/api/user/notifications",
+  "/api/user/subscriptions",
+  "/api/user/following",
+  "/api/user/followers",
+  "/api/user/searches",
+];
+
+function isPlatformUserSubpath(pathname: string): boolean {
+  if (!pathname.startsWith("/api/user/")) return false;
+  for (const prefix of PLATFORM_USER_SUBPATHS) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return true;
+  }
+  return false;
+}
+
 function isAuthProxyRoute(pathname: string): boolean {
-  return pathname.startsWith("/api/auth/") || pathname === "/api/user" || pathname.startsWith("/api/user/");
+  if (pathname.startsWith("/api/auth/")) return true;
+  if (pathname === "/api/user") return true;
+  if (pathname.startsWith("/api/user/")) return !isPlatformUserSubpath(pathname);
+  return false;
 }
 
 function isGatewayProxyRoute(pathname: string): boolean {
@@ -201,8 +250,10 @@ function isGatewayProxyRoute(pathname: string): boolean {
 }
 
 /**
- * jjhub (Plue) code-hosting REST routes. Disjoint from the auth proxy, which
- * already owns `/api/user*` (jjhub's repo list lives at `/api/user/repos`).
+ * jjhub (Plue) code-hosting REST routes that are NOT under `/api/user/*`.
+ * `/api/user/<sub>` is handled separately via `isPlatformUserSubpath` so it can
+ * override the auth proxy when auth and Plue are split.
+ *
  * Credentials forward straight through; jjhub validates the session itself.
  */
 function isPlatformProxyRoute(pathname: string): boolean {
@@ -215,6 +266,12 @@ function isPlatformProxyRoute(pathname: string): boolean {
     pathname.startsWith("/api/search/") ||
     pathname === "/api/notifications" ||
     pathname.startsWith("/api/notifications/") ||
+    pathname === "/api/issues" ||
+    pathname.startsWith("/api/issues/") ||
+    pathname === "/api/landings" ||
+    pathname.startsWith("/api/landings/") ||
+    pathname === "/api/workspaces" ||
+    pathname.startsWith("/api/workspaces/") ||
     pathname.startsWith("/api/integrations/") ||
     pathname.startsWith("/api/oauth2/") ||
     pathname.startsWith("/resolve/")
@@ -226,6 +283,12 @@ function proxyHeaders(request: Request): Headers {
   for (const name of HOP_BY_HOP_HEADERS) {
     headers.delete(name);
   }
+  // Defense-in-depth: drop any client-supplied trusted-proxy headers on every
+  // upstream call. The gateway path re-adds them inside `proxyGatewayRequest`
+  // *after* validating the session — every other upstream (auth, platform,
+  // chat) authenticates independently and should never see attacker-supplied
+  // `x-user-*` / `x-smithers-token-id` values.
+  stripTrustedProxyHeaders(headers);
   const source = new URL(request.url);
   headers.set("x-forwarded-host", source.host);
   headers.set("x-forwarded-proto", source.protocol.replace(":", ""));
@@ -522,48 +585,158 @@ async function handleChat(request: Request, env: CloudflareEnv): Promise<Respons
   return toServerSentEventsResponse(stream);
 }
 
+function payloadBytes(request: Request): number {
+  const header = request.headers.get("content-length");
+  if (!header) return 0;
+  const parsed = Number.parseInt(header, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function nowMs(): number {
+  return typeof performance !== "undefined" && typeof performance.now === "function"
+    ? performance.now()
+    : Date.now();
+}
+
+function recordProxyRequest(
+  routeKind: ProxyRouteKind,
+  method: string,
+  status: number,
+  durationMs: number,
+  bytes: number,
+): void {
+  const outcome = proxyOutcomeFor(status);
+  proxyRequestsTotal.inc({ route_kind: routeKind, method, outcome });
+  proxyDurationMs.observe(durationMs, { route_kind: routeKind, method });
+  if (bytes > 0) {
+    proxyPayloadBytes.observe(bytes, { route_kind: routeKind });
+  }
+  if (outcome === "auth_failure") {
+    proxyAuthFailuresTotal.inc({
+      route_kind: routeKind,
+      reason: status === 401 ? "unauthorized" : "forbidden",
+    });
+  }
+}
+
+async function handleMetrics(request: Request): Promise<Response> {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return new Response("Method not allowed", { status: 405 });
+  }
+  // Same-origin guard for the browser. Tools that scrape via curl with no
+  // Origin header are allowed through; cross-origin browser requests are not.
+  const origin = request.headers.get("origin");
+  if (origin !== null && origin !== new URL(request.url).origin) {
+    return new Response("Forbidden: cross-origin metrics scrape", { status: 403 });
+  }
+  const body = renderPrometheus(workerRegistry);
+  return new Response(body, {
+    status: 200,
+    headers: { "content-type": "text/plain; version=0.0.4; charset=utf-8" },
+  });
+}
+
+async function routeRequest(
+  request: Request,
+  env: CloudflareEnv,
+  url: URL,
+): Promise<Response> {
+  const authBase = authBaseUrl(env);
+  const gatewayBase = gatewayBaseUrl(env);
+
+  if (url.pathname === "/metrics") {
+    return handleMetrics(request);
+  }
+
+  // Platform user subpaths (`/api/user/repos`, `/api/user/workspaces`, …) win
+  // over the auth proxy so the split-config case (auth ≠ jjhub) routes them to
+  // jjhub. In the monolith case `platformBase` falls back to `authBase` so
+  // the same dispatch lands on the right server with no extra branching.
+  if (isPlatformUserSubpath(url.pathname)) {
+    const platformBase = platformBaseUrl(env);
+    if (!platformBase) {
+      return new Response("Platform API not configured", { status: 404 });
+    }
+    return proxyRequest(request, platformBase);
+  }
+
+  if (isAuthProxyRoute(url.pathname) && authBase) {
+    return proxyAuthRequest(request, env, authBase);
+  }
+
+  if (isPlatformProxyRoute(url.pathname)) {
+    const platformBase = platformBaseUrl(env);
+    if (!platformBase) {
+      return new Response("Platform API not configured", { status: 404 });
+    }
+    return proxyRequest(request, platformBase);
+  }
+
+  if (isGatewayProxyRoute(url.pathname)) {
+    if (!gatewayBase) {
+      return new Response("Gateway not configured", { status: 404 });
+    }
+    return proxyGatewayRequest(request, env, gatewayBase);
+  }
+
+  if (url.pathname === "/api/chat") {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+    const authFailure = await requireChatAuth(request, env);
+    if (authFailure) {
+      return authFailure;
+    }
+    return handleChat(request, env);
+  }
+
+  // Static assets (and the SPA fallback) are served by the platform before a
+  // request reaches the Worker. Anything else that lands here is handed to the
+  // assets binding when present, otherwise it's a genuine 404.
+  if (env.ASSETS) {
+    return env.ASSETS.fetch(request);
+  }
+  return new Response("Not found", { status: 404 });
+}
+
 export default {
   async fetch(request: Request, env: CloudflareEnv): Promise<Response> {
     const url = new URL(request.url);
-    const authBase = authBaseUrl(env);
-    const gatewayBase = gatewayBaseUrl(env);
-
-    if (isAuthProxyRoute(url.pathname) && authBase) {
-      return proxyAuthRequest(request, env, authBase);
+    const startMs = nowMs();
+    const routeKind = proxyRouteKindFor(url.pathname);
+    const method = request.method;
+    const bytes = payloadBytes(request);
+    let response: Response;
+    try {
+      response = await routeRequest(request, env, url);
+    } catch (err) {
+      logError(
+        "worker.unhandled",
+        {
+          url: redactUrl(request.url),
+          method,
+          headers: redactHeaders(request.headers),
+          reason: err instanceof Error ? err.message : String(err ?? ""),
+        },
+        "worker",
+      );
+      response = new Response("Internal Server Error", { status: 500 });
     }
-
-    if (isPlatformProxyRoute(url.pathname)) {
-      const platformBase = platformBaseUrl(env);
-      if (!platformBase) {
-        return new Response("Platform API not configured", { status: 404 });
-      }
-      return proxyRequest(request, platformBase);
+    recordProxyRequest(routeKind, method, response.status, nowMs() - startMs, bytes);
+    if (response.status >= 500) {
+      logError(
+        "worker.upstream-error",
+        {
+          url: redactUrl(request.url),
+          method,
+          status: response.status,
+          route_kind: routeKind,
+        },
+        "worker",
+      );
     }
-
-    if (isGatewayProxyRoute(url.pathname)) {
-      if (!gatewayBase) {
-        return new Response("Gateway not configured", { status: 404 });
-      }
-      return proxyGatewayRequest(request, env, gatewayBase);
-    }
-
-    if (url.pathname === "/api/chat") {
-      if (request.method !== "POST") {
-        return new Response("Method not allowed", { status: 405 });
-      }
-      const authFailure = await requireChatAuth(request, env);
-      if (authFailure) {
-        return authFailure;
-      }
-      return handleChat(request, env);
-    }
-
-    // Static assets (and the SPA fallback) are served by the platform before a
-    // request reaches the Worker. Anything else that lands here is handed to the
-    // assets binding when present, otherwise it's a genuine 404.
-    if (env.ASSETS) {
-      return env.ASSETS.fetch(request);
-    }
-    return new Response("Not found", { status: 404 });
+    return response;
   },
 };
+
+export type { ProxyRouteKind };

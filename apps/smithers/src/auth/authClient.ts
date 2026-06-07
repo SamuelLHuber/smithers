@@ -180,12 +180,30 @@ export function loginUrlForRedirect(redirectPath = currentRedirectPath()): strin
   return `/login?redirect=${encodeURIComponent(safe)}`;
 }
 
+let authRedirectInFlight = false;
+
 export function handleAuthRequired(redirectPath = currentRedirectPath()): void {
-  clearLocalAuth();
-  const safe = safeRedirectPath(redirectPath) ?? "/";
-  dispatchAuthRequired(safe);
-  if (typeof window === "undefined" || window.location.pathname === "/login") return;
-  window.location.assign(loginUrlForRedirect(safe));
+  // Both gatewayRpc (RPC 401) and SyncClient.onAuthError (stream-side
+  // UNAUTHORIZED) can call this back-to-back for the same failure. The guard
+  // collapses the burst to a single redirect so we don't double-navigate or
+  // fire duplicate clear-local-auth side effects.
+  if (authRedirectInFlight) return;
+  authRedirectInFlight = true;
+  try {
+    clearLocalAuth();
+    const safe = safeRedirectPath(redirectPath) ?? "/";
+    dispatchAuthRequired(safe);
+    if (typeof window === "undefined" || window.location.pathname === "/login") {
+      // Already on /login — reset the guard so a fresh sign-in attempt that
+      // re-fails (e.g. bad credentials) can redirect again later.
+      authRedirectInFlight = false;
+      return;
+    }
+    window.location.assign(loginUrlForRedirect(safe));
+  } catch (error) {
+    authRedirectInFlight = false;
+    throw error;
+  }
 }
 
 export function getLoginRedirectTarget(): string {

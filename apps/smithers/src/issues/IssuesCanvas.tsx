@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { getPlatformBaseUrl } from "../jjhub/platformBaseUrl";
 import { filterIssues, summarizeIssues, toneForIssueState, type IssueFilter } from "./issues";
 import { useIssuesStore } from "./issuesStore";
 
@@ -6,6 +8,61 @@ const FILTERS: { id: IssueFilter; label: string }[] = [
   { id: "closed", label: "Closed" },
   { id: "all", label: "All" },
 ];
+
+/**
+ * Repo selector — visible only when a platform base URL is configured. The user
+ * picks `owner/repo` and the store binds the issues card to that context,
+ * which triggers `hydrateFromPlatform` and replaces the seeded backlog with
+ * live Plue issues. With no base URL the seeded list stays put and this row
+ * doesn't render, preserving offline/dev behavior.
+ */
+function RepoContextBar() {
+  const repoContext = useIssuesStore((state) => state.repoContext);
+  const hydrationStatus = useIssuesStore((state) => state.hydrationStatus);
+  const hydrationSource = useIssuesStore((state) => state.hydrationSource);
+  const hydrationError = useIssuesStore((state) => state.hydrationError);
+  const selectRepoContext = useIssuesStore((state) => state.selectRepoContext);
+
+  const initial = repoContext ? `${repoContext.owner}/${repoContext.repo}` : "";
+  const [draft, setDraft] = useState(initial);
+
+  if (!getPlatformBaseUrl()) return null;
+
+  return (
+    <form
+      className="rev-repo-context"
+      data-testid="issues-repo-context"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const parts = draft.trim().split("/");
+        if (parts.length !== 2 || !parts[0] || !parts[1]) return;
+        void selectRepoContext(parts[0], parts[1]);
+      }}
+    >
+      <input
+        type="text"
+        className="field-input"
+        placeholder="owner/repo"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        data-testid="issues-repo-context-input"
+      />
+      <button className="btn" type="submit" data-testid="issues-repo-context-submit">
+        {hydrationStatus === "loading" ? "Loading…" : "Sync from Plue"}
+      </button>
+      {hydrationSource === "platform" ? (
+        <span className="rev-sub" data-testid="issues-hydration-source">
+          live · {repoContext?.owner}/{repoContext?.repo}
+        </span>
+      ) : null}
+      {hydrationStatus === "error" && hydrationError ? (
+        <span className="rev-sub rev-sub-error" data-testid="issues-hydration-error">
+          {hydrationError}
+        </span>
+      ) : null}
+    </form>
+  );
+}
 
 /** The create form, shown at the top of the list when the store is creating. */
 function CreateForm() {
@@ -67,6 +124,7 @@ export function IssuesCanvas() {
         <span className="surface-sub">
           {summary.open} open · {summary.closed} closed
         </span>
+        <RepoContextBar />
         <div className="seg" data-testid="issues-filter">
           {FILTERS.map((option) => (
             <button

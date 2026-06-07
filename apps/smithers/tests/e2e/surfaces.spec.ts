@@ -46,13 +46,15 @@ test.describe("canvas surfaces", () => {
     // Auto-launches a run, then routes to its time-travel surface.
     await expect(page).toHaveURL((url) => TIMELINE_PATH.test(url.pathname));
 
-    // The time-travel canvas mounts with its frame scrubber: the counter, the
-    // track, the frame label, and at least one frame dot.
+    // The time-travel canvas mounts with its frame scrubber: the counter,
+    // track, native slider, frame label, and at least one frame dot.
     const canvas = page.locator('[data-testid="timeline-canvas"]');
     await expect(canvas).toBeVisible();
     await expect(canvas.getByTestId("tl-counter")).toBeVisible();
+    await expect(canvas.getByTestId("tl-scrubber")).toBeVisible();
     await expect(canvas.locator(".tl-track")).toBeVisible();
     await expect(canvas.getByTestId("tl-frame-label")).toBeVisible();
+    await expect(canvas.getByTestId("tl-slider")).toBeVisible();
     await expect(
       canvas.getByRole("button", { name: /^Frame \d+:/ }).first(),
     ).toBeVisible();

@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 
 /**
  * Which backend the UI is bound to. `gateway` is local smithers (run-context:
- * the workflow runtime at /v1/rpc, via gateway/gatewayRpc.ts); `platform` is
+ * the workflow runtime at /v1/rpc, via gateway/gatewayClient.ts); `platform` is
  * cloud jjhub (repo-context: the REST API behind jjhub/platformFetch). One UI
  * serves both, so this is the seam that flips the default home view between the
  * run grid and the repo dashboard. See docs/jjhub-backend-seam.md.

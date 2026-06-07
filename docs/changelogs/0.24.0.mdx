@@ -1,0 +1,54 @@
+# 0.24.0
+
+This release is a focused docs + DX pass on **third-party and custom workflow UIs**. The Gateway and `gateway-react` / `gateway-client` packages have been shipping the primitives for a while — `createGatewayReactRoot`, the boot config, `streamRunEventsResilient`, the stale-data-free hook contract — but the docs had not caught up. 0.24.0 lands a complete guide, two end-to-end examples (React and vanilla), a second e2e fixture that boots a real `gateway-react` bundle through the same real-Gateway harness the vanilla bundle uses, and a hook regression test for the late-stale-response drop that the iframe boundary depends on. The Smithers agent skill picks up a Custom Workflow UIs section pointing at the new guide.
+
+---
+
+## Custom Workflow UIs — full docs
+
+A new **[Custom Workflow UIs](/guides/custom-workflow-ui)** guide explains how a workflow ships its own browser UI through the Smithers Gateway: how `gateway.register({ ui: { entry } })` bundles and serves the entry at `/workflows/<key>`, what the `__SMITHERS_GATEWAY_UI__` boot config carries, how `?runId=` flows from `location.search` into the bundle, and how `apps/smithers` / Studio 2 / `smithers ui` all embed the same iframe same-origin.
+
+The guide covers both shipping shapes side by side. Both ship as workspace packages and are re-exported under the `smithers-orchestrator` facade as subpath imports — `smithers-orchestrator/gateway-react` is the subpath your UI bundle imports; `@smithers-orchestrator/gateway-react` is the underlying workspace package those subpaths re-export.
+
+- **`smithers-orchestrator/gateway-react`** (workspace package `@smithers-orchestrator/gateway-react`) — `createGatewayReactRoot(<App />)` reads the boot config, mounts `SmithersGatewayProvider`, and exposes `useGatewayRun`, `useGatewayRuns`, `useGatewayWorkflows`, `useGatewayRunEvents`, `useGatewayNodeOutput`, `useGatewayApprovals`, `useGatewayActions`, and the escape-hatch `useGatewayRpc`. The hooks' **stale-data-free** model — clear on input change, generation-tagged drops for in-flight responses — is documented as a first-class contract because it is the only thing keeping a custom UI from blinking the wrong run's data when the host swaps `runId`.
+
+- **`smithers-orchestrator/gateway-client`** (workspace package `@smithers-orchestrator/gateway-client`) — one zero-dep `SmithersGatewayClient` class with `getRun`, `getNodeOutput`, `getNodeDiff`, `submitApproval`, `submitSignal`, `cancelRun`, and the `streamRunEventsResilient` async generator. The guide walks through the same render model in vanilla code: re-key on input change, generation-tag in-flight reads, render after fetches resolve.
+
+A dedicated **[Same-origin proxy patterns](/guides/custom-workflow-ui#same-origin-proxy-patterns)** section documents how Smithers Cloud and Plue front the Gateway with a Cloudflare Worker that terminates the user's session, strips client-supplied trusted-proxy headers, re-injects them from the validated session, and forwards `/v1/rpc/*`, `/workflows/*`, and `/health` to a private Gateway running `mode: "trusted-proxy"`. The reference implementation in `apps/smithers/src/worker.ts` is called out by file and predicate name (`isGatewayProxyRoute`, `stripTrustedProxyHeaders`, `gatewayAuthToken`). The same shape works behind nginx / Caddy / Cloudflare Access / any reverse proxy you control.
+
+The local-dev path — Vite proxying `/v1/rpc`, `/health`, and `/workflows/*` to a local Gateway — gets its own quick-reference block, including the `smithers ui` invocation that opens the most recent run in your browser.
+
+## Two end-to-end examples
+
+Two new examples drop next to the guide and each compile to a single file you can copy into `.smithers/ui/`:
+
+- **[Workflow UI (React)](/examples/workflow-ui-react)** — a full `gateway-react` bundle: `createGatewayReactRoot`, `useGatewayRun`, `useGatewayRunEvents`, `useGatewayNodeOutput`, `useGatewayApprovals`, `useGatewayActions().submitApproval`, `useGatewayActions().cancelRun`, plus styles inlined as a `<style>` tag. The example explicitly walks through every primitive the guide names so you can lift it without reading both pages.
+
+- **[Workflow UI (Vanilla)](/examples/workflow-ui-vanilla)** — the same UI on `@smithers-orchestrator/gateway-client` with no framework: `new SmithersGatewayClient()`, `?runId=` parsing, `streamRunEventsResilient` as an `AbortController`-driven async loop, an explicit render function, and event-driven refetches on `node.finished` / `approval.requested` / `approval.decided` / `run.completed`. It also re-states the three rules a vanilla UI follows to mirror the React hooks' stale-data-free model — re-key on input change, generation-tag in-flight reads, render after fetches resolve.
+
+Both examples include the `gateway.register({ ui: { entry, title, props } })` snippet and the matching `smithers up` / `smithers ui` invocations.
+
+## Sample custom-UI tests
+
+The `apps/smithers` e2e harness — which boots a REAL Smithers Gateway (no mocks) and serves the bundle through the same vite proxy a real browser session uses — now exercises **both** shipping shapes:
+
+- **`apps/smithers/tests/fixtures/demoReactWorkflowUi.tsx`** — a new fixture bundle built on `gateway-react`. Drives `createGatewayReactRoot`, `useGatewayRun`, `useGatewayNodeOutput`, and `useGatewayActions().cancelRun`. Painted as a self-contained dark-mode card so the e2e screenshots read as a real surface, not a debug shell.
+
+- **`apps/smithers/tests/fixtures/gatewayFixture.tsx`** registers the React workflow next to the existing vanilla one and executes both runs to completion before binding the port, so the e2e never races either run's tree.
+
+- **`apps/smithers/tests/e2e/gatewayReactUi.spec.ts`** — a new Playwright spec that deep-links to `/gw/demo-react-ui/<runId>`, asserts the React bundle rendered inside the iframe, the `?runId=` flowed through to a hook-driven tree, the live `useGatewayRun` status is `finished` after the fixture ran to completion, and the `useGatewayNodeOutput` read surfaces `"ok": true` across the iframe boundary. A second test flips between the embedded React UI and the native inspector to assert remount fidelity.
+
+- **`packages/gateway-react/tests/gatewayReactBehavior.test.ts`** — picks up a focused regression test for the **late-stale-response drop**: a Probe mounted with `runId="run-1"` whose RPC is still in flight is re-rendered with `runId="run-2"` *before* run-1 resolves; the test then resolves the run-1 promise and asserts the hook's cleared state is not repopulated, then resolves run-2 and asserts it does win. This is the exact failure mode an iframe-embedded custom UI would otherwise hit, and the test is the smallest possible reproducer that bakes the [stale-data-free update model](/guides/custom-workflow-ui#stale-data-free-update-model) into CI.
+
+## Skill
+
+The `smithers` agent skill (`skills/smithers/SKILL.md`) picks up a **Custom workflow UIs** section that names the two SDK shapes, the boot config, the same-origin auth pattern, and points at the new guide + examples. The skill bundle (`skills/smithers/llms-full.txt`) is regenerated to include the new docs so agent-driven sessions have the same reference inline.
+
+## Reference
+
+- Guide: [Custom Workflow UIs](/guides/custom-workflow-ui)
+- Examples: [Workflow UI (React)](/examples/workflow-ui-react), [Workflow UI (Vanilla)](/examples/workflow-ui-vanilla)
+- Packages: [`@smithers-orchestrator/gateway-react`](/reference/package-configuration#workspace-packages), [`@smithers-orchestrator/gateway-client`](/reference/package-configuration#workspace-packages)
+- Protocol: [Gateway](/integrations/gateway)
+- CLI: [`smithers ui`](/cli/overview)
+- Reference bundles in this repo: `.smithers/ui/vcs.tsx`, `.smithers/ui/grill-me.tsx`, `.smithers/ui/ultragrill.tsx`, `.smithers/ui/workflow-skill.tsx`

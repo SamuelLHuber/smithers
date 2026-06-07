@@ -6,43 +6,93 @@ import { defineConfig, type ProxyOptions } from "vite";
 // OpenAI-compatible upstream. Vite proxies the browser's same-origin /api/chat
 // call to it so the app's real fetch path hits a live Worker with NO route
 // mocking. Outside e2e (env unset) nothing is proxied and /api/chat 404s under
-// `vite dev` exactly as before — production serves the Worker same-origin.
-//
-// `headers.origin` is rewritten to the proxy target so the Worker's same-origin
-// guard (Origin === request URL origin) passes behind the proxy, the same way
-// it would when Cloudflare serves the Worker and the app from one origin.
+// `vite dev` exactly as before.
 const chatTarget = process.env.SMITHERS_CHAT_PROXY_TARGET;
 
 const proxy: Record<string, string | ProxyOptions> = {};
+
+function proxyTo(target: string): ProxyOptions {
+  return { target, changeOrigin: true };
+}
+
 if (chatTarget) {
   proxy["/api/chat"] = {
     target: chatTarget,
     changeOrigin: true,
     headers: { origin: chatTarget },
   };
+  // Same-origin `/metrics` proxy so e2e and local dev can scrape the Worker's
+  // Prometheus exposition without crossing the Worker's same-origin guard.
+  proxy["/metrics"] = {
+    target: chatTarget,
+    changeOrigin: true,
+    headers: { origin: chatTarget },
+  };
+}
+
+const authTarget = process.env.SMITHERS_AUTH_PROXY_TARGET;
+const explicitPlatformTarget = process.env.SMITHERS_PLATFORM_PROXY_TARGET;
+const platformTarget = explicitPlatformTarget ?? authTarget;
+
+const platformUserProxyPrefixes = [
+  "/api/user/repos",
+  "/api/user/readable-repos",
+  "/api/user/workspaces",
+  "/api/user/orgs",
+  "/api/user/starred",
+  "/api/user/issues",
+  "/api/user/landings",
+  "/api/user/notifications",
+  "/api/user/subscriptions",
+  "/api/user/following",
+  "/api/user/followers",
+  "/api/user/searches",
+];
+
+if (authTarget && platformTarget && platformTarget !== authTarget) {
+  for (const prefix of platformUserProxyPrefixes) {
+    proxy[prefix] = proxyTo(platformTarget);
+  }
 }
 
 // Optional Plue-compatible auth API for local remote-mode development. The
 // deployed Worker owns this proxy in production; Vite mirrors it for dev and
 // preview when pointed at a sibling/local Plue API.
-const authTarget = process.env.SMITHERS_AUTH_PROXY_TARGET;
 if (authTarget) {
-  proxy["/api/auth"] = { target: authTarget, changeOrigin: true };
-  proxy["/api/user"] = { target: authTarget, changeOrigin: true };
+  proxy["/api/auth"] = proxyTo(authTarget);
+  proxy["/api/user"] = proxyTo(authTarget);
 }
 
-// A connected Smithers gateway (its own process — `smithers up` on
+// Optional Plue/jjhub platform REST API. With only SMITHERS_PLATFORM_PROXY_TARGET
+// set, this commonly points at the local Worker host, which owns every /api/*
+// route and performs the real auth/platform split internally. With both auth
+// and platform targets set, Vite mirrors that split directly by routing the
+// known /api/user/<platform-subpath> prefixes before the auth /api/user prefix.
+if (platformTarget) {
+  if (!authTarget) {
+    proxy["/api/user"] = proxyTo(platformTarget);
+  }
+  proxy["/api/repos"] = proxyTo(platformTarget);
+  proxy["/api/orgs"] = proxyTo(platformTarget);
+  proxy["/api/issues"] = proxyTo(platformTarget);
+  proxy["/api/landings"] = proxyTo(platformTarget);
+  proxy["/api/workspaces"] = proxyTo(platformTarget);
+  proxy["/api/notifications"] = proxyTo(platformTarget);
+  proxy["/api/search"] = proxyTo(platformTarget);
+  proxy["/api/integrations"] = proxyTo(platformTarget);
+  proxy["/api/oauth2"] = proxyTo(platformTarget);
+  proxy["/resolve"] = proxyTo(platformTarget);
+}
+
+// A connected Smithers gateway (its own process: `smithers up` on
 // 127.0.0.1:7331, or the e2e fixture). The app's gateway client and the embedded
 // custom-UI iframes call same-origin paths; proxy them to the gateway so the
-// browser's real fetch / iframe path runs with NO mocking. Unset (the deployed
-// PWA and most dev) leaves the app gateway-less: these paths 404 and the gateway
-// store reads that as "offline". `/workflows` can't shadow an app route — the
-// router owns none under that prefix.
+// browser's real fetch / iframe path runs with NO mocking.
 const gatewayTarget = process.env.SMITHERS_GATEWAY_PROXY_TARGET;
 if (gatewayTarget) {
   proxy["/v1/rpc"] = { target: gatewayTarget, changeOrigin: true, ws: true };
-  proxy["/health"] = { target: gatewayTarget, changeOrigin: true };
-  proxy["/workflows"] = { target: gatewayTarget, changeOrigin: true };
+  proxy["/health"] = proxyTo(gatewayTarget);
+  proxy["/workflows"] = proxyTo(gatewayTarget);
 }
 
 export default defineConfig({

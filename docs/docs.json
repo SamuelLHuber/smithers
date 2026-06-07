@@ -73,6 +73,7 @@
           "guides/evals-quickstart",
           "guides/workflow-optimization",
           "guides/tui",
+          "guides/custom-workflow-ui",
           "guides/alerting",
           "guides/agent-trace-otel-verification",
           "deployment/reference",
@@ -264,6 +265,13 @@
             ]
           },
           {
+            "group": "Custom Workflow UI",
+            "pages": [
+              "examples/workflow-ui-react",
+              "examples/workflow-ui-vanilla"
+            ]
+          },
+          {
             "group": "Worktree Feature Template",
             "pages": [
               "examples/worktree-feature-workflow",
@@ -299,6 +307,7 @@
       {
         "group": "Changelog",
         "pages": [
+          "changelogs/0.24.0",
           "changelogs/0.23.0",
           "changelogs/0.22.0",
           "changelogs/0.21.0",

@@ -38,6 +38,48 @@ function envString(key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * Test-only override. Unit tests run in pure Bun (no `window` / `localStorage`)
+ * but still need to point the client at a `Bun.serve` fixture. A value on this
+ * `globalThis` key wins over every other source, so a test can flip the base
+ * for one fixture run and reset it after.
+ */
+const TEST_OVERRIDE_KEY = "__SMITHERS_PLATFORM_BASE_URL__";
+
+function testOverrideValue(): string {
+  const value = (globalThis as Record<string, unknown>)[TEST_OVERRIDE_KEY];
+  return typeof value === "string" ? value : "";
+}
+
+/** Tests only: set the platform base URL without touching `window`. */
+export function setPlatformBaseUrlForTesting(value: string): void {
+  (globalThis as Record<string, unknown>)[TEST_OVERRIDE_KEY] = normalizePlatformBaseUrl(value);
+}
+
+/** Tests only: clear the test override. */
+export function clearPlatformBaseUrlForTesting(): void {
+  delete (globalThis as Record<string, unknown>)[TEST_OVERRIDE_KEY];
+}
+
+/**
+ * Tests only: scope a base URL override to one async operation. Sets the
+ * override, runs `fn`, and clears the override in a `finally` so a thrown
+ * fixture never leaks state into the next test (the bare `setPlatformBaseUrl…`
+ * + manual `afterEach` reset pattern leaked when the test threw before its
+ * `afterEach` could run).
+ */
+export async function withPlatformBaseUrlForTesting<T>(
+  value: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  setPlatformBaseUrlForTesting(value);
+  try {
+    return await fn();
+  } finally {
+    clearPlatformBaseUrlForTesting();
+  }
+}
+
 /** Validate and canonicalize a base origin; returns "" for anything unusable. */
 export function normalizePlatformBaseUrl(raw: string): string {
   const trimmed = raw.trim();
@@ -54,6 +96,8 @@ export function normalizePlatformBaseUrl(raw: string): string {
 }
 
 export function getPlatformBaseUrl(): string {
+  const override = testOverrideValue();
+  if (override) return override;
   return normalizePlatformBaseUrl(
     readLocalValue(PLATFORM_BASE_URL_KEY) ?? envString("VITE_SMITHERS_PLATFORM_BASE_URL"),
   );

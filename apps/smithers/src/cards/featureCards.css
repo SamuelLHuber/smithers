@@ -628,6 +628,12 @@
 .rev-create textarea.field-input { min-height: 68px; resize: vertical; font-family: inherit; }
 .rev-create-actions { display: flex; gap: 8px; }
 
+/* Repo context selector — only rendered when a platform base URL is set. */
+.rev-repo-context { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rev-repo-context .field-input { width: 180px; }
+.rev-sub { font-size: 11.5px; color: var(--text-muted); }
+.rev-sub-error { color: var(--brand-warn, #c44); }
+
 /* Detail body text + monospace editor. */
 .rev-prose { font-size: 13.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
 .rev-editor {

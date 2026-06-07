@@ -94,16 +94,6 @@ export const SURFACES: SurfaceEntry[] = [
       "tests/e2e/store.spec.ts — store route renders the catalog and lets users open a workflow.",
   },
   {
-    id: "workflow-editor",
-    title: "Workflow editor",
-    capture: { kind: "route", path: "/workflow/implement" },
-    waitFor: '[data-testid="wfe-rail"]',
-    description:
-      "Edit a workflow's source, prompts, and imports. The rail picks a file; the editor stages changes against the workspace.",
-    validation:
-      "tests/e2e/store.spec.ts — opens the workflow editor route and renders the rail + source pane.",
-  },
-  {
     id: "askme",
     title: "Ask Me",
     capture: { kind: "route", path: "/askme" },
@@ -122,7 +112,7 @@ export const SURFACES: SurfaceEntry[] = [
     description:
       "Every recent workflow execution. Each row drills into the run inspector, logs, timeline, diff, and changes.",
     validation:
-      "tests/e2e/surfaces.spec.ts — `/runs` surface renders rows; row navigation lands on the inspector.",
+      "tests/e2e/runsCanvas.spec.ts — `/runs` surface renders rows; row navigation lands on the inspector.",
   },
   {
     id: "approvals",
@@ -145,7 +135,6 @@ export const SURFACES: SurfaceEntry[] = [
     id: "memory",
     title: "Memory",
     capture: { kind: "route", path: "/memory" },
-    waitFor: '[data-testid="memory-canvas"]',
     description:
       "Cross-run memory facts with namespaces, recall search, and per-fact detail panes.",
     validation: "tests/e2e/featureCards.spec.ts → /memory card — recall hits the seeded fact set.",
@@ -186,7 +175,6 @@ export const SURFACES: SurfaceEntry[] = [
     id: "tickets",
     title: "Tickets",
     capture: { kind: "route", path: "/tickets" },
-    waitFor: '[data-testid="tickets-canvas"]',
     description:
       "Linear-style ticket queue with status pills and assignee chips. Drills into a ticket detail view.",
     validation: "tests/e2e/reviewSurfaces.spec.ts — `/tickets` rows render with status pills.",
@@ -195,7 +183,6 @@ export const SURFACES: SurfaceEntry[] = [
     id: "landings",
     title: "Landings",
     capture: { kind: "route", path: "/landings" },
-    waitFor: '[data-testid="landings-canvas"]',
     description:
       "Pull-request landings feed. Filter by repo / state; preview the changed surface.",
     validation: "tests/e2e/reviewSurfaces.spec.ts — `/landings` filter segment toggles state.",
@@ -210,7 +197,7 @@ export const SURFACES: SurfaceEntry[] = [
   },
   {
     id: "palette",
-    title: "Command palette",
+    title: "Palette",
     capture: { kind: "route", path: "/palette" },
     description:
       "Command palette modal hosted as a route. Keyboard-first launcher for any feature.",
@@ -240,54 +227,75 @@ export const SURFACES: SurfaceEntry[] = [
   },
   {
     id: "diff",
-    title: "Diff viewer",
-    capture: { kind: "slash", command: "/diff", expectPath: /^\/runs\/[^/]+\/diff\/[^/]+$/ },
-    description:
-      "Side-by-side diff for a run's changes against the base commit. Each hunk is keyboard-navigable.",
-    validation:
-      "tests/e2e/diffVcs.spec.ts — `/diff` opens the diff viewer scoped to a run.",
+    title: "Diff Viewer",
+    capture: { kind: "slash", command: "/diff auth" },
+    waitFor: '[data-testid="diff-card"]',
+    description: "Inline diff viewer card showing file hunks and delta counts.",
+    validation: "tests/e2e/diffVcs.spec.ts — `/diff` slash command renders the diff card.",
+  },
+  {
+    id: "workflow-editor",
+    title: "Workflow Editor",
+    capture: { kind: "route", path: "/store/review-cycle" },
+    waitFor: ".cm-content",
+    description: "Code mirror canvas to read and modify a workflow plan.",
+    validation: "tests/e2e/workflowEditor.spec.ts — workflow editor renders and accepts input.",
   },
 
-  // --- Gateway & remote surfaces -------------------------------------------
+  // --- Gateway & Integrations -----------------------------------------------
   {
-    id: "gateway-run",
-    title: "Gateway run — custom UI",
-    capture: { kind: "route", path: "/gw/implement/demo-ui-run-1" },
+    id: "gateway-custom-ui",
+    title: "Gateway Custom UI (Vanilla)",
+    capture: { kind: "route", path: "/gw/demo-ui/demo-ui-run-1" },
     waitFor: '[data-testid="gateway-run-inspector"]',
-    description:
-      "Live gateway-backed run with its workflow-supplied custom UI in an iframe; toggle to the inspector to see snapshots.",
-    validation:
-      "tests/e2e/gatewayUi.spec.ts + gatewayRun.spec.ts — custom UI mounts and the inspector toggle reveals snapshots.",
+    description: "Embedded custom workflow UI served by the gateway. Replaces the native inspector.",
+    validation: "tests/e2e/gatewayUi.spec.ts — embeds the custom UI and toggles to the native inspector.",
   },
+  {
+    id: "gateway-react-ui",
+    title: "Gateway Custom UI (React)",
+    capture: { kind: "route", path: "/gw/demo-react-ui/demo-react-ui-run-1" },
+    waitFor: '[data-testid="gateway-run-inspector"]',
+    description: "React-based custom workflow UI served by the gateway.",
+    validation: "tests/e2e/gatewayReactUi.spec.ts — embeds the React bundle and reads live run + node output.",
+  },
+  {
+    id: "sync-sdk",
+    title: "Gateway Sync SDK",
+    capture: {
+      kind: "steps",
+      steps: [
+        { do: "goto", path: "/gw/demo-ui/demo-ui-run-1" },
+        { do: "click", selector: '[data-testid="gateway-view-inspector"]' },
+      ],
+    },
+    waitFor: '[data-testid="tree-row-plan"]',
+    description: "Live-data sync over WebSocket for a remote workflow run.",
+    validation: "tests/e2e/gatewaySdk.spec.ts — opens a /v1/rpc WebSocket and streams run state.",
+  },
+  {
+    id: "plue-harness",
+    title: "Plue Harness API",
+    capture: { kind: "route", path: "/api/user/repos" },
+    description: "Local fake-Plue server proxy endpoint for e2e tests.",
+    validation: "tests/e2e/plueHarness.spec.ts — resolves seeded fake data through the Vite proxy.",
+  },
+  {
+    id: "observability",
+    title: "Observability Metrics",
+    capture: { kind: "route", path: "/metrics" },
+    description: "Prometheus text exposition endpoint for worker metrics.",
+    validation: "tests/e2e/observability.spec.ts — worker exposes documented metric names.",
+  },
+
+  // --- Auth -----------------------------------------------------------------
   {
     id: "login",
-    title: "Sign in (Plue-backed auth)",
+    title: "Sign in",
     capture: { kind: "route", path: "/login" },
     description:
-      "Sign-in page that exchanges a Plue session for trusted-proxy scopes when entering remote mode; otherwise the app runs fully local.",
-    validation: "tests/e2e/signIn.spec.ts — login form mounts and validates basic input.",
-  },
-
-  // --- Notifications & shell chrome ----------------------------------------
-  {
-    id: "notifications",
-    title: "Toast notifications",
-    capture: { kind: "slash", command: "/notify demo", expectPath: /^\/$/ },
-    waitFor: ".toasts",
-    description:
-      "Toast notifications surfaced for running workflows, approvals, and remote events; toasts queue and auto-dismiss.",
-    validation:
-      "tests/e2e/toasts.spec.ts — toast appears for a triggered notification and clears on dismiss.",
-  },
-  {
-    id: "dock",
-    title: "App dock",
-    capture: { kind: "route", path: "/" },
-    waitFor: '[data-testid="app-dock"], .app-dock',
-    description:
-      "Right-edge persisted dock of opened apps (M2M registry). Running workflows raise toasts, not dock entries.",
-    validation:
-      "tests/e2e/dock.spec.ts — apps open, persist across reloads, and surface from the dock.",
+      "Sign-in page. Used when entering the remote-mode wiring; otherwise the app runs fully local.",
+    validation: "tests/e2e/auth.spec.ts — login form mounts and validates basic input.",
   },
 
   // --- Onboarding (motion sequence) -----------------------------------------

@@ -37,6 +37,36 @@ function startFixtureServer(fetch: (request: Request) => Response | Promise<Resp
   };
 }
 
+type TrustedProxyHeaders = {
+  userId: string | null;
+  role: string | null;
+  scopes: string | null;
+  tokenId: string | null;
+};
+
+const SPOOFED_TRUSTED_PROXY_HEADERS = {
+  "x-user-id": "spoofed-user",
+  "x-user-role": "spoofed-role",
+  "x-user-scopes": "run:admin",
+  "x-smithers-token-id": "spoofed-token",
+};
+
+function trustedProxyHeaders(request: Request): TrustedProxyHeaders {
+  return {
+    userId: request.headers.get("x-user-id"),
+    role: request.headers.get("x-user-role"),
+    scopes: request.headers.get("x-user-scopes"),
+    tokenId: request.headers.get("x-smithers-token-id"),
+  };
+}
+
+function expectTrustedProxyHeadersStripped(actual: TrustedProxyHeaders): void {
+  expect(actual.userId).toBe(null);
+  expect(actual.role).toBe(null);
+  expect(actual.scopes).toBe(null);
+  expect(actual.tokenId).toBe(null);
+}
+
 /** Parse an SSE body into the AG-UI chunk objects it carried. */
 function parseSse(text: string): Array<Record<string, unknown>> {
   const chunks: Array<Record<string, unknown>> = [];
@@ -246,6 +276,352 @@ describe("worker auth and gateway proxy", () => {
   test("platform route with no API base configured → 404", async () => {
     const res = await worker.fetch(new Request(`${ORIGIN}/api/search/code?q=foo`), keyEnv);
     expect(res.status).toBe(404);
+  });
+
+  test("split: /api/user/repos targets GO_API_BASE_URL, /api/user stays on AUTH", async () => {
+    let authHits = 0;
+    let platformHits = 0;
+    const auth = startFixtureServer((request) => {
+      const url = new URL(request.url);
+      authHits += 1;
+      if (url.pathname === "/api/user") {
+        return new Response(JSON.stringify({ id: 7, username: "will", is_admin: false }), {
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response("auth should not see this", { status: 500 });
+    });
+    const platform = startFixtureServer((request) => {
+      platformHits += 1;
+      return new Response(JSON.stringify([{ full_name: "acme/widgets" }]), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    try {
+      const idRes = await worker.fetch(new Request(`${ORIGIN}/api/user`), {
+        ...keyEnv,
+        AUTH_API_BASE_URL: auth.origin,
+        GO_API_BASE_URL: platform.origin,
+      });
+      expect(idRes.status).toBe(200);
+      expect(await idRes.json()).toMatchObject({ id: 7 });
+
+      for (const sub of [
+        "/api/user/repos",
+        "/api/user/readable-repos",
+        "/api/user/workspaces",
+        "/api/user/orgs",
+        "/api/user/starred",
+      ]) {
+        const res = await worker.fetch(new Request(`${ORIGIN}${sub}?limit=5`), {
+          ...keyEnv,
+          AUTH_API_BASE_URL: auth.origin,
+          GO_API_BASE_URL: platform.origin,
+        });
+        expect(res.status).toBe(200);
+      }
+      expect(authHits).toBe(1);
+      expect(platformHits).toBe(5);
+    } finally {
+      platform.stop();
+      auth.stop();
+    }
+  });
+
+  test("monolith: only AUTH_API_BASE_URL is set — every route lands on the auth/plue origin", async () => {
+    let userHits = 0;
+    let userReposHits = 0;
+    let reposHits = 0;
+    const monolith = startFixtureServer((request) => {
+      const url = new URL(request.url);
+      if (url.pathname === "/api/user") userHits += 1;
+      else if (url.pathname === "/api/user/repos") userReposHits += 1;
+      else if (url.pathname === "/api/repos") reposHits += 1;
+      return new Response("[]", { headers: { "content-type": "application/json" } });
+    });
+
+    try {
+      const env = { ...keyEnv, AUTH_API_BASE_URL: monolith.origin };
+      const r1 = await worker.fetch(new Request(`${ORIGIN}/api/user`), env);
+      const r2 = await worker.fetch(new Request(`${ORIGIN}/api/user/repos`), env);
+      const r3 = await worker.fetch(new Request(`${ORIGIN}/api/repos`), env);
+      expect(r1.status).toBe(200);
+      expect(r2.status).toBe(200);
+      expect(r3.status).toBe(200);
+      expect(userHits).toBe(1);
+      expect(userReposHits).toBe(1);
+      expect(reposHits).toBe(1);
+    } finally {
+      monolith.stop();
+    }
+  });
+
+  test("auth-only: AUTH_API_BASE_URL set, platform routes still fall back to auth (monolith assumption)", async () => {
+    let authPath = "";
+    const auth = startFixtureServer((request) => {
+      authPath = new URL(request.url).pathname;
+      return new Response("[]", { headers: { "content-type": "application/json" } });
+    });
+    try {
+      // /api/user/repos with no GO_API_BASE_URL falls back to AUTH base.
+      const res = await worker.fetch(new Request(`${ORIGIN}/api/user/repos`), {
+        ...keyEnv,
+        AUTH_API_BASE_URL: auth.origin,
+      });
+      expect(res.status).toBe(200);
+      expect(authPath).toBe("/api/user/repos");
+    } finally {
+      auth.stop();
+    }
+  });
+
+  test("platform-only: GO_API_BASE_URL set without AUTH — platform routes work, /api/user 404s cleanly", async () => {
+    let platformPath = "";
+    const platform = startFixtureServer((request) => {
+      platformPath = new URL(request.url).pathname;
+      return new Response("[]", { headers: { "content-type": "application/json" } });
+    });
+    try {
+      const env = { ...keyEnv, GO_API_BASE_URL: platform.origin };
+      // /api/user/repos goes to GO_API
+      const r1 = await worker.fetch(new Request(`${ORIGIN}/api/user/repos`), env);
+      expect(r1.status).toBe(200);
+      expect(platformPath).toBe("/api/user/repos");
+      // /api/repos goes to GO_API
+      const r2 = await worker.fetch(new Request(`${ORIGIN}/api/repos/acme/widgets`), env);
+      expect(r2.status).toBe(200);
+      expect(platformPath).toBe("/api/repos/acme/widgets");
+      // /api/user (identity) has no auth backend → falls through to 404.
+      const r3 = await worker.fetch(new Request(`${ORIGIN}/api/user`), env);
+      expect(r3.status).toBe(404);
+    } finally {
+      platform.stop();
+    }
+  });
+
+  test("missing-config: neither AUTH nor GO set — every platform/auth route 404s without an upstream", async () => {
+    const r1 = await worker.fetch(new Request(`${ORIGIN}/api/user`), keyEnv);
+    const r2 = await worker.fetch(new Request(`${ORIGIN}/api/user/repos`), keyEnv);
+    const r3 = await worker.fetch(new Request(`${ORIGIN}/api/repos`), keyEnv);
+    const r4 = await worker.fetch(new Request(`${ORIGIN}/api/orgs/acme`), keyEnv);
+    expect(r1.status).toBe(404);
+    expect(r2.status).toBe(404);
+    expect(r3.status).toBe(404);
+    expect(r4.status).toBe(404);
+  });
+
+  test("auth-identity sub-routes (not in platform set) stay on AUTH even when GO_API is configured", async () => {
+    let authPath = "";
+    const auth = startFixtureServer((request) => {
+      authPath = new URL(request.url).pathname;
+      return new Response(JSON.stringify({ keys: [] }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    const platform = startFixtureServer(
+      () => new Response("platform should not see auth identity sub-routes", { status: 500 }),
+    );
+    try {
+      const env = {
+        ...keyEnv,
+        AUTH_API_BASE_URL: auth.origin,
+        GO_API_BASE_URL: platform.origin,
+      };
+      // /api/user/keys is not in PLATFORM_USER_SUBPATHS → must stay on AUTH.
+      const res = await worker.fetch(new Request(`${ORIGIN}/api/user/keys`), env);
+      expect(res.status).toBe(200);
+      expect(authPath).toBe("/api/user/keys");
+    } finally {
+      platform.stop();
+      auth.stop();
+    }
+  });
+
+  test("forwards path, query, cookie, and body to the platform target with redirect=manual", async () => {
+    type SeenRequest = {
+      pathname: string;
+      search: string;
+      cookie: string;
+      method: string;
+      body: string;
+    };
+    const seen: { value: SeenRequest | null } = { value: null };
+    const platform = startFixtureServer(async (request) => {
+      const url = new URL(request.url);
+      seen.value = {
+        pathname: url.pathname,
+        search: url.search,
+        cookie: request.headers.get("cookie") ?? "",
+        method: request.method,
+        body: await request.text(),
+      };
+      // Return a 302 with a Location pointing back at the upstream origin: the
+      // worker must rewrite that to a same-origin path, never leak the upstream.
+      const loc = new URL(`${platform.origin}/api/repos/acme/widgets/issues/1`);
+      return new Response(null, {
+        status: 302,
+        headers: { location: loc.toString() },
+      });
+    });
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/api/repos/acme/widgets/issues?state=open`, {
+          method: "POST",
+          headers: { cookie: "smithers_session=ok", "content-type": "application/json" },
+          body: JSON.stringify({ title: "hi" }),
+          redirect: "manual",
+        }),
+        { ...keyEnv, GO_API_BASE_URL: platform.origin },
+      );
+      expect(res.status).toBe(302);
+      expect(seen.value).not.toBeNull();
+      const actual = seen.value as SeenRequest;
+      expect(actual.pathname).toBe("/api/repos/acme/widgets/issues");
+      expect(actual.search).toBe("?state=open");
+      expect(actual.cookie).toContain("smithers_session=ok");
+      expect(actual.method).toBe("POST");
+      expect(JSON.parse(actual.body)).toEqual({ title: "hi" });
+      const rewritten = new URL(res.headers.get("location") ?? "");
+      expect(rewritten.origin).toBe(ORIGIN);
+      expect(rewritten.pathname).toBe("/api/repos/acme/widgets/issues/1");
+    } finally {
+      platform.stop();
+    }
+  });
+
+  test("large paginated responses stream through without buffering or stalling", async () => {
+    // 200 fake repos, JSON-serialized. Larger than the default 64KB Node fetch
+    // buffer so any accidental .text() / .json() in the proxy path would show
+    // up as a memory blip or a hang. We assert byte-for-byte equality of the
+    // entire body and the Link header forwarding.
+    const rows = Array.from({ length: 200 }, (_, i) => ({
+      id: i,
+      full_name: `acme/widget-${i}`,
+      name: `widget-${i}`,
+      owner: { username: "acme" },
+      description: "x".repeat(512),
+    }));
+    const payload = JSON.stringify(rows);
+    const platform = startFixtureServer(
+      () =>
+        new Response(payload, {
+          headers: {
+            "content-type": "application/json",
+            link: '</api/user/repos?cursor=p2>; rel="next"',
+          },
+        }),
+    );
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/api/user/repos`, {
+          headers: { cookie: "smithers_session=ok" },
+        }),
+        { ...keyEnv, GO_API_BASE_URL: platform.origin },
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("link")).toContain('rel="next"');
+      const text = await res.text();
+      expect(text.length).toBe(payload.length);
+      expect(text).toBe(payload);
+    } finally {
+      platform.stop();
+    }
+  });
+
+  test("does NOT attach Plue trusted-proxy headers to platform requests (no header smuggling)", async () => {
+    // The worker mints x-user-id / x-user-scopes for the gateway only. For the
+    // platform proxy, jjhub validates the session itself — credentials forward
+    // as the cookie/authorization, never as trusted-proxy identity headers.
+    const seen: { value: TrustedProxyHeaders | null } = { value: null };
+    const platform = startFixtureServer((request) => {
+      seen.value = trustedProxyHeaders(request);
+      return new Response("[]", { headers: { "content-type": "application/json" } });
+    });
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/api/user/repos`, {
+          headers: { cookie: "smithers_session=ok", ...SPOOFED_TRUSTED_PROXY_HEADERS },
+        }),
+        { ...keyEnv, GO_API_BASE_URL: platform.origin },
+      );
+      expect(res.status).toBe(200);
+      expect(seen.value).not.toBeNull();
+      expectTrustedProxyHeadersStripped(seen.value as TrustedProxyHeaders);
+    } finally {
+      platform.stop();
+    }
+  });
+
+  test("strips browser-supplied trusted-proxy headers from auth proxy requests", async () => {
+    const seen: { value: TrustedProxyHeaders | null } = { value: null };
+    const auth = startFixtureServer((request) => {
+      seen.value = trustedProxyHeaders(request);
+      return new Response(JSON.stringify({ id: 7, username: "will", is_admin: false }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    try {
+      const res = await worker.fetch(
+        new Request(`${ORIGIN}/api/user`, {
+          headers: {
+            cookie: "smithers_session=ok",
+            ...SPOOFED_TRUSTED_PROXY_HEADERS,
+          },
+        }),
+        { ...keyEnv, AUTH_API_BASE_URL: auth.origin },
+      );
+      expect(res.status).toBe(200);
+      expect(seen.value).not.toBeNull();
+      expectTrustedProxyHeadersStripped(seen.value as TrustedProxyHeaders);
+    } finally {
+      auth.stop();
+    }
+  });
+
+  test("does not forward browser-supplied trusted-proxy headers to the chat model upstream", async () => {
+    const seen: { value: TrustedProxyHeaders | null } = { value: null };
+    const upstream = startFixtureServer((request) => {
+      seen.value = trustedProxyHeaders(request);
+      const chunk = {
+        id: "chatcmpl-fixture",
+        object: "chat.completion.chunk",
+        created: 1700000000,
+        model: "fixture",
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      };
+      return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`, {
+        headers: { "content-type": "text/event-stream", "cache-control": "no-cache" },
+      });
+    });
+
+    try {
+      const res = await worker.fetch(
+        chatRequest(
+          { messages: [{ role: "user", content: "hi" }] },
+          {
+            headers: {
+              "content-type": "application/json",
+              origin: ORIGIN,
+              ...SPOOFED_TRUSTED_PROXY_HEADERS,
+            },
+          },
+        ),
+        {
+          ...keyEnv,
+          CEREBRAS_BASE_URL: `${upstream.origin}/v1`,
+          CEREBRAS_MODEL: "fixture",
+        },
+      );
+      expect(res.status).toBe(200);
+      await res.text();
+      expect(seen.value).not.toBeNull();
+      expectTrustedProxyHeadersStripped(seen.value as TrustedProxyHeaders);
+    } finally {
+      upstream.stop();
+    }
   });
 
   test("validates a Plue session before minting trusted gateway headers", async () => {

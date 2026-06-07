@@ -354,6 +354,42 @@ on GitHub:
 - `dstack/` — Smithers + dstack on Google Cloud, serving Kimi K2
 - `kubernetes/` — run Smithers workflows distributed on a Kubernetes cluster
 
+## Custom workflow UIs
+
+A workflow can ship a **first-class browser UI** that the Gateway bundles, serves at `/workflows/<key>`, and the Smithers PWA / Studio / `smithers ui` embeds same-origin. Reach for this when a workflow has long-running interaction the CLI can't show well — a composer for an open-ended chat, a question pool, a live spec, a custom diff view.
+
+Register the UI when you register the workflow:
+
+```ts
+gateway.register("my-workflow", workflow, {
+  ui: { entry: ".smithers/ui/my-workflow.tsx", title: "My Workflow" },
+});
+```
+
+The bundle is one file. Two shipping shapes:
+
+- **React (recommended).** `smithers-orchestrator/gateway-react`. One call to `createGatewayReactRoot(<App />)` reads the boot config, mounts a provider, and gives the tree live hooks: `useGatewayRun`, `useGatewayRunEvents`, `useGatewayNodeOutput`, `useGatewayApprovals`, `useGatewayActions` (for `submitApproval`, `submitSignal`, `cancelRun`, `rewindRun`, etc.). The hooks are **stale-data-free by construction** — when `runId` (or any input) changes, the prior data clears synchronously and any late response from the old inputs is dropped. A custom UI that switches between runs never blinks the wrong data. It automatically manages subscriptions, pushed updates, metrics, and resilient reconnections.
+- **Vanilla.** `smithers-orchestrator/gateway-client`. One `SmithersGatewayClient` class with `getRun`, `getNodeOutput`, `getNodeDiff`, `submitApproval`, `submitSignal`, `cancelRun`, and a `streamRunEventsResilient` async generator that reconnects with backoff + jitter and resumes from the last per-run `seq`. This generator handles live pushed updates, metrics streaming, and subscriptions. Pick this when you want zero dependencies or already own your render layer.
+
+The bundle reads `?runId=<id>` from `location.search` for the run to scope to, and optionally `__SMITHERS_GATEWAY_UI__` (a `GatewayUiBootConfig`) for the mount path, RPC path, WebSocket path, and free-form `props` you set at `gateway.register({ ui: { props } })`.
+
+**Auth.** The bundle never holds a token in the user-facing path. Same-origin Vite proxy (local dev) or a Cloudflare Worker (Smithers Cloud / Plue) terminates the user session, strips and re-injects trusted-proxy headers (`x-user-id`, `x-user-scopes`, `x-user-role`), and forwards `/v1/rpc/*`, `/workflows/*`, `/health` to the Gateway. The Gateway is configured `mode: "trusted-proxy"` (or `mode: "token"` with a Worker-side service credential). For details and a reference Worker, see [Custom Workflow UIs](https://smithers.sh/guides/custom-workflow-ui#smithers-cloud--plue-same-origin-proxy).
+
+**Local dev.**
+
+```bash
+bunx smithers-orchestrator up my-workflow -d         # boot the gateway with the workflow + UI
+bunx smithers-orchestrator ui                        # opens the UI for the most recent run
+bunx smithers-orchestrator ui <runId>                # specific run
+```
+
+**Reference bundles in this repo:** `.smithers/ui/vcs.tsx`, `.smithers/ui/grill-me.tsx`, `.smithers/ui/ultragrill.tsx`, `.smithers/ui/workflow-skill.tsx`.
+
+**Docs:**
+- Guide: `smithers.sh/guides/custom-workflow-ui`
+- Examples: `smithers.sh/examples/workflow-ui-react`, `smithers.sh/examples/workflow-ui-vanilla`
+- Protocol: `smithers.sh/integrations/gateway`
+
 ## Full reference
 
 This skill ships the complete docs next to it as **`llms-full.txt`** — read it

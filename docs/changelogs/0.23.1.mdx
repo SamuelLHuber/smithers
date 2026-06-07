@@ -1,0 +1,188 @@
+# 0.23.1
+
+This release adds two pieces of infrastructure for the Smithers UI stack:
+
+- A declarative **gateway extension** and **sync backplane** surface so custom UIs
+  can subscribe to gateway data and extension-provided resources without
+  hand-rolling RPC plumbing, stale-update handling, stream resume, or namespace
+  bookkeeping.
+- A local **Plue / jjhub harness** for `apps/smithers`, letting the PWA's e2e
+  suite drive repos, issues, landings, workspaces, notifications, and auth
+  split/monolith behavior against deterministic fake Plue hosts or a real Plue
+  docker-compose stack.
+
+---
+
+## Gateway extensions
+
+`Gateway.extend(namespace, definition)` registers a typed namespace exposing
+three shapes of surface: **resources** (read), **actions** (write), and
+**streams** (subscribe). Wire-format addresses are `ext.<namespace>.<key>` for
+resources/actions and `ext.stream.<namespace>.<key>` for streams.
+
+```ts
+gateway.extend("github", {
+  defaultScope: "run:read",
+  resources: {
+    issue: { handler: async ({ id }, ctx) => fetchGithubIssue(id, { signal: ctx.signal }) },
+  },
+  actions: {
+    closeIssue: { scope: "run:write", handler: ({ id }) => closeGithub(id) },
+  },
+  streams: {
+    comments: {
+      subscribe: async ({ issueId }, ctx) => {
+        const initial = await listGithubComments(issueId);
+        const unsubscribe = onCommentEvent(issueId, (c) => ctx.send(c));
+        return { initial, cleanup: unsubscribe };
+      },
+    },
+  },
+});
+```
+
+The registry is its own module (`packages/server/src/GatewayExtensions.js`) so it
+can be exercised in isolation. Namespace collisions throw at registration,
+duplicate keys across resource+action within a namespace throw, and identifiers
+must match `/^[a-z][a-zA-Z0-9_-]*$/` (1..64 chars).
+
+## Client SDK
+
+`SmithersGatewayClient` gains two methods that share the existing HTTP/WS
+plumbing:
+
+- `extensionRpc(namespace, key, params, { signal })`: typed wrapper over
+  `ext.<namespace>.<key>`.
+- `streamExtension(namespace, key, params, { signal })`: async iterable that
+  yields the initial replay payload first, then live frames filtered by the
+  allocated `streamId` so a stale subscription on the same connection cannot see
+  frames intended for the new one.
+
+## React hooks
+
+`@smithers-orchestrator/gateway-react` adds three declarative hooks with the
+same stale-response fences as `useGatewayRpc` / `useGatewayRunEvents`:
+
+- `useGatewayExtensionResource(namespace, key, params, { enabled?, deps? })`:
+  `{ data, error, loading, refetch }`, generation-counter stale guard.
+- `useGatewayExtensionAction(namespace, key)`: `{ call, pending, error, data }`,
+  also generation-guarded so a fast double-click cannot resolve the older
+  payload after the new one.
+- `useGatewayExtensionStream(namespace, key, params, { maxFrames?, enabled?, backoff? })`:
+  `{ frames, latest, error, streaming }`, ring-buffered to `maxFrames` (default
+  1000) with exponential-backoff reconnect on drop and abort on unmount.
+
+## Corner cases that motivated this surface
+
+- **Auth scopes.** Each entry takes an optional `scope`; namespace
+  `defaultScope` covers the rest. The gateway re-checks scopes at the extension
+  dispatch layer as well as in the connection-level `hasScope` pipeline.
+- **Namespace collisions.** `register(namespace, ...)` throws if the namespace is
+  already taken. Hot-reload requires explicit teardown.
+- **Stream reconnect / resume.** The server stamps every frame with the allocated
+  `streamId`. Hook reconnects re-subscribe with the same params; the extension's
+  `subscribe()` decides whether to honor a caller-supplied cursor.
+- **Slow consumers / backpressure.** The existing per-connection outbound queue
+  applies. Extensions do not get to bypass it; a saturated client surfaces
+  `BackpressureDisconnect` and the hook's reconnect loop picks it up.
+- **Large payload bounds.** `EXTENSION_PAYLOAD_MAX_BYTES = 4 MiB` for both
+  resource/action responses and every individual stream frame.
+- **Extension errors.** Handler throws normalize to one wire envelope.
+  `SmithersError`-shaped throws keep their code; everything else surfaces as
+  `EXTENSION_HANDLER_ERROR` with the message text but no stack.
+- **Connection teardown.** The socket-cleanup path now also calls
+  `cleanupExtensionSubscriptions(connection)`, aborting per-subscription
+  controllers and running extension-supplied cleanup callbacks.
+
+## ElectricSQL Shapes as an optional read-source adapter
+
+If an extension wants to back its `resources` and `streams` with a
+[Postgres-derived shape](https://electric-sql.com/docs/api/clients/typescript#shape),
+that's fine, but only on the **read** side. Writes always flow through
+`actions`, not shapes, so the gateway's scope/audit/backpressure pipeline stays
+the system of record. The registry is just a hook point; the extension author
+wires `electric-sql` inside `subscribe()` and calls `ctx.send(row)` for each
+shape delta.
+
+## Plue local e2e harness
+
+The Smithers PWA already runs e2e against a real local Smithers gateway. This
+release adds the second backend it depends on: a deterministic local Plue REST
+surface.
+
+- **Deterministic fake Plue server.**
+  `apps/smithers/tests/fixtures/fakePlueHost.ts` is a `Bun.serve` HTTP host that
+  mirrors the Plue routes the UI consumes: `/api/user`, `/api/user/repos`,
+  `/api/repos/:owner/:repo` with issues, landing requests and workspaces,
+  `/api/notifications`, plus WorkOS and Auth0 authorize redirects. Seeded data
+  is stable and includes 250 issues per repo for pagination coverage.
+- **Auth split and monolith modes, proven distinct.** Vite now supports
+  `SMITHERS_PLATFORM_PROXY_TARGET` separately from `SMITHERS_AUTH_PROXY_TARGET`.
+  Playwright boots two fake-Plue hosts in parallel, one tagged
+  `service_label=auth` and one tagged `platform`. With both targets set, Vite
+  mirrors the Worker's platform-user-subpath precedence: `/api/user` stays auth,
+  while `/api/user/repos` and other platform-user subpaths route to platform.
+  Responses carry the serving host's label, so worker and e2e tests fail closed
+  if split targets collapse to the same origin.
+- **Failure injection without mocking.** The fake host honors
+  `FAKE_PLUE_DOWN=1`, `FAKE_PLUE_FAIL_REPOS=401|403|500`, and analogous knobs
+  for issues and notifications. A per-request override
+  (`x-fake-plue-down: 1` header or `?fake_down=1` query) lets a single e2e drive
+  the configured proxy path into a 503 without bouncing the host. 401, 403, and
+  503 propagate through the proxy path.
+- **Playwright wired up.** `playwright.config.ts` boots fake auth and platform
+  Plue hosts plus a dedicated Plue-harness Vite origin. Existing e2e specs keep
+  using the Worker-backed app origin; `tests/e2e/plueHarness.spec.ts` drives
+  browser fetch through Vite into fake Plue, including pagination, issue detail,
+  landings, workspaces, notifications, WorkOS 302 assertions, same-origin
+  routing, service-label split checks, and the app's own `platformJson` seam.
+- **CORS: IPv4, IPv6, and localhost loopback.** The fixture echoes
+  `Access-Control-Allow-Origin` for `127.0.0.1`, `[::1]`, and `localhost`, so
+  loopback-bound dev and e2e origins do not get surprise-blocked by CORS.
+- **Docker compose passthrough.** `apps/smithers/tools/docker-compose.plue.yml`
+  and `apps/smithers/scripts/dev-with-plue.sh` provide the opt-in path for
+  running the dev server against a real Plue checkout. The dev script reports
+  ready only after both Plue and the Vite proxy probe return 2xx.
+- **Worker proxy regression net.** `src/workerPlue.test.ts` covers split-mode
+  proxying by label, monolith fallback, no-Plue-configured 404, Plue down to
+  503 propagation, 401/403 propagation, pagination Link survival, streaming a
+  250-issue list across pages, identity surviving platform outage, and
+  per-request `x-fake-plue-down` traversal through the proxy path.
+
+A 42-test gauntlet keeps the harness honest from one command:
+
+```sh
+pnpm -C apps/smithers run test:plue
+pnpm -C apps/smithers exec playwright test tests/e2e/plueHarness.spec.ts
+```
+
+Full design:
+[.smithers/specs/smithers-plue-local-e2e-harness.md](../../.smithers/specs/smithers-plue-local-e2e-harness.md).
+
+## Compatibility
+
+`gateway.register(workflowKey, workflow, { ui })` is unchanged. Extension
+registration is additive: `extensions` is a separate `Map` on the Gateway
+instance, dispatch only triggers when the method name starts with `ext.`, and the
+existing workflow-UI mount logic (`getUiMounts`, custom UI assets) is untouched.
+A workflow can both register its own UI and have the host extend the gateway with
+additional namespaces; both surfaces ship on the same connection.
+
+## Tests
+
+- `packages/server/tests/gateway-extensions.test.ts`: registry registration,
+  namespace collisions, identifier validation, scope enforcement, queries to
+  resources alias, list introspection.
+- `packages/server/tests/gateway-extensions-dispatch.test.js`: Gateway dispatch,
+  unknown method, scope re-check, error envelope shapes, payload bounds, stream
+  subscribe/replay/filter/cleanup, non-WS rejection.
+- `packages/gateway-client/tests/extension.test.ts`: extension RPC HTTP routing
+  and error surfacing, `streamExtension` end-to-end.
+- `packages/gateway-react/tests/extension-hooks.test.ts`: resource stale guard,
+  action `.call()` flow, stream ring-buffer cap.
+- `apps/smithers/tests/fixtures/fakePlueHost.test.ts`: fake Plue route contract,
+  auth, pagination, failure injection, CORS, and service labels.
+- `apps/smithers/src/workerPlue.test.ts`: Worker to fake-Plue split and
+  monolith proxy behavior.
+- `apps/smithers/tests/e2e/plueHarness.spec.ts`: browser to Vite to fake-Plue
+  e2e coverage.

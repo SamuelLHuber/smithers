@@ -18,6 +18,9 @@ logs
 *.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 examples/run-*.log
+# Tracked source directory: the smithers app's logs surface lives here.
+!apps/smithers/src/logs/
+!apps/smithers/src/logs/**
 
 # dotenv environment variable files
 .env
