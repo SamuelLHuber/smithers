@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 import { bindRouteStore } from "./app/bindRouteStore";
 import { router } from "./app/router";
+import { useAuthStore } from "./auth/authStore";
 import { bindDock } from "./apps/bindDock";
 import { bindGateway } from "./gateway/bindGateway";
 import { startApprovalWatcher } from "./runs/watchApprovals";
@@ -21,6 +22,8 @@ bindRouteStore(router);
 bindDock();
 bindGateway();
 startApprovalWatcher();
+// Kick the auth check once at boot (not from an AuthStatus mount effect).
+void useAuthStore.getState().bootstrap();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

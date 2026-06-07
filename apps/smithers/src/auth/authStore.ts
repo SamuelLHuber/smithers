@@ -23,6 +23,12 @@ type AuthState = {
   hasToken: boolean;
   gatewayBaseUrl: string;
   signInOpen: boolean;
+  // Sign-in form fields live here, not in component useState, per the app's
+  // zustand-only rule (state-and-routing.md). Shared by SignInForm in both the
+  // modal and the /login page.
+  signInEmail: string;
+  signInToken: string;
+  signInSubmitting: "token" | "email" | null;
   bootstrap: () => Promise<void>;
   refreshUser: () => Promise<AuthUser | null>;
   signInWithProvider: (provider: AuthProvider, options?: { email?: string; redirect?: string }) => void;
@@ -31,6 +37,10 @@ type AuthState = {
   setGatewayBaseUrl: (baseUrl: string) => void;
   openSignIn: () => void;
   closeSignIn: () => void;
+  setSignInEmail: (email: string) => void;
+  setSignInToken: (token: string) => void;
+  submitSignInEmail: (redirect: string) => void;
+  submitSignInToken: () => Promise<boolean>;
 };
 
 function redirectAfterOAuthIfNeeded(user: AuthUser | null): void {
@@ -47,6 +57,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   hasToken: hasStoredToken(),
   gatewayBaseUrl: getGatewayBaseUrl(),
   signInOpen: false,
+  signInEmail: "",
+  signInToken: "",
+  signInSubmitting: null,
 
   bootstrap: async () => {
     if (get().status === "checking") return;
@@ -119,6 +132,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ gatewayBaseUrl: getGatewayBaseUrl() });
   },
 
-  openSignIn: () => set({ signInOpen: true, error: null }),
+  // Reset the form on open so a reopened modal starts clean (mirrors the old
+  // per-mount useState).
+  openSignIn: () =>
+    set({ signInOpen: true, error: null, signInEmail: "", signInToken: "", signInSubmitting: null }),
   closeSignIn: () => set({ signInOpen: false }),
+
+  setSignInEmail: (signInEmail) => set({ signInEmail }),
+  setSignInToken: (signInToken) => set({ signInToken }),
+
+  submitSignInEmail: (redirect) => {
+    set({ signInSubmitting: "email" });
+    get().signInWithProvider("email", { email: get().signInEmail, redirect });
+  },
+
+  submitSignInToken: async () => {
+    const token = get().signInToken.trim();
+    if (!token) return false;
+    set({ signInSubmitting: "token" });
+    const ok = await get().signInWithToken(token);
+    set({ signInSubmitting: null });
+    return ok;
+  },
 }));

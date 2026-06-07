@@ -1,16 +1,14 @@
-import { useEffect } from "react";
 import { useAuthStore } from "./authStore";
 
+// The auth check is kicked once at app boot from main.tsx (alongside
+// bindGateway/startApprovalWatcher), not from a mount effect — the app forbids
+// useEffect in components (state-and-routing.md). This is a pure render of store
+// state.
 export function AuthStatus() {
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
-  const bootstrap = useAuthStore((state) => state.bootstrap);
   const logout = useAuthStore((state) => state.logout);
   const openSignIn = useAuthStore((state) => state.openSignIn);
-
-  useEffect(() => {
-    void bootstrap();
-  }, [bootstrap]);
 
   if (status === "signed-in" && user) {
     return (

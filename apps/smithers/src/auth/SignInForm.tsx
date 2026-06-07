@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useAuthStore } from "./authStore";
 import { authProviderSelectionEnabled } from "./authClient";
 
@@ -18,29 +18,28 @@ export function SignInForm({
   onTokenSuccess: () => void;
   onClose?: () => void;
 }) {
-  const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
-  const [submitting, setSubmitting] = useState<"token" | "email" | null>(null);
   const status = useAuthStore((state) => state.status);
   const error = useAuthStore((state) => state.error);
+  const email = useAuthStore((state) => state.signInEmail);
+  const token = useAuthStore((state) => state.signInToken);
+  const submitting = useAuthStore((state) => state.signInSubmitting);
+  const setEmail = useAuthStore((state) => state.setSignInEmail);
+  const setToken = useAuthStore((state) => state.setSignInToken);
   const signInWithProvider = useAuthStore((state) => state.signInWithProvider);
-  const signInWithToken = useAuthStore((state) => state.signInWithToken);
+  const submitSignInEmail = useAuthStore((state) => state.submitSignInEmail);
+  const submitSignInToken = useAuthStore((state) => state.submitSignInToken);
   const refreshUser = useAuthStore((state) => state.refreshUser);
 
   const canSelectProvider = authProviderSelectionEnabled();
 
   const submitEmail = (event: FormEvent) => {
     event.preventDefault();
-    setSubmitting("email");
-    signInWithProvider("email", { email, redirect });
+    submitSignInEmail(redirect);
   };
 
   const submitToken = async (event: FormEvent) => {
     event.preventDefault();
-    if (!token.trim()) return;
-    setSubmitting("token");
-    const ok = await signInWithToken(token);
-    setSubmitting(null);
+    const ok = await submitSignInToken();
     if (ok) {
       onTokenSuccess();
     }
