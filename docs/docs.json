@@ -241,6 +241,7 @@
           "integrations/server",
           "integrations/serve",
           "integrations/gateway",
+          "integrations/custom-ui",
           "integrations/mcp-server",
           "integrations/pi-integration",
           "integrations/ecosystem"
@@ -416,8 +417,8 @@
     { "source": "/guides/troubleshooting", "destination": "/cli/overview" },
     { "source": "/guides/tutorial-workflow", "destination": "/tour" },
     { "source": "/guides/time-travel-quickstart", "destination": "/recipes" },
-    { "source": "/guides/memory-quickstart", "destination": "/llms-memory.txt" },
-    { "source": "/guides/openapi-tools-quickstart", "destination": "/llms-openapi.txt" },
+    { "source": "/guides/memory-quickstart", "destination": "/how-it-works" },
+    { "source": "/guides/openapi-tools-quickstart", "destination": "/integrations/tools" },
     { "source": "/guides/project-structure", "destination": "/recipes" },
     { "source": "/agents", "destination": "/agents/overview" },
     { "source": "/docs/agents/:slug*", "destination": "/agents/:slug*" },

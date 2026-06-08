@@ -13,7 +13,7 @@ describe an outcome and let the system assemble the rest.
 | Layer | What it controls | Where it lives in Smithers |
 | --- | --- | --- |
 | **Prompt engineering** | instructions, examples, role, output format, success criteria | the prompt `.mdx` a `<Task>` renders |
-| **Context engineering** | what information, tools, memory, schemas, and state enter the model each step | the workflow graph + [memory](/concepts/memory) + typed outputs |
+| **Context engineering** | what information, tools, memory, schemas, and state enter the model each step | the workflow graph + [memory](/how-it-works) + typed outputs |
 | **Harness engineering** | runtime, tools, conventions, permissions, retries, fresh-context loops | `agents.ts`, [sandboxes](/components/sandbox), tools, `repoCommands` |
 | **Workflow engineering** | order, parallelism, review loops, approvals, resumability, artifacts | the Smithers runtime itself |
 | **Backpressure** | every desired behavior becomes a gate, test, eval, schema, reviewer, approval, or loop condition | Zod outputs, `bunx smithers-orchestrator eval`, `<ReviewLoop>`, `<Approval>`, traces |
@@ -29,11 +29,11 @@ primitive that enforces it:
 
 - **Schema**: the step must return a shape: a Zod `output={...}` on the `<Task>`.
 - **Test**: generated code must pass: a function task shelling out to `repoCommands.test`.
-- **Eval**: an answer must satisfy examples/rubrics: `bunx smithers-orchestrator eval` + [scorers](/concepts/evals).
+- **Eval**: an answer must satisfy examples/rubrics: `bunx smithers-orchestrator eval` + [scorers](/guides/evals-quickstart).
 - **Review**: another agent (or human) must approve: [`<ReviewLoop>`](/components/loop) / `<Panel>`.
-- **Approval**: a human signs off before a risky action: [`<Approval>`](/concepts/approvals).
+- **Approval**: a human signs off before a risky action: [`<Approval>`](/components/approval).
 - **Dependency**: step B can't start until step A produced a field: gate on `ctx.outputMaybe(...)`.
-- **Trace**: tool calls, retries, and handoffs must be visible: [observability](/concepts/evals) + `bunx smithers-orchestrator events`.
+- **Trace**: tool calls, retries, and handoffs must be visible: [observability](/guides/evals-quickstart) + `bunx smithers-orchestrator events`.
 
 Loop until the gate passes (`<Loop>` / `<Ralph until={…}>`) rather than running once
 and hoping.

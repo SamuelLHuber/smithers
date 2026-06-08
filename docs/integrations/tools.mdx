@@ -86,7 +86,7 @@ const placeOrder = defineTool({
 
 ### Side Effects and Idempotency
 
-Every custom tool that modifies external state **must** declare `sideEffect: true`. This is how Smithers protects your [workflow](/concepts/workflows-overview) during retries and resumes. Without it, Smithers treats the tool as a pure read and replays it freely, potentially sending duplicate emails, double-charging payments, or creating duplicate records.
+Every custom tool that modifies external state **must** declare `sideEffect: true`. This is how Smithers protects your [workflow](/workflows/overview) during retries and resumes. Without it, Smithers treats the tool as a pure read and replays it freely, potentially sending duplicate emails, double-charging payments, or creating duplicate records.
 
 The two flags work together:
 
@@ -363,7 +363,7 @@ const result = await Effect.runPromise(runWorkflow(workflow, {
 
 ## See Also
 
-- [Agents and Tools](/concepts/agents-and-tools)
+- [Agents and Tools](/agents/overview)
 - [Sandbox](/components/sandbox)
 - [Common External Tools](/integrations/common-tools)
 - [Tools Agent Example](/examples/tools-agent)

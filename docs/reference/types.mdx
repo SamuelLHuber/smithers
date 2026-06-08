@@ -287,7 +287,7 @@ type XmlText = { readonly kind: "text"; readonly text: string };
 // emits. The full union is documented separately to keep this
 // file usable as the everyday type reference.
 //
-// See: docs/reference/event-types.mdx (rendered) or /llms-events.txt (LLM fragment).
+// See: /reference/event-types (rendered) or /llms-full.txt (LLM bundle).
 
 type SmithersEvent = { type: string; runId: string; timestampMs: number } & Record<string, unknown>;
 // (Each variant has additional fields per its `type`. See event-types.)
