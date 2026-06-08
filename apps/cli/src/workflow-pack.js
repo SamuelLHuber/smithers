@@ -3771,7 +3771,7 @@ function renderWorkflows() {
             "export default smithers((ctx) => {",
             "  const plan = ctx.outputMaybe(\"missionPlan\", { nodeId: \"mission:plan\" });",
             "  const approval = ctx.outputMaybe(\"missionApproval\", { nodeId: \"mission:approve-plan\" });",
-            "  const approvalRequired = ctx.input.requirePlanApproval;",
+            "  const approvalRequired = ctx.input.requirePlanApproval ?? true;",
             "  const approvalDenied = approvalRequired && approval && approval.approved === false;",
             "  const approved = !approvalRequired || approval?.approved === true;",
             "  const milestones = normalizeMilestones(plan, ctx.input.maxMilestones ?? 6, ctx.input.maxFeaturesPerMilestone ?? 6);",
