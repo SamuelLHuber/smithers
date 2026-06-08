@@ -95,14 +95,20 @@ describe("createWorkspaceWatcher against the real filesystem", () => {
         });
         try {
             expect(w.watching).toBe(true);
-            await fs.writeFile(path.join(dir, "work.txt"), "v1\n");
-            // Poll for the settle (fs.watch latency varies by platform).
-            for (let i = 0; i < 40 && settles === 0; i++) await sleep(50);
+            // fs.watch (FSEvents on macOS) needs a moment to arm, and delivery
+            // latency spikes under load — a single early write can fall in the
+            // arming gap and be lost forever. So keep producing fresh writes
+            // with a quiet gap after each (long enough for the 50ms debounce to
+            // settle) until a settle lands, within the test timeout budget.
+            for (let i = 0; i < 16 && settles === 0; i++) {
+                await fs.writeFile(path.join(dir, `work-${i}.txt`), "v1\n");
+                await sleep(500);
+            }
             expect(settles).toBeGreaterThanOrEqual(1);
         }
         finally {
             w.close();
             await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
         }
-    }, 10_000);
+    }, 15_000);
 });
