@@ -33,10 +33,15 @@ days with crash recovery, retries, human approvals, replay, and full observabili
 any agent, any model, and any machine.
 
 <Note>
-These docs are split by audience. **For Humans** explains what you can ask your coding
-agent to do with Smithers. **For Agents** explains how Claude, Codex, and other AI
-harnesses should operate Smithers for the human, including the `llms.txt` and
-`llms-full.txt` bundles.
+These docs are split by audience, so pick your path:
+
+1. **Use Smithers through an agent** (you are a human): the **For Humans** guide. Ask your
+   coding agent for an outcome and it operates Smithers for you. No CLI or TypeScript.
+2. **Operate Smithers as an agent** (you are Claude, Codex, or another harness): the **For
+   Agents** reference, the `llms.txt` and `llms-full.txt` bundles, and the
+   [Agent Operating Playbook](/guides/agent-operating-playbook).
+3. **Author workflows** (you are a developer): the [JSX surface](/jsx/overview) and
+   [Components](/components/workflow) to build or fork your own.
 </Note>
 
 <CardGroup cols={2}>
