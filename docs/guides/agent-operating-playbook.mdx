@@ -21,6 +21,19 @@ If you remember one rule, remember this:
 > outcome, answer product questions, approve gates, and provide credentials or
 > account access when needed. Your job is to operate the harness.
 
+And one more rule that is just as important:
+
+> You are an **orchestrator, not an implementer.** Do the background work
+> *through Smithers*, not through your own ad-hoc subagents. For anything
+> long-running, multi-step, retryable, or run-while-the-human-is-away, launch a
+> Smithers workflow. Smithers spawns the worker agents and persists every step.
+> Spend your time observing the run, clearing gates, and reporting. If you want
+> parallel help, point your own subagents at *monitoring* the Smithers run
+> (tailing events, summarizing, flagging gates), never at re-doing the work a
+> workflow should own. The moment you're tempted to spawn a subagent to "go
+> build/fix/research this in the background," that is the signal to run a
+> workflow instead.
+
 ## The operating loop
 
 Use this loop for broad, ambiguous, risky, long-running, or multi-agent work:

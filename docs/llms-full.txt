@@ -400,7 +400,7 @@ Smithers bundles jj. The optional `@smithers-orchestrator/jj-<platform>` package
 2. The bundled binary for your platform.
 3. `jj` on your `PATH`.
 
-If no bundled binary installed (an unsupported platform, or `--no-optional`) and neither `jj` nor `git` is on `PATH`, runs that need a worktree fail with a message telling you to install one. Check what Smithers found with `bunx smithers-orchestrator doctor` (the `vcs` section reports the resolved jj and git).
+If no bundled binary installed (an unsupported platform, or `--no-optional`) and neither `jj` nor `git` is on `PATH`, runs that need a worktree fail with a message telling you to install one. Check what Smithers found with `bunx smithers-orchestrator workflow doctor` (the `vcs` section reports the resolved jj and git).
 
 ## After Installation
 
@@ -474,6 +474,7 @@ Pass any ID from this table to `init --template <id>` to scaffold that starter.
 
 | Starter | Best for | Workflow | Command |
 | --- | --- | --- | --- |
+| `idea-to-prd` | founders, product | `write-a-prd` | `bunx smithers-orchestrator init --template idea-to-prd` |
 | `idea-to-tickets` | founders, product, operations, engineering | `tickets-create` | `bunx smithers-orchestrator init --template idea-to-tickets` |
 | `launch-checklist` | launch owners and operators | `plan` | `bunx smithers-orchestrator init --template launch-checklist` |
 | `customer-incident` | support escalations | `debug` | `bunx smithers-orchestrator init --template customer-incident` |
@@ -1082,6 +1083,19 @@ If you remember one rule, remember this:
 > outcome, answer product questions, approve gates, and provide credentials or
 > account access when needed. Your job is to operate the harness.
 
+And one more rule that is just as important:
+
+> You are an **orchestrator, not an implementer.** Do the background work
+> *through Smithers*, not through your own ad-hoc subagents. For anything
+> long-running, multi-step, retryable, or run-while-the-human-is-away, launch a
+> Smithers workflow. Smithers spawns the worker agents and persists every step.
+> Spend your time observing the run, clearing gates, and reporting. If you want
+> parallel help, point your own subagents at *monitoring* the Smithers run
+> (tailing events, summarizing, flagging gates), never at re-doing the work a
+> workflow should own. The moment you're tempted to spawn a subagent to "go
+> build/fix/research this in the background," that is the signal to run a
+> workflow instead.
+
 ## The operating loop
 
 Use this loop for broad, ambiguous, risky, long-running, or multi-agent work:
@@ -1682,6 +1696,18 @@ commands[66]:
     flags[2]{name,short,type,default,desc}:
       value,,string,,JSON response for answer
       by,,string,,Human operator identifier
+  - name: ask-human
+    purpose: Raise a blocking human-approval request from inside a run and wait for the decision
+    args[1]{name,type,required,desc}:
+      prompt,string,true,The decision or question to put to a human
+    flags[7]{name,short,type,default,desc}:
+      context,,string,,Extra context appended to the prompt
+      choices,,string,,Comma-separated choices for a fixed-choice decision
+      run-id,r,string,,Run to attach to (SMITHERS_RUN_ID or single active run)
+      node,n,string,,Node id to attach to (SMITHERS_NODE_ID)
+      iteration,,number,0,Loop iteration (SMITHERS_ITERATION or 0)
+      timeout,,number,,Seconds before the request expires
+      poll,,number,3,Poll interval in seconds while blocking
   - name: alerts
     purpose: List and manage durable alert instances
     args[2]{name,type,required,desc}:
@@ -7494,6 +7520,44 @@ Zero matches errors with `INVALID_INPUT`. More than one match errors with `INVAL
   action: "approve" | "deny";
   approval: PendingApproval;   // with updated status, decidedAtMs, note, decidedBy
   run: RunSummary | null;
+}
+```
+
+---
+
+### ask_human
+
+Block the current run and ask a human to make a decision, then wait for their answer. Use this whenever the agent is blocked, uncertain, missing information, or about to take an irreversible or destructive action — instead of guessing. The tool creates a durable, pending human request and returns only once it is resolved.
+
+When run inside a Smithers task, the run/node context is taken from the `SMITHERS_RUN_ID` / `SMITHERS_NODE_ID` / `SMITHERS_ITERATION` environment variables Smithers injects into the agent; pass `runId`/`nodeId`/`iteration` explicitly to override, or rely on single-active-run autodetection.
+
+An operator resolves the request with `smithers human answer <requestId> --value '<json>'` (or `smithers human cancel <requestId>`); `smithers human inbox` lists everything waiting.
+
+**Input:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `prompt` | `string` | required — the decision or question to put to a human |
+| `context` | `string` | Extra context appended to the prompt |
+| `choices` | `string[]` | Fixed choices; restricts the human's answer to one of these |
+| `runId` | `string` | Run to attach to (default: `SMITHERS_RUN_ID` or the single active run) |
+| `nodeId` | `string` | Node to attach to (default: `SMITHERS_NODE_ID`) |
+| `iteration` | `number` | Loop iteration (default: `SMITHERS_ITERATION` or 0) |
+| `timeoutSeconds` | `number` | Seconds before the request expires (0/unset = no timeout) |
+| `pollSeconds` | `number` | Poll interval while blocking (default 3s) |
+
+**Output:**
+
+```ts
+{
+  requestId: string;
+  runId: string;
+  nodeId: string;
+  iteration: number;
+  status: "answered" | "cancelled" | "expired" | "missing" | "aborted";
+  decision: "approved" | "blocked";   // "blocked" => do not proceed
+  response: unknown | null;            // the human's answer when status is "answered"
+  answeredBy: string | null;
 }
 ```
 

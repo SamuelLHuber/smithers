@@ -377,7 +377,7 @@ Smithers bundles jj. The optional `@smithers-orchestrator/jj-<platform>` package
 2. The bundled binary for your platform.
 3. `jj` on your `PATH`.
 
-If no bundled binary installed (an unsupported platform, or `--no-optional`) and neither `jj` nor `git` is on `PATH`, runs that need a worktree fail with a message telling you to install one. Check what Smithers found with `bunx smithers-orchestrator doctor` (the `vcs` section reports the resolved jj and git).
+If no bundled binary installed (an unsupported platform, or `--no-optional`) and neither `jj` nor `git` is on `PATH`, runs that need a worktree fail with a message telling you to install one. Check what Smithers found with `bunx smithers-orchestrator workflow doctor` (the `vcs` section reports the resolved jj and git).
 
 ## After Installation
 
@@ -451,6 +451,7 @@ Pass any ID from this table to `init --template <id>` to scaffold that starter.
 
 | Starter | Best for | Workflow | Command |
 | --- | --- | --- | --- |
+| `idea-to-prd` | founders, product | `write-a-prd` | `bunx smithers-orchestrator init --template idea-to-prd` |
 | `idea-to-tickets` | founders, product, operations, engineering | `tickets-create` | `bunx smithers-orchestrator init --template idea-to-tickets` |
 | `launch-checklist` | launch owners and operators | `plan` | `bunx smithers-orchestrator init --template launch-checklist` |
 | `customer-incident` | support escalations | `debug` | `bunx smithers-orchestrator init --template customer-incident` |
@@ -1062,6 +1063,19 @@ If you remember one rule, remember this:
 > outcome, answer product questions, approve gates, and provide credentials or
 > account access when needed. Your job is to operate the harness.
 
+And one more rule that is just as important:
+
+> You are an **orchestrator, not an implementer.** Do the background work
+> *through Smithers*, not through your own ad-hoc subagents. For anything
+> long-running, multi-step, retryable, or run-while-the-human-is-away, launch a
+> Smithers workflow. Smithers spawns the worker agents and persists every step.
+> Spend your time observing the run, clearing gates, and reporting. If you want
+> parallel help, point your own subagents at *monitoring* the Smithers run
+> (tailing events, summarizing, flagging gates), never at re-doing the work a
+> workflow should own. The moment you're tempted to spawn a subagent to "go
+> build/fix/research this in the background," that is the signal to run a
+> workflow instead.
+
 ## The operating loop
 
 Use this loop for broad, ambiguous, risky, long-running, or multi-agent work:
@@ -1662,6 +1676,18 @@ commands[66]:
     flags[2]{name,short,type,default,desc}:
       value,,string,,JSON response for answer
       by,,string,,Human operator identifier
+  - name: ask-human
+    purpose: Raise a blocking human-approval request from inside a run and wait for the decision
+    args[1]{name,type,required,desc}:
+      prompt,string,true,The decision or question to put to a human
+    flags[7]{name,short,type,default,desc}:
+      context,,string,,Extra context appended to the prompt
+      choices,,string,,Comma-separated choices for a fixed-choice decision
+      run-id,r,string,,Run to attach to (SMITHERS_RUN_ID or single active run)
+      node,n,string,,Node id to attach to (SMITHERS_NODE_ID)
+      iteration,,number,0,Loop iteration (SMITHERS_ITERATION or 0)
+      timeout,,number,,Seconds before the request expires
+      poll,,number,3,Poll interval in seconds while blocking
   - name: alerts
     purpose: List and manage durable alert instances
     args[2]{name,type,required,desc}:

@@ -54,6 +54,7 @@
         "group": "Learn",
         "pages": [
           "how-it-works",
+          "guides/context-engineering",
           "recipes"
         ]
       },
@@ -94,6 +95,12 @@
               "workflows/kanban",
               "workflows/ralph",
               "workflows/workflow-skill",
+              "workflows/create-workflow",
+              "workflows/create-skill",
+              "workflows/context-engineer",
+              "workflows/route-task",
+              "workflows/extract-skill",
+              "workflows/vcs",
               "workflows/catalog"
             ]
           },
@@ -114,7 +121,13 @@
               "workflows/debug",
               "workflows/improve-test-coverage",
               "workflows/feature-enum",
-              "workflows/audit"
+              "workflows/audit",
+              "workflows/context-doctor",
+              "workflows/backpressure-plan",
+              "workflows/triage-run",
+              "workflows/report-slideshow",
+              "workflows/monitor-smithers",
+              "workflows/eval-author"
             ]
           }
         ]
@@ -307,7 +320,6 @@
       {
         "group": "Changelog",
         "pages": [
-          "changelogs/0.24.0",
           "changelogs/0.23.0",
           "changelogs/0.22.0",
           "changelogs/0.21.0",
