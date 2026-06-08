@@ -12,6 +12,7 @@ import { captureWorkspaceSnapshot, isJjRepo } from "@smithers-orchestrator/vcs/j
 import { createSnapshotService } from "./snapshotService.js";
 import { createWorkspaceWatcher } from "./workspaceWatcher.js";
 import { pruneWorkspaceDurability } from "./pruneWorkspaceDurability.js";
+import { appendGap, defaultGapSpoolPath } from "./durabilityGapSpool.js";
 
 /**
  * @template A
@@ -70,7 +71,13 @@ export async function startDurability(opts) {
     catch { isJj = false; }
     if (!isJj) return NOOP_HANDLE;
 
-    const service = createSnapshotService({ captureSnapshot, adapter, nowMs, onGap });
+    // Default gaps to a durable spool (outside the worktree) so they survive an
+    // engine crash even though the engine passes no onGap. An explicit onGap wins.
+    const spoolPath = defaultGapSpoolPath(runId);
+    const onGapEffective = onGap ?? ((gap) => appendGap(spoolPath, {
+        runId, nodeId, iteration, attempt, cwd, reason: gap.reason, ts: nowMs(),
+    }));
+    const service = createSnapshotService({ captureSnapshot, adapter, nowMs, onGap: onGapEffective });
     const base = { runId, nodeId, iteration, attempt, cwd };
     /** @param {Record<string, unknown>} req */
     const watchSnapshot = (req) => service.snapshot({ ...base, source: "watch", tier: 2, label: null, toolUseId: null, ...req });

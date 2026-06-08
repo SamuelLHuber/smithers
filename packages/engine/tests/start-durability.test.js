@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { startDurability } from "../src/startDurability.js";
+import { drainGaps, defaultGapSpoolPath } from "../src/durabilityGapSpool.js";
 
 function fakeAdapter() {
     const states = [];
@@ -83,6 +84,30 @@ describe("startDurability", () => {
         expect(adapter.checkpoints).toHaveLength(2);
         // stop() also prunes to bound table growth.
         expect(adapter.pruned).toEqual([["checkpoints", 100], ["states", 50]]);
+    });
+
+    test("a capture failure with no explicit onGap is spooled durably", async () => {
+        const runId = `gap-spool-${process.pid}-${Date.now()}`;
+        const spool = defaultGapSpoolPath(runId);
+        const watcher = fakeWatcher();
+        const h = await startDurability(baseOpts({
+            runId,
+            adapter: fakeAdapter(),
+            createWatcher: watcher.create.bind(watcher),
+            captureSnapshot: async () => null,
+        }));
+        try {
+            watcher.settle();
+            await new Promise((r) => setTimeout(r, 0));
+            const gaps = drainGaps(spool);
+            expect(gaps.length).toBeGreaterThanOrEqual(1);
+            expect(gaps[0].runId).toBe(runId);
+            expect(gaps[0].reason).toBe("snapshot-failed");
+        }
+        finally {
+            await h.stop();
+            drainGaps(spool);
+        }
     });
 
     test("a capture failure surfaces as a gap, never throwing", async () => {
