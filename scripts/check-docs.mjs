@@ -36,7 +36,8 @@ function walk(dir, out = []) {
   return out;
 }
 const offenders = [];
-for (const f of walk(DOCS)) {
+// The root README follows the same house style, so gate it alongside docs/.
+for (const f of [...walk(DOCS), join(root, "README.md")]) {
   if (readFileSync(f, "utf8").includes("—")) offenders.push(f.replace(root + "/", ""));
 }
 if (offenders.length) {
