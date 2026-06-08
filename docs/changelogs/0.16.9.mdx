@@ -10,7 +10,7 @@ Patch release: `smithers --version` now prints the real version instead of `unkn
   in `@smithers-orchestrator/cli/src/index.js` resolved
   `new URL("../../package.json", import.meta.url)`, which climbed two
   levels out of `@smithers-orchestrator/cli/src/` and landed on
-  `@smithers-orchestrator/package.json` — a path that doesn't exist, so
+  `@smithers-orchestrator/package.json`, a path that doesn't exist, so
   `readFileSync` threw `ENOENT`, the catch returned the string
   `"unknown"`, and that literal propagated through the CLI, the
   `getOrchestratorVersion` FFI call, and all the way into the Smithers

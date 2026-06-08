@@ -3,7 +3,7 @@ title: Gateway
 description: WebSocket / RPC gateway for connecting clients and custom UIs to Smithers runs, providing pushed updates, subscriptions, metrics, and resilient reconnection.
 ---
 
-`Gateway` is Smithers' headless control plane. Reach for it (instead of [`startServer()`](/integrations/server)) when long-lived clients — bots, dashboards, schedulers, and custom UIs — need to authenticate once, stream events over WebSocket with resilient reconnection, decide [approvals](/concepts/approvals), inject [signals](/runtime/events), access metrics, and manage cron schedules across many registered workflows. Custom UIs, whether using the vanilla SDK or React hooks, rely on the Gateway to provide pushed updates and a stale-data-free model. For the single-workflow Hono-based HTTP surface, see [Serve Mode](/integrations/serve) (`createServeApp()` / `smithers up --serve`).
+`Gateway` is Smithers' headless control plane. Reach for it (instead of [`startServer()`](/integrations/server)) when long-lived clients (bots, dashboards, schedulers, and custom UIs) need to authenticate once, stream events over WebSocket with resilient reconnection, decide [approvals](/concepts/approvals), inject [signals](/runtime/events), access metrics, and manage cron schedules across many registered workflows. Custom UIs, whether using the vanilla SDK or React hooks, rely on the Gateway to provide pushed updates and a stale-data-free model. For the single-workflow Hono-based HTTP surface, see [Serve Mode](/integrations/serve) (`createServeApp()` / `smithers up --serve`).
 
 ## Quick start
 
@@ -52,7 +52,7 @@ ws.onopen = () => ws.send(JSON.stringify({
 
 ## Gateway client SDK
 
-Programmatic clients — bots, schedulers, dashboards, third-party UIs — talk to the Gateway through the typed client SDK over the same RPC and WebSocket API. For the full custom-UI guide (declarative queries, pushed updates, stale guards, reconnect/resume, backpressure, optimistic mutations, auth, vanilla JS + React hooks) see [Custom UIs](/integrations/custom-ui).
+Programmatic clients (bots, schedulers, dashboards, third-party UIs) talk to the Gateway through the typed client SDK over the same RPC and WebSocket API. For the full custom-UI guide (declarative queries, pushed updates, stale guards, reconnect/resume, backpressure, optimistic mutations, auth, vanilla JS + React hooks) see [Custom UIs](/integrations/custom-ui).
 
 ```ts
 import { SmithersGatewayClient } from "smithers-orchestrator/gateway-client";
@@ -177,7 +177,7 @@ Failure modes and HTTP status:
 | `VcsError`             | A JJ revert call failed; DB/reconciler rolled back.                       | `500` |
 | `RewindFailed`         | Rewind failed and rollback was partial; run marked `needs_attention`.     | `500` |
 
-Every call — success, failure, unauthorized — writes one row to
+Every call, whether success, failure, or unauthorized, writes one row to
 `_smithers_time_travel_audit` with `result ∈ { success, failed, partial, in_progress }`.
 An in-progress row is inserted before any mutation and updated in place
 on completion; startup recovery flips any leftover `in_progress` rows to
@@ -284,7 +284,7 @@ type DevToolsDelta = {
 };
 ```
 
-`DevToolsEvent` (v1) — frames pushed over `devtools.event`:
+`DevToolsEvent` (v1), frames pushed over `devtools.event`:
 
 ```ts
 type DevToolsEvent =
@@ -301,9 +301,9 @@ or when the gateway observes `TimeTravelJumped` for the run.
 
 Three frame types share the same socket:
 
-- `req`  — `{ type: "req", id, method, params? }` from client.
-- `res`  — `{ type: "res", id, ok, payload?, error? }` from server, correlated by `id`.
-- `event`— `{ type: "event", event, payload?, seq, stateVersion }` server-pushed; `seq` is per connection, `stateVersion` is global.
+- `req`: `{ type: "req", id, method, params? }` from client.
+- `res`: `{ type: "res", id, ok, payload?, error? }` from server, correlated by `id`.
+- `event`: `{ type: "event", event, payload?, seq, stateVersion }` server-pushed; `seq` is per connection, `stateVersion` is global.
 
 Handshake: on connect the server immediately pushes `connect.challenge` (`{ nonce, ts }`). The client replies with a `connect` request carrying `minProtocol`, `maxProtocol`, `client` metadata, `auth`, and an optional `subscribe: string[]` to filter events by `runId`. The server returns a `hello` payload (`protocol`, `features`, `policy.heartbeatMs`, `auth` with `sessionToken`/`role`/`scopes`/`userId`, `snapshot`).
 

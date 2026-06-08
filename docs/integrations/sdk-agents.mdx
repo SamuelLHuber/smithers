@@ -128,7 +128,7 @@ Live-run behavior:
 
 Limits:
 
-- Smithers reconstructs the agent from the workflow source on hijack. This means cross-engine hijack is not supported — the REPL will use the same agent class that ran originally.
+- Smithers reconstructs the agent from the workflow source on hijack. This means cross-engine hijack is not supported: the REPL will use the same agent class that ran originally.
 
 ## CLI vs SDK
 
@@ -138,7 +138,7 @@ Limits:
 | Tools | Provider CLI tool ecosystem | Smithers [tools](/integrations/tools) [sandbox](/components/sandbox) |
 | Flexibility | Native CLI flags | AI SDK `providerOptions` |
 
-Pass a raw `ToolLoopAgent` directly if you prefer — the wrappers are convenience, not a separate runtime.
+Pass a raw `ToolLoopAgent` directly if you prefer; the wrappers are convenience, not a separate runtime.
 
 ## Example: Dual Setup
 

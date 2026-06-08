@@ -1,6 +1,6 @@
 ---
 title: context-engineer
-description: Turn a vague user script into a context contract, route it, add backpressure, execute, and report — the concierge proxy.
+description: Turn a vague user script into a context contract, route it, add backpressure, execute, and report. The concierge proxy.
 ---
 
 `context-engineer` is the flagship concierge proxy. You hand it a vague,
@@ -21,14 +21,14 @@ or run autonomously with `--input '{"review":false}'`.
 
 ## Stages
 
-1. **classify-script** — read the script and decide which task modes it touches and whether it needs durable execution.
-2. **inventory-context** — inspect the repo, tools, and `.smithers/skills` to draft a context contract (goal, non-goals, assumptions, inputs, missing inputs, constraints, risks, desired artifacts, success criteria, verification signals).
-3. **grill** — resolve blocking ambiguity with `GrillMe`, one question at a time, each with a recommended answer.
-4. **route** — choose how to carry out the work: single task, skills, a durable seeded workflow, or hand to a human.
-5. **build-backpressure** — map every success criterion to a verification method and enforcement gate.
-6. **approve-contract** — durable human approval gate for the whole contract (skippable via `review: false`).
-7. **execute** — a Ralph loop that does or dispatches the work, honoring the gates, until it reports done.
-8. **report** — a concise HTML slideshow of the script, contract, decisions, route, gates, artifacts, and unresolved items.
+1. **classify-script**: read the script and decide which task modes it touches and whether it needs durable execution.
+2. **inventory-context**: inspect the repo, tools, and `.smithers/skills` to draft a context contract (goal, non-goals, assumptions, inputs, missing inputs, constraints, risks, desired artifacts, success criteria, verification signals).
+3. **grill**: resolve blocking ambiguity with `GrillMe`, one question at a time, each with a recommended answer.
+4. **route**: choose how to carry out the work: single task, skills, a durable seeded workflow, or hand to a human.
+5. **build-backpressure**: map every success criterion to a verification method and enforcement gate.
+6. **approve-contract**: durable human approval gate for the whole contract (skippable via `review: false`).
+7. **execute**: a Ralph loop that does or dispatches the work, honoring the gates, until it reports done.
+8. **report**: a concise HTML slideshow of the script, contract, decisions, route, gates, artifacts, and unresolved items.
 
 ## Inputs
 
@@ -47,6 +47,6 @@ bunx smithers-orchestrator approve <runId> --node approve-contract         # cle
 ```
 
 Use this when you have a fuzzy ask and want Smithers to do the context
-engineering — clarify the real goal, ground it in what is actually available, add
-backpressure, and only then execute — instead of firing a half-specified task at
+engineering (clarify the real goal, ground it in what is actually available, add
+backpressure, and only then execute) instead of firing a half-specified task at
 a bare agent.

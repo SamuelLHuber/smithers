@@ -11,4 +11,4 @@ apiVersion: v1
 - Request: `{ runId, options? }`
 - Response: `{ runId, status: "hijack-ready", sessionId }`
 
-This RPC is intentionally scoped above normal run write access. The Gateway verifies the run exists and returns a `sessionId` token that the caller (e.g. `smithers hijack`) uses to coordinate the operator handoff — attaching a terminal, injecting commands, or resuming the agent conversation.
+This RPC is intentionally scoped above normal run write access. The Gateway verifies the run exists and returns a `sessionId` token that the caller (e.g. `smithers hijack`) uses to coordinate the operator handoff: attaching a terminal, injecting commands, or resuming the agent conversation.

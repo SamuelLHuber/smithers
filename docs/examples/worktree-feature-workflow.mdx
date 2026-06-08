@@ -3,7 +3,7 @@ title: "Worktree Feature Workflow"
 description: "A multi-agent pipeline that discovers tickets from a PRD, implements them with Claude/Codex, validates, reviews in parallel, and generates reports."
 ---
 
-# Worktree Feature — Full Pipeline
+# Worktree Feature: Full Pipeline
 
 <Note>
 The most complex Smithers example: multiple CLI agents (Claude Code, OpenAI Codex) through a full development lifecycle.
@@ -11,18 +11,18 @@ The most complex Smithers example: multiple CLI agents (Claude Code, OpenAI Code
 
 ## Pipeline
 
-1. **Discover** — Read PRD, break into ordered independent tickets
-2. **Implement** — Write code end-to-end per ticket
-3. **Validate** — Run `bun test`
-4. **Review** — Claude + Codex review in parallel
-5. **ReviewFix** — Address review issues
-6. **Report** — Generate final report
+1. **Discover**: Read PRD, break into ordered independent tickets
+2. **Implement**: Write code end-to-end per ticket
+3. **Validate**: Run `bun test`
+4. **Review**: Claude + Codex review in parallel
+5. **ReviewFix**: Address review issues
+6. **Report**: Generate final report
 
 Steps 2--5 loop via `<Loop>` until both reviewers approve or max iterations reached.
 
-## Schema Setup — smithers.ts
+## Schema Setup: smithers.ts
 
-Schema definitions are in `smithers.ts` — see [Worktree Feature Schemas](./worktree-feature-schemas) for the full field list. The file ends with the `createSmithers(...)` registration call:
+Schema definitions are in `smithers.ts`. See [Worktree Feature Schemas](./worktree-feature-schemas) for the full field list. The file ends with the `createSmithers(...)` registration call:
 
 ```tsx
 // scripts/worktree-feature/smithers.ts
@@ -39,7 +39,7 @@ export const { Workflow, Task, useCtx, smithers, tables, outputs } = createSmith
 });
 ```
 
-## Entry Point — workflow.tsx
+## Entry Point: workflow.tsx
 
 ```tsx
 // scripts/worktree-feature/workflow.tsx
@@ -67,7 +67,7 @@ export default smithers((ctx) => {
 });
 ```
 
-## Agents — agents.ts
+## Agents: agents.ts
 
 ```tsx
 // scripts/worktree-feature/agents.ts
@@ -80,7 +80,7 @@ import { SYSTEM_PROMPT } from "./system-prompt";
 const USE_CLI = process.env.USE_CLI_AGENTS !== "0";
 const UNSAFE = process.env.SMITHERS_UNSAFE === "1";
 
-// Claude — switches between API agent and CLI agent
+// Claude: switches between API agent and CLI agent
 const claudeApi = new Agent({
   model: anthropic("claude-opus-4-7"),
   instructions: SYSTEM_PROMPT,
@@ -96,7 +96,7 @@ const claudeCli = new ClaudeCodeAgent({
 
 export const claude = USE_CLI ? claudeCli : claudeApi;
 
-// Codex — CLI agent (CodexAgent does not have an API mode)
+// Codex: CLI agent (CodexAgent does not have an API mode)
 export const codex = new CodexAgent({
   model: "gpt-5.3-codex",
   systemPrompt: SYSTEM_PROMPT,
@@ -105,7 +105,7 @@ export const codex = new CodexAgent({
 });
 ```
 
-## Validation Loop — ValidationLoop.tsx
+## Validation Loop: ValidationLoop.tsx
 
 ```tsx
 // scripts/worktree-feature/components/ValidationLoop.tsx
@@ -145,7 +145,7 @@ export function ValidationLoop({ ticket }: { ticket: { id: string } }) {
 }
 ```
 
-## Parallel Review — Review.tsx
+## Parallel Review: Review.tsx
 
 ```tsx
 // scripts/worktree-feature/components/Review.tsx
@@ -187,7 +187,7 @@ export function Review({ ticket }: { ticket: { id: string; title: string } }) {
 }
 ```
 
-## Ticket Pipeline — TicketPipeline.tsx
+## Ticket Pipeline: TicketPipeline.tsx
 
 ```tsx
 // scripts/worktree-feature/components/TicketPipeline.tsx

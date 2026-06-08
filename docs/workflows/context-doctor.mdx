@@ -17,18 +17,18 @@ bunx smithers-orchestrator workflow run context-doctor \
 
 ## Stages
 
-1. **check** — deterministic (no agent): `JSON.parse` the contract and run the structural checks, returning `{ issues, summary, score }`.
-2. **advise** — an agent reads the diagnosis and writes one concrete fix per non-ok issue, ordered error → warning → info.
+1. **check**: deterministic (no agent), `JSON.parse` the contract and run the structural checks, returning `{ issues, summary, score }`.
+2. **advise**: an agent reads the diagnosis and writes one concrete fix per non-ok issue, ordered error → warning → info.
 
 ## Checks
 
-- **hasGoal** — a non-empty `goal` is declared.
-- **hasOutputSpec** — an `outputSpec` (or `output`) describes the produced artifact.
-- **hasAcceptanceCriteria** — at least one acceptance criterion is listed.
-- **allBlockingCriteriaHaveVerification** — every criterion marked `blocking` names a `verification`.
-- **allRequiredInputsHaveSource** — every input marked `required` declares a `source`.
-- **allSideEffectsHaveApproval** — every entry in `sideEffects` is gated by an `approval`.
-- **reportSpecExists** — a `reportSpec` describes how results are reported.
+- **hasGoal**: a non-empty `goal` is declared.
+- **hasOutputSpec**: an `outputSpec` (or `output`) describes the produced artifact.
+- **hasAcceptanceCriteria**: at least one acceptance criterion is listed.
+- **allBlockingCriteriaHaveVerification**: every criterion marked `blocking` names a `verification`.
+- **allRequiredInputsHaveSource**: every input marked `required` declares a `source`.
+- **allSideEffectsHaveApproval**: every entry in `sideEffects` is gated by an `approval`.
+- **reportSpecExists**: a `reportSpec` describes how results are reported.
 
 ## Inputs
 

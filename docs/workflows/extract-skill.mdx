@@ -4,7 +4,7 @@ description: After a run, harvest a reusable skill or workflow and durable memor
 ---
 
 `extract-skill` looks back at a run (or a pattern you describe) and harvests the
-durable, reusable part of it — turning a one-off into an agent skill doc, a sketch
+durable, reusable part of it, turning a one-off into an agent skill doc, a sketch
 for a new workflow, and memory facts worth keeping. Reach for it right after a run
 when you notice yourself doing the same thing again.
 
@@ -20,9 +20,9 @@ context. When the pattern is skill-shaped, the workflow writes the skill to
 
 ## Stages
 
-1. **analyze** — read the run (if given) and decide what is worth harvesting: the repeated pattern, whether it is reusable as a skill and/or a whole workflow, and any durable memory facts.
-2. **propose** — turn the analysis into concrete proposals: a skill (name, description, body), a workflow sketch (id, sketch), and the polished memory facts to persist.
-3. **scaffold-skill** — when the pattern is reusable as a skill, write the proposed skill doc to `.smithers/skills/<name>.md`.
+1. **analyze**: read the run (if given) and decide what is worth harvesting: the repeated pattern, whether it is reusable as a skill and/or a whole workflow, and any durable memory facts.
+2. **propose**: turn the analysis into concrete proposals: a skill (name, description, body), a workflow sketch (id, sketch), and the polished memory facts to persist.
+3. **scaffold-skill**: when the pattern is reusable as a skill, write the proposed skill doc to `.smithers/skills/<name>.md`.
 
 ## Inputs
 

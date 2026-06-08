@@ -20,7 +20,7 @@ bunx smithers-orchestrator workflow run debug --prompt "Fix the intermittent gat
 1. Attempts to understand and reproduce the bug.
 2. Applies a targeted fix.
 3. Validates the result.
-4. Reviews the fix and re-runs the implement/validate/review cycle using `ValidationLoop` for a fixed number of iterations (up to 3). Unlike `implement`, `debug` does not stop early when validation passes — it runs all iterations and returns the last attempt.
+4. Reviews the fix and re-runs the implement/validate/review cycle using `ValidationLoop` for a fixed number of iterations (up to 3). Unlike `implement`, `debug` does not stop early when validation passes; it runs all iterations and returns the last attempt.
 
 After the fix is applied, run `improve-test-coverage` to add a regression test, then `review` to confirm the change is production-ready.
 

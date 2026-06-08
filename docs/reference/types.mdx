@@ -6,12 +6,12 @@ description: Public TypeScript surface for smithers-orchestrator.
 One source of truth: `tsc --emitDeclarationOnly` would produce something close to this. Import these types from `smithers-orchestrator` unless noted otherwise.
 
 Major sections at a glance:
-- **Workflow / Context** — `SmithersWorkflow`, `SmithersCtx`, `RunOptions`, `RunResult` — the entry points for defining and running workflows.
-- **Task / Graph** — `TaskDescriptor`, `TaskProps`, `GraphSnapshot` — the shape of nodes at runtime and in the JSX layer.
-- **Component props** — `WorkflowProps`, `ApprovalProps`, `SignalProps`, `LoopProps`, etc. — all JSX component interfaces.
-- **Errors** — `SmithersError`, `KnownSmithersErrorCode` — typed error codes; see [Errors](/reference/errors) for descriptions.
-- **Server / Gateway** — `ServerOptions`, `GatewayOptions`, `GatewayAuthConfig` — self-hosting configuration.
-- **Scorers / Memory / OpenAPI / Observability** — sub-path imports (`smithers-orchestrator/scorers`, `/memory`, `/openapi`, `/observability`).
+- **Workflow / Context**: `SmithersWorkflow`, `SmithersCtx`, `RunOptions`, `RunResult`, the entry points for defining and running workflows.
+- **Task / Graph**: `TaskDescriptor`, `TaskProps`, `GraphSnapshot`, the shape of nodes at runtime and in the JSX layer.
+- **Component props**: `WorkflowProps`, `ApprovalProps`, `SignalProps`, `LoopProps`, etc., all JSX component interfaces.
+- **Errors**: `SmithersError`, `KnownSmithersErrorCode`, typed error codes; see [Errors](/reference/errors) for descriptions.
+- **Server / Gateway**: `ServerOptions`, `GatewayOptions`, `GatewayAuthConfig`, self-hosting configuration.
+- **Scorers / Memory / OpenAPI / Observability**: sub-path imports (`smithers-orchestrator/scorers`, `/memory`, `/openapi`, `/observability`).
 
 ```ts
 // =============================================================================

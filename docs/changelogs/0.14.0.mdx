@@ -7,10 +7,10 @@ understand exactly what's happening inside a running workflow.
 
 ## New Components
 
-### `<Timer>` — Pause a workflow for minutes, hours, or until a specific time
+### `<Timer>`: Pause a workflow for minutes, hours, or until a specific time
 
 Durable timers that survive process restarts. The workflow engine persists the
-timer target to SQLite and automatically resumes execution when it fires — no
+timer target to SQLite and automatically resumes execution when it fires, with no
 long-lived process required.
 
 ```tsx
@@ -18,7 +18,7 @@ long-lived process required.
 <Timer id="market-open" until="2026-04-03T09:30:00Z" />
 ```
 
-### `<Sandbox>` — Run untrusted code in isolation
+### `<Sandbox>`: Run untrusted code in isolation
 
 Execute agent-generated code or compute-heavy tasks in isolated environments.
 Three backends:
@@ -39,7 +39,7 @@ workflows.
 </Sandbox>
 ```
 
-### `<ContinueAsNew>` — Prevent unbounded state growth in long-running loops
+### `<ContinueAsNew>`: Prevent unbounded state growth in long-running loops
 
 Replaces the current run with a fresh one, carrying over only the state you
 specify. Old run history remains queryable and the continuation lineage is
@@ -52,7 +52,7 @@ gigabytes of event history.
 </Loop>
 ```
 
-### `<Signal>` — Inject external data into a running workflow
+### `<Signal>`: Inject external data into a running workflow
 
 Pauses execution until structured data arrives via the CLI or HTTP API. The
 payload is validated against a Zod schema and passed type-safely to downstream
@@ -72,7 +72,7 @@ bunx smithers-orchestrator signal abc123 user-feedback --data '{"rating": 5}'
 
 ## CLI
 
-### `smithers why` — Understand why a run is stuck
+### `smithers why`: Understand why a run is stuck
 
 A diagnostic engine that calculates exactly what's blocking a run and tells you
 how to fix it.
@@ -81,14 +81,14 @@ how to fix it.
 $ bunx smithers-orchestrator why abc123
 Run abc123 is waiting-approval
   Blocked node:  review-gate
-  Reason:        Approval requested — no decision yet
+  Reason:        Approval requested, no decision yet
   Unblock:       smithers approve abc123
 ```
 
 Detects waiting signals, pending approvals, stale heartbeats, retry backoffs,
 upstream dependency failures, and more.
 
-### `smithers events` — Browse workflow event history
+### `smithers events`: Browse workflow event history
 
 Filter by node, category, or time. Events stream incrementally so you never run
 out of memory on large runs.
@@ -97,7 +97,7 @@ out of memory on large runs.
 bunx smithers-orchestrator events abc123 --type approval --since 5m
 ```
 
-### `smithers node` — Deep-dive into a single node
+### `smithers node`: Deep-dive into a single node
 
 Aggregates task attempts, tool calls, schema validation errors, Zod-validated
 outputs, and token usage with pricing.
@@ -118,18 +118,18 @@ bunx smithers-orchestrator ps --watch --interval 2
 
 ## Durability
 
-- **Transactional state writes** — Critical SQLite updates are now grouped into
+- **Transactional state writes.** Critical SQLite updates are now grouped into
   atomic `BEGIN IMMEDIATE` transactions, preventing partial state if a process
   crashes mid-write.
 
-- **Task heartbeats with checkpoints** — Long-running tasks can report progress.
+- **Task heartbeats with checkpoints.** Long-running tasks can report progress.
   If the task crashes, the retry execution receives the last checkpoint via
   `lastHeartbeat` to resume where it left off.
   ```ts
   runtime.heartbeat({ progress: 75, cursor: "page-42" });
   ```
 
-- **Auto-resume supervisor** — Watches for orphaned runs with stale heartbeats
+- **Auto-resume supervisor.** Watches for orphaned runs with stale heartbeats
   and resumes them automatically. Atomic DB claim lock prevents concurrent
   supervisor races.
   ```bash
@@ -140,7 +140,7 @@ bunx smithers-orchestrator ps --watch --interval 2
 
 ## Engine & Storage
 
-- **Frame delta encoding** — 95-99% reduction in `_smithers_frames` storage.
+- **Frame delta encoding.** 95-99% reduction in `_smithers_frames` storage.
   Frames are now stored as compact XML structural diffs instead of full
   snapshots, shrinking multi-gigabyte databases to megabytes.
 
@@ -160,8 +160,8 @@ bunx smithers-orchestrator ps --watch --interval 2
 
 ## New Run Statuses
 
-- `waiting-timer` — paused on a durable timer
-- `continued` — completed via continue-as-new; a successor run was started
+- `waiting-timer`: paused on a durable timer
+- `continued`: completed via continue-as-new; a successor run was started
 
 ## New Metrics
 

@@ -16,7 +16,7 @@ bunx smithers-orchestrator workflow run eval-author \
 
 ## Stages
 
-1. **derive**: turn the criteria into a structured suite — a kebab-case `suiteName` and a list of cases (`id`, `input`, `expected`, `rubric`).
+1. **derive**: turn the criteria into a structured suite, with a kebab-case `suiteName` and a list of cases (`id`, `input`, `expected`, `rubric`).
 2. **write**: write the JSONL fixture to `.smithers/evals/<suiteName>.jsonl` and return its `path`, `caseCount`, and the `runCommand` (`smithers eval <workflow> --cases .smithers/evals/<suiteName>.jsonl --suite <suiteName>`).
 
 ## Inputs
@@ -27,5 +27,5 @@ bunx smithers-orchestrator workflow run eval-author \
 | `workflow` | string or null | `null` (leaves a `<workflow>` placeholder in the run command) |
 
 The fixture's assertions support `status`, `output` (exact match), and
-`outputContains` (partial match) — see [Recipes](/recipes#eval-suites-for-regressions)
+`outputContains` (partial match). See [Recipes](/recipes#eval-suites-for-regressions)
 for the eval-suite format and how reports land in `.smithers/evals/<suite>.json`.

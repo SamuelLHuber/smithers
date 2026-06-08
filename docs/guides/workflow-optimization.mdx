@@ -78,7 +78,7 @@ Observed result:
 
 The CLI provider names (`claude-code`, `codex`, `antigravity`, `gemini`, `kimi`) map to their hosted API equivalents for optimization because GEPA needs a direct model call to propose prompt patches. Providers with no single hosted backend (`opencode`, `pi`, `amp`, `forge`) are still accepted through a generic OpenAI-compatible endpoint.
 
-`--provider heuristic` is deterministic and intended for local tests and fixtures. Use `heuristic` when you want deterministic optimization without an API call — place `optimizationHints` in each case's `metadata` to control the patch. It uses eval-case metadata such as:
+`--provider heuristic` is deterministic and intended for local tests and fixtures. Use `heuristic` when you want deterministic optimization without an API call: place `optimizationHints` in each case's `metadata` to control the patch. It uses eval-case metadata such as:
 
 ```json
 {

@@ -1,12 +1,12 @@
 ---
 title: "Ghost: Worktree Feature MDX Prompts"
-description: "Example from scripts/worktree-feature/components/*.mdx — MDX prompt templates used in the worktree-feature pipeline for discovery, implementation, review, validation, and reporting."
+description: "Example from scripts/worktree-feature/components/*.mdx: MDX prompt templates used in the worktree-feature pipeline for discovery, implementation, review, validation, and reporting."
 ---
 
-# scripts/worktree-feature/ — MDX Prompt Templates
+# scripts/worktree-feature/: MDX Prompt Templates
 
 <Note>
-**Ghost doc** — Source MDX prompt files live in `.worktrees/12-feature-flag-gate-all-non-mvp/scripts/worktree-feature/components/` (a worktree branch, not on `main`). The excerpts below reflect that source.
+**Ghost doc.** Source MDX prompt files live in `.worktrees/12-feature-flag-gate-all-non-mvp/scripts/worktree-feature/components/` (a worktree branch, not on `main`). The excerpts below reflect that source.
 </Note>
 
 ## Usage
@@ -29,7 +29,7 @@ import ImplementPrompt from "./Implement.mdx";
 ## Discover.mdx
 
 ```mdx
-TICKET DISCOVERY — Break PRD into Ordered Implementation Tickets
+TICKET DISCOVERY: Break PRD into Ordered Implementation Tickets
 
 GOAL: Break the PRD into ordered, independently-implementable tickets.
 
@@ -41,16 +41,16 @@ STEPS:
 
 TICKET ID RULES:
 - IDs MUST be lowercase kebab-case slugs (e.g. "vcs-jj-rewrite")
-- NEVER use numeric IDs like T-001 — they collide across runs
+- NEVER use numeric IDs like T-001; they collide across runs
 - Keep slugs short but descriptive (2-5 words)
 
-..._(excerpt abridged — real file also includes an EXPECTED TICKET BREAKDOWN guide and a required `{props.schema}` JSON output block)_
+..._(excerpt abridged; real file also includes an EXPECTED TICKET BREAKDOWN guide and a required `{props.schema}` JSON output block)_
 ```
 
 ## Implement.mdx
 
 ```mdx
-IMPLEMENTATION — Ticket: {props.ticketId} — {props.ticketTitle}
+IMPLEMENTATION. Ticket: {props.ticketId}, {props.ticketTitle}
 
 Implement FULLY end-to-end. Do NOT stop until fully implemented + ALL tests pass.
 
@@ -80,7 +80,7 @@ REVIEW FIXES NEEDED:
 ${props.reviewFixes}` : ""}
 
 IMPLEMENTATION RULES:
-1. Implement ticket FULLY — nothing unfinished
+1. Implement ticket FULLY, nothing unfinished
 2. Follow existing framework patterns exactly
 3. ALL commits go directly on main. NEVER create branches.
 4. After implementing, run tests
@@ -94,7 +94,7 @@ The "all commits on main" rule is specific to the worktree-feature pipeline, whi
 ## Review.mdx
 
 ```mdx
-CODE REVIEW — Ticket: {props.ticketId} — {props.ticketTitle} — Reviewer: {props.reviewer}
+CODE REVIEW. Ticket: {props.ticketId}, {props.ticketTitle}. Reviewer: {props.reviewer}
 
 EXTREMELY strict code reviewer.
 
@@ -103,28 +103,28 @@ Created: {JSON.stringify(props.filesCreated)}
 Modified: {JSON.stringify(props.filesModified)}
 
 Review against:
-1. CORRECTNESS — Matches PRD exactly?
-2. CODE QUALITY — DRY? Follows patterns?
-3. TEST COVERAGE — Every edge case?
-4. TYPE SAFETY — No `any` or unsafe casts?
+1. CORRECTNESS: Matches PRD exactly?
+2. CODE QUALITY: DRY? Follows patterns?
+3. TEST COVERAGE: Every edge case?
+4. TYPE SAFETY: No `any` or unsafe casts?
 
 APPROVAL POLICY:
 - There is NO such thing as a non-blocking nit.
 - ANY way to improve the code → MUST be improved.
-- Every issue — critical, major, minor, OR nit — MUST be fixed before approval.
+- Every issue, critical, major, minor, OR nit, MUST be fixed before approval.
 - approved: true ONLY when there are genuinely ZERO issues of any severity.
 - Do not "let things slide" because they seem small.
 
-..._(excerpt abridged — real file also includes VALIDATION RESULT, ARCHITECTURE, and DOCUMENTATION review sections)_
+..._(excerpt abridged; real file also includes VALIDATION RESULT, ARCHITECTURE, and DOCUMENTATION review sections)_
 ```
 
 ## Validate.mdx
 
 ```mdx
-VALIDATION — Ticket: {props.ticketId} — {props.ticketTitle}
+VALIDATION. Ticket: {props.ticketId}, {props.ticketTitle}
 
 Independently verify implementation correctness.
-Don't trust implementation agent claims — run everything yourself.
+Don't trust implementation agent claims; run everything yourself.
 
 CANONICAL CHECK: Run `cd submodules/smithers && bun test`
 ALL tests must pass.
@@ -137,7 +137,7 @@ ZERO TOLERANCE:
 ## ReviewFix.mdx
 
 ```mdx
-REVIEW FIX — Ticket: {props.ticketId} — {props.ticketTitle}
+REVIEW FIX. Ticket: {props.ticketId}, {props.ticketTitle}
 
 REVIEW ISSUES:
 {JSON.stringify(props.issues, null, 2)}
@@ -154,7 +154,7 @@ RULES:
 ## Report.mdx
 
 ```mdx
-REPORTING — Ticket: {props.ticketId} — {props.ticketTitle}
+REPORTING. Ticket: {props.ticketId}, {props.ticketTitle}
 
 IMPLEMENTATION SUMMARY:
 {props.whatWasDone}
@@ -167,12 +167,12 @@ PRE-COMPUTED METRICS (echo these back exactly):
 Assess: Anything go wrong? Agent struggle? Lessons for future?
 ```
 
-## System Prompt — system-prompt.mdx
+## System Prompt: system-prompt.mdx
 
 The top-level system prompt uses custom MDX components to inject context:
 
 ```mdx
-# Smithers Framework — Worktree + MergeQueue Implementation
+# Smithers Framework: Worktree + MergeQueue Implementation
 
 ## PRD
 <Prd />

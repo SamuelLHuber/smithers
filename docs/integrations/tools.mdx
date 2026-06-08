@@ -86,7 +86,7 @@ const placeOrder = defineTool({
 
 ### Side Effects and Idempotency
 
-Every custom tool that modifies external state **must** declare `sideEffect: true`. This is how Smithers protects your [workflow](/concepts/workflows-overview) during retries and resumes. Without it, Smithers treats the tool as a pure read and replays it freely — potentially sending duplicate emails, double-charging payments, or creating duplicate records.
+Every custom tool that modifies external state **must** declare `sideEffect: true`. This is how Smithers protects your [workflow](/concepts/workflows-overview) during retries and resumes. Without it, Smithers treats the tool as a pure read and replays it freely, potentially sending duplicate emails, double-charging payments, or creating duplicate records.
 
 The two flags work together:
 
@@ -101,7 +101,7 @@ With `sideEffect: true` and `idempotent: false`, Smithers does two things on ret
 1. **Warns the agent.** The retry prompt lists which non-idempotent tools were already called.
 2. **Provides a stable idempotency key.** `ctx.idempotencyKey` is deterministic for a given task + iteration; pass it to external APIs that support idempotency (Stripe, AWS) to deduplicate.
 
-If your `execute` function has `sideEffect: true, idempotent: false` but omits the `ctx` parameter, Smithers logs a startup warning. This is almost always a bug — you need `ctx.idempotencyKey` to handle retries safely.
+If your `execute` function has `sideEffect: true, idempotent: false` but omits the `ctx` parameter, Smithers logs a startup warning. This is almost always a bug: you need `ctx.idempotencyKey` to handle retries safely.
 
 ```ts
 // ✗ Bad: non-idempotent side effect without ctx

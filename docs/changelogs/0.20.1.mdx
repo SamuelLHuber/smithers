@@ -12,7 +12,7 @@ flow gets sharper, and `pnpm release` now opens a GitHub release.
   `AgentSessionEvent` records, OTEL log records with stable Loki query
   attributes (`run.id`, `workflow.path`, `node.id`, `node.attempt`,
   `agent.family`, `agent.capture_mode`, `trace.completeness`,
-  `event.kind`), and — when `logDir` is set — a durable NDJSON artifact
+  `event.kind`), and, when `logDir` is set, a durable NDJSON artifact
   at `.smithers/executions/<runId>/logs/agent-trace/<node>-<iter>-<attempt>.ndjson`.
   See `packages/engine/src/AgentTraceCollector.js` and the new
   `apps/observability/src/agentTrace.ts` surface.
@@ -42,7 +42,7 @@ flow gets sharper, and `pnpm release` now opens a GitHub release.
 
 - **Better JSON text extraction.** `BaseCliAgent.extractTextFromJsonValue`
   now handles array roots, OpenAI-style `output_text`, and recursive
-  `item` fields — relevant for Codex/Responses-API outputs.
+  `item` fields, relevant for Codex/Responses-API outputs.
 
 ## CLI
 

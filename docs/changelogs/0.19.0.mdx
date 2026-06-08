@@ -4,9 +4,9 @@
 public Effect-based workflow builders, added Unix socket transport for the
 Gateway and its client, hardened the Gateway client's response validation,
 and scaffolded a real Kanban UI into the default workflow pack. There are
-no intentional breaking changes, but the new public API surface — most
+no intentional breaking changes, but the new public API surface, most
 notably `Smithers.createWorkflow` / `Smithers.createComponent` and the
-`path` listen option — is larger than a patch release.
+`path` listen option, is larger than a patch release.
 
 ---
 
@@ -69,7 +69,7 @@ notably `Smithers.createWorkflow` / `Smithers.createComponent` and the
 
 - **New `parallel-tickets` example.** `examples/parallel-tickets.jsx` plus
   five MDX prompts (`triage`, `implement`, `research`, `review`, `merge`)
-  demonstrate a Triage → wave-by-wave parallel implement/review →
+  demonstrate a Triage, then wave-by-wave parallel implement/review, then
   `MergeQueue` pipeline. Tickets within a wave run concurrently in their
   own worktrees; waves merge back into `main` one at a time before the
   next wave starts. Implementer/researcher run on Claude (Sonnet/Haiku);
@@ -84,7 +84,7 @@ notably `Smithers.createWorkflow` / `Smithers.createComponent` and the
   that authoring model. Linked from the introduction.
 
 - **Self-contained TOON API reference.** `research/toon-api.md` is a
-  briefing for an agent designing a Lisp front-end for Smithers — it
+  briefing for an agent designing a Lisp front-end for Smithers. It
   inlines the spec, schemas, node kinds, compiler source, and fixtures of
   the retired `.toon` workflow format so the briefing has no external
   dependencies.

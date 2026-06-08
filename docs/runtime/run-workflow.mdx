@@ -56,7 +56,7 @@ If a CLI hijack happens mid-run (`bunx smithers-orchestrator hijack <id>`), the 
 
 ## `result.output`
 
-Populated only when the schema passed to `createSmithers()` has a key literally named `output`. Other schema rows live in their own SQLite tables — query them directly:
+Populated only when the schema passed to `createSmithers()` has a key literally named `output`. Other schema rows live in their own SQLite tables, so query them directly:
 
 ```ts
 import { Database } from "bun:sqlite";

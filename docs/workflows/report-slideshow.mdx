@@ -5,8 +5,8 @@ description: Generate a concise HTML slideshow report from a Smithers run state 
 
 `report-slideshow` turns a finished (or in-progress) Smithers run into a single,
 self-contained HTML slideshow report. Reach for it after a run when you want a
-shareable summary — objective, decisions, the workflow graph, artifacts, tests
-and gates, failures and retries, and remaining issues — without scrolling the
+shareable summary (objective, decisions, the workflow graph, artifacts, tests
+and gates, failures and retries, and remaining issues) without scrolling the
 event log.
 
 ```bash
@@ -20,8 +20,8 @@ open or attach anywhere.
 
 ## Stages
 
-1. **gather** — deterministic capture: shell `smithers inspect <runId>` and flatten the run state, nodes, and a summary (no agent).
-2. **render** — an agent writes a self-contained HTML slideshow covering the title/objective, decisions, workflow graph, artifacts, tests/gates, failures/retries, and remaining issues.
+1. **gather**: deterministic capture. Shell `smithers inspect <runId>` and flatten the run state, nodes, and a summary (no agent).
+2. **render**: an agent writes a self-contained HTML slideshow covering the title/objective, decisions, workflow graph, artifacts, tests/gates, failures/retries, and remaining issues.
 
 ## Inputs
 
@@ -30,5 +30,5 @@ open or attach anywhere.
 | `runId` | string | (required) the Smithers run id to report on |
 | `title` | string or null | `null` (the render step derives a title from the run) |
 
-The rendered HTML is the `html` field of the `render` node output — read it with
+The rendered HTML is the `html` field of the `render` node output. Read it with
 `smithers inspect <runId>` or `smithers output <runId> --node render`.

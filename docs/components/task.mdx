@@ -76,7 +76,7 @@ Every agent task produces a reusable session snapshot. Use `fork` to start a new
 - `B` starts from a **copy** of `A`'s final agent session context, then submits its own prompt into that copy.
 - `B` produces its own output and its own session snapshot. `A` is never mutated.
 
-`fork` is immutable. It does not continue or mutate the source task — it copies the conversation into a fresh, independent session. Multiple tasks may fork the same source safely, and a forked task may itself be forked.
+`fork` is immutable. It does not continue or mutate the source task; it copies the conversation into a fresh, independent session. Multiple tasks may fork the same source safely, and a forked task may itself be forked.
 
 ```tsx
 const PLAN = "plan" as const;
@@ -98,7 +98,7 @@ const VERIFY = "verify" as const;
 
 `VERIFY` forks `IMPLEMENT`, which forked `PLAN`, so `VERIFY` sees the whole `plan → implement` conversation.
 
-**Parallel branches** — fork the same source from sibling tasks; each gets its own copy and they never affect each other:
+**Parallel branches**: fork the same source from sibling tasks; each gets its own copy and they never affect each other:
 
 ```tsx
 <Task id="investigate" agent={claude} output={outputs.investigation}>
@@ -115,14 +115,14 @@ const VERIFY = "verify" as const;
 </Parallel>
 ```
 
-`fork` composes with `dependsOn`, `needs`, `deps`, `Sequence`, `Parallel`, `Branch`, and `Loop`. Inside a loop, `fork` resolves to the **latest completed** session snapshot for that task id — there is no iteration selector and no ambiguity.
+`fork` composes with `dependsOn`, `needs`, `deps`, `Sequence`, `Parallel`, `Branch`, and `Loop`. Inside a loop, `fork` resolves to the **latest completed** session snapshot for that task id; there is no iteration selector and no ambiguity.
 
 ### Error cases
 
-- **`TASK_FORK_SOURCE_NOT_FOUND`** — `fork` points to a task id not present in the graph (including a source that exists only in an unselected `<Branch>`).
-- **`TASK_FORK_CYCLE`** — `fork` creates a cycle, directly or indirectly.
-- **`TASK_FORK_SESSION_UNAVAILABLE`** — the forking task is not an agent task, or the source completed but produced no usable session snapshot (e.g. a compute/static source, or a source that was skipped/cancelled).
-- **`TASK_FORK_SOURCE_NOT_COMPLETE`** — the source exists but has not completed; the forked task waits and does not run.
+- **`TASK_FORK_SOURCE_NOT_FOUND`**: `fork` points to a task id not present in the graph (including a source that exists only in an unselected `<Branch>`).
+- **`TASK_FORK_CYCLE`**: `fork` creates a cycle, directly or indirectly.
+- **`TASK_FORK_SESSION_UNAVAILABLE`**: the forking task is not an agent task, or the source completed but produced no usable session snapshot (e.g. a compute/static source, or a source that was skipped/cancelled).
+- **`TASK_FORK_SOURCE_NOT_COMPLETE`**: the source exists but has not completed; the forked task waits and does not run.
 
 ## Notes
 

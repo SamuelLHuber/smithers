@@ -1,6 +1,6 @@
 ---
 title: Workflow UI (Vanilla)
-description: A complete zero-dep workflow UI on `@smithers-orchestrator/gateway-client` — boot, live events, node output, approvals, all in one file.
+description: A complete zero-dep workflow UI on `@smithers-orchestrator/gateway-client`: boot, live events, node output, approvals, all in one file.
 ---
 
 This is the same workflow UI as the [React example](/examples/workflow-ui-react), built directly on `@smithers-orchestrator/gateway-client` with no framework. Pick this shape when you want a tiny bundle, when you already own your render layer (Solid, Lit, Mithril, plain DOM), or when you need the UI to render before any framework has booted.
@@ -34,12 +34,12 @@ function render(state: {
   main.innerHTML = `
     <header style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
       <h1 style="flex:1;font-size:16px;margin:0">Demo Vanilla Workflow UI</h1>
-      <span style="font-size:11px;padding:4px 10px;border-radius:999px;background:#1a1a1f;border:1px solid #2a2a30;text-transform:uppercase">${state.status ?? "—"}</span>
+      <span style="font-size:11px;padding:4px 10px;border-radius:999px;background:#1a1a1f;border:1px solid #2a2a30;text-transform:uppercase">${state.status ?? "-"}</span>
       <code data-testid="demo-run-id" style="font:12px ui-monospace;background:#1a1a1f;padding:2px 8px;border-radius:4px">${runId ?? "(none)"}</code>
     </header>
     <section style="background:#15151a;border:1px solid #26262d;border-radius:8px;padding:16px;margin-bottom:12px">
       <h2 style="font-size:12px;color:#8a8a92;text-transform:uppercase;margin:0 0 8px">Ship output</h2>
-      <pre data-testid="ship-output" style="margin:0;font:12px/1.5 ui-monospace;white-space:pre-wrap;color:#c5c5cc">${state.shipRow ? escapeHtml(JSON.stringify(state.shipRow, null, 2)) : "—"}</pre>
+      <pre data-testid="ship-output" style="margin:0;font:12px/1.5 ui-monospace;white-space:pre-wrap;color:#c5c5cc">${state.shipRow ? escapeHtml(JSON.stringify(state.shipRow, null, 2)) : "-"}</pre>
     </section>
     <section style="background:#15151a;border:1px solid #26262d;border-radius:8px;padding:16px;margin-bottom:12px">
       <h2 style="font-size:12px;color:#8a8a92;text-transform:uppercase;margin:0 0 8px">Live events <span data-testid="event-count">${state.eventCount}</span></h2>
@@ -112,12 +112,12 @@ async function refreshRun(): Promise<void> {
 async function refreshApprovals(): Promise<void> {
   if (!runId) return;
   try {
-    // `listApprovals` returns `GatewayApprovalSummary[]` directly — no wrapper.
+    // `listApprovals` returns `GatewayApprovalSummary[]` directly, with no wrapper.
     const res = await client.listApprovals({ filter: { runId, limit: 20 } });
     state.approvals = res.map((a) => ({ runId: a.runId, nodeId: a.nodeId, iteration: a.iteration }));
     render(state);
   } catch {
-    /* leave previous list — listApprovals is non-critical */
+    /* leave previous list; listApprovals is non-critical */
   }
 }
 
@@ -188,11 +188,11 @@ test("vanilla custom UI renders and reads the run id from ?runId=", async ({ pag
 });
 ```
 
-This is the *integration* test — bundle + serve + embed + deep-link — that catches the regressions vanilla bundles are most likely to hit.
+This is the *integration* test (bundle + serve + embed + deep-link) that catches the regressions vanilla bundles are most likely to hit.
 
 ## What this example demonstrates
 
-- **Vanilla SDK boot** — `new SmithersGatewayClient()` reads the boot config; no framework required.
+- **Vanilla SDK boot**: `new SmithersGatewayClient()` reads the boot config; no framework required.
 - **`?runId=` parsing** + same-origin RPC against the Gateway.
 - **`streamRunEventsResilient`** as an async generator for pushed updates and metrics, managed with an `AbortController` lifecycle.
 - **Node output reads**, **approvals**, and **submitApproval** with explicit error handling.

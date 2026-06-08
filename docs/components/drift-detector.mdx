@@ -14,9 +14,9 @@ type DriftDetectorProps = {
   captureOutput: OutputTarget;
   compareOutput: OutputTarget; // include `drifted: boolean`
   baseline: unknown;
-  alertIf?: (comparison: any) => boolean; // reserved — not yet evaluated at runtime
+  alertIf?: (comparison: any) => boolean; // reserved: not yet evaluated at runtime
   alert?: ReactElement;
-  poll?: { intervalMs: number; maxPolls?: number }; // default maxPolls = 100; intervalMs is reserved — not yet passed to the Loop
+  poll?: { intervalMs: number; maxPolls?: number }; // default maxPolls = 100; intervalMs is reserved, not yet passed to the Loop
   skipIf?: boolean;
 };
 ```
@@ -31,7 +31,7 @@ type DriftDetectorProps = {
     baseline={{ endpoints: ["/users", "/orders"], schemaHash: "abc123" }}
     alert={
       <Task id="notify" output={outputs.notify} agent={slackAgent}>
-        API drift detected — notify the team.
+        API drift detected. Notify the team.
       </Task>
     }
   />

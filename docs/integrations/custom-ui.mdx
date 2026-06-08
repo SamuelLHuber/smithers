@@ -1,14 +1,14 @@
 ---
 title: Custom UIs
-description: Build third-party UIs on top of the Smithers Gateway with the gateway-client and gateway-react SDKs — declarative queries, pushed updates, stale guards, reconnect/resume, backpressure, optimistic mutations, auth, vanilla JS, and React hooks.
+description: Build third-party UIs on top of the Smithers Gateway with the gateway-client and gateway-react SDKs. Declarative queries, pushed updates, stale guards, reconnect/resume, backpressure, optimistic mutations, auth, vanilla JS, and React hooks.
 ---
 
-The Smithers Gateway is a versioned RPC + WebSocket contract: any UI — `apps/smithers`, an Electron shell, a Slack bot, your own dashboard — talks to it through the same typed surface. This page is the contract for third-party UIs.
+The Smithers Gateway is a versioned RPC + WebSocket contract: any UI (`apps/smithers`, an Electron shell, a Slack bot, your own dashboard) talks to it through the same typed surface. This page is the contract for third-party UIs.
 
 There are two SDKs:
 
-- **`@smithers-orchestrator/gateway-client`** — framework-neutral. One small class (`SmithersGatewayClient`) with typed RPC methods, a resilient event stream, and no React dependency. Use it from vanilla JS, Node, Bun, workers, Svelte, Solid, anywhere.
-- **`@smithers-orchestrator/gateway-react`** — declarative hooks (`useGatewayRun`, `useGatewayRunEvents`, `useGatewayActions`, …) over the same client. Use it from React 19. The hooks own the lifecycle: stale-result guards, abort on unmount, ring-buffered event feeds.
+- **`@smithers-orchestrator/gateway-client`**: framework-neutral. One small class (`SmithersGatewayClient`) with typed RPC methods, a resilient event stream, and no React dependency. Use it from vanilla JS, Node, Bun, workers, Svelte, Solid, anywhere.
+- **`@smithers-orchestrator/gateway-react`**: declarative hooks (`useGatewayRun`, `useGatewayRunEvents`, `useGatewayActions`, …) over the same client. Use it from React 19. The hooks own the lifecycle: stale-result guards, abort on unmount, ring-buffered event feeds.
 
 Pick the client for plumbing, the React layer for views.
 
@@ -26,7 +26,7 @@ import {
 } from "smithers-orchestrator/gateway-react";
 ```
 
-The scoped packages (`@smithers-orchestrator/gateway-client`, `@smithers-orchestrator/gateway-react`) work equivalently — use whichever your bundler / version policy prefers. Both ship typed RPC params and payloads keyed off the gateway's `GatewayRpcMethod` union, so a typo at the call site is a build error.
+The scoped packages (`@smithers-orchestrator/gateway-client`, `@smithers-orchestrator/gateway-react`) work equivalently; use whichever your bundler / version policy prefers. Both ship typed RPC params and payloads keyed off the gateway's `GatewayRpcMethod` union, so a typo at the call site is a build error.
 
 ## The client (vanilla)
 
@@ -77,7 +77,7 @@ const list = await gateway.rpc(
 controller.abort(); // cancels mid-flight
 ```
 
-`gateway.rpc(method, params)` is the generic escape hatch — use the typed wrappers (`gateway.listRuns`, `gateway.getRun`, `gateway.launchRun`, …) for autocomplete and stronger inference.
+`gateway.rpc(method, params)` is the generic escape hatch; use the typed wrappers (`gateway.listRuns`, `gateway.getRun`, `gateway.launchRun`, …) for autocomplete and stronger inference.
 
 ### Pushed updates over WebSocket
 
@@ -95,7 +95,7 @@ for await (const frame of gateway.streamRunEvents(
 }
 ```
 
-Drop a stream by aborting the signal or `break`-ing the loop — the helper closes the underlying socket either way.
+Drop a stream by aborting the signal or `break`-ing the loop; the helper closes the underlying socket either way.
 
 ### Reconnect + resume (no lost frames)
 
@@ -134,11 +134,11 @@ async function refresh(runId: string) {
 }
 ```
 
-For React, `useGatewayRpc` does this internally — see below.
+For React, `useGatewayRpc` does this internally; see below.
 
 ### Backpressure
 
-The gateway protects itself: over-capacity subscribers receive a `BackpressureDisconnect` close. Treat it like any other drop — `streamRunEventsResilient` already reconnects with backoff, so the UI naturally throttles to the rate the gateway can serve. For HTTP RPCs the gateway returns `429` / `RateLimited`; catch the error and retry with `gatewayBackoffDelay(attempt, …)`:
+The gateway protects itself: over-capacity subscribers receive a `BackpressureDisconnect` close. Treat it like any other drop; `streamRunEventsResilient` already reconnects with backoff, so the UI naturally throttles to the rate the gateway can serve. For HTTP RPCs the gateway returns `429` / `RateLimited`; catch the error and retry with `gatewayBackoffDelay(attempt, …)`:
 
 ```ts
 import { gatewayBackoffDelay, GatewayRpcError } from "smithers-orchestrator/gateway-client";
@@ -182,17 +182,17 @@ async function approve(nodeId: string, runId: string) {
 }
 ```
 
-The pushed `approval.decided` event will arrive shortly after — when it does, reconcile against the server-truth value rather than your guess.
+The pushed `approval.decided` event will arrive shortly after. When it does, reconcile against the server-truth value rather than your guess.
 
 ### Auth handling
 
 `token` is sent as a bearer header on every request, including the WebSocket handshake. When the gateway rejects with `Unauthorized` / `Forbidden`, the error carries:
 
 - `code: "Unauthorized" | "Forbidden"`
-- `requiredScope?: string` — the scope the call needs (e.g. `"run:write"`).
-- `refresh?: string` — a hint string set by your auth plane (e.g. `"reauth"`).
+- `requiredScope?: string`: the scope the call needs (e.g. `"run:write"`).
+- `refresh?: string`: a hint string set by your auth plane (e.g. `"reauth"`).
 
-A token refresh is just constructing a new client with the new bearer — `SmithersGatewayProvider` re-memoizes on token change, so React UIs see a clean cutover:
+A token refresh is just constructing a new client with the new bearer; `SmithersGatewayProvider` re-memoizes on token change, so React UIs see a clean cutover:
 
 ```tsx
 function App({ token }: { token: string }) {
@@ -222,7 +222,7 @@ export function App({ token }: { token: string }) {
 }
 ```
 
-`createGatewayReactRoot(<App />, { baseUrl, token, rootId: "root" })` is the one-liner for top-level mounting — it wires the provider and `createRoot` for you and returns the client so you can call RPCs from event handlers outside React.
+`createGatewayReactRoot(<App />, { baseUrl, token, rootId: "root" })` is the one-liner for top-level mounting; it wires the provider and `createRoot` for you and returns the client so you can call RPCs from event handlers outside React.
 
 ### Declarative queries
 
@@ -255,16 +255,16 @@ useGatewayApprovals({ filter: { runId: "run-1" } });           // listApprovals
 useGatewayNodeOutput({ runId, nodeId, iteration: 3 });         // getNodeOutput
 ```
 
-Pass `undefined` for the key (e.g. `useGatewayRun(undefined)`) and the hook reports `loading: false` and clears `data` — perfect for routes where the runId is not yet selected.
+Pass `undefined` for the key (e.g. `useGatewayRun(undefined)`) and the hook reports `loading: false` and clears `data`, perfect for routes where the runId is not yet selected.
 
 ### Pushed updates (with ring-buffer)
 
 `useGatewayRunEvents(runId, { afterSeq?, maxEvents? })` subscribes via `streamRunEventsResilient` and exposes:
 
-- `events` — a capped array of run-event frames. Defaults to 1000; setting `maxEvents` keeps the buffer bounded so a long-lived run does not balloon memory.
-- `lastHeartbeat` — surfaced separately so heartbeats never crowd out real events.
-- `error` — the last terminal error (only set when the subscription failed without the component aborting).
-- `streaming` — `true` while the iterator is live; flips to `false` on completion.
+- `events`: a capped array of run-event frames. Defaults to 1000; setting `maxEvents` keeps the buffer bounded so a long-lived run does not balloon memory.
+- `lastHeartbeat`: surfaced separately so heartbeats never crowd out real events.
+- `error`: the last terminal error (only set when the subscription failed without the component aborting).
+- `streaming`: `true` while the iterator is live; flips to `false` on completion.
 
 ```tsx
 function RunFeed({ runId }: { runId: string }) {
@@ -283,7 +283,7 @@ function RunFeed({ runId }: { runId: string }) {
 }
 ```
 
-Unmount or change `runId` and the hook aborts the underlying signal — no manual cleanup, no race against a now-stale `runId`.
+Unmount or change `runId` and the hook aborts the underlying signal: no manual cleanup, no race against a now-stale `runId`.
 
 ### Mutations + optimistic UI
 
@@ -317,11 +317,11 @@ function Approve({ runId, nodeId }: { runId: string; nodeId: string }) {
 }
 ```
 
-`useGatewayRunEvents` will push `approval.decided` shortly after — reconcile against it in a parent effect rather than holding the optimistic state forever.
+`useGatewayRunEvents` will push `approval.decided` shortly after; reconcile against it in a parent effect rather than holding the optimistic state forever.
 
 ### One client per app
 
-The provider is a singleton boundary. Mounting two providers with different tokens creates two clients with separate WebSocket connections; mounting one provider with an inline options literal does *not* — the client is memoized on `baseUrl` + `token`. Rotate auth by changing the `token` prop, not by recreating the provider.
+The provider is a singleton boundary. Mounting two providers with different tokens creates two clients with separate WebSocket connections; mounting one provider with an inline options literal does *not*; the client is memoized on `baseUrl` + `token`. Rotate auth by changing the `token` prop, not by recreating the provider.
 
 ## A minimal third-party UI
 
@@ -371,11 +371,11 @@ export function Dashboard() {
 }
 ```
 
-Every piece — pushed updates, reconnect, stale guards, abort on unmount, optimistic mutations — is already wired by the hooks.
+Every piece (pushed updates, reconnect, stale guards, abort on unmount, optimistic mutations) is already wired by the hooks.
 
 ## Boot config (when the gateway hosts your UI)
 
-When you serve a UI directly off `gateway.register(name, workflow, { ui })`, the gateway sets `globalThis.__SMITHERS_GATEWAY_UI__` on the page before your bundle runs. `SmithersGatewayClient` reads it automatically and points the WebSocket at the workflow-scoped path (typically `ws+unix:///…:/rpc` or `/v1/ws/<workflow>`). Your UI code does not need to know — `new SmithersGatewayClient()` Just Works.
+When you serve a UI directly off `gateway.register(name, workflow, { ui })`, the gateway sets `globalThis.__SMITHERS_GATEWAY_UI__` on the page before your bundle runs. `SmithersGatewayClient` reads it automatically and points the WebSocket at the workflow-scoped path (typically `ws+unix:///…:/rpc` or `/v1/ws/<workflow>`). Your UI code does not need to know; `new SmithersGatewayClient()` Just Works.
 
 To opt out (e.g. you embed the SDK in a page hosted elsewhere), pass an explicit `baseUrl` and the boot config is ignored.
 

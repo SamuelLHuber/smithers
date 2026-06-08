@@ -57,4 +57,4 @@ const freestyleProvider = createFreestyleSandboxProvider({
 
 Freestyle VM creation supports shipping files at create time with `additionalFiles`, setting a `workdir`, cloning repositories, and running commands with `vm.exec()`. That maps cleanly to the Smithers provider contract: Smithers creates the request bundle, the provider moves enough context into the VM, the VM command writes a result JSON file, and Smithers validates/applies the result bundle.
 
-Return a `diffBundle` (a Smithers diff-bundle object) from the provider for file changes — Smithers will surface them through the same review-and-apply path used by `<Sandbox reviewDiffs>`.
+Return a `diffBundle` (a Smithers diff-bundle object) from the provider for file changes, and Smithers will surface them through the same review-and-apply path used by `<Sandbox reviewDiffs>`.

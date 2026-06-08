@@ -1,9 +1,9 @@
 ---
 title: Serve Mode
-description: Run a single workflow as an HTTP server with Hono — interact with it over REST, stream events via SSE, and manage approvals remotely.
+description: Run a single workflow as an HTTP server with Hono. Interact with it over REST, stream events via SSE, and manage approvals remotely.
 ---
 
-Serve mode starts a Hono-based HTTP server alongside a running workflow. Every route operates on the single active run — no workflow path or run ID in requests.
+Serve mode starts a Hono-based HTTP server alongside a running workflow. Every route operates on the single active run, with no workflow path or run ID in requests.
 
 ## CLI
 
@@ -50,7 +50,7 @@ Bun.serve({ port: 3000, fetch: app.fetch });
 ```ts
 type ServeOptions = {
   workflow: SmithersWorkflow<unknown>;   // loaded workflow instance
-  adapter: SmithersDb;               // database adapter; typically drizzle("./smithers.db") — see HTTP Server for the equivalent db config
+  adapter: SmithersDb;               // database adapter; typically drizzle("./smithers.db"); see HTTP Server for the equivalent db config
   runId: string;                     // active run ID
   abort: AbortController;            // shared cancellation controller
   authToken?: string;                // bearer token; falls back to SMITHERS_API_KEY; disabled if unset
@@ -125,7 +125,7 @@ Rendered workflow frames.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `limit` | `number` | `50` | Max frames |
-| `afterFrameNo` | `number` | — | Frames after this number |
+| `afterFrameNo` | `number` | - | Frames after this number |
 
 ### POST /approve/:nodeId
 
@@ -149,7 +149,7 @@ Cancel the running workflow.
 
 | Status | Code | Condition |
 |---|---|---|
-| 200 | — | Cancelled successfully |
+| 200 | - | Cancelled successfully |
 | 409 | `RUN_NOT_ACTIVE` | Run is not actively running (e.g. already finished, failed, cancelled, continued, or its heartbeat has gone stale) |
 
 > **Note:** Runs in `waiting-approval` or `waiting-timer` state are cancelled immediately and return `200`.

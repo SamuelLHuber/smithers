@@ -1,12 +1,12 @@
 ---
 title: GitHub Copilot
-description: Run Smithers from GitHub Copilot — register the MCP server in VS Code and in the Copilot coding agent, install the skill, and add custom instructions.
+description: Run Smithers from GitHub Copilot. Register the MCP server in VS Code and in the Copilot coding agent, install the skill, and add custom instructions.
 ---
 
 [GitHub Copilot](https://docs.github.com/copilot) extends through **MCP
 servers**, **skills**, **custom instructions**, and **prompt files**. Copilot has
-two surfaces with *different* MCP schemas — the in-editor agent (VS Code) and the
-autonomous coding agent (cloud) — so they're covered separately below.
+two surfaces with *different* MCP schemas, the in-editor agent (VS Code) and the
+autonomous coding agent (cloud), so they're covered separately below.
 
 ```bash
 bunx smithers-orchestrator skills add --agent copilot
@@ -36,7 +36,7 @@ Reload the window and the Smithers tools appear in Copilot Chat's agent mode.
 ## MCP in the Copilot coding agent
 
 The autonomous coding agent is configured in **repo Settings → Copilot → Coding
-agent → MCP configuration**. It uses a different schema — `mcpServers`, a
+agent → MCP configuration**. It uses a different schema: `mcpServers`, a
 `type` of `"local"`, and a `tools` array:
 
 ```json
@@ -54,7 +54,7 @@ agent → MCP configuration**. It uses a different schema — `mcpServers`, a
 
 Secrets are Actions/Agents secrets prefixed `COPILOT_MCP_` and referenced as
 `$VAR` in the `env` block. The semantic tool surface is the same on both
-surfaces — see the [MCP Server reference](/integrations/mcp-server).
+surfaces; see the [MCP Server reference](/integrations/mcp-server).
 
 ## Custom instructions
 
@@ -81,5 +81,5 @@ curl -fsSL https://smithers.sh/llms-full.txt \
 
 ## See also
 
-- [MCP Server](/integrations/mcp-server) — the full tool reference
-- [Agent Support](/agents/overview) — the cross-agent commands
+- [MCP Server](/integrations/mcp-server): the full tool reference
+- [Agent Support](/agents/overview): the cross-agent commands

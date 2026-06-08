@@ -92,7 +92,7 @@ try {
 | `TASK_ABORTED` | A running task is aborted through an AbortSignal or shutdown path. | -- |
 | `TASK_FORK_SOURCE_NOT_FOUND` | A `<Task fork>` references a source task id that is not present in the workflow graph (including a source that exists only in an unselected branch). | `{ nodeId, forkSource }` |
 | `TASK_FORK_SOURCE_NOT_COMPLETE` | A forked task began executing but its fork source has not completed, so no session snapshot exists yet. | `{ nodeId, forkSource }` |
-| `TASK_FORK_SESSION_UNAVAILABLE` | A `<Task fork>` cannot obtain a usable agent session snapshot — the forking task is not an agent task, or the source completed without producing a forkable conversation (e.g. a compute/static, skipped, or cancelled source). | `{ nodeId, forkSource }` |
+| `TASK_FORK_SESSION_UNAVAILABLE` | A `<Task fork>` cannot obtain a usable agent session snapshot, either because the forking task is not an agent task or because the source completed without producing a forkable conversation (e.g. a compute/static, skipped, or cancelled source). | `{ nodeId, forkSource }` |
 | `TASK_FORK_CYCLE` | A `<Task fork>` introduces a dependency cycle, directly or indirectly. | `{ nodeId, forkSource }` |
 | `RUN_NOT_FOUND` | A CLI or engine command references a run ID that does not exist in the database. | `{ runId }` |
 | `NODE_NOT_FOUND` | A CLI command references a node ID that does not exist for the given run. | `{ runId, nodeId }` |
@@ -105,7 +105,7 @@ try {
 | `HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE` | A task heartbeat payload contains values that cannot be serialized to JSON. | `{ path, valueType? }` |
 | `RUN_CANCELLED` | A run is cancelled while runtime work is still active. | `{ runId }` |
 | `RUN_NOT_RESUMABLE` | A resume request targets a run state that cannot be resumed. | `{ runId, status }` |
-| `RUN_OWNER_ALIVE` | A resume attempt is skipped because the process that started the run is still alive (heartbeating). This is normal — it prevents two processes from running the same workflow simultaneously. | `{ runId, runtimeOwnerId }` |
+| `RUN_OWNER_ALIVE` | A resume attempt is skipped because the process that started the run is still alive (heartbeating). This is normal; it prevents two processes from running the same workflow simultaneously. | `{ runId, runtimeOwnerId }` |
 | `RUN_STILL_RUNNING` | A recovery or resume operation finds a run that is still active. | `{ runId }` |
 | `RUN_RESUME_CLAIM_LOST` | A runtime loses the resume claim before it can update the run. | `{ runId, runtimeOwnerId }` |
 | `RUN_RESUME_CLAIM_FAILED` | A runtime cannot claim a stale run for resume. | `{ runId, runtimeOwnerId }` |

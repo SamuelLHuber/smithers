@@ -15,19 +15,19 @@ lands alongside a derived `RunState` model for richer run observability.
   `sandbox`, `scheduler`, `scorers`, `openapi`, `memory`, `vcs`, `graph`,
   `errors`, `protocol`, and `examples`) has been migrated to `.js` files with
   `.d.ts`-style type-only `.ts` stubs next to each module. Build, test, and
-  import paths are unchanged — but anyone patching the runtime should expect to
+  import paths are unchanged, but anyone patching the runtime should expect to
   edit `.js` sources rather than `.ts`.
 
 - **Removed packages.** The following have been deleted outright:
 
-  - `packages/durables` — no longer used by the engine.
-  - `packages/rag` and `packages/voice` — dropped from the product surface;
+  - `packages/durables`: no longer used by the engine.
+  - `packages/rag` and `packages/voice`: dropped from the product surface;
     matching metrics have been removed from observability.
-  - `packages/tools` — the separate workspace package is gone. Public built-in
+  - `packages/tools`: the separate workspace package is gone. Public built-in
     helpers remain exported from `smithers-orchestrator` and
     `smithers-orchestrator/tools`: `tools`, `read`, `write`, `edit`, `grep`,
     `bash`, `defineTool`, and `getDefinedToolMetadata`.
-  - Python SDK, examples, and integration code — smithers is TypeScript/JS only
+  - Python SDK, examples, and integration code: smithers is TypeScript/JS only
     now.
   - `jjhub` workflows, the IDE / GitHub bot / Pi plugin integrations docs, and
     the Effect-ts integration doc page.
@@ -206,7 +206,7 @@ llms-full.txt has been reduced from 250k tokens to 66k tokens making it viable t
   extracted as its own page.
 - Runtime API pages slimmed; every component page compressed to props plus
   one example.
-- Concept and guide pages consolidated — `memory` and `openapi` fleshed out;
+- Concept and guide pages consolidated; `memory` and `openapi` fleshed out,
   merged pages stubbed with redirects.
 - Aggressive trim across the integrations surface; the IDE, GitHub bot, Pi
   extension, Pi plugin, and Effect-ts integration pages are gone.

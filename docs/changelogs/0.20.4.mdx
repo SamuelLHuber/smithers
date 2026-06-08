@@ -14,8 +14,8 @@ schema-driven outputs now demand raw JSON without code fences.
   `package.json`.** When you run `smithers` inside a directory whose
   `.smithers/node_modules/` ships its own copy of
   `smithers-orchestrator`, the global bin re-execs into that local
-  copy so the workflow runtime — engine, react-reconciler,
-  components, React — all load from a single module tree. Previously
+  copy so the workflow runtime (engine, react-reconciler,
+  components, React) all loads from a single module tree. Previously
   the global bin handed the local pnpm/npm `.bin/smithers` *shell
   shim* to `process.execPath` (bun), which tried to parse the
   `#!/bin/sh` shim as JavaScript and crashed with
@@ -36,7 +36,7 @@ schema-driven outputs now demand raw JSON without code fences.
   block.** When the engine asks an agent to emit a typed output and
   the agent doesn't support native structured outputs, the appended
   prompt now instructs the agent to return ONLY the raw JSON object
-  — no markdown, no headings, no `` ```json `` fence — and to start
+  (no markdown, no headings, no `` ```json `` fence) and to start
   the response with `{` and end with `}`. The validation-retry and
   schema-summary prompts received the same tightening. This matches
   what the downstream parser expects and removes the failure mode

@@ -38,7 +38,7 @@ Supported `expected` checks:
 
 - `status`: one of `finished`, `continued`, `failed`, `cancelled`, `waiting-approval`, `waiting-event`, or `waiting-timer`
 - `output`: exact JSON match against the workflow result output
-- `outputContains`: recursive partial JSON match (array elements are matched by containment — at least one array element must match the partial object)
+- `outputContains`: recursive partial JSON match (array elements are matched by containment, so at least one array element must match the partial object)
 - `errorContains`: substring match against thrown errors
 
 For standard workflows, output assertions match the persisted output snapshot, keyed by output name.

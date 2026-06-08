@@ -10,7 +10,7 @@ type TimerProps = {
   id: string;
   duration?: string; // "500ms" | "30s" | "2h" | "7d"; exactly one of duration/until required
   until?: string | Date; // ISO 8601 string or Date
-  every?: string; // reserved — recurring timers ship in phase 2; throws if set
+  every?: string; // reserved: recurring timers ship in phase 2; throws if set
   skipIf?: boolean;
   dependsOn?: string[];
   needs?: Record<string, string>;

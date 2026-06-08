@@ -2,7 +2,7 @@
 
 0.17.0 ships **Gateway v1**: the Gateway's RPC schema, scope vocabulary,
 error codes, and OpenAPI document are now a stable, separately published
-package — `@smithers-orchestrator/gateway` — so external clients (bots,
+package (`@smithers-orchestrator/gateway`) so external clients (bots,
 dashboards, SDKs in other languages) can build against the contract instead
 of the server source. 0.15.0 launched the Gateway; 0.17.0 commits to its
 wire shape.
@@ -34,11 +34,11 @@ single-Effect-version guardrail and a new fault-injection E2E lane.
 
 ---
 
-## Gateway v1 — Stable RPC Contract as a Standalone Package
+## Gateway v1: Stable RPC Contract as a Standalone Package
 
 0.15.0 shipped the Gateway. 0.17.0 ships the **contract**. The Gateway's RPC
 schema, scope vocabulary, error codes, and OpenAPI document now live in their
-own workspace package — `@smithers-orchestrator/gateway` — and are the single
+own workspace package (`@smithers-orchestrator/gateway`) and are the single
 source of truth that both the in-process server and any external client
 codegen against. The server no longer carries its own copy of the method or
 scope tables; clients no longer have to scrape the source to learn the wire
@@ -57,21 +57,21 @@ typed client SDK in another language, this is the package you import.
   `LaunchRunRequest`, `LaunchRunResponse`).
 - **JSON Schema** for every params and result type, exported as data so
   clients can validate without a TypeScript compiler.
-- **A v1 error vocabulary** — `InvalidRequest`, `InvalidInput`,
+- **A v1 error vocabulary**: `InvalidRequest`, `InvalidInput`,
   `Unauthorized`, `Forbidden`, `RunNotFound`, `NodeNotFound`,
   `IterationNotFound`, `NodeHasNoOutput`, `FrameOutOfRange`, `SeqOutOfRange`,
   `Busy`, `RateLimited`, `PayloadTooLarge`, `BackpressureDisconnect`,
-  `UnsupportedSandbox`, `VcsError`, `RewindFailed`, `Internal` — each
+  `UnsupportedSandbox`, `VcsError`, `RewindFailed`, `Internal`, each
   pinned to an HTTP status.
 - **A typed scope vocabulary** (see below) with a hierarchy aware of legacy
   `read`/`execute`/`approve`/`admin` grants for backward compatibility.
 - **Generated `openapi.yaml`** at `packages/gateway/openapi.yaml`,
   re-derived by `bun run generate:openapi` and CI-checked.
-- **18 reference docs** under `docs/rpc/` — one per method.
+- **18 reference docs** under `docs/rpc/`, one per method.
 
 ### Importing the contract
 
-The package has three subpath exports — pick the smallest surface that fits:
+The package has three subpath exports. Pick the smallest surface that fits:
 
 ```ts
 // Everything (request/response types, schemas, scopes, helpers).
@@ -187,8 +187,8 @@ match and understands legacy grants:
 
 Hierarchical: `run:admin` implies `run:write` implies `run:read`. Same for
 `cron:write` over `cron:read`. The legacy `read`/`execute`/`approve`/`admin`
-grants from 0.15 / 0.16 are still accepted — `admin` matches everything,
-`execute` covers `run:write` / `signal:submit` / `cron:write`, and so on —
+grants from 0.15 / 0.16 are still accepted (`admin` matches everything,
+`execute` covers `run:write` / `signal:submit` / `cron:write`, and so on),
 so existing tokens keep working.
 
 ```ts
@@ -245,7 +245,7 @@ checked at PR time, so the YAML cannot drift from the runtime.
 ### Server adoption
 
 `packages/server/src/gateway.js` no longer ships its own method or scope
-table — it imports `getRequiredScopeForGatewayMethod`, `hasGatewayScope`,
+table. It imports `getRequiredScopeForGatewayMethod`, `hasGatewayScope`,
 and the per-method JSON Schemas straight from
 `@smithers-orchestrator/gateway`. A new 283-line contract test
 (`packages/server/tests/gateway-v1-contract.test.jsx`) pins the wire shape
@@ -254,15 +254,15 @@ contract.
 
 ---
 
-## New: `<Task hijack>` — resumable agent handoffs
+## New: `<Task hijack>`, resumable agent handoffs
 
 `<Task>` gains two new props for handing the active session over to an
 interactive agent without losing run state:
 
-- **`hijack: boolean`** — when set, the engine records a hijack handoff before
+- **`hijack: boolean`**: when set, the engine records a hijack handoff before
   the task starts running. The next CLI invocation can pick up the same agent
   session interactively.
-- **`onHijackExit: "complete" | "reopen"`** — controls what happens when the
+- **`onHijackExit: "complete" | "reopen"`**: controls what happens when the
   hijacked session closes: `complete` finishes the task as if it ran to
   completion; `reopen` restarts the task on the next resume.
 
@@ -358,13 +358,13 @@ Two subscriptions can run concurrently in the same process:
 ```ts
 import { ClaudeCodeAgent } from "@smithers-orchestrator/agents";
 
-// Subscription #1 — pinned to ~/.smithers/configs/claude-work
+// Subscription #1, pinned to ~/.smithers/configs/claude-work
 const claudeWork = new ClaudeCodeAgent({
   model: "claude-opus-4-7",
   configDir: "~/.smithers/configs/claude-work",
 });
 
-// Subscription #2 — pinned to ~/.smithers/configs/claude-personal
+// Subscription #2, pinned to ~/.smithers/configs/claude-personal
 const claudePersonal = new ClaudeCodeAgent({
   model: "claude-opus-4-7",
   configDir: "~/.smithers/configs/claude-personal",
@@ -393,7 +393,7 @@ smithers chat create --agent claude --cwd .
 # (or --agent codex / --agent gemini)
 ```
 
-End the chat by sending an empty JSON object `{}` — control returns to
+End the chat by sending an empty JSON object `{}`. Control returns to
 the workflow and the task completes.
 
 ### MDX and generated workflow packs
@@ -510,8 +510,8 @@ interleaving, and OpenAPI execution / `$ref` cycles.
 ## New: Memory id encoding
 
 `namespaceToString` now percent-encodes `:` and `%` inside `id`, and
-`parseNamespace` decodes them on the way back. IDs containing colons —
-e.g. `{ kind: "workflow", id: "task:subtask:0" }` — round-trip without
+`parseNamespace` decodes them on the way back. IDs containing colons,
+e.g. `{ kind: "workflow", id: "task:subtask:0" }`, round-trip without
 ambiguity:
 
 ```ts
@@ -570,10 +570,10 @@ thresholds (high → 1.0, low → 0.7) and an RCTF (Role / Context / Task /
 Format) scaffold. Approved prompts are persisted to one of three pluggable
 caches:
 
-- **`MarkdownPromptCache`** (default) — writes
+- **`MarkdownPromptCache`** (default): writes
   `.smithers/cache/prompts/{slug}.md`.
-- **`SqlitePromptCache`** — single-file durable cache.
-- **`MemoryPromptCache`** — in-process for tests.
+- **`SqlitePromptCache`**: single-file durable cache.
+- **`MemoryPromptCache`**: in-process for tests.
 
 ```tsx
 /** @jsxImportSource smithers-orchestrator */
@@ -701,8 +701,8 @@ Two GitHub Actions lanes run the suite:
   loop instead of being attempted up to `maxAttempts` times.
 
 - **New `AGENT_CONFIG_INVALID` error code.** Used for deterministic config
-  failures — expired/invalid CLI credentials, "LLM not set", "unknown
-  model" — and marked non-retryable by default. Agents proactively detect
+  failures (expired/invalid CLI credentials, "LLM not set", "unknown
+  model") and marked non-retryable by default. Agents proactively detect
   expired CLI credentials and classify auth-failure patterns from CLI
   output.
 
@@ -734,7 +734,7 @@ Two GitHub Actions lanes run the suite:
   when the workflow declared an output schema, so callers had to cast to
   get the real row shape that the runtime was already returning. They are
   now generic over the table parameter and return
-  `OutputForTable<Schema, Table>`. No runtime change — only the types
+  `OutputForTable<Schema, Table>`. No runtime change; only the types
   catch up to what the runtime was always producing:
 
   ```ts

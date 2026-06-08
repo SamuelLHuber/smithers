@@ -53,6 +53,6 @@ type AspectsProps = {
 
 ## Notes
 
-- Nested `<Aspects>` inherit outer budget configs wholesale — if an inner `<Aspects>` sets `tokenBudget`, `latencySlo`, or `costBudget`, that field's entire parent config object is replaced (no per-field merge). The `tracking` config is the exception: `tokens`, `latency`, and `cost` each fall back to the parent value independently.
+- Nested `<Aspects>` inherit outer budget configs wholesale. If an inner `<Aspects>` sets `tokenBudget`, `latencySlo`, or `costBudget`, that field's entire parent config object is replaced (no per-field merge). The `tracking` config is the exception: `tokens`, `latency`, and `cost` each fall back to the parent value independently.
 - Budgets enforce regardless of `tracking`; `tracking` controls metric emission only.
 - Accumulator is per-run and resets on resume.

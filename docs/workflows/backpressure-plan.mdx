@@ -16,8 +16,8 @@ bunx smithers-orchestrator workflow run backpressure-plan \
 
 ## Stages
 
-1. **extract-criteria** — pull the prompt apart into a flat list of atomic, verifiable acceptance criteria.
-2. **plan-gates** — map each criterion to a `verificationMethod`, `gateType` (blocking / warning / informational), who checks it, the failure action, the evidence required, and whether a human approval is needed. Every blocking criterion must map to a real verification method.
+1. **extract-criteria**: pull the prompt apart into a flat list of atomic, verifiable acceptance criteria.
+2. **plan-gates**: map each criterion to a `verificationMethod`, `gateType` (blocking / warning / informational), who checks it, the failure action, the evidence required, and whether a human approval is needed. Every blocking criterion must map to a real verification method.
 
 ## Inputs
 
@@ -25,6 +25,6 @@ bunx smithers-orchestrator workflow run backpressure-plan \
 | --- | --- | --- |
 | `prompt` | string | `"Describe the goal and its acceptance criteria in plain English."` |
 
-Use this when you want a run that can apply real backpressure — every criterion has
+Use this when you want a run that can apply real backpressure: every criterion has
 a check and an evidence requirement, so the workflow cannot silently skip the parts
 it could not finish.

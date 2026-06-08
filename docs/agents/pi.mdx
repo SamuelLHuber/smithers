@@ -1,13 +1,13 @@
 ---
 title: Pi
-description: Run Smithers from Pi — install the skill, or use the first-party pi-plugin that embeds a live run inspector right in the Pi TUI.
+description: Run Smithers from Pi. Install the skill, or use the first-party pi-plugin that embeds a live run inspector right in the Pi TUI.
 ---
 
 [Pi](https://github.com/badlogic/pi-mono) (`@mariozechner/pi-coding-agent`) is a
-terminal coding agent with a rich extension model — **TypeScript extensions**,
+terminal coding agent with a rich extension model: **TypeScript extensions**,
 **pi packages**, **skills**, and `AGENTS.md` instructions. Smithers has a
 **first-party Pi plugin** that goes deeper than any other agent: it embeds a live
-run inspector — run tree, frame scrubber, node inspector — directly in the Pi TUI.
+run inspector (run tree, frame scrubber, node inspector) directly in the Pi TUI.
 
 <Note>
 Pi has **no built-in MCP client** ("No MCP" is by design). So unlike Claude Code
@@ -20,7 +20,7 @@ MCP server.
 `@smithers-orchestrator/pi-plugin` wraps the Smithers control plane as a Pi
 extension. It registers tools to launch, approve, deny, cancel, and stream
 workflow runs, and renders the run inspector inline. This is the tightest
-integration Smithers ships — Pi becomes a full Smithers operator console.
+integration Smithers ships: Pi becomes a full Smithers operator console.
 
 See the dedicated guide for setup and the three integration modes (Pi as a
 workflow agent, Pi as a server client, and the hybrid): **[Pi integration](/integrations/pi-integration)**.

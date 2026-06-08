@@ -1,6 +1,6 @@
 ---
 title: Cursor
-description: Run Smithers from Cursor — register the MCP server, install the skill, add a project rule, and drive it headless with cursor-agent.
+description: Run Smithers from Cursor. Register the MCP server, install the skill, add a project rule, and drive it headless with cursor-agent.
 ---
 
 [Cursor](https://cursor.com/docs) extends through **MCP servers**, **skills**,
@@ -18,8 +18,8 @@ server. Reopen Cursor and the Smithers tools are available in the Agent.
 ## Register the MCP server
 
 `mcp add` writes the registration. To do it by hand, create
-`.cursor/mcp.json` in the project (or `~/.cursor/mcp.json` for all projects) —
-note Cursor uses the `mcpServers` key:
+`.cursor/mcp.json` in the project (or `~/.cursor/mcp.json` for all projects).
+Note Cursor uses the `mcpServers` key:
 
 ```json
 {
@@ -32,8 +32,8 @@ note Cursor uses the `mcpServers` key:
 }
 ```
 
-The server exposes the semantic tools — `list_workflows`, `run_workflow`,
-`watch_run`, `resolve_approval`, and the rest. See the
+The server exposes the semantic tools (`list_workflows`, `run_workflow`,
+`watch_run`, `resolve_approval`, and the rest). See the
 [MCP Server reference](/integrations/mcp-server).
 
 ## Install the skill
@@ -64,23 +64,23 @@ Smithers is a durable control plane for long-running coding agents.
 Run `bunx smithers-orchestrator starters` to list ready-made workflows.
 ```
 
-Cursor also reads a plain `AGENTS.md` at the repo root as a simpler alternative —
+Cursor also reads a plain `AGENTS.md` at the repo root as a simpler alternative,
 the same file Codex and Copilot use.
 
 ## Headless: cursor-agent
 
 `cursor-agent` runs Cursor's agent in the terminal and honors the same
-`.cursor/` config — so the MCP server, skill, and rule above all apply in CI:
+`.cursor/` config, so the MCP server, skill, and rule above all apply in CI:
 
 ```bash
 cursor-agent chat "use Smithers to run the implement workflow on this ticket"
 ```
 
 Because `cursor-agent` is a CLI, Smithers can also spawn it as a worker inside a
-workflow via a [compute task that shells out](/integrations/integrations#pattern-3-run-an-external-cli-in-a-task) —
+workflow via a [compute task that shells out](/integrations/integrations#pattern-3-run-an-external-cli-in-a-task);
 there is no dedicated `CursorAgent` class yet.
 
 ## See also
 
-- [MCP Server](/integrations/mcp-server) — the full tool reference
-- [Agent Support](/agents/overview) — the cross-agent commands
+- [MCP Server](/integrations/mcp-server): the full tool reference
+- [Agent Support](/agents/overview): the cross-agent commands

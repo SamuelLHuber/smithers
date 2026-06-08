@@ -32,5 +32,5 @@ type ParallelProps = {
 
 ## Notes
 
-- Group completes when all children finish. To let the group proceed past a failing child, set `continueOnFail` on that individual child `<Task>` — it is not a `<Parallel>` prop.
+- Group completes when all children finish. To let the group proceed past a failing child, set `continueOnFail` on that individual child `<Task>`. It is not a `<Parallel>` prop.
 - Children receive `parallelGroupId` and `parallelMaxConcurrency` in their descriptor.

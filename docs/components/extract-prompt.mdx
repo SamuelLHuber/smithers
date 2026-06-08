@@ -5,7 +5,7 @@ description: Resolve a workflow's prompt from a provided string, a cached entry,
 
 <Note>
   `<ExtractPrompt>` is **not** an importable runtime export of `smithers-orchestrator`.
-  It ships as an example/pack composition pattern — a component you scaffold into your own
+  It ships as an example/pack composition pattern, a component you scaffold into your own
   `.smithers/components/extract-prompt/` (via `init`) and import relative to your workflow,
   as shown below. Copy and adapt it; it is not available from the published package.
 </Note>
@@ -76,19 +76,19 @@ export default smithers((ctx) => {
 
 ## Three modes
 
-1. **Passthrough** — `prompt` is provided and ≥ 32 chars. Emits a static-output
+1. **Passthrough**: `prompt` is provided and ≥ 32 chars. Emits a static-output
    task with `score: 1.0` and `resolved: true`. No agent invoked.
-2. **Cache hit** — caller resolved a `cached` entry by key. Same passthrough behavior —
+2. **Cache hit**: caller resolved a `cached` entry by key. Same passthrough behavior:
    emits `resolved: true`, carries over the cached `score`, and prefixes `scoreReason`
    with `cached: `.
-3. **Extraction** — wraps `<LoopUntilScored>` around the drafter task. The drafter
+3. **Extraction**: wraps `<LoopUntilScored>` around the drafter task. The drafter
    uses the R-C-T-F backbone, picks one Socratic principle per turn, asks the user
    via `bun .smithers/scripts/ask-user.ts`, self-scores, and sets `resolved: true`
    when ready.
 
 ## Cache I/O is the caller's responsibility
 
-The component is pure — no side effects in JSX. Caller does cache `getSync` /
+The component is pure, with no side effects in JSX. Caller does cache `getSync` /
 `setSync` from inside the smithers `(ctx) =>` function. See the example above.
 
 Drivers shipped:

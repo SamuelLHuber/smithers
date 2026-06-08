@@ -3,7 +3,7 @@ title: Control Plane
 description: Organization, project, identity, billing, usage, secret-reference, and audit primitives for hosted Smithers deployments.
 ---
 
-The control-plane package adds a durable SQLite store for multi-tenant objects — orgs, projects, teams, billing records, usage, secret references, and audit events. Import it alongside the Gateway when you need these boundaries.
+The control-plane package adds a durable SQLite store for multi-tenant objects: orgs, projects, teams, billing records, usage, secret references, and audit events. Import it alongside the Gateway when you need these boundaries.
 
 ## ControlPlaneStore API
 
@@ -97,7 +97,7 @@ const quota = store.checkUsageLimit({
 const audit = store.exportOrgAudit({ orgId: org.orgId });
 ```
 
-Deleting an org cascades to all its child rows — projects, teams, identity providers, billing account, usage rows, usage limits, secret references, and audit rows. There is no soft-delete; use a status flag in your application layer if you need recoverable deletion.
+Deleting an org cascades to all its child rows: projects, teams, identity providers, billing account, usage rows, usage limits, secret references, and audit rows. There is no soft-delete; use a status flag in your application layer if you need recoverable deletion.
 
 ## Hosted Boundary
 

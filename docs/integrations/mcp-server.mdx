@@ -1,6 +1,6 @@
 ---
 title: MCP Server
-description: Expose Smithers as a Model Context Protocol stdio server so any MCP client — Claude Code, Cursor, Codex, or your own agent — can list, run, inspect, and control workflows without shell scripting.
+description: Expose Smithers as a Model Context Protocol stdio server so any MCP client (Claude Code, Cursor, Codex, or your own agent) can list, run, inspect, and control workflows without shell scripting.
 ---
 
 Smithers ships a built-in MCP stdio server. Passing `--mcp` to the CLI speaks the Model Context Protocol over stdin/stdout instead of acting as an interactive CLI. Any MCP-aware client can connect, discover workflows, start runs, watch progress, resolve approvals, and revert bad attempts through structured tool calls.
@@ -17,7 +17,7 @@ Use the MCP server when an AI agent should drive Smithers autonomously. Use the 
 smithers --mcp
 ```
 
-This starts the semantic surface — a stable, structured tool set for AI agent consumption, documented on this page.
+This starts the semantic surface: a stable, structured tool set for AI agent consumption, documented on this page.
 
 Two additional surfaces are available via `--surface`:
 
@@ -49,7 +49,7 @@ For clients that read JSON config directly:
 }
 ```
 
-Project-scoped install (e.g. a monorepo where Smithers is a dev dependency — ensure `smithers-orchestrator` is in the local `package.json`):
+Project-scoped install (e.g. a monorepo where Smithers is a dev dependency; ensure `smithers-orchestrator` is in the local `package.json`):
 
 ```json
 {
@@ -68,9 +68,9 @@ Project-scoped install (e.g. a monorepo where Smithers is a dev dependency — e
 
 On start, each tool is registered with its input schema, output schema, and MCP annotations. Every tool carries:
 
-- **`inputSchema`** — Zod object describing accepted parameters.
-- **`outputSchema`** — Zod schema for the structured response envelope.
-- **`annotations`** — MCP annotation metadata (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`).
+- **`inputSchema`**: Zod object describing accepted parameters.
+- **`outputSchema`**: Zod schema for the structured response envelope.
+- **`annotations`**: MCP annotation metadata (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`).
 
 ### Structured tool envelope
 
@@ -140,18 +140,18 @@ Start or resume a discovered workflow.
 |---|---|---|---|
 | `workflowId` | `string` | required | Workflow ID from `list_workflows` |
 | `input` | `Record<string, unknown>` | `{}` | Workflow input object |
-| `prompt` | `string` | — | Shorthand: sets `input.prompt` when `input` is not provided |
+| `prompt` | `string` | - | Shorthand: sets `input.prompt` when `input` is not provided |
 | `runId` | `string` | auto | Custom run ID |
 | `resume` | `boolean` | `false` | Resume an existing run; requires `runId` |
 | `force` | `boolean` | `false` | Force-start even if a run with this ID already exists |
 | `waitForTerminal` | `boolean` | `false` | Block until the run reaches a terminal state |
 | `waitForStartMs` | `number` | `1000` | For background launches, how long to wait for the run row to appear in the database |
-| `maxConcurrency` | `number` | — | Max concurrent nodes |
-| `rootDir` | `string` | — | Root directory for tool sandboxing and path resolution |
-| `logDir` | `string` | — | Directory for log files |
+| `maxConcurrency` | `number` | - | Max concurrent nodes |
+| `rootDir` | `string` | - | Root directory for tool sandboxing and path resolution |
+| `logDir` | `string` | - | Directory for log files |
 | `allowNetwork` | `boolean` | `false` | Allow network access in `bash` tool |
-| `maxOutputBytes` | `number` | — | Cap on node output size |
-| `toolTimeoutMs` | `number` | — | Per-tool call timeout |
+| `maxOutputBytes` | `number` | - | Cap on node output size |
+| `toolTimeoutMs` | `number` | - | Per-tool call timeout |
 | `hot` | `boolean` | `false` | Enable hot-reloading of the workflow file |
 
 **Output:**
@@ -198,7 +198,7 @@ List recent runs with summary data.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `limit` | `number` (1–200) | `20` | Max runs to return |
-| `status` | `string` | — | Filter by status (`running`, `finished`, `failed`, etc.) |
+| `status` | `string` | - | Filter by status (`running`, `finished`, `failed`, etc.) |
 
 **Output:**
 
@@ -266,7 +266,7 @@ Poll a run at a fixed interval until it reaches a terminal state or a timeout ex
 }
 ```
 
-When `timedOut` is `true` the run is still active — call `watch_run` again or raise `timeoutMs`. Terminal statuses: any status other than `running`, `waiting-approval`, `waiting-event`, or `waiting-timer` — including `finished`, `failed`, `cancelled`, and `continued`.
+When `timedOut` is `true` the run is still active, so call `watch_run` again or raise `timeoutMs`. Terminal statuses: any status other than `running`, `waiting-approval`, `waiting-event`, or `waiting-timer`, including `finished`, `failed`, `cancelled`, and `continued`.
 
 ---
 
@@ -358,7 +358,7 @@ Approve or deny a pending approval. This tool is destructive and non-idempotent.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `action` | `"approve" \| "deny"` | required — decision to record |
+| `action` | `"approve" \| "deny"` | required, decision to record |
 | `runId` | `string` | Filter to a specific run |
 | `workflowName` | `string` | Filter by workflow name |
 | `nodeId` | `string` | Filter by node ID |
@@ -369,7 +369,7 @@ Approve or deny a pending approval. This tool is destructive and non-idempotent.
 
 **Ambiguity guard**
 
-Zero matches errors with `INVALID_INPUT`. More than one match errors with `INVALID_INPUT` and returns matches in `details.matches` — add `runId`, `nodeId`, or `iteration` to narrow the selection. The tool never guesses when multiple approvals match.
+Zero matches errors with `INVALID_INPUT`. More than one match errors with `INVALID_INPUT` and returns matches in `details.matches`; add `runId`, `nodeId`, or `iteration` to narrow the selection. The tool never guesses when multiple approvals match.
 
 **Output:**
 
@@ -385,7 +385,7 @@ Zero matches errors with `INVALID_INPUT`. More than one match errors with `INVAL
 
 ### ask_human
 
-Block the current run and ask a human to make a decision, then wait for their answer. Use this whenever the agent is blocked, uncertain, missing information, or about to take an irreversible or destructive action — instead of guessing. The tool creates a durable, pending human request and returns only once it is resolved.
+Block the current run and ask a human to make a decision, then wait for their answer. Use this whenever the agent is blocked, uncertain, missing information, or about to take an irreversible or destructive action, instead of guessing. The tool creates a durable, pending human request and returns only once it is resolved.
 
 When run inside a Smithers task, the run/node context is taken from the `SMITHERS_RUN_ID` / `SMITHERS_NODE_ID` / `SMITHERS_ITERATION` environment variables Smithers injects into the agent; pass `runId`/`nodeId`/`iteration` explicitly to override, or rely on single-active-run autodetection.
 
@@ -395,7 +395,7 @@ An operator resolves the request with `smithers human answer <requestId> --value
 
 | Parameter | Type | Description |
 |---|---|---|
-| `prompt` | `string` | required — the decision or question to put to a human |
+| `prompt` | `string` | required, the decision or question to put to a human |
 | `context` | `string` | Extra context appended to the prompt |
 | `choices` | `string[]` | Fixed choices; restricts the human's answer to one of these |
 | `runId` | `string` | Run to attach to (default: `SMITHERS_RUN_ID` or the single active run) |
@@ -501,7 +501,7 @@ List structured output artifacts produced by nodes in a run.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `runId` | `string` | required | Run ID |
-| `nodeId` | `string` | — | Limit to a specific node |
+| `nodeId` | `string` | - | Limit to a specific node |
 | `includeRaw` | `boolean` | `false` | Include raw (pre-validation) output values |
 
 **Output:**
@@ -540,7 +540,7 @@ Return the structured agent chat transcript for a run, grouped by attempts.
 | `runId` | `string` | required | Run ID |
 | `all` | `boolean` | `false` | Include all attempts, not just those with known output events |
 | `includeStderr` | `boolean` | `true` | Include stderr messages |
-| `tail` | `number` | — | Return only the last N messages |
+| `tail` | `number` | - | Return only the last N messages |
 
 **Output:**
 
@@ -586,11 +586,11 @@ Return the raw structured event history for a run with optional filtering.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `runId` | `string` | required | Run ID |
-| `afterSeq` | `number` | — | Only events with `seq` greater than this value |
+| `afterSeq` | `number` | - | Only events with `seq` greater than this value |
 | `limit` | `number` (1–10000) | `200` | Max events to return |
-| `nodeId` | `string` | — | Filter to events for a specific node |
-| `types` | `string[]` | — | Filter to specific event types (e.g. `["NodeFinished", "NodeFailed"]`) |
-| `sinceTimestampMs` | `number` | — | Only events at or after this timestamp |
+| `nodeId` | `string` | - | Filter to events for a specific node |
+| `types` | `string[]` | - | Filter to specific event types (e.g. `["NodeFinished", "NodeFailed"]`) |
+| `sinceTimestampMs` | `number` | - | Only events at or after this timestamp |
 
 **Output:**
 

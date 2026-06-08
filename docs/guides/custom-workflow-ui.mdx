@@ -1,9 +1,9 @@
 ---
 title: Custom Workflow UIs
-description: Build a first-class browser UI for your workflow — vanilla SDK or React hooks — and ship it through the Smithers Gateway, the apps/smithers PWA, and same-origin Smithers Cloud / Plue deployments.
+description: Build a first-class browser UI for your workflow (vanilla SDK or React hooks) and ship it through the Smithers Gateway, the apps/smithers PWA, and same-origin Smithers Cloud / Plue deployments.
 ---
 
-A custom workflow UI is a small browser bundle that *lives next to your workflow* and talks to the Smithers Gateway over the same RPC and WebSocket protocol the Gateway already serves. You write it once, the Gateway builds and serves it at `/workflows/<key>`, and every Smithers surface that knows about Gateway runs — the [Smithers PWA](https://smithers.sh), Studio 2, the `smithers ui` CLI, or your own embed — can render it for a run with a stable `?runId=` deep link.
+A custom workflow UI is a small browser bundle that *lives next to your workflow* and talks to the Smithers Gateway over the same RPC and WebSocket protocol the Gateway already serves. You write it once, the Gateway builds and serves it at `/workflows/<key>`, and every Smithers surface that knows about Gateway runs (the [Smithers PWA](https://smithers.sh), Studio 2, the `smithers ui` CLI, or your own embed) can render it for a run with a stable `?runId=` deep link.
 
 This guide covers the whole shape: vanilla SDK boot, React hooks, the boot config the iframe receives, live event subscriptions (with automatic pushed updates and resilient reconnection), node-output and diff reads, approvals and signals, the crucial stale-data-free update model to avoid data bleeding across runs, metrics streaming, sample tests, and the same-origin proxy patterns you reach for when custom UIs run with Smithers UI and the Gateway (such as in Smithers Cloud or behind Plue).
 
@@ -15,7 +15,7 @@ Three pieces collaborate:
 
 1. **The workflow registers its UI.** When you call `gateway.register("vcs", vcs, { ui: { entry: ".smithers/ui/vcs.tsx", title: "VCS" } })`, the Gateway bundles the entry file into a single browser script and serves it at `/workflows/vcs`. It also exposes a `GET /workflows/<key>/boot` config that the rendered page hydrates from.
 
-2. **The Gateway serves an HTML shell.** Hitting `/workflows/vcs` returns a tiny HTML document with a `<div id="root">`, the bundled script, and a global `__SMITHERS_GATEWAY_UI__` object — the [`GatewayUiBootConfig`](#the-boot-config) — set before your script runs. The shell uses `?runId=<id>` from the query string to scope a session to one run; if it is omitted, your UI is responsible for showing a picker or empty state.
+2. **The Gateway serves an HTML shell.** Hitting `/workflows/vcs` returns a tiny HTML document with a `<div id="root">`, the bundled script, and a global `__SMITHERS_GATEWAY_UI__` object (the [`GatewayUiBootConfig`](#the-boot-config)) set before your script runs. The shell uses `?runId=<id>` from the query string to scope a session to one run; if it is omitted, your UI is responsible for showing a picker or empty state.
 
 3. **The host embeds the shell same-origin.** `apps/smithers` mounts it as `<iframe src="/workflows/<key>?runId=<id>">`. Because the host and Gateway share an origin (via the Worker / Vite proxy described [below](#same-origin-proxy-patterns)), the iframe's RPC calls and WebSocket all reach the real Gateway without CORS or token shuttling. Studio 2 and the `smithers ui` command embed the same URL.
 
@@ -30,7 +30,7 @@ Three pieces collaborate:
 | **Writes** | `client.submitApproval(...)` | `useGatewayActions().submitApproval(...)` |
 | **Use when** | You want one tiny bundle, or you already own your render layer (Solid, Lit, vanilla DOM) | You are writing a React UI and want the stale-data-free model baked in |
 
-Both SDKs talk to the same Gateway and produce the same wire frames. Pick by appetite — not by capability. The vanilla SDK is published as `@smithers-orchestrator/gateway-client`; the React layer is `@smithers-orchestrator/gateway-react` and re-exports nothing the client does not.
+Both SDKs talk to the same Gateway and produce the same wire frames. Pick by appetite, not by capability. The vanilla SDK is published as `@smithers-orchestrator/gateway-client`; the React layer is `@smithers-orchestrator/gateway-react` and re-exports nothing the client does not.
 
 ## The boot config
 
@@ -47,15 +47,15 @@ type GatewayUiBootConfig = {
   workflowKey: string | null;
   mountPath: string;     // where the Gateway mounted you, e.g. "/workflows/vcs"
   rpcPath: string;       // "/v1/rpc"
-  wsPath: string;        // "/" — the WebSocket path under the Gateway origin
+  wsPath: string;        // "/": the WebSocket path under the Gateway origin
   assetBasePath: string; // where to resolve relative bundle assets
   props: Record<string, unknown>; // free-form, set by `gateway.register({ ui: { props } })`
 };
 ```
 
-You do not normally touch this — `new SmithersGatewayClient()` reads it automatically and uses the matching `wsPath` and `rpcPath`. Reach for it directly when you need a UI-specific prop (`__SMITHERS_GATEWAY_UI__?.props.brand`), a CDN asset (`assetBasePath`), or to react to whether the Gateway mounted you for one workflow or for the global inspector (`kind === "workflow"`).
+You do not normally touch this. `new SmithersGatewayClient()` reads it automatically and uses the matching `wsPath` and `rpcPath`. Reach for it directly when you need a UI-specific prop (`__SMITHERS_GATEWAY_UI__?.props.brand`), a CDN asset (`assetBasePath`), or to react to whether the Gateway mounted you for one workflow or for the global inspector (`kind === "workflow"`).
 
-The `?runId=` query parameter is **not** in the boot config — it is in `location.search`, because a single UI bundle may be invoked across many runs. Read it once at startup and pass it through your store:
+The `?runId=` query parameter is **not** in the boot config; it is in `location.search`, because a single UI bundle may be invoked across many runs. Read it once at startup and pass it through your store:
 
 ```ts
 const runId = new URLSearchParams(location.search).get("runId") ?? undefined;
@@ -143,7 +143,7 @@ await client.cancelRun({ runId });
 
 ## Auth
 
-A custom UI almost never holds a token. The Gateway accepts auth via three mechanisms — `Authorization: Bearer <token>`, an `x-smithers-key` header, or a `trusted-proxy` mode that reads identity headers off an upstream proxy — and the right answer for an embedded UI is **trusted-proxy via same-origin**.
+A custom UI almost never holds a token. The Gateway accepts auth via three mechanisms (`Authorization: Bearer <token>`, an `x-smithers-key` header, or a `trusted-proxy` mode that reads identity headers off an upstream proxy), and the right answer for an embedded UI is **trusted-proxy via same-origin**.
 
 In practice this means one of:
 
@@ -151,11 +151,11 @@ In practice this means one of:
 - **Smithers Cloud.** A Cloudflare Worker terminates the user's session (WorkOS / Auth0 / GitHub) and proxies `/v1/rpc`, `/health`, and `/workflows/*` to a private Gateway. It forwards `x-user-id`, `x-user-scopes`, `x-user-role`, and `x-smithers-token-id` to the Gateway, which trusts those headers because it is configured `mode: "trusted-proxy"`. The browser never holds a Gateway credential. See [Smithers Cloud / Plue same-origin proxy](#smithers-cloud--plue-same-origin-proxy).
 - **Bring-your-own token.** Pass `new SmithersGatewayClient({ token, baseUrl })` if you really do hold a token at the UI layer. Useful for tooling and one-off bots; avoid it in user-facing surfaces.
 
-The hooks read no auth state of their own — they call `client.rpc(...)`, and the client carries whatever `token` / `headers` you set when you constructed it (or that the trusted-proxy stripped and rewrote on the way in).
+The hooks read no auth state of their own. They call `client.rpc(...)`, and the client carries whatever `token` / `headers` you set when you constructed it (or that the trusted-proxy stripped and rewrote on the way in).
 
 ## Live subscriptions
 
-`useGatewayRunEvents(runId)` opens one `streamRunEventsResilient` socket per `runId` and surfaces every non-heartbeat frame in the `events` array. A heartbeat updates `lastHeartbeat` instead — heartbeats are how you detect a still-alive but quiet run, so they belong on their own pin to avoid bloating the events array. When `runId` changes the prior connection is aborted and the buffer resets, so the UI never shows the wrong run's events.
+`useGatewayRunEvents(runId)` opens one `streamRunEventsResilient` socket per `runId` and surfaces every non-heartbeat frame in the `events` array. A heartbeat updates `lastHeartbeat` instead. Heartbeats are how you detect a still-alive but quiet run, so they belong on their own pin to avoid bloating the events array. When `runId` changes the prior connection is aborted and the buffer resets, so the UI never shows the wrong run's events.
 
 The vanilla equivalent (`for await (const frame of client.streamRunEventsResilient(...))`) gives you the same loop without React state. Either way the Gateway picks up where the last `seq` left off after a reconnect, replaying anything you missed as a `run.gap_resync` frame before resuming live `run.event`s.
 
@@ -173,7 +173,7 @@ const diff = useGatewayRpc("getNodeDiff", { runId, nodeId: "ship" });
 // diff.data: { status, files: [{ path, status, hunks?: [...] }], … }
 ```
 
-A row arrives either inline (`status: "produced"`) or as a typed `pending` / `failed` state with an optional `partial` payload on failure. Node-output hooks default to a row-shaped value that you should destructure as either the row directly *or* `{ row, schema, status }` — `.smithers/ui/vcs.tsx` shows the canonical normalizer (`rowOf(value)`).
+A row arrives either inline (`status: "produced"`) or as a typed `pending` / `failed` state with an optional `partial` payload on failure. Node-output hooks default to a row-shaped value that you should destructure as either the row directly *or* `{ row, schema, status }`; `.smithers/ui/vcs.tsx` shows the canonical normalizer (`rowOf(value)`).
 
 ## Metrics and observability streams
 
@@ -197,13 +197,13 @@ const { submitApproval, submitSignal, cancelRun } = useGatewayActions();
 <button onClick={() => cancelRun({ runId })}>Cancel</button>
 ```
 
-A correlation key on a signal must match the `<WaitForEvent event="utterance" correlationKey="utterance">` your workflow opened. The Gateway enforces approval scopes (`allowedScopes`, `allowedUsers`) per the workflow's `<Approval>` declaration, so a UI that surfaces "Approve" for an unauthorized user will still fail at the RPC boundary — render the gate optimistically and let the error surface through `useGatewayActions`'s return value.
+A correlation key on a signal must match the `<WaitForEvent event="utterance" correlationKey="utterance">` your workflow opened. The Gateway enforces approval scopes (`allowedScopes`, `allowedUsers`) per the workflow's `<Approval>` declaration, so a UI that surfaces "Approve" for an unauthorized user will still fail at the RPC boundary. Render the gate optimistically and let the error surface through `useGatewayActions`'s return value.
 
 `useGatewayApprovals({ filter: { runId } })` lists every pending gate for the run; pair it with `useGatewayActions().submitApproval` to drive a "pending approvals" surface. The reference UIs in `.smithers/ui/grill-me.tsx` and `.smithers/ui/ultragrill.tsx` show this pattern at scale.
 
 ## Stale-data-free update model
 
-The fundamental rule across both SDKs is: **a hook or read whose inputs have changed must never surface the previous inputs' result.** Without this, a UI that switches from `runId=A` to `runId=B` momentarily shows A's data before B's fetch lands — at the iframe boundary that looks like the embed *belongs* to the wrong run, which is the most confusing failure mode possible.
+The fundamental rule across both SDKs is: **a hook or read whose inputs have changed must never surface the previous inputs' result.** Without this, a UI that switches from `runId=A` to `runId=B` momentarily shows A's data before B's fetch lands. At the iframe boundary that looks like the embed *belongs* to the wrong run, which is the most confusing failure mode possible.
 
 `useGatewayRpc` enforces this by:
 
@@ -221,7 +221,7 @@ Custom UIs are embedded in an iframe and may be served from a different origin t
 
 ### Local dev setup
 
-The `apps/smithers` Vite config wires up the Gateway proxy **when the `SMITHERS_GATEWAY_PROXY_TARGET` env var is set** — unset, the dev server stays gateway-less and those paths 404 (the app's gateway store reads that as "offline"). The relevant excerpt:
+The `apps/smithers` Vite config wires up the Gateway proxy **when the `SMITHERS_GATEWAY_PROXY_TARGET` env var is set**. When it is unset, the dev server stays gateway-less and those paths 404 (the app's gateway store reads that as "offline"). The relevant excerpt:
 
 ```ts
 // apps/smithers/vite.config.ts
@@ -233,7 +233,7 @@ if (gatewayTarget) {
 }
 ```
 
-The `ws: true` flag goes on `/v1/rpc` — that is the path the Gateway upgrades for the run-event WebSocket (`StreamRunEvents`, `StreamDevTools`). `/workflows` only serves the HTML shell and the bundled JS, so it stays HTTP-only. Then:
+The `ws: true` flag goes on `/v1/rpc`, the path the Gateway upgrades for the run-event WebSocket (`StreamRunEvents`, `StreamDevTools`). `/workflows` only serves the HTML shell and the bundled JS, so it stays HTTP-only. Then:
 
 ```bash
 export SMITHERS_GATEWAY_PROXY_TARGET=http://127.0.0.1:7331
@@ -266,7 +266,7 @@ The Gateway is configured `mode: "trusted-proxy"` (or `mode: "token"` with the W
 
 The exact Worker is in `apps/smithers/src/worker.ts`; its `isGatewayProxyRoute`, `isAuthProxyRoute`, and `isPlatformProxyRoute` predicates split the three families. `stripTrustedProxyHeaders` + `stripGatewayCredentialHeaders` enforce step 2 + 4; `gatewayAuthToken` reads the service credential from a Worker secret. Use it as the reference implementation when you stand up your own same-origin proxy.
 
-The same shape works behind any reverse proxy (Cloudflare, Cloudflare Access, Caddy, nginx, an internal API gateway): terminate session, strip identity headers off the request, set them from the validated session, forward to the Gateway. Trusted-proxy mode is **only safe behind something you control** that strips and rewrites identity headers — the Gateway docs call this out explicitly.
+The same shape works behind any reverse proxy (Cloudflare, Cloudflare Access, Caddy, nginx, an internal API gateway): terminate session, strip identity headers off the request, set them from the validated session, forward to the Gateway. Trusted-proxy mode is **only safe behind something you control** that strips and rewrites identity headers; the Gateway docs call this out explicitly.
 
 ## Local dev quick reference
 
@@ -284,13 +284,13 @@ cd apps/smithers && bun dev
 # Visit http://localhost:5173/gw/<workflowKey>/<runId>
 ```
 
-The `smithers ui` command resolves the most recent run when invoked without an id, prints the URL it opened, and exits — it does not hold the run alive. Pair it with `bunx smithers-orchestrator up <workflow>` in a separate terminal.
+The `smithers ui` command resolves the most recent run when invoked without an id, prints the URL it opened, and exits; it does not hold the run alive. Pair it with `bunx smithers-orchestrator up <workflow>` in a separate terminal.
 
 ## Sample tests
 
 A custom UI has two layers worth testing:
 
-1. **The bundle parses and boots without a network.** A Bun test that imports the module under a happy-dom registrator and asserts the React tree renders covers a regression-class of "the bundle broke because of a Vite/tsup mishap" failures cheaply. The reference is `packages/gateway-react/tests/gatewayReactBehavior.test.ts` — it constructs spy clients, drives every hook, and asserts they never surface a previous input's result after a re-render.
+1. **The bundle parses and boots without a network.** A Bun test that imports the module under a happy-dom registrator and asserts the React tree renders covers a regression-class of "the bundle broke because of a Vite/tsup mishap" failures cheaply. The reference is `packages/gateway-react/tests/gatewayReactBehavior.test.ts`; it constructs spy clients, drives every hook, and asserts they never surface a previous input's result after a re-render.
 
 2. **The host embeds it and the run flows through.** A real-backend Playwright test that boots a Gateway, registers a workflow with a `ui:` entry, executes a run to completion, and drives a real browser that:
    - deep-links to `/gw/<key>/<runId>`,
@@ -300,16 +300,16 @@ A custom UI has two layers worth testing:
 
 The canonical example is `apps/smithers/tests/e2e/gatewayUi.spec.ts` with the fixture at `apps/smithers/tests/fixtures/gatewayFixture.tsx`. Two demo bundles ship today:
 
-- `apps/smithers/tests/fixtures/demoWorkflowUi.ts` — a dependency-free vanilla bundle that reads `?runId=` from `location.search` and renders a heading. Use it to assert the bundle path without coupling to a UI library.
-- `apps/smithers/tests/fixtures/demoReactWorkflowUi.tsx` — the same demo on `gateway-react`. Drives `createGatewayReactRoot`, `useGatewayRun`, and `useGatewayActions` against the real fixture Gateway; proves the React hooks survive an iframe boundary, a stale-data transition, and a button-driven action.
+- `apps/smithers/tests/fixtures/demoWorkflowUi.ts`: a dependency-free vanilla bundle that reads `?runId=` from `location.search` and renders a heading. Use it to assert the bundle path without coupling to a UI library.
+- `apps/smithers/tests/fixtures/demoReactWorkflowUi.tsx`: the same demo on `gateway-react`. Drives `createGatewayReactRoot`, `useGatewayRun`, and `useGatewayActions` against the real fixture Gateway; proves the React hooks survive an iframe boundary, a stale-data transition, and a button-driven action.
 
 Add your own fixture under the same folder and register it with `gateway.register("<key>", workflow, { ui: { entry: "…" } })` in `gatewayFixture.tsx`. The fixture executes the run to completion *before* binding the port so Playwright never races the run's tree.
 
 ## Reference
 
-- **Package:** [`@smithers-orchestrator/gateway-react`](/reference/package-configuration#workspace-packages) — React hooks and `createGatewayReactRoot`.
-- **Package:** [`@smithers-orchestrator/gateway-client`](/reference/package-configuration#workspace-packages) — vanilla `SmithersGatewayClient` and types.
-- **Protocol:** [Gateway](/integrations/gateway) — full RPC method list, WebSocket frame shapes, error codes, scopes.
-- **CLI:** [`smithers ui`](/cli/overview#smithers-ui) — open a workflow's custom UI in your browser for a given run.
+- **Package:** [`@smithers-orchestrator/gateway-react`](/reference/package-configuration#workspace-packages): React hooks and `createGatewayReactRoot`.
+- **Package:** [`@smithers-orchestrator/gateway-client`](/reference/package-configuration#workspace-packages): vanilla `SmithersGatewayClient` and types.
+- **Protocol:** [Gateway](/integrations/gateway): full RPC method list, WebSocket frame shapes, error codes, scopes.
+- **CLI:** [`smithers ui`](/cli/overview#smithers-ui): open a workflow's custom UI in your browser for a given run.
 - **Examples:** [Workflow UI (React)](/examples/workflow-ui-react), [Workflow UI (Vanilla)](/examples/workflow-ui-vanilla).
 - **Reference bundles in this repo:** `.smithers/ui/vcs.tsx`, `.smithers/ui/grill-me.tsx`, `.smithers/ui/ultragrill.tsx`, `.smithers/ui/workflow-skill.tsx`.

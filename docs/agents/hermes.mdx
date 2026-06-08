@@ -1,17 +1,17 @@
 ---
 title: Hermes
-description: Run Smithers from Nous Research's Hermes agent — register the MCP server in config.yaml, install the skill, and point Hermes at it with AGENTS.md.
+description: Run Smithers from Nous Research's Hermes agent. Register the MCP server in config.yaml, install the skill, and point Hermes at it with AGENTS.md.
 ---
 
 [Hermes](https://github.com/NousResearch/hermes-agent) (Nous Research) is a
 self-improving, multi-channel agent with a terminal TUI, an OpenAI-compatible
 HTTP API, and **first-class MCP support in both directions**. Because Hermes is a
 native MCP client, the cleanest integration is to register Smithers as an MCP
-server — Hermes can then list, run, watch, and approve workflows as tools.
+server. Hermes can then list, run, watch, and approve workflows as tools.
 
 ## Register the MCP server
 
-The fastest path is `mcp add` — Smithers writes its server straight into Hermes's
+The fastest path is `mcp add`, which writes its server straight into Hermes's
 `~/.hermes/config.yaml`:
 
 ```bash
@@ -34,14 +34,14 @@ Or use the Hermes CLI:
 hermes mcp   # browse the catalog / install / configure
 ```
 
-Smithers' tools surface as `mcp_smithers_<tool>` — `mcp_smithers_run_workflow`,
+Smithers' tools surface as `mcp_smithers_<tool>`: `mcp_smithers_run_workflow`,
 `mcp_smithers_watch_run`, `mcp_smithers_resolve_approval`, and the rest. Full
 reference: [MCP Server](/integrations/mcp-server).
 
 ## Install the skill
 
 Hermes supports the `SKILL.md` (agentskills.io) format. Drop the onboarding skill
-into its skills directory — `skills add` also writes the generated set to the
+into its skills directory. `skills add` also writes the generated set to the
 canonical `~/.agents/skills/`, which Hermes can be pointed at:
 
 ```bash
@@ -53,12 +53,12 @@ curl -fsSL https://smithers.sh/llms-full.txt \
 ```
 
 Because Hermes is a native MCP client, the MCP server above is the primary
-integration — the skill is a complement, not a requirement.
+integration; the skill is a complement, not a requirement.
 
 ## Standing instructions
 
-Hermes resolves an instruction file by priority — `.hermes.md`, then `AGENTS.md`,
-then `CLAUDE.md` — first match wins. Add an orchestration section to whichever the
+Hermes resolves an instruction file by priority (`.hermes.md`, then `AGENTS.md`,
+then `CLAUDE.md`), and the first match wins. Add an orchestration section to whichever the
 repo already uses:
 
 ```md
@@ -69,5 +69,5 @@ Use Smithers for durable, multi-step, or human-in-the-loop agent work.
 
 ## See also
 
-- [MCP Server](/integrations/mcp-server) — the full tool reference
-- [Agent Support](/agents/overview) — the cross-agent commands
+- [MCP Server](/integrations/mcp-server): the full tool reference
+- [Agent Support](/agents/overview): the cross-agent commands

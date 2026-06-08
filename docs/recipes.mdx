@@ -28,7 +28,7 @@ Iterate until a reviewer signs off, with a hard cap.
 </Loop>
 ```
 
-Stop conditions must be measurable (boolean, count, array length). Avoid "looks good" prompts — agents are literal.
+Stop conditions must be measurable (boolean, count, array length). Avoid "looks good" prompts; agents are literal.
 
 ## Parallel multi-agent review
 
@@ -318,7 +318,7 @@ Edits to the workflow source apply on the next render frame without losing in-fl
 
 ## Fork agent session context
 
-Every agent task produces a reusable session snapshot. `fork` starts a new task from a copy of another task's final context — without mutating the source.
+Every agent task produces a reusable session snapshot. `fork` starts a new task from a copy of another task's final context, without mutating the source.
 
 ```tsx
 <Task id="investigate" agent={claude} output={outputs.investigation}>
@@ -339,6 +339,6 @@ Every agent task produces a reusable session snapshot. `fork` starts a new task 
 
 ## Read next
 
-- [How It Works](/how-it-works) — the model these recipes plug into.
-- [Components](/components/workflow) — full prop surface.
-- [CLI](/cli/overview) — every command.
+- [How It Works](/how-it-works): the model these recipes plug into.
+- [Components](/components/workflow): full prop surface.
+- [CLI](/cli/overview): every command.

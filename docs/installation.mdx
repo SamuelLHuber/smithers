@@ -32,7 +32,7 @@ That scaffolds `.smithers/` with files such as:
 | `.smithers/tsconfig.json` | TypeScript config for JSX workflow authoring |
 | `.smithers/bunfig.toml` | Bun preload config for MDX workflow prompts |
 | `.smithers/preload.ts` | Registers the MDX preload plugin |
-| `.smithers/agents/` | User-owned agent config (`claude-code.ts`, `codex.ts`, `opencode.ts`, `antigravity.ts`, `index.ts`) — edit to pin models/cwd/systemPrompt; preserved across re-inits |
+| `.smithers/agents/` | User-owned agent config (`claude-code.ts`, `codex.ts`, `opencode.ts`, `antigravity.ts`, `index.ts`), edit to pin models/cwd/systemPrompt; preserved across re-inits |
 | `.smithers/agents.ts` | Auto-detected agent configuration (regenerated on each `init`) |
 | `.smithers/smithers.config.ts` | Repo-level config (lint, test, coverage commands) |
 | `.smithers/tickets/` | Ticket workspace used by ticket-oriented workflows |
@@ -47,7 +47,7 @@ bunx smithers-orchestrator init --force
 
 ## Install the Agent Skill
 
-Smithers is driven by an AI agent — Claude Code, Codex, and friends — not a GUI you
+Smithers is driven by an AI agent (Claude Code, Codex, and friends) not a GUI you
 click. Your agent runs Smithers on your behalf: scaffolding workflows, starting
 runs, watching them, and clearing approvals. The `smithers` skill makes your agent
 fluent in that without making it read the whole docs site first, so you reach the
@@ -63,15 +63,15 @@ curl -fsSL https://smithers.sh/llms-full.txt \
 
 The skill ships the full docs bundle (`llms-full.txt`) next to its `SKILL.md`, so
 the agent can read the exact API on demand. Once installed, just ask for the
-outcome — *"orchestrate an agent to add rate limiting and keep iterating until the
-tests pass"* — and the agent reaches for Smithers itself.
+outcome, *"orchestrate an agent to add rate limiting and keep iterating until the
+tests pass"*, and the agent reaches for Smithers itself.
 
 For agents without a skills directory, point them at
 `bunx smithers-orchestrator docs-full` (prints the same bundle) or
 `bunx smithers-orchestrator ask "<question>"`.
 
 To install the skill **and** register the MCP server into every coding agent on
-your machine at once, see [Agent Support](/agents/overview) — it covers Claude
+your machine at once, see [Agent Support](/agents/overview). It covers Claude
 Code, Codex, Cursor, Copilot, Pi, Hermes, OpenClaw, and ~20 more.
 
 ## When to Use Manual Installation
@@ -91,7 +91,7 @@ See [JSX Installation](/jsx/overview) for the package list, TypeScript configura
 
 Smithers bundles jj. The optional `@smithers-orchestrator/jj-<platform>` package installs a vendored jj binary for your platform, so a fresh install works with no system jj. Resolution order is:
 
-1. `SMITHERS_JJ_PATH` — point this at a jj binary to override everything.
+1. `SMITHERS_JJ_PATH`: point this at a jj binary to override everything.
 2. The bundled binary for your platform.
 3. `jj` on your `PATH`.
 
@@ -99,10 +99,10 @@ If no bundled binary installed (an unsupported platform, or `--no-optional`) and
 
 ## After Installation
 
-- [Quickstart](/quickstart) — run a seeded workflow immediately.
-- [Set up in your harness](/agents/setup) — wire Smithers into your agent and grab a copy-paste setup prompt.
-- [Install the Agent Skill](#install-the-agent-skill) — make your coding agent fluent in Smithers.
-- [CLI Quickstart](/cli/quickstart) — operational workflow.
-- [JSX Installation](/jsx/overview) — manual TSX authoring setup.
-- [Project Structure](/guides/project-structure) — how a standalone workflow project fits together.
-- [Tools Integration](/integrations/tools) — the built-in tool sandbox.
+- [Quickstart](/quickstart): run a seeded workflow immediately.
+- [Set up in your harness](/agents/setup): wire Smithers into your agent and grab a copy-paste setup prompt.
+- [Install the Agent Skill](#install-the-agent-skill): make your coding agent fluent in Smithers.
+- [CLI Quickstart](/cli/quickstart): operational workflow.
+- [JSX Installation](/jsx/overview): manual TSX authoring setup.
+- [Project Structure](/guides/project-structure): how a standalone workflow project fits together.
+- [Tools Integration](/integrations/tools): the built-in tool sandbox.

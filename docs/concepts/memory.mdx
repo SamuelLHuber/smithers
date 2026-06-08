@@ -74,5 +74,5 @@ The CLI currently exposes fact listing. Use the store API for writes, deletes, t
 
 ## Notes
 
-- Memory and task outputs are **distinct stores**. Don't use memory for run-scoped state — it's not transactional with the workflow's frame commits.
+- Memory and task outputs are **distinct stores**. Don't use memory for run-scoped state; it's not transactional with the workflow's frame commits.
 - Working-memory writes are unordered. Use message history when sequence matters.

@@ -3,7 +3,7 @@ title: Run State
 description: The single typed model for "what is this run doing right now?"
 ---
 
-Every Smithers surface — CLI, Gateway, and programmatic clients — answers
+Every Smithers surface (CLI, Gateway, and programmatic clients) answers
 "what is this run doing right now?" by reading the same `RunStateView`,
 computed server-side from persisted state plus liveness signals.
 
@@ -27,7 +27,7 @@ type RunState =
   | "unknown"           // telemetry gap; never invent a state
 ```
 
-When state cannot be determined (e.g. a missing heartbeat with ambiguous DB status), the runtime returns `unknown` — never invent a more specific state.
+When state cannot be determined (e.g. a missing heartbeat with ambiguous DB status), the runtime returns `unknown`. Never invent a more specific state.
 
 The legacy run-row `status` column maps to `RunState` like this:
 
@@ -99,7 +99,7 @@ view.unhealthy;   // present iff state is "stale" | "orphaned" | "recovering"
 on the run row. It does not call `ps`, does not probe sockets, and does
 not run heuristics.
 
-`deriveRunState` is the underlying pure function — useful in tests or
+`deriveRunState` is the underlying pure function, useful in tests or
 when you already have the rows in memory:
 
 ```ts
@@ -115,19 +115,19 @@ const view = deriveRunState({
 });
 ```
 
-The default `staleThresholdMs` is `30_000` — the same threshold the
+The default `staleThresholdMs` is `30_000`, the same threshold the
 engine uses for `isRunHeartbeatFresh`.
 
 ## Where it shows up
 
 `RunStateView` is the wire format on every read surface:
 
-- `smithers inspect <runId>` — top-level `runState` field on the JSON
+- `smithers inspect <runId>`: top-level `runState` field on the JSON
   output (and rendered in the human view).
-- Gateway RPC `getRun` — `runState` field on the response.
-- DevTools snapshot header — `runState?: RunStateView` field.
-- Event stream — `RunStateChanged` event with `before` and `after`
+- Gateway RPC `getRun`: `runState` field on the response.
+- DevTools snapshot header: `runState?: RunStateView` field.
+- Event stream: `RunStateChanged` event with `before` and `after`
   (emitted by the recovery state machine).
 
-A run id that does not exist is not a `RunState` — it's an error
+A run id that does not exist is not a `RunState`. It's an error
 (`RUN_NOT_FOUND`). `unknown` is for ambiguity, not for "doesn't exist."
