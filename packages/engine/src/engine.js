@@ -26,6 +26,7 @@ import { getJjPointer, runJj, workspaceAdd } from "@smithers-orchestrator/vcs/jj
 import { findVcsRoot } from "@smithers-orchestrator/vcs/find-root";
 import { startDurability } from "./startDurability.js";
 import { restoreWorkspaceToLatestCheckpoint } from "./restoreWorkspace.js";
+import { runWithToolContext } from "@smithers-orchestrator/tool-context";
 import { vcsToolingStatus } from "@smithers-orchestrator/vcs/vcsToolingStatus";
 import * as BunContext from "@effect/platform-bun/BunContext";
 import { eq, getTableName } from "drizzle-orm";
@@ -3266,6 +3267,20 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     cwd: taskRoot,
                     withSocket: true,
                 });
+                // Tier 1 for in-process SDK agents: give their tools an ambient
+                // context (run/node/cwd + a Tier 1 snapshot hook) so defineTool
+                // snapshots after each side-effect tool. Only when durability is
+                // active; null leaves the generate call exactly as before.
+                const toolCtx = durability.active
+                    ? {
+                        runId,
+                        nodeId: desc.nodeId,
+                        iteration: desc.iteration,
+                        attempt: attemptNo,
+                        rootDir: taskRoot,
+                        durabilitySnapshot: (label, toolUseId) => durability.snapshot({ source: "wrap", tier: 1, label, toolUseId }),
+                    }
+                    : null;
                 let result;
                 try {
                     try {
@@ -3282,7 +3297,7 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                                         : {
                                             prompt: effectivePrompt,
                                         };
-                                return effectiveAgent.generate({
+                                const doGenerate = () => effectiveAgent.generate({
                                     options: undefined,
                                     abortSignal: taskSignal,
                                     ...agentCall,
@@ -3315,6 +3330,7 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                                     onStepFinish: handleSdkStepFinish,
                                     outputSchema: desc.outputSchema,
                                 });
+                                return toolCtx ? runWithToolContext(toolCtx, doGenerate) : doGenerate();
                             },
                             catch: (error) => error,
                         }), {
