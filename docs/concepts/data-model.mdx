@@ -1,8 +1,0 @@
----
-title: Data Model
-description: Folded into How It Works.
----
-
-This material is now in [How It Works](/how-it-works).
-
-Output rows are keyed by `(runId, nodeId, iteration)`. Smithers auto-migrates added columns forward (`ALTER TABLE ... ADD COLUMN`) but never drops columns; type changes or removals require a manual migration. Render frames in `_smithers_frames` are stored with full/delta/keyframe encoding (keyframe interval = 50).
