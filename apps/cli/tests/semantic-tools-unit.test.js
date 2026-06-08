@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import {
     SEMANTIC_TOOL_NAMES,
     createSemanticToolDefinitions,
+    workflowSummarySchema,
 } from "../src/mcp/semantic-tools.js";
 
 const NOW = Date.UTC(2026, 0, 2, 3, 4, 5);
@@ -354,6 +355,32 @@ describe("semantic tool definitions", () => {
             prompt: "hello",
         });
         expect(typeof background.structuredContent.ok).toBe("boolean");
+    });
+
+    test("list_workflows payload carries only keys declared in the output schema (#223)", async () => {
+        const harness = makeHarness();
+        mkdirSync(join(harness.cwd, ".smithers", "workflows"), { recursive: true });
+        writeFileSync(
+            join(harness.cwd, ".smithers", "workflows", "audit.tsx"),
+            ["// smithers-display-name: Audit", "export default {};", ""].join("\n"),
+        );
+
+        const list = await harness.call("list_workflows");
+        expect(list.structuredContent.ok).toBe(true);
+        const workflows = list.structuredContent.data.workflows;
+        expect(workflows.length).toBeGreaterThan(0);
+
+        // The MCP server advertises the output schema with additionalProperties:false,
+        // so any key the runtime returns that the schema does not declare makes the SDK
+        // reject the call with -32602. Guard every key against the declared shape.
+        const declared = new Set(Object.keys(workflowSummarySchema.shape));
+        for (const workflow of workflows) {
+            for (const key of Object.keys(workflow)) {
+                expect(declared.has(key)).toBe(true);
+            }
+            // path duplicates entryFile and must stay declared in the schema.
+            expect(workflow.path).toBe(workflow.entryFile);
+        }
     });
 
     test("serves read-only run, node, artifact, chat, event, and diagnosis tools", async () => {

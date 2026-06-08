@@ -43,12 +43,13 @@ export const SEMANTIC_TOOL_NAMES = [
     "get_chat_transcript",
     "get_run_events",
 ];
-const workflowSummarySchema = z.object({
+export const workflowSummarySchema = z.object({
     id: z.string(),
     metadataVersion: z.number().int(),
     displayName: z.string(),
     scope: z.enum(["local", "global"]),
     entryFile: z.string(),
+    path: z.string(),
     sourceType: z.string(),
     description: z.string(),
     tags: z.array(z.string()),
