@@ -13,6 +13,45 @@ bunx smithers-orchestrator init --template idea-to-tickets            # scaffold
 bunx smithers-orchestrator starters                                   # browse template IDs
 ```
 
+**Verify the setup**
+
+```bash
+bunx smithers-orchestrator --version          # prints the version, e.g. 0.23.0
+bunx smithers-orchestrator workflow doctor    # vcs + workflow pack health
+bunx smithers-orchestrator workflow list      # workflows discovered in this repo
+```
+
+`workflow doctor` confirms a VCS resolved and the pack scaffolded (output trimmed):
+
+```text
+vcs:
+  jj:
+    path: jj
+    source: path
+  git:
+    path: git
+    source: path
+  ok: true
+workflowRoot: /your/repo/.smithers
+packs[2]:
+  - scope: local
+    packDir: /your/repo/.smithers
+    preload:
+      path: /your/repo/.smithers/preload.ts
+      exists: true
+    bunfig:
+      path: /your/repo/.smithers/bunfig.toml
+      exists: true
+  - scope: global
+    ...
+workflows[46]:
+  - id: audit
+  - id: implement
+  - ...
+```
+
+`ok: true` under `vcs` means jj or git resolved; if it is `false`, install one (see [Installation](/installation)). A non-empty `workflows[...]` count means the pack is in place. `workflow list` prints the same workflow entries with full metadata.
+
 **Run**
 
 ```bash
