@@ -5513,7 +5513,7 @@ This page covers: CLI binary usage, subpath export map, TypeScript compiler opti
 
 ## Binary
 
-Use `bunx smithers <command>` for CLI commands. The repository root keeps a private development bin that points at `apps/cli/src/index.js`; application code should import from the package exports below.
+Use `bunx smithers-orchestrator <command>` for CLI commands. The repository root keeps a private development bin that points at `apps/cli/src/index.js`; application code should import from the package exports below.
 
 ## Subpath Exports
 

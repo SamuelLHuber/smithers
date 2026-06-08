@@ -11,6 +11,9 @@
  *   - bare `smithers <sub>`        (optionally with a `$ ` shell prompt)
  *   - `bunx smithers <sub>`        (bunx + bare package)
  *   - `npx smithers <sub>`         (npx + bare package)
+ * where `<sub>` is a known subcommand OR an angle-bracket placeholder such as
+ * `<command>` / `<subcommand>` (so docs that write `bunx smithers <command>`
+ * generically are caught too, not just concrete subcommands).
  * in two places:
  *   - inside fenced shell code blocks (bash/sh/shell/zsh/console/unlabelled)
  *   - inside inline code spans `like this` in prose and tables
@@ -46,10 +49,11 @@ const KNOWN_SUBCOMMANDS = [
 const SUB = KNOWN_SUBCOMMANDS.join("|");
 
 // `smithers` (not `smithers-orchestrator`) optionally prefixed by `bunx `/`npx `,
-// immediately followed by a known subcommand. Capture an optional `$ ` prompt
-// that may sit before a bare `smithers` so we can preserve it.
+// immediately followed by a known subcommand or an angle-bracket placeholder
+// (`<command>`, `<subcommand>`, ...). Capture an optional `$ ` prompt that may
+// sit before a bare `smithers` so we can preserve it.
 const CMD_RE = new RegExp(
-  String.raw`(bunx\s+|npx\s+)?smithers(?!-orchestrator)(\s+(?:${SUB})\b)`,
+  String.raw`(bunx\s+|npx\s+)?smithers(?!-orchestrator)(\s+(?:<[^>]+>|(?:${SUB})\b))`,
   "g",
 );
 

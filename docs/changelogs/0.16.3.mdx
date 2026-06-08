@@ -21,6 +21,7 @@ can actually start the CLI.
 ## Features
 
 - **`bunx smithers-orchestrator gui [path]`** opens a directory as a workspace in the
-  Smithers GUI macOS app (via `open -b com.smithers.SmithersGUI`). A
-  bare `smithers .` or `smithers <dir>` is rewritten to `smithers gui
-  <dir>`, matching the `code .` convention from VS Code / Cursor.
+  Smithers GUI macOS app (via `open -b com.smithers.SmithersGUI`). A bare path
+  argument (`bunx smithers-orchestrator .` or `bunx smithers-orchestrator <dir>`)
+  is treated as `bunx smithers-orchestrator gui <dir>`, matching the `code .`
+  convention from VS Code / Cursor.
