@@ -24,9 +24,10 @@
  */
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 
-const DOCS_ROOT = resolve(import.meta.dir, "../docs");
+const REPO_ROOT = resolve(import.meta.dir, "..");
+const DOCS_ROOT = resolve(REPO_ROOT, "docs");
 const CHECK = process.argv.includes("--check");
 
 const HYPHENATED: Array<[RegExp, string]> = [
@@ -116,14 +117,15 @@ function rewrite(original: string): string {
   return out.join("\n");
 }
 
-const files = walk(DOCS_ROOT);
+// The root README follows the same house style; gate it alongside docs/.
+const files = [...walk(DOCS_ROOT), join(REPO_ROOT, "README.md")];
 const offenders: string[] = [];
 let changed = 0;
 for (const f of files) {
   const original = readFileSync(f, "utf8");
   const next = rewrite(original);
   if (next === original) continue;
-  const rel = f.replace(DOCS_ROOT, "docs");
+  const rel = relative(REPO_ROOT, f);
   if (CHECK) offenders.push(rel);
   else {
     writeFileSync(f, next);
