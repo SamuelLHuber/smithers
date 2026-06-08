@@ -43,6 +43,8 @@ function viewLabel(view: string | undefined): string {
       return "Store";
     case "home":
       return "Home";
+    case "concierge":
+      return "Concierge";
     default:
       return view ?? "the app";
   }
@@ -61,11 +63,11 @@ export const APP_ACTIONS: AppAction[] = [
   {
     name: "navigate",
     description: "Switch the main view.",
-    argHint: 'view: "home" | "askme" | "store"',
+    argHint: 'view: "home" | "askme" | "store" | "concierge"',
     describe: (args) => `Go to the ${viewLabel(str(args, "view"))} view`,
     run: (args) => {
       const view = str(args, "view");
-      if (view === "home" || view === "askme" || view === "store") {
+      if (view === "home" || view === "askme" || view === "store" || view === "concierge") {
         goToView(view);
       }
     },

@@ -3,7 +3,7 @@
  * no component or store imports, so workflows and notifications can reference a
  * view id without pulling in the router graph.
  */
-export type CommandId = "chat" | "askme" | "store";
+export type CommandId = "chat" | "askme" | "store" | "concierge";
 
 export type Command = {
   id: CommandId;
@@ -25,5 +25,11 @@ export const COMMANDS: Command[] = [
     label: "Store",
     color: "#bf5b16",
     hint: "Browse the workflow app store",
+  },
+  {
+    id: "concierge",
+    label: "Concierge",
+    color: "#3f8f6f",
+    hint: "Context-engineer your task",
   },
 ];

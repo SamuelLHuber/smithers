@@ -122,6 +122,9 @@ export function deriveRoute(
   if (pathname === "/store") {
     return { view: "store", surface: null, project };
   }
+  if (pathname === "/concierge") {
+    return { view: "concierge", surface: null, project };
+  }
   if (pathname === "/login") {
     return { view: "login", surface: null, project };
   }

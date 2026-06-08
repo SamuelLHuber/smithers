@@ -1905,3 +1905,243 @@ button {
     --node-shadow: rgb(0 0 0 / 45%);
   }
 }
+
+/* ── Context Engineering Console (Concierge view) ───────────────────────────
+   Five-panel console: Script · Context Contract · Questions · Workflow · Evidence.
+   Card aesthetic matches the store/askme surfaces; the workflow-graph panel
+   spans the full row regardless of DOM order. */
+.concierge {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.concierge-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.concierge-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.concierge-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.concierge-subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.concierge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.concierge-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+/* The workflow DAG always gets its own full-width row. */
+.concierge-panel--workflow {
+  grid-column: 1 / -1;
+}
+
+.concierge-panel-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.concierge-panel-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+.concierge-script {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.concierge-script:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.concierge-start {
+  align-self: flex-start;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 9px;
+  background: var(--inverse-bg);
+  color: var(--inverse-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.concierge-start:hover {
+  background: var(--inverse-bg-hover);
+}
+
+.concierge-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.concierge-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.concierge-field-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.concierge-field-empty {
+  font-size: 0.88rem;
+  color: var(--text-placeholder);
+  font-style: italic;
+}
+
+.concierge-graph {
+  height: clamp(220px, 34vh, 360px);
+  border: 1px solid var(--graph-border);
+  border-radius: 10px;
+  background: var(--graph-bg);
+  overflow: hidden;
+}
+
+.concierge-graph .react-flow {
+  height: 100%;
+}
+
+.concierge-doctor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.concierge-issue {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.concierge-issue-severity {
+  flex: none;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--hover);
+  color: var(--text-muted);
+}
+
+.concierge-issue--error .concierge-issue-severity {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+.concierge-issue--warning .concierge-issue-severity {
+  background: color-mix(in srgb, #c98a00 16%, transparent);
+  color: #9a6b00;
+}
+
+.concierge-issue--ok .concierge-issue-severity {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.concierge-issue-message {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.concierge-issue-detail {
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+.concierge-recs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.concierge-rec {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.concierge-rec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.concierge-rec-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.concierge-rec-score {
+  font-size: 0.8rem;
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.concierge-rec-reason {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}

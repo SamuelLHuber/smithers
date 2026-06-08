@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { Surface } from "./Surface";
 
 /** The top-level views. `home` is the chat landing at `/`. */
-export type View = "home" | "askme" | "store" | "login";
+export type View = "home" | "askme" | "store" | "concierge" | "login";
 
 export type RouteState = {
   view: View;

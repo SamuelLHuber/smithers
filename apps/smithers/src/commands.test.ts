@@ -5,7 +5,7 @@ import { COMMANDS, type CommandId } from "./commands";
  * Registry invariants for the command pill. COMMANDS is pure data with no store
  * or router imports (that's the point of the file), so we assert the contract the
  * CommandMenu leans on: a non-empty list, stable unique ids, a human label on
- * every entry, and the three top-level views present and accounted for.
+ * every entry, and the four top-level views present and accounted for.
  */
 
 describe("COMMANDS", () => {
@@ -27,8 +27,8 @@ describe("COMMANDS", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  test("exposes exactly the three top-level view ids", () => {
-    const expected: CommandId[] = ["chat", "askme", "store"];
+  test("exposes exactly the four top-level view ids", () => {
+    const expected: CommandId[] = ["chat", "askme", "store", "concierge"];
     expect(new Set(COMMANDS.map((command) => command.id))).toEqual(new Set(expected));
   });
 });

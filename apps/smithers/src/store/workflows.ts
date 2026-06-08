@@ -180,4 +180,114 @@ export const STORE_WORKFLOWS: StoreWorkflow[] = [
     starter:
       "Generate agent-facing skill documentation from the local Smithers workflows.",
   },
+  {
+    id: "create-workflow",
+    name: "Create Workflow",
+    description:
+      "Build a new Smithers workflow from a plain-English ask — clarify, provision docs & skills, design, scaffold, verify, and document.",
+    icon: "🏗️",
+    category: "Authoring",
+    color: "#6d56d8",
+    starter: "Build a new Smithers workflow that:\n\n",
+  },
+  {
+    id: "extract-skill",
+    name: "Extract Skill",
+    description:
+      "After a run, harvest a reusable skill or workflow and durable memory from the pattern.",
+    icon: "♻️",
+    category: "Authoring",
+    color: "#3f8f6f",
+    starter: "Extract a reusable skill or workflow from this run/pattern:\n\n",
+  },
+  {
+    id: "context-doctor",
+    name: "Context Doctor",
+    description:
+      "Run deterministic checks over a context contract and report missing goals, inputs, verification, approvals, and report specs.",
+    icon: "🩺",
+    category: "Quality",
+    color: "#2670a9",
+    starter: "Check this context contract for gaps:\n\n",
+  },
+  {
+    id: "backpressure-plan",
+    name: "Backpressure Plan",
+    description:
+      "Turn acceptance criteria into a gate matrix (schema/test/eval/review/approval/trace) so a workflow cannot just try its best and move on.",
+    icon: "🚦",
+    category: "Quality",
+    color: "#bf5b16",
+    starter: "Turn these acceptance criteria into a backpressure gate matrix:\n\n",
+  },
+  {
+    id: "triage-run",
+    name: "Triage Run",
+    description:
+      "Diagnose one failed or stuck Smithers run: pull events/logs, find the root cause, propose a fix/rewind/retry.",
+    icon: "🚑",
+    category: "Quality",
+    color: "#c0392b",
+    starter: "Triage this failed or stuck Smithers run (runId):\n\n",
+  },
+  {
+    id: "report-slideshow",
+    name: "Report Slideshow",
+    description:
+      "Generate a concise HTML slideshow report from a Smithers run state and artifacts.",
+    icon: "🎞️",
+    category: "Reporting",
+    color: "#6d56d8",
+    starter: "Generate an HTML slideshow report for this Smithers run (runId):\n\n",
+  },
+  {
+    id: "context-engineer",
+    name: "Context Engineer",
+    description:
+      "Turn a vague script into a context contract, route it to skills/workflows, add backpressure, execute, and report — the concierge proxy.",
+    icon: "🧭",
+    category: "Concierge",
+    color: "#3f8f6f",
+    starter: "Context-engineer and run this for me:\n\n",
+  },
+  {
+    id: "route-task",
+    name: "Route Task",
+    description:
+      "Classify a plain-English script and either run it as a single task or recommend the right durable workflow.",
+    icon: "🔀",
+    category: "Concierge",
+    color: "#2670a9",
+    starter: "Figure out how to handle this and route it:\n\n",
+  },
+  {
+    id: "create-skill",
+    name: "Create Skill",
+    description:
+      "Author a new agent skill (SKILL.md + supporting files) from a plain-English ask.",
+    icon: "📎",
+    category: "Authoring",
+    color: "#6d56d8",
+    starter: "Create a new agent skill that:\n\n",
+  },
+  {
+    id: "monitor-smithers",
+    name: "Monitor Smithers",
+    description:
+      "Watchdog over Smithers runs: detect stuck, blocked, failed, or over-budget runs and escalate.",
+    icon: "📟",
+    category: "Quality",
+    color: "#c0392b",
+    starter: "Monitor my Smithers runs and flag anything that needs attention.",
+  },
+  {
+    id: "eval-author",
+    name: "Eval Author",
+    description:
+      "Turn acceptance criteria into eval fixtures (JSONL cases + rubric) wired to smithers eval.",
+    icon: "🧪",
+    category: "Quality",
+    color: "#0f8f78",
+    starter: "Write evals for these acceptance criteria:\n\n",
+  },
 ];

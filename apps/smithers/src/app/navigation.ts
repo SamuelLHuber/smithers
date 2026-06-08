@@ -4,7 +4,13 @@ import type { Surface } from "./Surface";
 import { useUiStore } from "./uiStore";
 
 /** Left-to-right order of the views, for the slide-direction hint. */
-const ORDER: Record<View, number> = { home: 0, askme: 1, store: 2, login: 3 };
+const ORDER: Record<View, number> = {
+  home: 0,
+  askme: 1,
+  store: 2,
+  concierge: 3,
+  login: 4,
+};
 
 /**
  * The typed write-path for `url`-medium state. These are the flux actions over
@@ -20,9 +26,11 @@ export function goToView(view: View): void {
         ? "/askme"
         : view === "store"
           ? "/store"
-          : view === "login"
-            ? "/login"
-            : "/",
+          : view === "concierge"
+            ? "/concierge"
+            : view === "login"
+              ? "/login"
+              : "/",
   });
 }
 

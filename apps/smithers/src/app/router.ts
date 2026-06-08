@@ -16,6 +16,7 @@ import { cronsRoute } from "../crons/cronsRoute";
 import { workflowEditorRoute } from "../store/workflowEditorRoute";
 import { paletteRoute } from "../palette/paletteRoute";
 import { storeRoute } from "../store/storeRoute";
+import { conciergeRoute } from "../concierge/conciergeRoute";
 import { runTicketsRoute } from "../tickets/runTicketsRoute";
 import { runTimelineRoute } from "../timeline/runTimelineRoute";
 import { runVcsRoute } from "../vcs/runVcsRoute";
@@ -28,6 +29,7 @@ const routeTree = rootRoute.addChildren([
   homeRoute,
   askMeRoute,
   storeRoute,
+  conciergeRoute,
   runInspectorRoute,
   runLogsRoute,
   runDiffRoute,

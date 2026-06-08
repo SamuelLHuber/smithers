@@ -79,7 +79,7 @@ export function CommandMenu() {
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const active: CommandId =
-    view === "askme" || view === "store" ? view : "chat";
+    view === "askme" || view === "store" || view === "concierge" ? view : "chat";
   const current = COMMANDS.find((command) => command.id === active) ?? COMMANDS[0];
 
   const close = (): void => {

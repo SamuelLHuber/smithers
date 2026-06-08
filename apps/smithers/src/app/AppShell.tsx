@@ -36,11 +36,18 @@ export function AppShell() {
   // is "normal" (e.g. a deep link to /runs/...).
   const effectiveLayout = surface ? "sidebar" : layout;
   const isChat =
-    messagesCount > 0 || view === "askme" || view === "store" || surface !== null;
+    messagesCount > 0 ||
+    view === "askme" ||
+    view === "store" ||
+    view === "concierge" ||
+    surface !== null;
   const mode =
     effectiveLayout === "sidebar" ? "sidebar" : isChat ? "chat" : "home";
   const showTranscript =
-    surface === null && view !== "store" && (messagesCount > 0 || view === "askme");
+    surface === null &&
+    view !== "store" &&
+    view !== "concierge" &&
+    (messagesCount > 0 || view === "askme");
   const canvasKey = surface ? `${surface.kind}-${"runId" in surface ? surface.runId : ""}` : view;
 
   if (view === "login") {
