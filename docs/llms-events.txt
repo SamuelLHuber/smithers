@@ -8,7 +8,7 @@
 
 > Subscribe to lifecycle events. Full event union lives in Types.
 
-`SmithersEvent` is a discriminated union of every lifecycle event the runtime emits. The full type definition lives in [Types](/reference/types) — that's the source of truth for field shapes.
+`SmithersEvent` is a discriminated union of every lifecycle event the runtime emits. The full type definition lives in [Types](/reference/types); that's the source of truth for field shapes.
 
 ## Subscribe via `onProgress`
 
@@ -32,16 +32,16 @@ await Effect.runPromise(runWorkflow(workflow, {
 Events append to `.smithers/executions/<runId>/logs/stream.ndjson` (configure with `logDir` / `--log-dir`; disable with `--no-log`).
 
 ```bash
-tail -f .smithers/executions/<run-id>/logs/stream.ndjson | jq .
-jq 'select(.type == "NodeFailed")' .smithers/executions/<run-id>/logs/stream.ndjson
-jq -r .type .smithers/executions/<run-id>/logs/stream.ndjson | sort | uniq -c | sort -rn
+tail -f .smithers/executions/<runId>/logs/stream.ndjson | jq .
+jq 'select(.type == "NodeFailed")' .smithers/executions/<runId>/logs/stream.ndjson
+jq -r .type .smithers/executions/<runId>/logs/stream.ndjson | sort | uniq -c | sort -rn
 ```
 
 Or with the CLI:
 
 ```bash
-bunx smithers-orchestrator events <run-id> --json
-bunx smithers-orchestrator events <run-id> --type tool-call --node analyze
+bunx smithers-orchestrator events RUN_ID --json
+bunx smithers-orchestrator events RUN_ID --type tool-call --node analyze
 ```
 
 ## Common fields
@@ -97,7 +97,7 @@ Used by `bunx smithers-orchestrator events --type <category>` and the metrics la
 
 > Current SmithersEvent variants, event categories, and top-level fields.
 
-`SmithersEvent` is the discriminated union emitted by the runtime, persisted to the event log, passed to `runWorkflow({ onProgress })`, streamed by Gateway, and filtered by `smithers events --type <category>`.
+`SmithersEvent` is the discriminated union emitted by the runtime, persisted to the event log, passed to `runWorkflow({ onProgress })`, streamed by Gateway, and filtered by `bunx smithers-orchestrator events --type <category>`.
 
 Every variant has `type`, `runId`, and `timestampMs`. Node-scoped variants add `nodeId` and `iteration`. Attempt-scoped variants add `attempt`.
 
@@ -132,7 +132,7 @@ type RunState =
 
 ## Event Variants
 
-Discriminate on the `type` field — e.g. `event.type === "NodeFailed"` — to handle specific lifecycle moments.
+Discriminate on the `type` field, e.g. `event.type === "NodeFailed"`, to handle specific lifecycle moments.
 
 | Event | Top-level fields |
 |---|---|

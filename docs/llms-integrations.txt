@@ -347,7 +347,7 @@ new OpenCodeAgent({
 
 ## Hijack handoff
 
-Most built-in CLI agents support `bunx smithers-orchestrator hijack <runId>`, which relaunches the agent in its native CLI session for interactive takeover.
+Most built-in CLI agents support `bunx smithers-orchestrator hijack RUN_ID`, which relaunches the agent in its native CLI session for interactive takeover.
 
 Smithers persists the native session or conversation id on each task event. On hijack, it waits for a safe boundary between blocking tool calls, then reopens the session via the vendor's resume flag:
 
@@ -361,7 +361,7 @@ Smithers persists the native session or conversation id on each task event. On h
 | `ForgeAgent` | `forge --conversation-id` |
 | `AmpAgent` | `amp threads continue` |
 
-On clean exit the workflow resumes in detached mode. OpenCode stream capture is documented above, but native `smithers hijack` support for OpenCode is not shipped yet. See [How it works → Durability and resume](/how-it-works#durability--resume).
+On clean exit the workflow resumes in detached mode. OpenCode stream capture is documented above, but native `bunx smithers-orchestrator hijack` support for OpenCode is not shipped yet. See [How it works → Durability and resume](/how-it-works#durability--resume).
 
 ## Notes
 
@@ -492,17 +492,17 @@ const hermes = new HermesAgent({
 
 ## Hijack Support
 
-SDK agents do not reopen a provider-native CLI. Smithers persists the agent conversation and reopens it through a Smithers-managed REPL via `smithers hijack <runId>`.
+SDK agents do not reopen a provider-native CLI. Smithers persists the agent conversation and reopens it through a Smithers-managed REPL via `bunx smithers-orchestrator hijack RUN_ID`.
 
 Live-run behavior:
 
 - Smithers captures response history after each step via `onStepFinish`.
-- `smithers hijack` waits until history is durable, aborts the current agent task (handing it off to the REPL), and opens the REPL.
+- `bunx smithers-orchestrator hijack` waits until history is durable, aborts the current agent task (handing it off to the REPL), and opens the REPL.
 - On clean REPL exit, Smithers writes updated message history back and resumes the workflow automatically.
 
 Limits:
 
-- Smithers reconstructs the agent from the workflow source on hijack. This means cross-engine hijack is not supported — the REPL will use the same agent class that ran originally.
+- Smithers reconstructs the agent from the workflow source on hijack. This means cross-engine hijack is not supported: the REPL will use the same agent class that ran originally.
 
 ## CLI vs SDK
 
@@ -512,7 +512,7 @@ Limits:
 | Tools | Provider CLI tool ecosystem | Smithers [tools](/integrations/tools) [sandbox](/components/sandbox) |
 | Flexibility | Native CLI flags | AI SDK `providerOptions` |
 
-Pass a raw `ToolLoopAgent` directly if you prefer — the wrappers are convenience, not a separate runtime.
+Pass a raw `ToolLoopAgent` directly if you prefer; the wrappers are convenience, not a separate runtime.
 
 ## Example: Dual Setup
 
@@ -536,7 +536,7 @@ export const claude = useCli
 
 - [CLI Agents](/integrations/cli-agents)
 - [Built-in Tools](/integrations/tools)
-- [Agents and Tools](/concepts/agents-and-tools)
+- [Agents and Tools](/agents/overview)
 
 ---
 
@@ -627,7 +627,7 @@ const placeOrder = defineTool({
 
 ### Side Effects and Idempotency
 
-Every custom tool that modifies external state **must** declare `sideEffect: true`. This is how Smithers protects your [workflow](/concepts/workflows-overview) during retries and resumes. Without it, Smithers treats the tool as a pure read and replays it freely — potentially sending duplicate emails, double-charging payments, or creating duplicate records.
+Every custom tool that modifies external state **must** declare `sideEffect: true`. This is how Smithers protects your [workflow](/workflows/overview) during retries and resumes. Without it, Smithers treats the tool as a pure read and replays it freely, potentially sending duplicate emails, double-charging payments, or creating duplicate records.
 
 The two flags work together:
 
@@ -642,7 +642,7 @@ With `sideEffect: true` and `idempotent: false`, Smithers does two things on ret
 1. **Warns the agent.** The retry prompt lists which non-idempotent tools were already called.
 2. **Provides a stable idempotency key.** `ctx.idempotencyKey` is deterministic for a given task + iteration; pass it to external APIs that support idempotency (Stripe, AWS) to deduplicate.
 
-If your `execute` function has `sideEffect: true, idempotent: false` but omits the `ctx` parameter, Smithers logs a startup warning. This is almost always a bug — you need `ctx.idempotencyKey` to handle retries safely.
+If your `execute` function has `sideEffect: true, idempotent: false` but omits the `ctx` parameter, Smithers logs a startup warning. This is almost always a bug: you need `ctx.idempotencyKey` to handle retries safely.
 
 ```ts
 // ✗ Bad: non-idempotent side effect without ctx
@@ -904,7 +904,7 @@ const result = await Effect.runPromise(runWorkflow(workflow, {
 
 ## See Also
 
-- [Agents and Tools](/concepts/agents-and-tools)
+- [Agents and Tools](/agents/overview)
 - [Sandbox](/components/sandbox)
 - [Common External Tools](/integrations/common-tools)
 - [Tools Agent Example](/examples/tools-agent)
@@ -917,9 +917,9 @@ const result = await Effect.runPromise(runWorkflow(workflow, {
 
 For each external service, you have three choices:
 
-1. **OpenAPI tools** — point `createOpenApiTools()` at the service's OpenAPI spec. See [OpenAPI tools](/concepts/openapi-tools).
-2. **CLI in a task** — if the service has a CLI (`gh`, `linear`, `notion`, `slack`), run it inside a `<Task>` via the `bash` tool. See [side-effect tools with idempotency](/recipes#side-effect-tools-with-idempotency).
-3. **Custom `defineTool`** — wrap the service's REST API in a Zod-validated tool. See [`defineTool`](/integrations/tools#definetool).
+1. **OpenAPI tools**: point `createOpenApiTools()` at the service's OpenAPI spec. See [OpenAPI tools](/integrations/tools).
+2. **CLI in a task**: if the service has a CLI (`gh`, `linear`, `notion`, `slack`), run it inside a `<Task>` via the `bash` tool. See [side-effect tools with idempotency](/recipes#side-effect-tools-with-idempotency).
+3. **Custom `defineTool`**: wrap the service's REST API in a Zod-validated tool. See [`defineTool`](/integrations/tools#definetool).
 
 ### Example: CLI in a task (Pattern 2)
 
@@ -1041,7 +1041,7 @@ const pi = new PiAgent({
 
 `PiAgent` supports all PI CLI flags: provider/model, tools, extensions, skills, prompt templates, themes, sessions. Text mode uses `--print` by default; JSON/RPC modes set `--mode` and omit `--print`.
 
-PI sessions are first-class hijack targets. `smithers hijack <runId> --target pi` reopens the PI session for local steering.
+PI sessions are first-class hijack targets. `bunx smithers-orchestrator hijack RUN_ID --target pi` reopens the PI session for local steering.
 
 ### 2) PI Server Client
 

@@ -150,7 +150,7 @@ export const reviewWorkflow = G.from(
         }),
         onDeny: "fail",
       }),
-      // else: report — omitting `else` means the match falls through to the next sibling in the sequence
+      // else: report (omitting `else` means the match falls through to the next sibling in the sequence)
     }),
     report,
   ),
@@ -231,7 +231,7 @@ export const reviewShard = F.sequence(readDiff, summarize);
 
 `Smithers.fragment` exposes the same constructors as a workflow handle (`step`,
 `approval`, `sequence`, `parallel`, `match`, `branch`, `loop`, `worktree`,
-`scope`), but no `from` — fragments are values, not workflows. Compile happens
+`scope`), but no `from`; fragments are values, not workflows. Compile happens
 when they're mounted into a real workflow:
 
 ```ts
@@ -245,7 +245,7 @@ export const reviewWorkflow = G.from(
 );
 ```
 
-A fragment is typed with an input schema so TypeScript can infer each step's `input` type. At runtime the schema is not read or validated — steps receive the host workflow's input directly. The host workflow's input type must be assignable to the fragment's input schema. This is enforced at compile time: TypeScript will error if you mount a fragment whose input schema has fields the host workflow's input doesn't satisfy.
+A fragment is typed with an input schema so TypeScript can infer each step's `input` type. At runtime the schema is not read or validated; steps receive the host workflow's input directly. The host workflow's input type must be assignable to the fragment's input schema. This is enforced at compile time: TypeScript will error if you mount a fragment whose input schema has fields the host workflow's input doesn't satisfy.
 
 ## Operational notes
 
@@ -257,6 +257,6 @@ A fragment is typed with an input schema so TypeScript can infer each step's `in
 - All graph values support `.pipe(...fns)` for future data-last combinators.
 - Prefer idempotent step bodies. For external side effects, use `executionId`,
   `stepId`, and `attempt` when constructing idempotency keys.
-- `G.match` is graph topology selection — both branches must be statically
+- `G.match` is graph topology selection: both branches must be statically
   knowable so durable IDs stay stable across resume. It is not Effect's
   `Match` module (which is runtime value pattern matching).

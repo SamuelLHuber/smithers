@@ -8,7 +8,7 @@
 
 > Generate AI SDK tools from an OpenAPI spec. Auth, filtering, observability built in.
 
-`createOpenApiTools` parses an OpenAPI 3.x spec and returns AI SDK tools — one per operation, with Zod schemas converted from the spec's JSON schemas.
+`createOpenApiTools` parses an OpenAPI 3.x spec and returns AI SDK tools, one per operation, with Zod schemas converted from the spec's JSON schemas.
 
 ```ts
 import { createOpenApiTools } from "smithers-orchestrator/openapi";
@@ -59,7 +59,7 @@ Pass the spec itself as the first argument to `createOpenApiTools(input, options
 bunx smithers-orchestrator openapi list ./api/openapi.yaml
 ```
 
-Lists every operationId, method, path, and summary — useful for auditing what an agent will be able to call before wiring it up.
+Lists every operationId, method, path, and summary. Useful for auditing what an agent will be able to call before wiring it up.
 
 ## What gets generated
 
@@ -82,11 +82,11 @@ For each operation:
 
 ## Observability
 
-Each tool call emits an `OpenApiToolCalled` event with `operationId`, `method`, `path`, `durationMs`, `status`. Visible via `bunx smithers-orchestrator events <run-id> --type openapi`.
+Each tool call emits an `OpenApiToolCalled` event with `operationId`, `method`, `path`, `durationMs`, `status`. Visible via `bunx smithers-orchestrator events RUN_ID --type openapi`.
 
 ## Notes
 
-- Schema composition (`allOf`, `anyOf`, `oneOf`) is supported — converts to Zod unions/intersections.
+- Schema composition (`allOf`, `anyOf`, `oneOf`) is supported; converts to Zod unions/intersections.
 - Nullable fields and defaults from the spec are preserved.
 
 ---
