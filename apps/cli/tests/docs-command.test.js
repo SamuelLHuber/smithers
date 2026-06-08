@@ -13,6 +13,12 @@ import {
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const CLI_ENTRY = resolve(REPO_ROOT, "apps/cli/src/index.js");
 const CLI_DOCS_ROOT = resolve(REPO_ROOT, "apps/cli/docs");
+// The real CLI pins docs URLs to its own package version (readPackageVersion in
+// apps/cli/src/index.js reads apps/cli/package.json), so derive the expected
+// version the same way instead of hardcoding it — keeps this green across bumps.
+const CLI_VERSION = JSON.parse(
+    readFileSync(resolve(REPO_ROOT, "apps/cli/package.json"), "utf8"),
+).version;
 
 function withDocsRoot(file = "llms-full.txt") {
     const dir = mkdtempSync(join(tmpdir(), "smithers-docs-command-"));
@@ -118,7 +124,7 @@ describe("docs command source resolution", () => {
         const result = runCli(["docs", "--json"]);
         expect(result.status).toBe(0);
         const payload = JSON.parse(result.stdout);
-        expect(payload.url).toBe("https://raw.githubusercontent.com/smithersai/smithers/v0.22.0/docs/llms.txt");
+        expect(payload.url).toBe(`https://raw.githubusercontent.com/smithersai/smithers/v${CLI_VERSION}/docs/llms.txt`);
         expect(payload.content).toBe(readFileSync(resolve(CLI_DOCS_ROOT, "llms.txt"), "utf8"));
     });
 
@@ -126,7 +132,7 @@ describe("docs command source resolution", () => {
         const result = runCli(["docs-full", "--json"]);
         expect(result.status).toBe(0);
         const payload = JSON.parse(result.stdout);
-        expect(payload.url).toBe("https://raw.githubusercontent.com/smithersai/smithers/v0.22.0/docs/llms-full.txt");
+        expect(payload.url).toBe(`https://raw.githubusercontent.com/smithersai/smithers/v${CLI_VERSION}/docs/llms-full.txt`);
         expect(payload.content).toBe(readFileSync(resolve(CLI_DOCS_ROOT, "llms-full.txt"), "utf8"));
     });
 
