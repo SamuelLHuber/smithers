@@ -383,7 +383,7 @@ export class ClaudeCodeAgent extends BaseCliAgent {
             args.push("--chrome");
         if (this.opts.noChrome)
             args.push("--no-chrome");
-        if (this.opts.continue)
+        if (this.opts.continue || params.options?.continueSession)
             args.push("--continue");
         if (this.opts.debug === true) {
             args.push("--debug");

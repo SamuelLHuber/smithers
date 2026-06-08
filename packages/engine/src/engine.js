@@ -2959,6 +2959,16 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                 const resumeSession = priorContinuation?.mode === "native-cli"
                     ? priorContinuation.resume
                     : checkpointResumeSession;
+                // Fallback: we should be resuming (the same agent ran before) but
+                // no session id was captured. Continue the latest session in this
+                // worktree via --continue. CLI agents that support it read
+                // params.options.continueSession; others ignore it. Caveat: if the
+                // worktree is shared by concurrent tasks, --continue is cwd-scoped
+                // and may attach the most recent session.
+                const continueSession = !resumeSession
+                    && heartbeatCheckpointUsable
+                    && typeof heartbeatCheckpoint?.agentEngine === "string"
+                    && attempts.length > 0;
                 const resumeMessages = priorContinuation?.mode === "conversation"
                     ? (cloneJsonValue(priorContinuation.messages) ?? priorContinuation.messages)
                     : (cloneJsonValue(checkpointResumeMessages) ??
@@ -3276,6 +3286,7 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                                     abortSignal: taskSignal,
                                     ...agentCall,
                                     resumeSession,
+                                    continueSession,
                                     lastHeartbeat: previousHeartbeat,
                                     rootDir: taskRoot,
                                     taskContext: {

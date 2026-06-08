@@ -54,6 +54,29 @@ process.stdout.write(JSON.stringify({
             await rm(argsFileDir, { recursive: true, force: true });
         }
     });
+    test("adds --continue when continueSession is set, and not otherwise", async () => {
+        const argsFileDir = await mkdtemp(join(tmpdir(), "smithers-claude-args-"));
+        const argsFile = join(argsFileDir, "args.json");
+        const fake = await makeFakeClaude(`
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+if (process.env.CLAUDE_ARGS_FILE) fs.writeFileSync(process.env.CLAUDE_ARGS_FILE, JSON.stringify(args), "utf8");
+process.stdout.write("done\\n");
+`);
+        try {
+            process.env.PATH = `${fake.dir}:${originalPath}`;
+            process.env.CLAUDE_ARGS_FILE = argsFile;
+            const agent = new ClaudeCodeAgent({ model: "claude-opus-4-7", outputFormat: "text", env: { PATH: process.env.PATH } });
+            await agent.generate({ messages: [{ role: "user", content: "Ping?" }], continueSession: true });
+            expect(JSON.parse(await readFile(argsFile, "utf8"))).toContain("--continue");
+            await agent.generate({ messages: [{ role: "user", content: "Ping?" }] });
+            expect(JSON.parse(await readFile(argsFile, "utf8"))).not.toContain("--continue");
+        }
+        finally {
+            await rm(fake.dir, { recursive: true, force: true });
+            await rm(argsFileDir, { recursive: true, force: true });
+        }
+    });
     test("does not add --verbose for text output by default", async () => {
         const argsFileDir = await mkdtemp(join(tmpdir(), "smithers-claude-args-"));
         const argsFile = join(argsFileDir, "args.json");
