@@ -2,7 +2,7 @@
 
 **Orchestrate agents at scale with composable workflows.**
 
-Tell your coding agent to do real, multi-step work — then Smithers runs it for minutes or
+Tell your coding agent to do real, multi-step work, then Smithers runs it for minutes or
 days with crash recovery, retries, human approvals, and full observability.
 
 ## What you get
@@ -10,11 +10,11 @@ days with crash recovery, retries, human approvals, and full observability.
 - 🛡️ **Durable runs that survive crashes**: every completed step is persisted the moment it
   finishes, so a run resumes from where it stopped instead of starting over.
 - 🔌 **Any agent, any model**: Claude Code, Codex, Pi, Antigravity, and more, plus any model
-  through the AI SDK — swap the harness without rewriting the workflow.
+  through the AI SDK. Swap the harness without rewriting the workflow.
 - 🛠️ **Higher-quality output**: review loops, human approvals, and evals give agents the
   structure that real work demands.
 - 🧩 **Dozens of ready-to-run workflows**: planning, implementation, review, debugging,
-  tickets, audits, and long-horizon missions — and your agent can author new ones.
+  tickets, audits, and long-horizon missions. Your agent can author new ones.
 
 ## Prompt your agent
 
@@ -78,17 +78,17 @@ bunx smithers-orchestrator workflow run kanban
 ```
 
 Run `bunx smithers-orchestrator starters` to browse plain-English starters, and
-`smithers workflow list` to see what's installed.
+`bunx smithers-orchestrator workflow list` to see what's installed.
 
 ## Watch your runs
 
 Whether your agent started a run or you did, you can see exactly what's happening:
 
 ```bash
-smithers ps                # list active, paused, and recently completed runs
-smithers inspect <run-id>  # steps, agents, approvals, and outputs for one run
-smithers logs <run-id>     # tail the event log
-smithers chat <run-id>     # read the agent's chat output
+bunx smithers-orchestrator ps              # list active, paused, and recently completed runs
+bunx smithers-orchestrator inspect RUN_ID  # steps, agents, approvals, and outputs for one run
+bunx smithers-orchestrator logs RUN_ID     # tail the event log
+bunx smithers-orchestrator chat RUN_ID     # read the agent's chat output
 ```
 
 `ps` shows you what needs attention (a paused approval, a recent failure); `inspect` drills
@@ -97,16 +97,16 @@ into a single run so you can follow each step and agent as it works.
 ## Durable by default
 
 Durability is the differentiator. Runs survive crashes, restarts, and flaky tools because
-**every completed step is persisted to SQLite the moment it finishes** — the runtime always
+**every completed step is persisted to SQLite the moment it finishes**. The runtime always
 knows what's done and what to run next. Approvals, human questions, retries, and replay are
 first-class.
 
 ```bash
-smithers up workflow.tsx --input '{"description":"Fix bug"}'
-smithers up workflow.tsx --run-id abc123 --resume true   # resume after a crash
-smithers rewind abc123 --frame 4                          # time-travel to an earlier frame
-smithers fork abc123                                      # branch an alternate timeline
-smithers replay abc123                                    # replay from a checkpoint
+bunx smithers-orchestrator up workflow.tsx --input '{"description":"Fix bug"}'
+bunx smithers-orchestrator up workflow.tsx --run-id abc123 --resume true   # resume after a crash
+bunx smithers-orchestrator rewind abc123 --frame 4                          # time-travel to an earlier frame
+bunx smithers-orchestrator fork abc123                                      # branch an alternate timeline
+bunx smithers-orchestrator replay abc123                                    # replay from a checkpoint
 ```
 
 ## Any agent, any model
@@ -124,8 +124,8 @@ for the job and switch freely:
 
 ## Built-in workflows
 
-`smithers init` installs a pack of ready-to-run workflows. Point your agent at one and go
-via `bunx smithers-orchestrator workflow run <id> --prompt "..."`:
+`bunx smithers-orchestrator init` installs a pack of ready-to-run workflows. Point your agent at one and go
+via `bunx smithers-orchestrator workflow run WORKFLOW_ID --prompt "..."`:
 
 **Build**
 
@@ -245,17 +245,17 @@ composite patterns. See [Components](https://smithers.sh/components/workflow).
 
 ## Deeper capabilities
 
-- **Observability**: every run emits Prometheus metrics and OpenTelemetry traces — bring up
-  the local stack with `smithers observability up` (Grafana, Prometheus, Tempo, OTLP
-  collector) and serve metrics with `smithers up workflow.tsx --serve --metrics`.
+- **Observability**: every run emits Prometheus metrics and OpenTelemetry traces. Bring up
+  the local stack with `bunx smithers-orchestrator observability up` (Grafana, Prometheus, Tempo, OTLP
+  collector) and serve metrics with `bunx smithers-orchestrator up workflow.tsx --serve --metrics`.
 - **Evals**: run repeatable workflow regressions from JSON/JSONL cases with
-  `smithers eval workflow.tsx --cases evals/smoke.jsonl --suite smoke`; the command exits
+  `bunx smithers-orchestrator eval workflow.tsx --cases evals/smoke.jsonl --suite smoke`; the command exits
   non-zero when any case fails.
 - **Prompt optimization**: run GEPA-style optimization against an eval suite with
-  `smithers optimize`, which writes an optimized prompt artifact only when the score
+  `bunx smithers-orchestrator optimize`, which writes an optimized prompt artifact only when the score
   improves.
 - **Hot reload**: edit prompts, config, agent settings, or JSX structure mid-run with
-  `smithers up workflow.tsx --hot` — in-flight tasks finish on their original code; only
+  `bunx smithers-orchestrator up workflow.tsx --hot`. In-flight tasks finish on their original code; only
   newly scheduled tasks pick up changes.
 - **Scale across machines**: the same `<Sandbox>` primitive runs agents locally or on a
   remote provider ([gVisor](https://gvisor.dev), Kubernetes,
@@ -266,10 +266,10 @@ composite patterns. See [Components](https://smithers.sh/components/workflow).
 
 ## Read next
 
-- [Install the agent skill](./skills/smithers) — make your coding agent fluent in Smithers.
-- [Tour](https://smithers.sh/tour) — a guided walk through a real run.
-- [How It Works](https://smithers.sh/how-it-works) — the durable execution model.
-- [Components](https://smithers.sh/components/workflow) — the full primitive set.
+- [Install the agent skill](./skills/smithers): make your coding agent fluent in Smithers.
+- [Tour](https://smithers.sh/tour): a guided walk through a real run.
+- [How It Works](https://smithers.sh/how-it-works): the durable execution model.
+- [Components](https://smithers.sh/components/workflow): the full primitive set.
 
 ## Docs
 
