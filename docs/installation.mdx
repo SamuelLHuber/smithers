@@ -7,10 +7,15 @@ Most teams should start with the workflow pack. It gives you a working `.smither
 
 ## Always Run with `bunx`
 
-Every CLI invocation in these docs is `bunx smithers-orchestrator <command>`. Do **not** install Smithers globally and do **not** use the bare `smithers` or `bunx smithers` shorthand.
+<Warning>
+  Every CLI invocation in these docs is `bunx smithers-orchestrator <command>`. Do **not**
+  install Smithers globally and do **not** use the bare `smithers` or `bunx smithers`
+  shorthand. The bare name `smithers` is a different npm package, so `bunx smithers` runs
+  something else entirely.
+</Warning>
 
 - `bunx` resolves the package locally if your project depends on it, otherwise it pulls and runs the latest published version.
-- The published npm package is [`smithers-orchestrator`](https://www.npmjs.com/package/smithers-orchestrator). The bare name `smithers` is a different package, so `bunx smithers` runs something else entirely.
+- The published npm package is [`smithers-orchestrator`](https://www.npmjs.com/package/smithers-orchestrator).
 - A global install creates version-drift problems across machines, CI, and contributors. With `bunx`, every project pins Smithers through its own `package.json`.
 
 If you previously ran `npm i -g smithers-orchestrator`, uninstall it (`npm rm -g smithers-orchestrator`) and switch to `bunx`.
@@ -99,10 +104,26 @@ If no bundled binary installed (an unsupported platform, or `--no-optional`) and
 
 ## After Installation
 
-- [Quickstart](/quickstart): run a seeded workflow immediately.
-- [Set up in your harness](/agents/setup): wire Smithers into your agent and grab a copy-paste setup prompt.
-- [Install the Agent Skill](#install-the-agent-skill): make your coding agent fluent in Smithers.
-- [CLI Quickstart](/cli/quickstart): operational workflow.
-- [JSX Installation](/jsx/overview): manual TSX authoring setup.
-- [Project Structure](/guides/project-structure): how a standalone workflow project fits together.
-- [Tools Integration](/integrations/tools): the built-in tool sandbox.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run a seeded workflow immediately.
+  </Card>
+  <Card title="Set up in your harness" icon="plug" href="/agents/setup">
+    Wire Smithers into your agent and grab a copy-paste setup prompt.
+  </Card>
+  <Card title="Install the agent skill" icon="robot" href="#install-the-agent-skill">
+    Make your coding agent fluent in Smithers.
+  </Card>
+  <Card title="CLI Quickstart" icon="terminal" href="/cli/quickstart">
+    The operational command cheatsheet.
+  </Card>
+  <Card title="JSX installation" icon="code" href="/jsx/overview">
+    Manual TSX authoring setup.
+  </Card>
+  <Card title="Project structure" icon="folder-tree" href="/guides/project-structure">
+    How a standalone workflow project fits together.
+  </Card>
+  <Card title="Tools integration" icon="screwdriver-wrench" href="/integrations/tools">
+    The built-in tool sandbox.
+  </Card>
+</CardGroup>
