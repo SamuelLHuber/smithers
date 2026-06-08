@@ -69,7 +69,7 @@ Inspect:
 
 ```bash
 bunx smithers-orchestrator ps                  # find the run id
-bunx smithers-orchestrator inspect <run-id>    # structured state
+bunx smithers-orchestrator inspect RUN_ID    # structured state
 sqlite3 smithers.db "SELECT * FROM greeting;"  # the persisted output
 ```
 
@@ -220,9 +220,9 @@ Operator side:
 
 ```bash
 bunx smithers-orchestrator ps --status waiting-approval     # find paused runs
-bunx smithers-orchestrator inspect <run-id>                  # see the request
-bunx smithers-orchestrator approve <run-id> --node confirm-fix --by alice
-bunx smithers-orchestrator up workflow.tsx --run-id <run-id> --resume true
+bunx smithers-orchestrator inspect RUN_ID                  # see the request
+bunx smithers-orchestrator approve RUN_ID --node confirm-fix --by alice
+bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true
 ```
 
 `onDeny` controls behavior on rejection: `"fail"` aborts the run, `"continue"` proceeds without the approved branch, `"skip"` skips the gated tasks.

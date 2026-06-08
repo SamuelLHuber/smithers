@@ -175,11 +175,11 @@ For local and development work, use the CLI surfaces yourself:
 
 ```bash
 bunx smithers-orchestrator ps
-bunx smithers-orchestrator inspect <run-id> --watch
-bunx smithers-orchestrator events <run-id> --watch
-bunx smithers-orchestrator node <run-id> <node-id>
-bunx smithers-orchestrator scores <run-id>
-bunx smithers-orchestrator why <run-id>
+bunx smithers-orchestrator inspect RUN_ID --watch
+bunx smithers-orchestrator events RUN_ID --watch
+bunx smithers-orchestrator node RUN_ID NODE_ID
+bunx smithers-orchestrator scores RUN_ID
+bunx smithers-orchestrator why RUN_ID
 ```
 
 Use serve mode when you need HTTP status, SSE events, remote approvals, or
@@ -205,7 +205,7 @@ When the human would benefit from seeing the work, suggest the UI and operate it
 for them:
 
 - `bunx smithers-orchestrator gui <path>` opens the workspace view.
-- `bunx smithers-orchestrator ui <run-id>` opens a workflow custom UI when the Gateway is running
+- `bunx smithers-orchestrator ui RUN_ID` opens a workflow custom UI when the Gateway is running
   and the workflow has a registered UI.
 - Gateway and custom UI streams expose run state, frames, approvals, node output,
   and DevTools snapshots for richer visual monitoring.

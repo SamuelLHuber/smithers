@@ -35,8 +35,8 @@ bunx smithers-orchestrator workflow run monitor-smithers --input '{"staleMinutes
 ```bash
 bunx smithers-orchestrator workflow run monitor-smithers -d   # detach
 bunx smithers-orchestrator ps                                 # active / paused / recent
-bunx smithers-orchestrator logs <runId> -f                    # follow events
-bunx smithers-orchestrator inspect <runId>                    # full run state + outputs
+bunx smithers-orchestrator logs RUN_ID -f                    # follow events
+bunx smithers-orchestrator inspect RUN_ID                    # full run state + outputs
 ```
 
 A healthy fleet short-circuits before the expensive triage step, so a clean

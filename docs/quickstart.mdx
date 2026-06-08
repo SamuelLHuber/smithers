@@ -15,14 +15,14 @@ Inspect the run:
 
 ```bash
 bunx smithers-orchestrator ps
-bunx smithers-orchestrator inspect <run-id>
-bunx smithers-orchestrator logs <run-id> --tail 20
+bunx smithers-orchestrator inspect RUN_ID
+bunx smithers-orchestrator logs RUN_ID --tail 20
 ```
 
 Resume after a crash:
 
 ```bash
-bunx smithers-orchestrator up workflow.tsx --run-id <run-id> --resume true
+bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true
 ```
 
 Prefer to let your agent drive? [Install the agent skill](/installation#install-the-agent-skill) and just ask for the outcome. Your coding agent runs Smithers for you.

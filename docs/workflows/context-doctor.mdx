@@ -41,6 +41,6 @@ bunx smithers-orchestrator workflow run context-doctor \
 ```bash
 bunx smithers-orchestrator workflow run context-doctor --input '{"contract":"…"}' -d   # detach
 bunx smithers-orchestrator ps                                                          # active / paused / recent
-bunx smithers-orchestrator logs <runId> -f                                             # follow events
-bunx smithers-orchestrator output <runId> --node check                                 # inspect the deterministic diagnosis
+bunx smithers-orchestrator logs RUN_ID -f                                             # follow events
+bunx smithers-orchestrator output RUN_ID --node check                                 # inspect the deterministic diagnosis
 ```

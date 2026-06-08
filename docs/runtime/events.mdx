@@ -27,16 +27,16 @@ await Effect.runPromise(runWorkflow(workflow, {
 Events append to `.smithers/executions/<runId>/logs/stream.ndjson` (configure with `logDir` / `--log-dir`; disable with `--no-log`).
 
 ```bash
-tail -f .smithers/executions/<run-id>/logs/stream.ndjson | jq .
-jq 'select(.type == "NodeFailed")' .smithers/executions/<run-id>/logs/stream.ndjson
-jq -r .type .smithers/executions/<run-id>/logs/stream.ndjson | sort | uniq -c | sort -rn
+tail -f .smithers/executions/<runId>/logs/stream.ndjson | jq .
+jq 'select(.type == "NodeFailed")' .smithers/executions/<runId>/logs/stream.ndjson
+jq -r .type .smithers/executions/<runId>/logs/stream.ndjson | sort | uniq -c | sort -rn
 ```
 
 Or with the CLI:
 
 ```bash
-bunx smithers-orchestrator events <run-id> --json
-bunx smithers-orchestrator events <run-id> --type tool-call --node analyze
+bunx smithers-orchestrator events RUN_ID --json
+bunx smithers-orchestrator events RUN_ID --type tool-call --node analyze
 ```
 
 ## Common fields

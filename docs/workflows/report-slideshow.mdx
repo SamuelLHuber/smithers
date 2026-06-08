@@ -11,7 +11,7 @@ event log.
 
 ```bash
 bunx smithers-orchestrator workflow run report-slideshow \
-  --input '{"runId":"<runId>","title":"Nightly build report"}'
+  --input '{"runId":"RUN_ID","title":"Nightly build report"}'
 ```
 
 It first captures the run deterministically with `bunx smithers-orchestrator inspect`, then an
@@ -20,7 +20,7 @@ open or attach anywhere.
 
 ## Stages
 
-1. **gather**: deterministic capture. Shell `bunx smithers-orchestrator inspect <runId>` and flatten the run state, nodes, and a summary (no agent).
+1. **gather**: deterministic capture. Shell `bunx smithers-orchestrator inspect RUN_ID` and flatten the run state, nodes, and a summary (no agent).
 2. **render**: an agent writes a self-contained HTML slideshow covering the title/objective, decisions, workflow graph, artifacts, tests/gates, failures/retries, and remaining issues.
 
 ## Inputs
@@ -31,4 +31,4 @@ open or attach anywhere.
 | `title` | string or null | `null` (the render step derives a title from the run) |
 
 The rendered HTML is the `html` field of the `render` node output. Read it with
-`bunx smithers-orchestrator inspect <runId>` or `bunx smithers-orchestrator output <runId> --node render`.
+`bunx smithers-orchestrator inspect RUN_ID` or `bunx smithers-orchestrator output RUN_ID --node render`.

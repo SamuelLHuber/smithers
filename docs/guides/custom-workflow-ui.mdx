@@ -276,8 +276,8 @@ bunx smithers-orchestrator up <workflow> -d            # or `bun .smithers/scrip
 
 # 2. Open the UI in your default browser at the most recent run.
 bunx smithers-orchestrator ui                          # picks the most recent run
-bunx smithers-orchestrator ui <runId>                  # specific run
-bunx smithers-orchestrator ui <runId> --gateway http://127.0.0.1:7331
+bunx smithers-orchestrator ui RUN_ID                  # specific run
+bunx smithers-orchestrator ui RUN_ID --gateway http://127.0.0.1:7331
 
 # 3. (Optional) Boot the apps/smithers PWA against the same Gateway.
 cd apps/smithers && bun dev

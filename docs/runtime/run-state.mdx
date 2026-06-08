@@ -122,7 +122,7 @@ engine uses for `isRunHeartbeatFresh`.
 
 `RunStateView` is the wire format on every read surface:
 
-- `bunx smithers-orchestrator inspect <runId>`: top-level `runState` field on the JSON
+- `bunx smithers-orchestrator inspect RUN_ID`: top-level `runState` field on the JSON
   output (and rendered in the human view).
 - Gateway RPC `getRun`: `runState` field on the response.
 - DevTools snapshot header: `runState?: RunStateView` field.

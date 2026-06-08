@@ -16,7 +16,7 @@ bunx smithers-orchestrator workflow run context-engineer \
 ```
 
 By default it pauses for you to approve the context contract before any work is
-executed. Clear the gate with `bunx smithers-orchestrator approve <runId> --node approve-contract`,
+executed. Clear the gate with `bunx smithers-orchestrator approve RUN_ID --node approve-contract`,
 or run autonomously with `--input '{"review":false}'`.
 
 ## Stages
@@ -42,8 +42,8 @@ or run autonomously with `--input '{"review":false}'`.
 ```bash
 bunx smithers-orchestrator workflow run context-engineer --prompt "…" -d   # detach
 bunx smithers-orchestrator ps                                              # active / paused / recent
-bunx smithers-orchestrator logs <runId> -f                                 # follow events
-bunx smithers-orchestrator approve <runId> --node approve-contract         # clear the contract gate
+bunx smithers-orchestrator logs RUN_ID -f                                 # follow events
+bunx smithers-orchestrator approve RUN_ID --node approve-contract         # clear the contract gate
 ```
 
 Use this when you have a fuzzy ask and want Smithers to do the context

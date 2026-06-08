@@ -262,7 +262,7 @@ new OpenCodeAgent({
 
 ## Hijack handoff
 
-Most built-in CLI agents support `bunx smithers-orchestrator hijack <runId>`, which relaunches the agent in its native CLI session for interactive takeover.
+Most built-in CLI agents support `bunx smithers-orchestrator hijack RUN_ID`, which relaunches the agent in its native CLI session for interactive takeover.
 
 Smithers persists the native session or conversation id on each task event. On hijack, it waits for a safe boundary between blocking tool calls, then reopens the session via the vendor's resume flag:
 

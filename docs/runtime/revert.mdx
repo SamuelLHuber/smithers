@@ -7,7 +7,7 @@ Each successful task attempt captures the current [JJ](https://jj-vcs.github.io/
 
 ```bash
 bunx smithers-orchestrator revert workflow.tsx \
-  --run-id <id> --node-id <node> [--attempt N=1] [--iteration N=0]
+  --run-id RUN_ID --node-id NODE_ID [--attempt N=1] [--iteration N=0]
 ```
 
 Revert restores files only; it doesn't alter JJ history. The restoration creates a new change on top of the current working copy.

@@ -145,8 +145,8 @@ Operator side is identical for both:
 
 ```bash
 bunx smithers-orchestrator ps --status waiting-approval
-bunx smithers-orchestrator approve <run-id> --node ship-decision --by alice
-bunx smithers-orchestrator up workflow.tsx --run-id <run-id> --resume true
+bunx smithers-orchestrator approve RUN_ID --node ship-decision --by alice
+bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true
 ```
 
 `<HumanTask>` is for richer interaction: a human submits arbitrary structured JSON. `<EscalationChain>` and `<ApprovalGate>` are higher-level patterns built from these.
@@ -156,7 +156,7 @@ bunx smithers-orchestrator up workflow.tsx --run-id <run-id> --resume true
 The contract: **a completed task is never re-executed.** Resume loads persisted state, validates the environment (workflow source hash + VCS revision must match the original run), cleans stale in-progress attempts (>15 min without a heartbeat are abandoned), re-renders, and continues.
 
 ```bash
-bunx smithers-orchestrator up workflow.tsx --run-id <id> --resume true
+bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true
 ```
 
 For resume to work, **task IDs must be stable across renders.** Derive them from data, not from indices or timestamps:
@@ -212,10 +212,10 @@ Don't cache side-effect tasks (deploys, emails, mutations). Caching is for pure 
 Every frame commit produces a `GraphSnapshot`.
 
 ```bash
-bunx smithers-orchestrator timeline <run-id>           # frames + forks
-bunx smithers-orchestrator diff <run-id> <node-id>     # node DiffBundle
-bunx smithers-orchestrator fork workflow.tsx --run-id <id> --frame 5 --reset-node analyze
-bunx smithers-orchestrator replay workflow.tsx --run-id <id> --frame 5 --restore-vcs
+bunx smithers-orchestrator timeline RUN_ID           # frames + forks
+bunx smithers-orchestrator diff RUN_ID NODE_ID     # node DiffBundle
+bunx smithers-orchestrator fork workflow.tsx --run-id RUN_ID --frame 5 --reset-node analyze
+bunx smithers-orchestrator replay workflow.tsx --run-id RUN_ID --frame 5 --restore-vcs
 ```
 
 Replay with `--restore-vcs` checks out the jj revision the snapshot was taken at, so re-execution sees the same source code as the original run.
@@ -245,7 +245,7 @@ Five built-ins: `schemaAdherenceScorer`, `latencyScorer`, `relevancyScorer`, `to
 The public scorer surface also exports `runScorersAsync`, `runScorersBatch`, `aggregateScores`, the `smithersScorers` table, and scorer metrics (`scorersStarted`, `scorersFinished`, `scorersFailed`, `scorerDuration`).
 
 ```bash
-bunx smithers-orchestrator scores <run-id>
+bunx smithers-orchestrator scores RUN_ID
 ```
 
 ## Memory (cross-run state)
