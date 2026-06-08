@@ -5,6 +5,9 @@ import * as os from "node:os";
 import { Effect } from "effect";
 import * as BunContext from "@effect/platform-bun/BunContext";
 import * as vcsEffects from "../src/jj.js";
+
+const JJ_ENV = "SMITHERS_JJ_PATH";
+
 /**
  * @template A, E
  * @param {Effect.Effect<A, E, any>} effect
@@ -33,12 +36,20 @@ async function withFakeJj(script, fn) {
         : `#!/usr/bin/env bash\nset -euo pipefail\n${script}`;
     await fs.writeFile(binPath, content, { mode: 0o755 });
     const prevPath = process.env.PATH || "";
+    const prevJj = process.env[JJ_ENV];
     process.env.PATH = `${tmp}${path.delimiter}${prevPath}`;
+    process.env[JJ_ENV] = binPath;
     try {
         await fn();
     }
     finally {
         process.env.PATH = prevPath;
+        if (prevJj === undefined) {
+            delete process.env[JJ_ENV];
+        }
+        else {
+            process.env[JJ_ENV] = prevJj;
+        }
         try {
             await fs.rm(tmp, { recursive: true, force: true });
         }
@@ -77,14 +88,23 @@ describe("runJj", () => {
         catch { }
     });
     test("normalizes spawn failure to code 127 (jj missing)", async () => {
-        const prev = process.env.PATH || "";
-        process.env.PATH = "/nonexistent"; // ensure jj cannot spawn
+        const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "jj-missing-"));
+        const badJj = path.join(tmp, "not-a-command");
+        await fs.mkdir(badJj);
+        const prevJj = process.env[JJ_ENV];
         try {
+            process.env[JJ_ENV] = badJj;
             const res = await vcs.runJj(["--version"]);
             expect(res.code).toBe(127);
         }
         finally {
-            process.env.PATH = prev;
+            if (prevJj === undefined) {
+                delete process.env[JJ_ENV];
+            }
+            else {
+                process.env[JJ_ENV] = prevJj;
+            }
+            await fs.rm(tmp, { recursive: true, force: true });
         }
     });
 });
