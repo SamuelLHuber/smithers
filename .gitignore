@@ -75,7 +75,7 @@ codex/
 ghostty/
 burns
 observability/data/
-tmp/verification/
+**/tmp/verification/
 .context/
 
 # External reference repos
