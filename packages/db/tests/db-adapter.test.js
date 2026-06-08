@@ -834,4 +834,33 @@ describe("workspace snapshot tables", () => {
         expect(checkpoints[1]?.tier).toBe(1);
         expect(checkpoints[1]?.label).toBe("Edit auth.ts");
     });
+
+    test("prune keeps last-N checkpoints per scope and last-N states per run", async () => {
+        const { adapter } = createTestDb();
+        const cp = (nodeId, seq) => ({
+            runId: "r1", nodeId, iteration: 0, attempt: 0, seq,
+            jjCwd: "/wt", jjCommitId: `${nodeId}-${seq}`, source: "hook", tier: 1,
+            label: null, toolUseId: null, createdAtMs: now + seq,
+        });
+        for (let seq = 0; seq < 5; seq++) await adapter.insertWorkspaceCheckpoint(cp("n1", seq));
+        for (let seq = 0; seq < 3; seq++) await adapter.insertWorkspaceCheckpoint(cp("n2", seq));
+        await adapter.pruneWorkspaceCheckpoints("r1", 2);
+        const cps = await adapter.listWorkspaceCheckpoints("r1");
+        expect(cps.filter((c) => c.nodeId === "n1").map((c) => c.seq)).toEqual([3, 4]);
+        expect(cps.filter((c) => c.nodeId === "n2").map((c) => c.seq)).toEqual([1, 2]);
+
+        for (let i = 0; i < 4; i++) {
+            await adapter.upsertWorkspaceState({ runId: "r1", jjCwd: "/wt", jjCommitId: `s${i}`, jjOperationId: `op${i}`, jjChangeId: "ch", createdAtMs: now + i });
+        }
+        await adapter.pruneWorkspaceStates("r1", 2);
+        const states = await adapter.listWorkspaceStates("r1");
+        expect(states.map((s) => s.jjCommitId)).toEqual(["s2", "s3"]);
+    });
+
+    test("prune clamps maxKeep to >= 1 (never deletes everything)", async () => {
+        const { adapter } = createTestDb();
+        await adapter.insertWorkspaceCheckpoint({ runId: "r1", nodeId: "n1", iteration: 0, attempt: 0, seq: 0, jjCwd: "/wt", jjCommitId: "c0", source: "hook", tier: 1, label: null, toolUseId: null, createdAtMs: now });
+        await adapter.pruneWorkspaceCheckpoints("r1", 0);
+        expect(await adapter.listWorkspaceCheckpoints("r1")).toHaveLength(1);
+    });
 });

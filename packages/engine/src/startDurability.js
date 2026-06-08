@@ -11,6 +11,7 @@ import * as BunContext from "@effect/platform-bun/BunContext";
 import { captureWorkspaceSnapshot, isJjRepo } from "@smithers-orchestrator/vcs/jj";
 import { createSnapshotService } from "./snapshotService.js";
 import { createWorkspaceWatcher } from "./workspaceWatcher.js";
+import { pruneWorkspaceDurability } from "./pruneWorkspaceDurability.js";
 
 /**
  * @template A
@@ -85,6 +86,9 @@ export async function startDurability(opts) {
             // Final flush so the last settled write is captured even if the
             // trailing-idle debounce never fired before the attempt ended.
             await watchSnapshot({});
+            // Bound table growth: keep the latest checkpoints/states per scope.
+            // Run-scoped + best-effort, so it never affects the run.
+            await pruneWorkspaceDurability({ adapter, runId });
         },
     };
 }

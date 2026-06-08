@@ -4,14 +4,18 @@ import { startDurability } from "../src/startDurability.js";
 function fakeAdapter() {
     const states = [];
     const checkpoints = [];
+    const pruned = [];
     return {
         states,
         checkpoints,
+        pruned,
         async upsertWorkspaceState(row) {
             const i = states.findIndex((s) => s.jjCommitId === row.jjCommitId && s.jjCwd === row.jjCwd);
             if (i >= 0) states[i] = row; else states.push(row);
         },
         async insertWorkspaceCheckpoint(row) { checkpoints.push(row); },
+        async pruneWorkspaceStates(runId, n) { pruned.push(["states", n]); },
+        async pruneWorkspaceCheckpoints(runId, n) { pruned.push(["checkpoints", n]); },
     };
 }
 
@@ -77,6 +81,8 @@ describe("startDurability", () => {
         expect(watcher.isClosed()).toBe(true);
         // The stop flush captured a new state (c2), so a second checkpoint landed.
         expect(adapter.checkpoints).toHaveLength(2);
+        // stop() also prunes to bound table growth.
+        expect(adapter.pruned).toEqual([["checkpoints", 100], ["states", 50]]);
     });
 
     test("a capture failure surfaces as a gap, never throwing", async () => {

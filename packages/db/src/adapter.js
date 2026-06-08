@@ -1936,6 +1936,37 @@ export class SmithersDb {
          ORDER BY seq ASC`, [runId]));
     }
     /**
+   * Prune old workspace states for a run, keeping the most recent maxKeep by
+   * created_at_ms. The latest rows are always kept. Row-value NOT IN avoids the
+   * string-concat collision a naive key would have; portable to SQLite + Postgres.
+   * @param {string} runId
+   * @param {number} [maxKeep]
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    pruneWorkspaceStates(runId, maxKeep = 50) {
+        const keep = Math.max(1, maxKeep);
+        return this.write(`prune workspace states ${runId}`, () => this.internalStorage.deleteWhere("_smithers_workspace_states", `run_id = ? AND (jj_cwd, jj_commit_id) NOT IN (
+           SELECT jj_cwd, jj_commit_id FROM _smithers_workspace_states
+           WHERE run_id = ? ORDER BY created_at_ms DESC LIMIT ?)`, [runId, runId, keep]));
+    }
+    /**
+   * Prune old workspace checkpoints, keeping the most recent maxKeepPerScope per
+   * (node_id, iteration, attempt) via a window function. The latest checkpoint per
+   * scope is always kept, so resume-restore targets survive.
+   * @param {string} runId
+   * @param {number} [maxKeepPerScope]
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    pruneWorkspaceCheckpoints(runId, maxKeepPerScope = 100) {
+        const keep = Math.max(1, maxKeepPerScope);
+        return this.write(`prune workspace checkpoints ${runId}`, () => this.internalStorage.deleteWhere("_smithers_workspace_checkpoints", `run_id = ? AND (node_id, iteration, attempt, seq) NOT IN (
+           SELECT node_id, iteration, attempt, seq FROM (
+             SELECT node_id, iteration, attempt, seq,
+                    ROW_NUMBER() OVER (PARTITION BY node_id, iteration, attempt ORDER BY seq DESC) AS rn
+             FROM _smithers_workspace_checkpoints WHERE run_id = ?
+           ) sub WHERE rn <= ?)`, [runId, runId, keep]));
+    }
+    /**
    * @param {Record<string, unknown>} row
    * @returns {RunnableEffect<void, SmithersError>}
    */
