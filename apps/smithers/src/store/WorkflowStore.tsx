@@ -138,13 +138,10 @@ function StoreSection({
   );
 }
 
-/** The icon, title, tag, and description shared by every card. */
+/** The title, tag, and description shared by every card. */
 function StoreCardBody({ workflow }: { workflow: StoreWorkflow }) {
   return (
     <>
-      <span className="store-icon" aria-hidden="true">
-        {workflow.icon}
-      </span>
       <span className="store-card-head">
         <span className="store-name">{workflow.name}</span>
         <span className="store-tag">{workflow.category}</span>
