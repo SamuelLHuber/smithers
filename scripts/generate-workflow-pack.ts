@@ -35,7 +35,20 @@ const OUTPUT_FILE = resolve(REPO_ROOT, "apps/cli/src/seeded-workflow-pack.genera
  * init pack. The legacy inline workflows in workflow-pack.js are NOT listed
  * here yet — they can be migrated incrementally.
  */
-const SEEDED_WORKFLOW_IDS = ["create-workflow"];
+const SEEDED_WORKFLOW_IDS = [
+  "create-workflow",
+  // Concierge suite (generated from canonical .smithers sources).
+  "context-engineer",
+  "route-task",
+  "create-skill",
+  "extract-skill",
+  "monitor-smithers",
+  "triage-run",
+  "context-doctor",
+  "backpressure-plan",
+  "eval-author",
+  "report-slideshow",
+];
 
 type TemplateFile = { path: string; contents: string };
 
