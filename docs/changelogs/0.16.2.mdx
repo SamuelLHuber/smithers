@@ -13,5 +13,5 @@ can actually run the CLI.
   `@effect/sql-sqlite-bun/SqliteClient` but the package wasn't listed in the
   engine's `package.json`, so a clean `pnpm install smithers-orchestrator`
   produced an unresolvable `Cannot find module '@effect/sql-sqlite-bun/SqliteClient'`
-  as soon as anything touched the engine (including `smithers ps`). Downstream
+  as soon as anything touched the engine (including `bunx smithers-orchestrator ps`). Downstream
   consumers previously had to add the dep themselves to unblock.

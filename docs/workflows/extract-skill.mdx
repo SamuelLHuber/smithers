@@ -13,7 +13,7 @@ bunx smithers-orchestrator workflow run extract-skill \
   --input '{"runId":"<run-id>","prompt":"Harvest the way we triage flaky tests into a reusable skill"}'
 ```
 
-Pass `runId` to let the analysis read the real run state (`smithers inspect`,
+Pass `runId` to let the analysis read the real run state (`bunx smithers-orchestrator inspect`,
 `events`, `node`); leave it `null` to harvest purely from the `prompt` and
 context. When the pattern is skill-shaped, the workflow writes the skill to
 `.smithers/skills/<name>.md`.

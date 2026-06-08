@@ -46,7 +46,7 @@ bun "$SMITHERS_CLI" up workflow.tsx --input '{}' --root "$ROOT_DIR"
   "type": "module",
   "scripts": {
     "start": "bun run workflow.tsx",
-    "resume": "smithers up workflow.tsx --run-id <run-id> --resume true",
+    "resume": "bunx smithers-orchestrator up workflow.tsx --run-id <run-id> --resume true",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -86,4 +86,4 @@ mdxPlugin();
 - `"smithers-orchestrator": "file:../../"` links to the local package for co-development.
 - `preload.ts` registers the MDX plugin, enabling `.mdx` imports as JSX components.
 - `--root` passes the repository root so agents access the full codebase, not just the workflow directory.
-- `smithers up workflow.tsx --run-id <run-id> --resume true` resumes from the last checkpoint.
+- `bunx smithers-orchestrator up workflow.tsx --run-id <run-id> --resume true` resumes from the last checkpoint.

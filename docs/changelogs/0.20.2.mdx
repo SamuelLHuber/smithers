@@ -8,7 +8,7 @@ dependency are gone.
 
 ## CLI
 
-- **TUI mode removed.** The `smithers tui` command pulled in `@opentui/core`,
+- **TUI mode removed.** The `bunx smithers-orchestrator tui` command pulled in `@opentui/core`,
   which transitively required `jimp` (~89M), `three` (~31M), `planck` (~9M),
   and `bun-webgpu` (~9M), roughly **170 MB** of graphics-stack packages
   installed into `.smithers/node_modules/` on every `init`, even for users
@@ -24,7 +24,7 @@ dependency are gone.
   `.smithers/prompts/grill-me.mdx`, and `.smithers/components/GrillMe.tsx`
   imports the local file. The init scaffolder in
   `apps/cli/src/workflow-pack.js` writes the new prompt and the updated
-  import on `smithers init`.
+  import on `bunx smithers-orchestrator init`.
 
 ## Impact
 

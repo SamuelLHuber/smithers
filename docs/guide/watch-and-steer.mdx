@@ -13,9 +13,9 @@ Watching a run is three moves. List what's active. Follow one live. Inspect what
 
 | You ask your agent | Smithers runs under the hood | You get back |
 | --- | --- | --- |
-| "What's running, and which need me?" | `smithers ps` | Every active, paused, and recently finished run, with status |
-| "Follow the implement run." | `smithers chat --follow` / `smithers inspect --watch` | Live agent output and step-by-step progress, streaming |
-| "Show me what step 3 produced." | `smithers inspect` / `smithers output` / `smithers diff` | The structured output, the diff, the exact tool calls |
+| "What's running, and which need me?" | `bunx smithers-orchestrator ps` | Every active, paused, and recently finished run, with status |
+| "Follow the implement run." | `bunx smithers-orchestrator chat --follow` / `bunx smithers-orchestrator inspect --watch` | Live agent output and step-by-step progress, streaming |
+| "Show me what step 3 produced." | `bunx smithers-orchestrator inspect` / `bunx smithers-orchestrator output` / `bunx smithers-orchestrator diff` | The structured output, the diff, the exact tool calls |
 
 You never have to memorize the commands. You drive it through your agent.
 

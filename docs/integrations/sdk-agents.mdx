@@ -118,12 +118,12 @@ const hermes = new HermesAgent({
 
 ## Hijack Support
 
-SDK agents do not reopen a provider-native CLI. Smithers persists the agent conversation and reopens it through a Smithers-managed REPL via `smithers hijack <runId>`.
+SDK agents do not reopen a provider-native CLI. Smithers persists the agent conversation and reopens it through a Smithers-managed REPL via `bunx smithers-orchestrator hijack <runId>`.
 
 Live-run behavior:
 
 - Smithers captures response history after each step via `onStepFinish`.
-- `smithers hijack` waits until history is durable, aborts the current agent task (handing it off to the REPL), and opens the REPL.
+- `bunx smithers-orchestrator hijack` waits until history is durable, aborts the current agent task (handing it off to the REPL), and opens the REPL.
 - On clean REPL exit, Smithers writes updated message history back and resumes the workflow automatically.
 
 Limits:

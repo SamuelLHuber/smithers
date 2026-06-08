@@ -24,7 +24,7 @@ schema-driven outputs now demand raw JSON without code fences.
   actual JS entry, bypassing the shim. Workflow-path commands
   (`up`, `graph`, `fork`, `replay`, `revert`, `timetravel`) also
   walk upward from the workflow file to find the nearest local
-  install, so `smithers up examples/foo/workflow.tsx` picks up the
+  install, so `bunx smithers-orchestrator up examples/foo/workflow.tsx` picks up the
   workflow's own `node_modules` even when invoked from elsewhere.
 
   Unit tests for the resolution paths live in

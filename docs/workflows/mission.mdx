@@ -43,7 +43,7 @@ bunx smithers-orchestrator workflow run mission \
 When `requirePlanApproval` is `true`, the run pauses after planning and emits a `mission:approve-plan` event. Review the proposed milestones in Smithers, then resume the run:
 
 ```bash
-smithers approve <run-id> --node mission:approve-plan
+bunx smithers-orchestrator approve <run-id> --node mission:approve-plan
 ```
 
 Canceling the run at the approval gate aborts the mission.

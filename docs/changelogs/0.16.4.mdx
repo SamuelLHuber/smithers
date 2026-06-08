@@ -7,7 +7,7 @@ with `INIT_FAILED / ENOENT` on a clean install.
 
 ## Fixes
 
-- **`smithers init` no longer throws on a missing root `package.json`**.
+- **`bunx smithers-orchestrator init` no longer throws on a missing root `package.json`**.
   `@smithers-orchestrator/cli`'s `readDependencyVersions()` read a root
   `package.json` via `readJson("../../../package.json")`. Inside the
   monorepo that's the workspace root; installed from npm it resolves to

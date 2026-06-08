@@ -223,7 +223,7 @@ In Smithers it's all one shape:
 </Workflow>
 ```
 
-The `<Approval>` durably suspends the workflow. A reviewer answers tomorrow morning via CLI, web UI, or HTTP. The supervisor (`smithers supervise`) watches for stale heartbeats and resumes runs that died. None of this is application code you write.
+The `<Approval>` durably suspends the workflow. A reviewer answers tomorrow morning via CLI, web UI, or HTTP. The supervisor (`bunx smithers-orchestrator supervise`) watches for stale heartbeats and resumes runs that died. None of this is application code you write.
 
 ---
 

@@ -180,7 +180,7 @@ Unknown routes return `404` with code `NOT_FOUND`.
 | | Serve mode | [Multi-workflow server](/integrations/server) |
 |---|---|---|
 | Scope | Single workflow, single run | Any workflow, multiple concurrent runs |
-| Start | `smithers up --serve` or `createServeApp()` | `startServer()` |
+| Start | `bunx smithers-orchestrator up --serve` or `createServeApp()` | `startServer()` |
 | Routes | `/`, `/events`, `/approve/:nodeId`, ... | `/v1/runs`, `/v1/runs/:runId`, ... |
 | Framework | Hono | Node.js `http` |
 | Use case | Development, single-purpose services | Production API gateway |

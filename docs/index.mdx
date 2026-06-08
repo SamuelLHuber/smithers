@@ -172,10 +172,10 @@ moment it finishes, so the runtime always knows what's done and what to run next
 can rewind, fork, and replay any run.
 
 ```bash
-smithers up workflow.tsx --run-id abc123 --resume true   # resume after a crash
-smithers rewind abc123 --frame 4                         # time-travel to an earlier frame
-smithers observability up                                # Grafana + Prometheus + Tempo + OTLP
-smithers up workflow.tsx --serve --metrics               # HTTP API, SSE events, and /metrics
+bunx smithers-orchestrator up workflow.tsx --run-id abc123 --resume true   # resume after a crash
+bunx smithers-orchestrator rewind abc123 --frame 4                         # time-travel to an earlier frame
+bunx smithers-orchestrator observability up                                # Grafana + Prometheus + Tempo + OTLP
+bunx smithers-orchestrator up workflow.tsx --serve --metrics               # HTTP API, SSE events, and /metrics
 ```
 
 Every run emits Prometheus metrics and OpenTelemetry traces, so you can watch token spend,

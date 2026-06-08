@@ -2,58 +2,68 @@
 /**
  * Normalize CLI invocations across docs to use `bunx smithers-orchestrator`.
  *
- * - Replaces bare `smithers <subcommand>` with `bunx smithers-orchestrator <subcommand>`
- *   inside fenced bash code blocks only (so prose like "the smithers init command"
- *   stays untouched).
- * - Also strips the "or globally if linked" note in package-configuration.mdx.
- * - Operates on docs/**\/*.mdx and docs/llms-full.txt.
+ * installation.mdx sets the rule: every CLI invocation in the docs is
+ * `bunx smithers-orchestrator <command>`. Bare `smithers` is a different npm
+ * package and `bunx smithers` runs it, so both bare `smithers <sub>` and
+ * `bunx smithers <sub>` (bunx with the wrong package name) are wrong.
  *
- * Run: bun scripts/normalize-bunx.ts
+ * This rewrites, to `bunx smithers-orchestrator <sub>`:
+ *   - bare `smithers <sub>`        (optionally with a `$ ` shell prompt)
+ *   - `bunx smithers <sub>`        (bunx + bare package)
+ *   - `npx smithers <sub>`         (npx + bare package)
+ * in two places:
+ *   - inside fenced shell code blocks (bash/sh/shell/zsh/console/unlabelled)
+ *   - inside inline code spans `like this` in prose and tables
+ * It never touches the bare skill/package name `smithers` written without a
+ * subcommand (e.g. "the `smithers` skill"), and never touches prose outside
+ * code spans (e.g. "the smithers init command").
+ *
+ * Modes:
+ *   bun scripts/normalize-bunx.ts          rewrite files in place
+ *   bun scripts/normalize-bunx.ts --check  exit 1 and list offenders, write nothing
  */
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const DOCS_ROOT = resolve(import.meta.dir, "../docs");
+const CHECK = process.argv.includes("--check");
 
+// Authoritative top-level subcommands plus nested-command heads, derived from
+// apps/cli/src. Matching requires `smithers <sub>` so over-inclusion is safe.
 const KNOWN_SUBCOMMANDS = [
-  "init",
-  "up",
-  "tui",
-  "ps",
-  "logs",
-  "events",
-  "chat",
-  "inspect",
-  "node",
-  "why",
-  "scores",
-  "approve",
-  "deny",
-  "signal",
-  "supervise",
-  "cancel",
-  "down",
-  "hijack",
-  "workflow",
-  "prompt",
-  "ticket",
-  "graph",
-  "diff",
-  "replay",
-  "reset",
-  "travel",
-  "timeline",
-  "revert",
-  "rag",
-  "ask",
-  "memory",
-  "create",
-  "run",
-  "fork",
-  "serve",
-  "ui",
+  "agents", "alerts", "approve", "ask", "ask-human", "cancel", "capabilities",
+  "chat", "chat-create", "create", "cron", "deny", "diff", "docs", "docs-full",
+  "doctor", "down", "eval", "events", "fork", "graph", "gui", "hijack", "human",
+  "init", "inspect", "issue", "list", "logs", "mcp", "memory", "node",
+  "observability", "openapi", "optimize", "output", "path", "prompt", "ps",
+  "rag", "replay", "reset", "restore", "retry-task", "revert", "revoke",
+  "rewind", "run", "scores", "serve", "signal", "skills", "snapshots", "start",
+  "starters", "supervise", "test", "ticket", "timeline", "timetravel", "token",
+  "travel", "tree", "tui", "ui", "up", "usage", "why", "workflow",
 ];
+
+const SUB = KNOWN_SUBCOMMANDS.join("|");
+
+// `smithers` (not `smithers-orchestrator`) optionally prefixed by `bunx `/`npx `,
+// immediately followed by a known subcommand. Capture an optional `$ ` prompt
+// that may sit before a bare `smithers` so we can preserve it.
+const CMD_RE = new RegExp(
+  String.raw`(bunx\s+|npx\s+)?smithers(?!-orchestrator)(\s+(?:${SUB})\b)`,
+  "g",
+);
+
+function normalizeCommands(text: string): string {
+  return text.replace(CMD_RE, (_m, _runner, tail) => `bunx smithers-orchestrator${tail}`);
+}
+
+// Replace bare/bunx/npx smithers commands inside inline code spans only.
+function normalizeInline(line: string): string {
+  return line.replace(/`([^`]+)`/g, (whole, inner) => {
+    const fixed = normalizeCommands(inner);
+    return fixed === inner ? whole : `\`${fixed}\``;
+  });
+}
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -67,94 +77,70 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-function normalizeCodeBlock(body: string): string {
-  // Inside a code block body, replace lines like `smithers <sub> ...`
-  // with `bunx smithers-orchestrator <sub> ...`. Tolerate leading
-  // whitespace and a leading `$ ` shell prompt.
-  const sub = KNOWN_SUBCOMMANDS.join("|");
-  const re = new RegExp(
-    String.raw`(^|\n)([ \t]*)(\$\s*)?smithers(\s+(?:${sub})\b)`,
-    "g",
-  );
-  return body.replace(re, (_m, lead, indent, prompt, tail) => {
-    return `${lead}${indent}${prompt ?? ""}bunx smithers-orchestrator${tail}`;
-  });
-}
-
-function rewriteFile(path: string): { changed: boolean; before: number; after: number } {
-  const original = readFileSync(path, "utf8");
-  let out = "";
-  let i = 0;
-  let inCode = false;
-  let codeStart = 0;
-  let fenceLine = "";
-
-  // Walk line by line; toggle on triple-backtick fences.
+function rewrite(original: string): string {
   const lines = original.split("\n");
-  const buffer: string[] = [];
-  let codeBuf: string[] = [];
+  const out: string[] = [];
+  let inCode = false;
+  let fenceLang = "";
 
   for (const line of lines) {
-    const fenceMatch = /^(\s*)(```+)(\s*([a-zA-Z0-9_+-]*))?\s*$/.exec(line);
-    if (fenceMatch) {
+    const fence = /^(\s*)(```+)\s*([a-zA-Z0-9_+-]*)\s*$/.exec(line);
+    if (fence) {
       if (!inCode) {
         inCode = true;
-        fenceLine = line;
-        codeBuf = [];
+        fenceLang = fence[3] ?? "";
       } else {
-        // Closing fence. Decide whether to rewrite the body.
-        const lang = /^(\s*)```+\s*([a-zA-Z0-9_+-]*)/.exec(fenceLine)?.[2] ?? "";
-        const isShell = ["bash", "sh", "shell", "zsh", "console", ""].includes(lang);
-        const body = codeBuf.join("\n");
-        const rewritten = isShell ? normalizeCodeBlock(body) : body;
-        buffer.push(fenceLine);
-        if (rewritten.length > 0) buffer.push(rewritten);
-        buffer.push(line);
         inCode = false;
-        codeBuf = [];
+        fenceLang = "";
       }
+      out.push(line);
       continue;
     }
     if (inCode) {
-      codeBuf.push(line);
+      const isShell = ["bash", "sh", "shell", "zsh", "console", ""].includes(fenceLang);
+      out.push(isShell ? normalizeCommands(line) : line);
     } else {
-      buffer.push(line);
+      out.push(normalizeInline(line));
     }
   }
-  // If file ended mid-fence (shouldn't happen), flush.
-  if (inCode) {
-    buffer.push(fenceLine);
-    if (codeBuf.length) buffer.push(...codeBuf);
-  }
 
-  out = buffer.join("\n");
-
-  // Strip the "or globally if linked" sentence wherever it appears.
-  out = out.replace(
+  let result = out.join("\n");
+  result = result.replace(
     /the\s+`smithers`\s+command is available via\s+`bunx smithers-orchestrator`\s+or globally if linked\./g,
     "the `smithers` command is invoked via `bunx smithers-orchestrator`. Smithers does not need to be installed globally.",
   );
-
-  if (out !== original) {
-    writeFileSync(path, out);
-    return { changed: true, before: original.length, after: out.length };
-  }
-  return { changed: false, before: original.length, after: original.length };
+  return result;
 }
 
 const files = walk(DOCS_ROOT);
-let changedCount = 0;
-let totalBefore = 0;
-let totalAfter = 0;
+const offenders: string[] = [];
+let changed = 0;
+
 for (const f of files) {
-  const r = rewriteFile(f);
-  totalBefore += r.before;
-  totalAfter += r.after;
-  if (r.changed) {
-    changedCount++;
-    console.log(`  ✓ ${f.replace(DOCS_ROOT, "docs")}  (${r.before} → ${r.after})`);
+  const original = readFileSync(f, "utf8");
+  const next = rewrite(original);
+  if (next === original) continue;
+  const rel = f.replace(DOCS_ROOT, "docs");
+  if (CHECK) {
+    offenders.push(rel);
+  } else {
+    writeFileSync(f, next);
+    changed++;
+    console.log(`  ✓ ${rel}`);
   }
 }
-console.log(
-  `\nUpdated ${changedCount} file(s). Total bytes ${totalBefore} → ${totalAfter} (${totalBefore - totalAfter} saved).`,
-);
+
+if (CHECK) {
+  if (offenders.length) {
+    console.error(
+      `\n✗ ${offenders.length} doc file(s) use bare \`smithers\` or \`bunx smithers\` commands.\n` +
+        `  Every CLI invocation must be \`bunx smithers-orchestrator <command>\`.\n` +
+        `  Run \`bun scripts/normalize-bunx.ts\` to fix:\n` +
+        offenders.map((o) => `    ${o}`).join("\n"),
+    );
+    process.exit(1);
+  }
+  console.log("✓ all docs use bunx smithers-orchestrator");
+} else {
+  console.log(`\nUpdated ${changed} file(s).`);
+}

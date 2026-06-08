@@ -15,17 +15,17 @@ bunx smithers-orchestrator workflow run create-workflow \
 ```
 
 By default it pauses for you to approve the design before any files are written.
-Clear the gate with `smithers approve <runId> --node approve-design`, or run
+Clear the gate with `bunx smithers-orchestrator approve <runId> --node approve-design`, or run
 autonomously with `--input '{"review":false}'`.
 
 ## Stages
 
 1. **clarify**: turn the freeform ask into a structured, buildable spec (goal, trigger, inputs, stages, loops, human gates, success criteria).
-2. **provision**: pull the relevant `llms-*.txt` docs, find the closest `examples/` template, pick components to compose, and **install the worker skills** the new workflow needs (`smithers skills add`).
+2. **provision**: pull the relevant `llms-*.txt` docs, find the closest `examples/` template, pick components to compose, and **install the worker skills** the new workflow needs (`bunx smithers-orchestrator skills add`).
 3. **design**: produce the concrete graph blueprint (schemas, tasks, JSX shape, prompts to author).
 4. **approve-design**: durable human approval gate (skippable via `review: false`).
 5. **scaffold**: write the workflow `.tsx` and its `.mdx` prompts to `.smithers/`.
-6. **verify**: `smithers graph` the new workflow (load + render without executing); a fix agent edits and retries until it renders cleanly.
+6. **verify**: `bunx smithers-orchestrator graph` the new workflow (load + render without executing); a fix agent edits and retries until it renders cleanly.
 7. **document**: write a skill doc so future agents know how to run the new workflow.
 
 ## Inputs

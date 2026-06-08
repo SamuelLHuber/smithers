@@ -20,13 +20,13 @@ The Gateway listens on `7331` inside the compose network and Caddy exposes HTTP/
 Issue a local token grant:
 
 ```bash
-smithers token issue --scopes run:read,run:write,approval:submit --ttl 1h
+bunx smithers-orchestrator token issue --scopes run:read,run:write,approval:submit --ttl 1h
 ```
 
 Copy the resulting grant into the token store used by the deployment. Revoke it with:
 
 ```bash
-smithers token revoke <token>
+bunx smithers-orchestrator token revoke <token>
 ```
 
 ## Single Host

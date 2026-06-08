@@ -6,7 +6,7 @@ description: Turn acceptance criteria into eval fixtures (JSONL cases + rubric) 
 `eval-author` turns plain-English acceptance criteria into a runnable Smithers
 eval suite. It derives a set of cases (each an input plus an `expected` assertion
 and a review rubric), then writes a `.jsonl` fixture under `.smithers/evals/` and
-reports the exact `smithers eval` command to run it. Use it when you have a goal
+reports the exact `bunx smithers-orchestrator eval` command to run it. Use it when you have a goal
 or acceptance criteria and want a repeatable, regression-safe check for a workflow.
 
 ```bash
@@ -17,7 +17,7 @@ bunx smithers-orchestrator workflow run eval-author \
 ## Stages
 
 1. **derive**: turn the criteria into a structured suite, with a kebab-case `suiteName` and a list of cases (`id`, `input`, `expected`, `rubric`).
-2. **write**: write the JSONL fixture to `.smithers/evals/<suiteName>.jsonl` and return its `path`, `caseCount`, and the `runCommand` (`smithers eval <workflow> --cases .smithers/evals/<suiteName>.jsonl --suite <suiteName>`).
+2. **write**: write the JSONL fixture to `.smithers/evals/<suiteName>.jsonl` and return its `path`, `caseCount`, and the `runCommand` (`bunx smithers-orchestrator eval <workflow> --cases .smithers/evals/<suiteName>.jsonl --suite <suiteName>`).
 
 ## Inputs
 

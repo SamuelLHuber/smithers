@@ -20,7 +20,7 @@ bunx smithers-orchestrator skills add   # one skill per CLI verb, so the agent c
 bunx smithers-orchestrator mcp add      # register Smithers as an MCP server in each one
 ```
 
-`skills add` drops a skill for each Smithers command (`smithers ps`, `smithers up`, `smithers inspect`, …) so the agent runs any verb without reading `--help` first; `mcp add` wires in the Smithers MCP server. Together they make the agent *able* to operate Smithers.
+`skills add` drops a skill for each Smithers command (`ps`, `up`, `inspect`, …) so the agent runs any verb without reading `--help` first; `mcp add` wires in the Smithers MCP server. Together they make the agent *able* to operate Smithers.
 
 For the mental model (*when* to reach for Smithers, the rule that the agent is an **orchestrator** that runs real work *through* Smithers rather than its own subagents, plus the full docs bundle it reads on demand), also install the curated `smithers` skill:
 

@@ -15,13 +15,13 @@ bunx smithers-orchestrator workflow run monitor-smithers --input '{"staleMinutes
 
 ## Stages
 
-1. **poll**: deterministic (no agent), shells out to `smithers ps --format json`,
+1. **poll**: deterministic (no agent), shells out to `bunx smithers-orchestrator ps --format json`,
    parses it, and normalises each run into `{ runId, status, ageMinutes, lastEvent }`.
    Any failure degrades to an empty list rather than throwing.
 2. **classify**: a cheap/fast agent sorts the runs into buckets: `healthy`,
    `stuck`, `blocked`, `failed`, `overBudget`.
 3. **triage**: runs only when a non-healthy run exists. A smart agent surfaces
-   the pending approval/question for blocked runs (`smithers why`, `smithers approve`),
+   the pending approval/question for blocked runs (`bunx smithers-orchestrator why`, `bunx smithers-orchestrator approve`),
    recommends the `triage-run` workflow for stuck/failed runs, and returns a digest.
 
 ## Inputs

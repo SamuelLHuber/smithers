@@ -292,7 +292,7 @@ export default smithers(() => (
 Then drive the hijacked session from the terminal:
 
 ```bash
-smithers chat create --agent claude --cwd .
+bunx smithers-orchestrator chat create --agent claude --cwd .
 # Drops you into an interactive Claude Code session inside the run.
 # Send `{}` to hand control back; the task completes and the run continues.
 ```
@@ -334,10 +334,10 @@ const env = accountToProviderEnv(await getAccount("claude", "work"));
 // → { CLAUDE_CONFIG_DIR: "/Users/.../claude-work" }
 ```
 
-### Interactive `smithers agents add`
+### Interactive `bunx smithers-orchestrator agents add`
 
 ```bash
-$ smithers agents add
+$ bunx smithers-orchestrator agents add
 ◇ Detected CLI: claude (1.3.0), codex (0.5.1)
 ◇ Which provider?  ›  Claude Code
 ◇ Label this account  ›  work
@@ -380,7 +380,7 @@ const claudeApi = new ClaudeCodeAgent({
 Each `configDir` is wired through to the right per-CLI environment variable
 (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `GEMINI_DIR`, `KIMI_SHARE_DIR`).
 
-### `smithers chat create`
+### `bunx smithers-orchestrator chat create`
 
 A one-task auto-hijacked chat that drops you into an interactive Claude
 Code, Codex, or Gemini session inside a Smithers run. Built on top of the
@@ -389,7 +389,7 @@ the command does not need to import the top-level `smithers-orchestrator`
 bundle just to create its inline workflow:
 
 ```bash
-smithers chat create --agent claude --cwd .
+bunx smithers-orchestrator chat create --agent claude --cwd .
 # (or --agent codex / --agent gemini)
 ```
 
@@ -404,15 +404,15 @@ package. Generated workflow packs also include `@types/node` alongside the
 React and MDX type pins, which keeps freshly initialized packs typecheckable
 when workflows use Node globals or built-ins.
 
-### `smithers init --agents-only`
+### `bunx smithers-orchestrator init --agents-only`
 
 Scaffold the agents file without generating workflows. Useful when you
 already have your own workflow pack and just want Smithers to manage
 credentials:
 
 ```bash
-smithers init --agents-only            # just .smithers/agents.ts
-smithers init --agents-only --addAgents # also launch the wizard
+bunx smithers-orchestrator init --agents-only            # just .smithers/agents.ts
+bunx smithers-orchestrator init --agents-only --addAgents # also launch the wizard
 ```
 
 ### JSON-clean stdout
@@ -422,7 +422,7 @@ stderr so commands invoked with `--format json` produce a parseable stdout
 stream:
 
 ```bash
-smithers ps --format json | jq '.[] | select(.status == "running") | .runId'
+bunx smithers-orchestrator ps --format json | jq '.[] | select(.status == "running") | .runId'
 # stdout is pure JSON; smithers' own logs go to stderr.
 ```
 
@@ -619,7 +619,7 @@ export default smithers((ctx) => {
 Run it:
 
 ```bash
-smithers run extract-prompt --input '{"prompt":"Write me a code review prompt","stakes":"high"}'
+bunx smithers-orchestrator run extract-prompt --input '{"prompt":"Write me a code review prompt","stakes":"high"}'
 # Drafter loops until the score crosses the stakes threshold or the user approves.
 # Approved prompt lands in .smithers/cache/prompts/<cacheKey>.md.
 ```

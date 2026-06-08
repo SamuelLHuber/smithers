@@ -47,8 +47,8 @@ bunx smithers-orchestrator skills add --no-global   # writes .agents/skills in t
 ```
 
 <Note>
-`skills add` generates a skill per CLI command group (`smithers up`, `smithers ps`,
-`smithers approve`, …) and installs them to the canonical `~/.agents/skills`
+`skills add` generates a skill per CLI command group (`bunx smithers-orchestrator up`, `bunx smithers-orchestrator ps`,
+`bunx smithers-orchestrator approve`, …) and installs them to the canonical `~/.agents/skills`
 directory, symlinking into each agent that uses its own path (Claude Code →
 `~/.claude/skills`, Windsurf → `~/.codeium/windsurf/skills`, …). `mcp add`
 registers `bunx smithers-orchestrator --mcp` in each agent's MCP config. Override

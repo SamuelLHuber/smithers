@@ -3,7 +3,7 @@ title: Custom Workflow UIs
 description: Build a first-class browser UI for your workflow (vanilla SDK or React hooks) and ship it through the Smithers Gateway, the apps/smithers PWA, and same-origin Smithers Cloud / Plue deployments.
 ---
 
-A custom workflow UI is a small browser bundle that *lives next to your workflow* and talks to the Smithers Gateway over the same RPC and WebSocket protocol the Gateway already serves. You write it once, the Gateway builds and serves it at `/workflows/<key>`, and every Smithers surface that knows about Gateway runs (the [Smithers PWA](https://smithers.sh), Studio 2, the `smithers ui` CLI, or your own embed) can render it for a run with a stable `?runId=` deep link.
+A custom workflow UI is a small browser bundle that *lives next to your workflow* and talks to the Smithers Gateway over the same RPC and WebSocket protocol the Gateway already serves. You write it once, the Gateway builds and serves it at `/workflows/<key>`, and every Smithers surface that knows about Gateway runs (the [Smithers PWA](https://smithers.sh), Studio 2, the `bunx smithers-orchestrator ui` CLI, or your own embed) can render it for a run with a stable `?runId=` deep link.
 
 This guide covers the whole shape: vanilla SDK boot, React hooks, the boot config the iframe receives, live event subscriptions (with automatic pushed updates and resilient reconnection), node-output and diff reads, approvals and signals, the crucial stale-data-free update model to avoid data bleeding across runs, metrics streaming, sample tests, and the same-origin proxy patterns you reach for when custom UIs run with Smithers UI and the Gateway (such as in Smithers Cloud or behind Plue).
 
@@ -17,7 +17,7 @@ Three pieces collaborate:
 
 2. **The Gateway serves an HTML shell.** Hitting `/workflows/vcs` returns a tiny HTML document with a `<div id="root">`, the bundled script, and a global `__SMITHERS_GATEWAY_UI__` object (the [`GatewayUiBootConfig`](#the-boot-config)) set before your script runs. The shell uses `?runId=<id>` from the query string to scope a session to one run; if it is omitted, your UI is responsible for showing a picker or empty state.
 
-3. **The host embeds the shell same-origin.** `apps/smithers` mounts it as `<iframe src="/workflows/<key>?runId=<id>">`. Because the host and Gateway share an origin (via the Worker / Vite proxy described [below](#same-origin-proxy-patterns)), the iframe's RPC calls and WebSocket all reach the real Gateway without CORS or token shuttling. Studio 2 and the `smithers ui` command embed the same URL.
+3. **The host embeds the shell same-origin.** `apps/smithers` mounts it as `<iframe src="/workflows/<key>?runId=<id>">`. Because the host and Gateway share an origin (via the Worker / Vite proxy described [below](#same-origin-proxy-patterns)), the iframe's RPC calls and WebSocket all reach the real Gateway without CORS or token shuttling. Studio 2 and the `bunx smithers-orchestrator ui` command embed the same URL.
 
 ## Two SDKs: pick by appetite
 
@@ -284,7 +284,7 @@ cd apps/smithers && bun dev
 # Visit http://localhost:5173/gw/<workflowKey>/<runId>
 ```
 
-The `smithers ui` command resolves the most recent run when invoked without an id, prints the URL it opened, and exits; it does not hold the run alive. Pair it with `bunx smithers-orchestrator up <workflow>` in a separate terminal.
+The `bunx smithers-orchestrator ui` command resolves the most recent run when invoked without an id, prints the URL it opened, and exits; it does not hold the run alive. Pair it with `bunx smithers-orchestrator up <workflow>` in a separate terminal.
 
 ## Sample tests
 
@@ -310,6 +310,6 @@ Add your own fixture under the same folder and register it with `gateway.registe
 - **Package:** [`@smithers-orchestrator/gateway-react`](/reference/package-configuration#workspace-packages): React hooks and `createGatewayReactRoot`.
 - **Package:** [`@smithers-orchestrator/gateway-client`](/reference/package-configuration#workspace-packages): vanilla `SmithersGatewayClient` and types.
 - **Protocol:** [Gateway](/integrations/gateway): full RPC method list, WebSocket frame shapes, error codes, scopes.
-- **CLI:** [`smithers ui`](/cli/overview#smithers-ui): open a workflow's custom UI in your browser for a given run.
+- **CLI:** [`bunx smithers-orchestrator ui`](/cli/overview#smithers-ui): open a workflow's custom UI in your browser for a given run.
 - **Examples:** [Workflow UI (React)](/examples/workflow-ui-react), [Workflow UI (Vanilla)](/examples/workflow-ui-vanilla).
 - **Reference bundles in this repo:** `.smithers/ui/vcs.tsx`, `.smithers/ui/grill-me.tsx`, `.smithers/ui/ultragrill.tsx`, `.smithers/ui/workflow-skill.tsx`.

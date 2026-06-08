@@ -72,5 +72,5 @@ export default smithers((ctx) => {
 ## Notes
 
 - `mode="select"` returns `{ selected, notes }`; `mode="rank"` returns `{ ranked, notes }`.
-- Durable deferred keyed on (run, node, iteration) survives restarts; `smithers approve`/`deny` resolves it.
+- Durable deferred keyed on (run, node, iteration) survives restarts; `bunx smithers-orchestrator approve`/`deny` resolves it.
 - For a pre-task pause without persisted decision, use `<Task needsApproval>`.

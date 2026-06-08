@@ -134,10 +134,10 @@ Alert rows live in `_smithers_alerts`. The row shape includes:
 ## CLI
 
 ```bash
-smithers alerts list
-smithers alerts ack <alert-id>
-smithers alerts resolve <alert-id>
-smithers alerts silence <alert-id>
+bunx smithers-orchestrator alerts list
+bunx smithers-orchestrator alerts ack <alert-id>
+bunx smithers-orchestrator alerts resolve <alert-id>
+bunx smithers-orchestrator alerts silence <alert-id>
 ```
 
 `list` returns active `firing`, `acknowledged`, and `silenced` alerts. Use `--format json` when another process needs to consume the rows.

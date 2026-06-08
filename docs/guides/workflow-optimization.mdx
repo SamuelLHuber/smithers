@@ -3,7 +3,7 @@ title: Workflow optimization
 description: Optimize Smithers workflow prompts against eval suites with GEPA-style prompt artifacts.
 ---
 
-Run `smithers optimize` to generate improved prompts for agent tasks via GEPA, verify the improvement against your eval suite, and save the result as a reusable artifact.
+Run `bunx smithers-orchestrator optimize` to generate improved prompts for agent tasks via GEPA, verify the improvement against your eval suite, and save the result as a reusable artifact.
 
 ```bash
 bunx smithers-orchestrator optimize workflow.tsx \
@@ -14,7 +14,7 @@ bunx smithers-orchestrator optimize workflow.tsx \
   --artifact .smithers/optimizations/smoke-gepa.json
 ```
 
-`smithers optimize` runs the eval suite twice:
+`bunx smithers-orchestrator optimize` runs the eval suite twice:
 
 1. baseline run with the workflow's current prompts
 2. optimized run with GEPA-generated prompt patches applied
@@ -63,7 +63,7 @@ Observed result:
 
 ## Providers
 
-`smithers optimize` accepts the same provider vocabulary Smithers uses for agents and accounts:
+`bunx smithers-orchestrator optimize` accepts the same provider vocabulary Smithers uses for agents and accounts:
 
 | Provider | Optimizer API | Required env | Default model |
 | --- | --- | --- | --- |

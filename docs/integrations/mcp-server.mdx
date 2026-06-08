@@ -389,7 +389,7 @@ Block the current run and ask a human to make a decision, then wait for their an
 
 When run inside a Smithers task, the run/node context is taken from the `SMITHERS_RUN_ID` / `SMITHERS_NODE_ID` / `SMITHERS_ITERATION` environment variables Smithers injects into the agent; pass `runId`/`nodeId`/`iteration` explicitly to override, or rely on single-active-run autodetection.
 
-An operator resolves the request with `smithers human answer <requestId> --value '<json>'` (or `smithers human cancel <requestId>`); `smithers human inbox` lists everything waiting.
+An operator resolves the request with `bunx smithers-orchestrator human answer <requestId> --value '<json>'` (or `bunx smithers-orchestrator human cancel <requestId>`); `bunx smithers-orchestrator human inbox` lists everything waiting.
 
 **Input:**
 

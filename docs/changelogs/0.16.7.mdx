@@ -8,7 +8,7 @@ workflow end-to-end on a fresh machine.
 
 ## Fixes
 
-- **`smithers init` now runs `bun install` inside `.smithers/`**. Bun's
+- **`bunx smithers-orchestrator init` now runs `bun install` inside `.smithers/`**. Bun's
   runtime auto-install happily fetches registry deps but silently
   skips `github:` specifiers, so the newly-declared
   `github:mattpocock/skills` dep stayed missing until the user ran
@@ -19,7 +19,7 @@ workflow end-to-end on a fresh machine.
   inherited so the install log is visible). Install failures (no
   `bun` on PATH, non-zero exit) don't fail init; they're surfaced on
   the returned result and the user can re-run `bun install` manually.
-  A new `smithers init --no-install` flag skips the step for CI /
+  A new `bunx smithers-orchestrator init --no-install` flag skips the step for CI /
   scripted reinits.
 
 - **`@smithers-orchestrator/react-reconciler` host config now provides

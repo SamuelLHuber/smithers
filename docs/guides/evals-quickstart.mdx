@@ -5,7 +5,7 @@ description: Run repeatable workflow regressions from JSON or JSONL cases.
 
 Use eval suites when a workflow is important enough to protect with repeatable cases. Each case gets a persisted run record, stable case metadata, and a JSON report that can be checked in CI.
 
-You need a workflow file (e.g. `workflow.tsx`) and a working `smithers init` scaffold. Each eval case runs that workflow with the given input and checks the result.
+You need a workflow file (e.g. `workflow.tsx`) and a working `bunx smithers-orchestrator init` scaffold. Each eval case runs that workflow with the given input and checks the result.
 
 ## 1. Create cases
 

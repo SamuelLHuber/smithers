@@ -64,9 +64,9 @@ This three-task workflow runs research, then plan, then implement. Sequence enfo
 Start it. Kill the process while `plan` is running. Resume it:
 
 ```bash
-smithers up ship-it.tsx --run-id r1
+bunx smithers-orchestrator up ship-it.tsx --run-id r1
 # ^C while plan is in flight
-smithers up ship-it.tsx --run-id r1 --resume true
+bunx smithers-orchestrator up ship-it.tsx --run-id r1 --resume true
 ```
 
 `research` is skipped because its output is already in the database. `plan` re-runs as attempt 2 because it was interrupted mid-flight. `implement` runs for the first time. No work is lost, and you wrote no recovery code.
@@ -84,9 +84,9 @@ This falls out of one design choice: state is the source of truth, and the plan 
 It buys three things for free. Resume, because re-rendering from current state needs no event log to replay. Time travel, because every render frame is a row, so forking a run is throwing away rows. SQL debugging, because state is queryable and an event chain is not.
 
 ```bash
-smithers timeline r1        # every frame
-smithers fork r1 --frame 4  # branch an alternate timeline
-smithers diff r1 r1-fork    # compare two snapshots as a unified diff
+bunx smithers-orchestrator timeline r1        # every frame
+bunx smithers-orchestrator fork r1 --frame 4  # branch an alternate timeline
+bunx smithers-orchestrator diff r1 r1-fork    # compare two snapshots as a unified diff
 ```
 
 Git history for agent runs, with the actual run state in every frame.
@@ -107,7 +107,7 @@ A background agent that cannot stop and ask a human is dangerous to run unattend
 />
 ```
 
-`<Approval>` durably suspends the run. The process exits. It costs nothing while it waits. A reviewer answers tomorrow over CLI, web, or HTTP, and `smithers supervise` resumes any run whose heartbeat went stale after the machine died. The suspended run lives as a database row with nothing running.
+`<Approval>` durably suspends the run. The process exits. It costs nothing while it waits. A reviewer answers tomorrow over CLI, web, or HTTP, and `bunx smithers-orchestrator supervise` resumes any run whose heartbeat went stale after the machine died. The suspended run lives as a database row with nothing running.
 
 ## Patterns are compositions on the substrate
 
@@ -148,8 +148,8 @@ This is the claim a skeptic should test first, so we will be specific. The same 
 
 ```bash
 bunx smithers-orchestrator init        # scaffold the workflow pack
-smithers up workflow.tsx --serve --metrics   # HTTP API, SSE stream, Prometheus
-smithers observability up               # Grafana, Prometheus, Tempo, one command
+bunx smithers-orchestrator up workflow.tsx --serve --metrics   # HTTP API, SSE stream, Prometheus
+bunx smithers-orchestrator observability up               # Grafana, Prometheus, Tempo, one command
 ```
 
 <Frame caption="Live frames stream over the gateway as the run executes. Every state transition, every attempt, every retry is already a row you can scrub back through.">

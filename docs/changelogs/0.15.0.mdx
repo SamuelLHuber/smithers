@@ -199,13 +199,13 @@ deterministic.
 
 ## CLI
 
-- **`smithers signal`**: Deliver structured data to a `<Signal>` or
+- **`bunx smithers-orchestrator signal`**: Deliver structured data to a `<Signal>` or
   `<WaitForEvent>` node from the command line.
-- **`smithers retry-task`**: Retry a specific task without time travel. Resets
+- **`bunx smithers-orchestrator retry-task`**: Retry a specific task without time travel. Resets
   the node and dependents, re-executes only what changed.
-- **`smithers timetravel`**: Revert to a previous task state. Optionally
+- **`bunx smithers-orchestrator timetravel`**: Revert to a previous task state. Optionally
   restore the VCS filesystem and resume immediately.
-- **`smithers ask` diagnostics**: `--dump-prompt`, `--tool-surface`,
+- **`bunx smithers-orchestrator ask` diagnostics**: `--dump-prompt`, `--tool-surface`,
   `--list-agents`, `--print-bootstrap` for debugging agent bootstrap.
 
 ---
