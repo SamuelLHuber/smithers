@@ -1869,6 +1869,22 @@ commands[66]:
     flags[2]{name,short,type,default,desc}:
       yes,,boolean,false,Skip confirmation prompt
       json,j,boolean,false,Emit JumpResult JSON
+  - name: snapshots
+    purpose: List durability snapshots (workspace checkpoints) for a run
+    args[1]{name,type,required,desc}:
+      runId,string,true,Run ID to list snapshots for
+    flags[1]{name,short,type,default,desc}:
+      json,,boolean,false,Emit rows as JSON
+  - name: restore
+    purpose: Restore a worktree to a durability checkpoint (latest for the node, or --seq)
+    args[2]{name,type,required,desc}:
+      runId,string,true,Run ID containing the checkpoint
+      nodeId,string,true,Node ID whose worktree to restore
+    flags[2]{name,short,type,default,desc}:
+      iteration,,number,,Loop iteration
+      seq,,number,,Checkpoint seq; latest if omitted
+  - name: snapshot-hook
+    purpose: "Internal: PostToolUse hook that requests a Tier 1 durability snapshot"
   - name: observability
     purpose: Start or stop the local Docker Compose observability stack
     flags[2]{name,short,type,default,desc}:
@@ -5485,6 +5501,11 @@ Most applications should import from `smithers-orchestrator`. The scoped workspa
 | `@smithers-orchestrator/gateway-client` | Browser/client SDK for Gateway RPC requests and event streams | Gateway |
 | `@smithers-orchestrator/gateway-react` | React hooks and root helpers for Gateway-backed UIs | Gateway |
 | `@smithers-orchestrator/graph` | Framework-neutral workflow graph model, XML nodes, task descriptors, and graph snapshots | Planner Internals, Types |
+| `@smithers-orchestrator/jj-darwin-arm64` | Vendored jj (Jujutsu) binary for darwin-arm64; auto-installed as an optional dependency of `@smithers-orchestrator/vcs`, not depended on directly | VCS Guide |
+| `@smithers-orchestrator/jj-darwin-x64` | Vendored jj (Jujutsu) binary for darwin-x64; auto-installed as an optional dependency of `@smithers-orchestrator/vcs`, not depended on directly | VCS Guide |
+| `@smithers-orchestrator/jj-linux-arm64` | Vendored jj (Jujutsu) binary for linux-arm64; auto-installed as an optional dependency of `@smithers-orchestrator/vcs`, not depended on directly | VCS Guide |
+| `@smithers-orchestrator/jj-linux-x64` | Vendored jj (Jujutsu) binary for linux-x64; auto-installed as an optional dependency of `@smithers-orchestrator/vcs`, not depended on directly | VCS Guide |
+| `@smithers-orchestrator/jj-win32-x64` | Vendored jj (Jujutsu) binary for win32-x64; auto-installed as an optional dependency of `@smithers-orchestrator/vcs`, not depended on directly | VCS Guide |
 | `@smithers-orchestrator/memory` | Cross-run facts, message history, processors, namespaces, service layer, and metrics | Memory, Memory Quickstart |
 | `@smithers-orchestrator/observability` | Event types, logging, tracing, metrics, Prometheus rendering, and runtime observability layers | Events, Event Types |
 | `@smithers-orchestrator/openapi` | OpenAPI parsing, operation extraction, AI SDK tool generation, schema conversion, and metrics | OpenAPI Tools, OpenAPI Quickstart |
@@ -5500,6 +5521,7 @@ Most applications should import from `smithers-orchestrator`. The scoped workspa
 | `@smithers-orchestrator/smithers-studio-2` | Next Smithers Studio UI shell for browsing and driving workflow runs | CLI Overview |
 | `@smithers-orchestrator/smithers-tui-demo` | Private React TUI demo app for terminal workflow interaction experiments | CLI Overview |
 | `@smithers-orchestrator/time-travel` | Snapshots, diffs, forks, replay, timelines, VCS tags, rewind locks/audits, and time-travel metrics | Time Travel, Time Travel Quickstart |
+| `@smithers-orchestrator/tool-context` | AsyncLocalStorage tool-execution context (run/node/idempotency keys, durability snapshot hook) shared by the engine and `smithers-orchestrator` without a dependency cycle | Execution Model |
 | `@smithers-orchestrator/usage` | Account quota and rate-limit usage reporting for Smithers providers | CLI Overview |
 | `@smithers-orchestrator/vcs` | VCS discovery and jj workspace operations such as `runJj`, `workspaceAdd`, `workspaceList`, and pointer reverts | VCS Helpers, VCS Guide |
 

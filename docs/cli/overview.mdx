@@ -391,6 +391,22 @@ commands[66]:
     flags[2]{name,short,type,default,desc}:
       yes,,boolean,false,Skip confirmation prompt
       json,j,boolean,false,Emit JumpResult JSON
+  - name: snapshots
+    purpose: List durability snapshots (workspace checkpoints) for a run
+    args[1]{name,type,required,desc}:
+      runId,string,true,Run ID to list snapshots for
+    flags[1]{name,short,type,default,desc}:
+      json,,boolean,false,Emit rows as JSON
+  - name: restore
+    purpose: Restore a worktree to a durability checkpoint (latest for the node, or --seq)
+    args[2]{name,type,required,desc}:
+      runId,string,true,Run ID containing the checkpoint
+      nodeId,string,true,Node ID whose worktree to restore
+    flags[2]{name,short,type,default,desc}:
+      iteration,,number,,Loop iteration
+      seq,,number,,Checkpoint seq; latest if omitted
+  - name: snapshot-hook
+    purpose: "Internal: PostToolUse hook that requests a Tier 1 durability snapshot"
   - name: observability
     purpose: Start or stop the local Docker Compose observability stack
     flags[2]{name,short,type,default,desc}:
