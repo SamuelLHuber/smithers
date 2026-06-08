@@ -20,6 +20,19 @@ bunx smithers-orchestrator workflow run implement --prompt "…"        # launch
 bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true   # resume a paused run
 ```
 
+**What success looks like**
+
+`workflow run` and `up` stream the lifecycle event log and exit on a terminal line:
+
+```text
+[12:00:01] ▶ Run started
+[12:00:01] ↺ Run status: running
+[12:00:38] ✓ implement (attempt 1)
+[12:00:40] ✓ Run finished
+```
+
+`✓ Run finished` means the run completed. `⏸ <node> waiting for approval` means it paused for you (clear it with `approve`, then resume). `✗ Run failed: …` reports the error. The CLI prints the run id and suggested next commands (`logs`, `inspect`) after launch; pass that id to every command below.
+
 **Observe & control**
 
 ```bash
