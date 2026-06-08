@@ -32,4 +32,16 @@ The workflow returns two structured outputs in the run result (nothing is writte
 | `auditFeature` | `{ groupName, result, featuresCovered[], score? }` | One entry per group processed in parallel |
 | `audit` | `{ totalGroups, summary, mergedResult, markdownBody }` | Merged report across all groups |
 
-Use it to find missing tests, docs, observability, error handling, or maintainability work.
+## Use it when
+
+- You have a feature map (from [`feature-enum`](/workflows/feature-enum) or your own) and want a gap review per group.
+- You want findings on missing tests, docs, observability, error handling, or maintainability work.
+
+## Use something else when
+
+- You do not have a feature inventory yet: run [`feature-enum`](/workflows/feature-enum) first.
+- You want to review a diff rather than feature groups: use [`review`](/workflows/review).
+
+## Resume & retry
+
+`audit` processes groups in parallel and returns structured results in the run output; nothing is written to disk. Runs are durable and resume with `up --resume`.

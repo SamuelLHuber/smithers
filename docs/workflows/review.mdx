@@ -24,4 +24,16 @@ Reviewers return:
 - `feedback`: concise review notes.
 - `issues`: structured findings with severity, title, optional file, and description.
 
-Use this after manual edits, `implement`, `mission`, or `kanban`.
+## Use it when
+
+- You want structured reviewer feedback and an approval verdict on the current repo state.
+- After manual edits, [`implement`](/workflows/implement), [`mission`](/workflows/mission), or [`kanban`](/workflows/kanban).
+
+## Use something else when
+
+- You want the fix applied, not just reviewed: use [`implement`](/workflows/implement) or [`debug`](/workflows/debug).
+- You want a feature-by-feature gap review: use [`audit`](/workflows/audit).
+
+## Resume & retry
+
+`review` is read-only and returns reviewer findings in the run output. Runs are durable and resume with `up --resume`.

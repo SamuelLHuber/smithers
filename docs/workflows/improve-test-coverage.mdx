@@ -15,8 +15,17 @@ bunx smithers-orchestrator workflow run improve-test-coverage --prompt "Add regr
 | --- | --- | --- |
 | `prompt` | string | `"Improve the test coverage for the current repository."` |
 
-## Use It When
+## Use it when
 
 - A feature landed without enough tests.
 - A bug fix needs regression coverage.
 - Review or audit found weak boundary coverage.
+
+## Use something else when
+
+- You are still fixing the bug: use [`debug`](/workflows/debug) first, then this workflow for regression coverage.
+- You want a broad gap report rather than new tests: use [`audit`](/workflows/audit) with `focus: "test coverage"`.
+
+## Resume & retry
+
+Runs the shared validation loop (up to 3 iterations) and commits to the working tree. Runs are durable and resume with `up --resume`.

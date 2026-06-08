@@ -15,4 +15,14 @@ bunx smithers-orchestrator workflow run ticket-create --prompt "Add a settings p
 | --- | --- | --- |
 | `prompt` | string | `"Create a ticket for the requested work."` |
 
-Use this when the request is already narrow enough for one implementable unit. For larger requests, use `tickets-create`.
+## Use it when
+
+- The request is already narrow enough to be one implementable unit.
+
+## Use something else when
+
+- The request is broad: use [`tickets-create`](/workflows/tickets-create) to split it into many tickets.
+
+## Resume & retry
+
+`ticket-create` returns a single ticket in the run output; it does not write files. Runs are durable and resume with `up --resume`.

@@ -33,8 +33,20 @@ Place ticket files in `.smithers/tickets/`:
 4. Records a ticket result in the run log.
 5. Merges branches where validation passed and at least one reviewer approved.
 
-Use this after `tickets-create` when you want multiple independent tickets implemented with isolated working directories.
-
 ## Output Shape
 
 Each ticket branch is merged into the main workspace on success. The run log records per-ticket validation results and reviewer feedback; failing tickets are left in their worktree branches for inspection.
+
+## Use it when
+
+- You have multiple independent tickets in `.smithers/tickets/`.
+- You want each ticket built in its own worktree branch and merged on success.
+
+## Use something else when
+
+- You have not split the work yet: run [`tickets-create`](/workflows/tickets-create) first.
+- The work is a single change: use [`implement`](/workflows/implement).
+
+## Resume & retry
+
+Runs are durable and resume with `up --resume`. Each ticket runs the validation loop independently; branches that pass validation and reviewer approval are merged, and failing tickets are left in their worktree branches for inspection.

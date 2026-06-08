@@ -15,6 +15,16 @@ bunx smithers-orchestrator workflow run ralph --prompt "Continue reducing flaky 
 | --- | --- | --- |
 | `prompt` | string | `"Continue working on the current task."` |
 
-## Notes
+## Use it when
 
-`ralph` runs an unbounded loop. It won't stop on its own. Cancel it with `bunx smithers-orchestrator cancel RUN_ID` when enough work is done, or configure a `maxIterations` limit in your local workflow file.
+- You want an agent to keep working on an open-ended prompt with no fixed finish line.
+- A maintenance task benefits from continuous iteration (reducing flaky tests, chipping at tech debt).
+
+## Use something else when
+
+- The work has a clear definition of done: use [`implement`](/workflows/implement) or [`mission`](/workflows/mission).
+- You need review gates or validation each pass: use a validation-loop workflow such as [`implement`](/workflows/implement).
+
+## Resume & retry
+
+`ralph` runs an unbounded loop and will not stop on its own. Cancel it with `bunx smithers-orchestrator cancel RUN_ID` when enough work is done, or configure a `maxIterations` limit in your local workflow file. Runs are durable and resume with `up --resume`.

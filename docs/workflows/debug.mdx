@@ -27,3 +27,17 @@ After the fix is applied, run `improve-test-coverage` to add a regression test, 
 ## Output Shape
 
 `debug` commits changes directly to the working tree. The run log records each iteration's validation result and reviewer feedback; the last iteration's output is the final result.
+
+## Use it when
+
+- A reported bug needs reproduction, a fix, and validation.
+- You want every iteration to run rather than stopping at the first green check.
+
+## Use something else when
+
+- You already know the fix and just want it applied and reviewed: use [`implement`](/workflows/implement).
+- You need a regression test for the fix: follow with [`improve-test-coverage`](/workflows/improve-test-coverage).
+
+## Resume & retry
+
+Runs are durable and resume with `up --resume`. Unlike `implement`, `debug` does not stop early; it runs all iterations (up to 3) and returns the last attempt.

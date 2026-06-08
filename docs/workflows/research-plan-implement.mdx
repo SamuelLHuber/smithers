@@ -31,3 +31,18 @@ bunx smithers-orchestrator workflow run research-plan-implement \
 2. Planning turns the request and research into concrete steps.
 3. Implementation receives the original prompt plus research and plan context.
 4. Validation and review decide whether another implementation pass is needed.
+
+## Use it when
+
+- The change needs repo context and a plan before code.
+- You want research, planning, and a validated implementation in one run.
+
+## Use something else when
+
+- You already know what to build: use [`implement`](/workflows/implement).
+- You only need context or a plan, not code: use [`research`](/workflows/research) or [`plan`](/workflows/plan).
+- The scope spans many units or milestones: use [`tickets-create`](/workflows/tickets-create) with [`kanban`](/workflows/kanban), or [`mission`](/workflows/mission).
+
+## Resume & retry
+
+Runs are durable and resume with `up --resume`; completed research and planning are not re-run. The implementation stage uses the same validation loop as `implement` (up to 3 iterations, stopping on validation pass plus reviewer approval).

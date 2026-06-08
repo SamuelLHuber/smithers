@@ -18,10 +18,18 @@ bunx smithers-orchestrator workflow run feature-enum --input '{"refineIterations
 | `lastCommitHash` | string or null | `null` |
 | `additionalContext` | string | `""` |
 
-## Use It When
+## Use it when
 
 - You need a feature inventory for audits.
 - You want stable feature names for documentation, tests, or release planning.
 - You want an agent to compare the current repo against a previous inventory.
 
 Follow with `audit`.
+
+## Use something else when
+
+- You already have a feature map and want to evaluate it: go straight to [`audit`](/workflows/audit).
+
+## Resume & retry
+
+`feature-enum` returns a feature inventory in the run output; nothing is written to disk. Runs are durable and resume with `up --resume`.

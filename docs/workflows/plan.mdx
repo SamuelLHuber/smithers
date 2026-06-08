@@ -18,3 +18,18 @@ bunx smithers-orchestrator workflow run plan --prompt "Add account-level billing
 ## Output Shape
 
 The plan task returns a summary and ordered steps. Use it before `implement`, `research-plan-implement`, `mission`, or `tickets-create`.
+
+## Use it when
+
+- You want an ordered, reviewable plan before any code changes.
+- The request is clear enough to plan but you do not want edits yet.
+
+## Use something else when
+
+- The task touches unfamiliar code: run [`research`](/workflows/research) first, or use [`research-plan-implement`](/workflows/research-plan-implement).
+- Requirements are still vague: run [`grill-me`](/workflows/grill-me).
+- You are ready to build: use [`implement`](/workflows/implement).
+
+## Resume & retry
+
+`plan` does not change the repo; it returns a plan in the run output. Runs are durable and resume with `up --resume`.
