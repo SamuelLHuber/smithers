@@ -4,11 +4,19 @@
   "description": "Durable control plane for long-running coding agents",
   "theme": "mint",
   "colors": {
-    "primary": "#00D2A0"
+    "primary": "#00D2A0",
+    "light": "#5BE9C9",
+    "dark": "#00A07A"
   },
   "favicon": "/favicon.svg",
+  "search": {
+    "prompt": "Search or ask the docs..."
+  },
+  "seo": {
+    "indexing": "all"
+  },
   "contextual": {
-    "options": ["copy", "view", "chatgpt", "claude"]
+    "options": ["copy", "view", "claude", "chatgpt", "perplexity", "mcp", "cursor", "vscode"]
   },
   "navigation": {
     "tabs": [
@@ -357,7 +365,12 @@
         "label": "GitHub",
         "href": "https://github.com/smithersai/smithers"
       }
-    ]
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get started",
+      "href": "/quickstart"
+    }
   },
   "footer": {
     "socials": {
