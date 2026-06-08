@@ -163,7 +163,7 @@ Unknown runtimes now fail closed. Docker is not silently replaced by bubblewrap 
 
 ## Freestyle provider example
 
-[Freestyle VMs](https://docs.freestyle.sh/v2/vms) are extremely powerful sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer, not a code runner.
+[Freestyle VMs](https://docs.freestyle.sh/v2/vms) are full sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer rather than a code runner.
 
 See `examples/freestyle/` for a provider adapter that creates a Freestyle VM, ships a request with `additionalFiles`, executes a command with `vm.exec()`, reads `smithers-result.json`, and returns a Smithers sandbox result.
 
