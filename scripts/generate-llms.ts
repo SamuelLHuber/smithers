@@ -203,13 +203,13 @@ const HEADERS = {
     "",
     "Human-facing docs live on the website under the For Humans Guide. Humans ask their agent for outcomes; agents consume these llms files and operate Smithers.",
     "",
-    "Opt-in fragments cover features most users do not need:",
-    "  - Memory (cross-run state):       /llms-memory.txt",
-    "  - OpenAPI tools:                  /llms-openapi.txt",
-    "  - Observability + HTTP server:    /llms-observability.txt",
-    "  - Effect-ts authoring API:        /llms-effect.txt",
-    "  - Integrations + CLI agents:      /llms-integrations.txt",
-    "  - Event types (full union):       /llms-events.txt",
+    "Opt-in topics cover features most users do not need. They are also sections of the full bundle at /llms-full.txt (only /llms.txt and /llms-full.txt are served on the docs site):",
+    "  - Memory (cross-run state)",
+    "  - OpenAPI tools",
+    "  - Observability + HTTP server",
+    "  - Effect-ts authoring API",
+    "  - Integrations + CLI agents",
+    "  - Event types (full union)",
     "",
     "Changelogs are not included; see /docs/changelogs/ on the docs site.",
   ].join("\n"),
@@ -262,16 +262,16 @@ for (const b of builds) {
     "",
     "Audience split: humans should read the For Humans Guide on the docs site and talk to their coding agent. Agents should read this file, operate Smithers for the human, verify the run, and report evidence back.",
     "",
-    "If you only need the everyday agent surface (runtime, JSX, CLI, components, recipes, types, errors) read /llms-core.txt instead — it is roughly half the size and skips the opt-in fragments below.",
+    "The everyday agent surface (runtime, JSX, CLI, components, recipes, types, errors) is the first section below; the opt-in topics follow. Only /llms.txt and /llms-full.txt are served on the docs site, so read this file rather than fetching per-topic fragment URLs.",
     "",
-    "Fragments included in this file:",
-    "  1. /llms-core.txt           — core runtime, JSX, CLI, components, recipes, types",
-    "  2. /llms-memory.txt         — cross-run memory",
-    "  3. /llms-openapi.txt        — OpenAPI tool generation",
-    "  4. /llms-observability.txt  — HTTP server, gateway, MCP, OpenTelemetry",
-    "  5. /llms-effect.txt         — low-level Effect-ts integration",
-    "  6. /llms-integrations.txt   — agent runtimes, IDE, CI, ecosystem",
-    "  7. /llms-events.txt          — full SmithersEvent discriminated union",
+    "Sections included in this file:",
+    "  1. Core: runtime, JSX, CLI, components, recipes, types",
+    "  2. Memory: cross-run memory",
+    "  3. OpenAPI tools: tool generation from a spec",
+    "  4. Observability: HTTP server, gateway, MCP, OpenTelemetry",
+    "  5. Effect: low-level Effect-ts integration",
+    "  6. Integrations: agent runtimes, IDE, CI, ecosystem",
+    "  7. Events: full SmithersEvent discriminated union",
     "",
     "Changelogs are not included; see /docs/changelogs/ on the docs site.",
     "",
@@ -313,13 +313,18 @@ Durable AI workflow orchestration as a JSX runtime.
 
 ## Documentation
 
-- [Core docs](/llms-core.txt) — runtime, agent operating playbook, JSX surface, CLI, components, recipes, types, errors
-- [Memory fragment](/llms-memory.txt) — cross-run memory: facts, history, recall
-- [OpenAPI tools fragment](/llms-openapi.txt) — generate AI SDK tools from OpenAPI specs
-- [Observability fragment](/llms-observability.txt) — HTTP server, gateway, MCP, OpenTelemetry
-- [Effect fragment](/llms-effect.txt) — Effect-ts authoring API (no JSX)
-- [Integrations fragment](/llms-integrations.txt) — agent runtimes, tools, ecosystem
-- [Events fragment](/llms-events.txt) — full SmithersEvent discriminated union
+The complete agent bundle is served at [/llms-full.txt](/llms-full.txt). Read it top to
+bottom; it contains every topic below in one document. Per-topic fragments are build
+artifacts and are not served separately: only /llms.txt and /llms-full.txt resolve on the
+docs site.
+
+- Core: runtime, agent operating playbook, JSX surface, CLI, components, recipes, types, errors
+- Memory: cross-run memory (facts, history, recall)
+- OpenAPI tools: generate AI SDK tools from OpenAPI specs
+- Observability: HTTP server, gateway, MCP, OpenTelemetry
+- Effect: Effect-ts authoring API (no JSX)
+- Integrations: agent runtimes, tools, ecosystem
+- Events: full SmithersEvent discriminated union
 
 ## Agent operating directive
 

@@ -12,13 +12,18 @@ Durable AI workflow orchestration as a JSX runtime.
 
 ## Documentation
 
-- [Core docs](/llms-core.txt) — runtime, agent operating playbook, JSX surface, CLI, components, recipes, types, errors
-- [Memory fragment](/llms-memory.txt) — cross-run memory: facts, history, recall
-- [OpenAPI tools fragment](/llms-openapi.txt) — generate AI SDK tools from OpenAPI specs
-- [Observability fragment](/llms-observability.txt) — HTTP server, gateway, MCP, OpenTelemetry
-- [Effect fragment](/llms-effect.txt) — Effect-ts authoring API (no JSX)
-- [Integrations fragment](/llms-integrations.txt) — agent runtimes, tools, ecosystem
-- [Events fragment](/llms-events.txt) — full SmithersEvent discriminated union
+The complete agent bundle is served at [/llms-full.txt](/llms-full.txt). Read it top to
+bottom; it contains every topic below in one document. Per-topic fragments are build
+artifacts and are not served separately: only /llms.txt and /llms-full.txt resolve on the
+docs site.
+
+- Core: runtime, agent operating playbook, JSX surface, CLI, components, recipes, types, errors
+- Memory: cross-run memory (facts, history, recall)
+- OpenAPI tools: generate AI SDK tools from OpenAPI specs
+- Observability: HTTP server, gateway, MCP, OpenTelemetry
+- Effect: Effect-ts authoring API (no JSX)
+- Integrations: agent runtimes, tools, ecosystem
+- Events: full SmithersEvent discriminated union
 
 ## Agent operating directive
 
