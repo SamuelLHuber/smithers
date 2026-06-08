@@ -4705,6 +4705,18 @@ const cli = Cli.create({
         });
     },
 })
+    .command("snapshot-hook", {
+    description: "Internal: PostToolUse hook that requests a Tier 1 durability snapshot.",
+    args: z.object({}),
+    options: z.object({}),
+    run() {
+        return (async () => {
+            const { runSnapshotHookOnce } = await import("./snapshot-hook.js");
+            const result = await runSnapshotHookOnce({});
+            return result.exitCode;
+        })();
+    },
+})
     // =========================================================================
     // smithers revert <workflow>
     // =========================================================================

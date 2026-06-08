@@ -34,6 +34,7 @@ const runVcs = (effect) => Effect.runPromise(effect.pipe(Effect.provide(BunConte
 
 const NOOP_HANDLE = {
     active: false,
+    socketPath: null,
     /** @returns {Promise<{ skipped: true }>} */
     async snapshot() { return { skipped: true }; },
     async stop() { },

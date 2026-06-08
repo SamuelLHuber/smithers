@@ -3264,6 +3264,7 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     iteration: desc.iteration,
                     attempt: attemptNo,
                     cwd: taskRoot,
+                    withSocket: true,
                 });
                 let result;
                 try {
@@ -3287,6 +3288,7 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                                     ...agentCall,
                                     resumeSession,
                                     continueSession,
+                                    durabilitySocket: durability.socketPath,
                                     lastHeartbeat: previousHeartbeat,
                                     rootDir: taskRoot,
                                     taskContext: {
