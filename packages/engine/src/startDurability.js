@@ -13,6 +13,17 @@ import { createSnapshotService } from "./snapshotService.js";
 import { createWorkspaceWatcher } from "./workspaceWatcher.js";
 import { pruneWorkspaceDurability } from "./pruneWorkspaceDurability.js";
 import { appendGap, defaultGapSpoolPath } from "./durabilityGapSpool.js";
+import { createSnapshotServer, nextSnapshotSocketPath } from "./snapshotServer.js";
+
+/**
+ * Build a human label from a CLI hook payload (Claude PostToolUse JSON or our own).
+ * @param {Record<string, any>} p
+ */
+function hookLabel(p) {
+    const tool = p.label ?? p.toolName ?? p.tool_name ?? "tool";
+    const file = p.filePath ?? p.tool_input?.file_path ?? "";
+    return String(file ? `${tool} ${file}` : tool).slice(0, 200);
+}
 
 /**
  * @template A
@@ -62,6 +73,8 @@ export async function startDurability(opts) {
         isJjRepoFn = (c) => runVcs(isJjRepo(c)),
         captureSnapshot = (c) => runVcs(captureWorkspaceSnapshot(c)),
         createWatcher = createWorkspaceWatcher,
+        withSocket = false,
+        createSocketServer = createSnapshotServer,
     } = opts;
 
     if (!enabled || !cwd) return NOOP_HANDLE;
@@ -83,13 +96,37 @@ export async function startDurability(opts) {
     const watchSnapshot = (req) => service.snapshot({ ...base, source: "watch", tier: 2, label: null, toolUseId: null, ...req });
     const watcher = createWatcher({ cwd, onSettle: () => { void watchSnapshot({}); } });
 
+    // Optional Unix-socket server so a CLI agent's PostToolUse hook can request a
+    // strict Tier 1 snapshot. Created only when the engine asks (withSocket), so
+    // unit tests and the default path never open a real socket.
+    let socketServer = null;
+    if (withSocket) {
+        try {
+            socketServer = await createSocketServer({
+                socketPath: nextSnapshotSocketPath(),
+                onHook: async (payload) => {
+                    const result = await service.snapshot({
+                        ...base, source: "hook", tier: 1,
+                        label: hookLabel(payload),
+                        toolUseId: payload.toolUseId ?? payload.tool_use_id ?? null,
+                    });
+                    return { ok: !(result && result.gap), seq: result && result.seq };
+                },
+            });
+        }
+        catch { socketServer = null; }
+    }
+
     return {
         active: true,
+        // Socket path for a CLI agent's hook to call back into (null if no socket).
+        socketPath: socketServer?.socketPath ?? null,
         // Tier 1 entry point for the in-process tool wrap (Phase 2) and CLI hooks
         // (Phase 3): pass source "wrap"/"hook", tier 1, plus label / toolUseId.
         snapshot: (req = {}) => service.snapshot({ ...base, source: "watch", tier: 2, label: null, toolUseId: null, ...req }),
         async stop() {
             watcher.close();
+            socketServer?.close();
             // Final flush so the last settled write is captured even if the
             // trailing-idle debounce never fired before the attempt ended.
             await watchSnapshot({});

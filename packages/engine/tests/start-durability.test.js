@@ -110,6 +110,37 @@ describe("startDurability", () => {
         }
     });
 
+    test("withSocket: a hook request records a Tier 1 checkpoint", async () => {
+        const net = await import("node:net");
+        const adapter = fakeAdapter();
+        const fw = fakeWatcher();
+        const h = await startDurability(baseOpts({ adapter, withSocket: true, createWatcher: fw.create.bind(fw) }));
+        try {
+            expect(typeof h.socketPath).toBe("string");
+            const ack = await new Promise((resolve, reject) => {
+                const c = net.connect(h.socketPath, () => c.write(`${JSON.stringify({ toolName: "Edit", filePath: "a.ts", toolUseId: "t1" })}\n`));
+                let buf = "";
+                c.setEncoding("utf8");
+                c.on("data", (x) => {
+                    buf += x;
+                    const nl = buf.indexOf("\n");
+                    if (nl === -1) return;
+                    c.end();
+                    try { resolve(JSON.parse(buf.slice(0, nl) || "{}")); } catch { resolve({}); }
+                });
+                c.on("error", reject);
+            });
+            expect(ack.ok).toBe(true);
+            const hook = adapter.checkpoints.find((cp) => cp.source === "hook" && cp.tier === 1);
+            expect(hook).toBeTruthy();
+            expect(hook.label).toContain("Edit");
+            expect(hook.toolUseId).toBe("t1");
+        }
+        finally {
+            await h.stop();
+        }
+    });
+
     test("a capture failure surfaces as a gap, never throwing", async () => {
         const adapter = fakeAdapter();
         const gaps = [];
