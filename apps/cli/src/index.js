@@ -4646,6 +4646,66 @@ const cli = Cli.create({
     },
 })
     // =========================================================================
+    // smithers snapshots <runId>  /  smithers restore <runId> --node <id>
+    // =========================================================================
+    .command("snapshots", {
+    description: "List durability snapshots (workspace checkpoints) for a run.",
+    args: z.object({
+        runId: z.string().describe("Run ID to list snapshots for"),
+    }),
+    options: z.object({
+        json: z.boolean().default(false).describe("Emit rows as JSON"),
+    }),
+    run(c) {
+        return runDevtoolsCommandWithTelemetry("snapshots", c, async () => {
+            const { runSnapshotsOnce } = await import("./snapshots.js");
+            const { adapter, cleanup } = await findAndOpenDb();
+            try {
+                const result = await runSnapshotsOnce({
+                    adapter,
+                    runId: c.args.runId,
+                    json: c.options.json,
+                    stdout: process.stdout,
+                });
+                return result.exitCode;
+            } finally {
+                cleanup();
+            }
+        });
+    },
+})
+    .command("restore", {
+    description: "Restore a worktree to a durability checkpoint (latest for the node, or --seq).",
+    args: z.object({
+        runId: z.string().describe("Run ID containing the checkpoint"),
+        nodeId: z.string().describe("Node ID whose worktree to restore"),
+    }),
+    options: z.object({
+        iteration: z.number().int().min(0).optional().describe("Loop iteration"),
+        seq: z.number().int().min(0).optional().describe("Checkpoint seq (default: latest)"),
+    }),
+    run(c) {
+        return runDevtoolsCommandWithTelemetry("restore", c, async () => {
+            const { runRestoreOnce } = await import("./restore.js");
+            const { adapter, cleanup } = await findAndOpenDb();
+            try {
+                const result = await runRestoreOnce({
+                    adapter,
+                    runId: c.args.runId,
+                    nodeId: c.args.nodeId,
+                    iteration: c.options.iteration,
+                    seq: c.options.seq,
+                    stdout: process.stdout,
+                    stderr: process.stderr,
+                });
+                return result.exitCode;
+            } finally {
+                cleanup();
+            }
+        });
+    },
+})
+    // =========================================================================
     // smithers revert <workflow>
     // =========================================================================
     .command("revert", {
