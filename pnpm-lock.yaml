@@ -819,6 +819,9 @@ importers:
       '@smithers-orchestrator/time-travel':
         specifier: workspace:*
         version: link:../time-travel
+      '@smithers-orchestrator/tool-context':
+        specifier: workspace:*
+        version: link:../tool-context
       '@smithers-orchestrator/vcs':
         specifier: workspace:*
         version: link:../vcs
@@ -1332,6 +1335,9 @@ importers:
       '@smithers-orchestrator/time-travel':
         specifier: workspace:*
         version: link:../time-travel
+      '@smithers-orchestrator/tool-context':
+        specifier: workspace:*
+        version: link:../tool-context
       '@smithers-orchestrator/vcs':
         specifier: workspace:*
         version: link:../vcs
@@ -1413,6 +1419,15 @@ importers:
       react:
         specifier: ^19.2.5
         version: 19.2.5
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/tool-context:
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.14
       typescript:
         specifier: ~5.9.3
         version: 5.9.3

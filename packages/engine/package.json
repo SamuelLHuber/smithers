@@ -44,6 +44,7 @@
     "@smithers-orchestrator/scheduler": "workspace:*",
     "@smithers-orchestrator/scorers": "workspace:*",
     "@smithers-orchestrator/time-travel": "workspace:*",
+    "@smithers-orchestrator/tool-context": "workspace:*",
     "@smithers-orchestrator/vcs": "workspace:*",
     "diff": "^9.0.0",
     "drizzle-orm": "^0.45.2",
