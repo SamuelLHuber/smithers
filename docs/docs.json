@@ -64,7 +64,8 @@
           "how-it-works",
           "concepts/memory",
           "guides/context-engineering",
-          "recipes"
+          "recipes",
+          "guides/common-footguns"
         ]
       },
       {

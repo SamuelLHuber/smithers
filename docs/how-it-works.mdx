@@ -278,6 +278,8 @@ const implementer = new AnthropicAgent({ model, instructions: "...", tools: { re
 - **Cached output is re-validated.** Schema drift after caching is caught (the validator rejects the stale row), so the cache misses safely.
 - **Side-effect tasks should not be cached.** Pure work only.
 
+The full list, with the fix for each, is in [Common Footguns](/guides/common-footguns).
+
 ## Read next
 
 - [Components](/components/workflow): JSX surface reference.

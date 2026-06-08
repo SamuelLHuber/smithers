@@ -87,6 +87,7 @@ const CORE_PAGES = [
   "components/kanban.mdx",
   // Recipes and reference
   "recipes.mdx",
+  "guides/common-footguns.mdx",
   "reference/types.mdx",
   "reference/errors.mdx",
   "reference/package-configuration.mdx",
