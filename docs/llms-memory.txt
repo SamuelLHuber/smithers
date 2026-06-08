@@ -10,6 +10,17 @@
 
 Memory persists state **across runs**. Task outputs are per-run; memory is per-namespace and survives every workflow execution.
 
+```mermaid
+flowchart LR
+  W[workflow] --> ST
+  AG[agent] --> ST
+  U[user] --> ST
+  GL[global] --> ST
+  ST[(Memory store<br/>one SQLite db)] --> F[Facts · namespaced JSON, optional TTL]
+  ST --> H[Message history · ordered threads]
+  style ST fill:#def,stroke:#36c
+```
+
 ## Three layers
 
 ```ts
@@ -67,6 +78,15 @@ const summarizer = Summarizer(myAgent);     // compress old messages with an LLM
 await gc.process(store);
 await limiter.process(store);
 await summarizer.process(store);
+```
+
+```mermaid
+flowchart LR
+  M[Facts + messages accumulate] --> GC[TtlGarbageCollector<br/>drop expired facts]
+  GC --> TL[TokenLimiter<br/>trim history to budget]
+  TL --> SM[Summarizer<br/>compress old messages with an LLM]
+  SM --> K[Compact, in-budget memory]
+  style K fill:#dfe,stroke:#3a3
 ```
 
 ## Inspect from the CLI

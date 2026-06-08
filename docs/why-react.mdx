@@ -20,6 +20,10 @@ Forget orchestration for a minute. Here is everything Smithers does:
 
 That's it. Render → execute → persist → render. The render is pure. The persistence is durable. The loop is the program.
 
+<Frame caption="Four stages, one cycle. The render is a pure function of state; persistence makes it durable; the re-render is what makes the plan evolve as tasks finish.">
+  <img src="/images/why/render-loop.svg" alt="The Smithers runtime loop: render the workflow tree, extract ready tasks, execute them, persist outputs, then re-render against the new state" />
+</Frame>
+
 ## What you get for free
 
 Once the runtime has that shape, a stack of useful properties just *appear*:
@@ -27,6 +31,10 @@ Once the runtime has that shape, a stack of useful properties just *appear*:
 **Agents inspect state easily, because the state is SQLite.** Agents are very good at writing SQL. Ask the agent what happened on frame 17 of run `abc123` and it writes a `SELECT`. No bespoke tracing API to learn.
 
 **Time travel is real, because every frame is a snapshot.** Smithers records a snapshot of each frame (nodes, outputs, and the jj pointer that was active when the frame ran) as a row in SQLite. When you rewind to frame 5, Smithers calls revertToJjPointer to restore the working tree to that recorded jj state, then replays the workflow forward against the exact source code that ran the original. Not "logs of what happened," but the actual state.
+
+<Frame caption="Because every frame is a row, forking a run from an earlier frame is just SQL. The original timeline stays intact while the fork explores a different path.">
+  <img src="/images/why/task-fork.gif" alt="A Smithers run rewinds to an earlier frame and forks into a second branch that retries the work a different way" />
+</Frame>
 
 **The whole React hook ecosystem becomes available for orchestration.** `useMemo`, `useContext`, custom hooks: they all work. Want to factor the "wait for approval, then branch" pattern into a `useApprovalGate()` hook? Go ahead. The reconciler doesn't know the difference between a Task and a `<div>`.
 

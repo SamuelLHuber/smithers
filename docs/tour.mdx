@@ -239,6 +239,10 @@ bunx smithers-orchestrator up workflow.tsx --run-id review-1 --resume true
 # analyze is skipped (already in DB), fix re-runs from scratch (was incomplete)
 ```
 
+<Frame caption="The same crash-and-resume mechanic: a run is killed mid-task, then resuming skips the finished work and re-runs only the interrupted task from its last persisted frame.">
+  <img src="/images/why/crash-resume.gif" alt="A Smithers run is killed partway through, then resumes: the completed task is skipped, the in-flight task re-runs as a new attempt, and the run finishes" />
+</Frame>
+
 In-flight attempts are marked stale and re-tried; finished tasks are not. Resume is deterministic: same input + same code = same task IDs.
 
 For unattended recovery, run the supervisor:

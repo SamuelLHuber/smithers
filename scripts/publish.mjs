@@ -4,7 +4,7 @@
 // equivalent) first to bump + commit + tag.
 //
 // Usage:
-//   pnpm run release                 # check clean, verify changelog, build, lint, typecheck, test, publish, gh release
+//   pnpm run release                 # check clean, verify changelog, build, lint, typecheck, test, fetch jj, publish, gh release
 //   pnpm run release -- --dry-run    # same but stop before `pnpm publish`
 //   pnpm run release -- --otp=123456
 //   pnpm run release -- --skip-build
@@ -13,7 +13,7 @@
 //   pnpm run release -- --skip-gh-release  # skip creating the GitHub release
 
 import { execSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -32,7 +32,8 @@ const SKIP_GH_RELEASE = !!args["skip-gh-release"];
 const OTP = typeof args.otp === "string" ? args.otp : null;
 const GH_REPO = "smithersai/smithers";
 
-const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
+const rootPackage = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+const version = rootPackage.version;
 
 function log(step, msg) {
   console.log(`\n▸ [${step}] ${msg}`);
@@ -40,6 +41,71 @@ function log(step, msg) {
 function run(cmd) {
   console.log(`  $ ${cmd}`);
   execSync(cmd, { stdio: "inherit", cwd: root });
+}
+function shellQuote(value) {
+  return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
+}
+function runArgs(cmd, args) {
+  console.log(`  $ ${[cmd, ...args].map(shellQuote).join(" ")}`);
+  const out = spawnSync(cmd, args, { stdio: "inherit", cwd: root });
+  if (out.status !== 0) throw new Error(`command failed: ${cmd} ${args.join(" ")}`);
+}
+function workspacePackages() {
+  const packages = [];
+  for (const entry of ["packages", "apps", "e2e", ".smithers"]) {
+    const entryPath = join(root, entry);
+    const dirs =
+      existsSync(join(entryPath, "package.json"))
+        ? [entryPath]
+        : existsSync(entryPath)
+          ? readdirSync(entryPath).map((name) => join(entryPath, name))
+          : [];
+    for (const dir of dirs) {
+      const packagePath = join(dir, "package.json");
+      if (!existsSync(packagePath)) continue;
+      const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
+      if (!pkg.name || pkg.private) continue;
+      packages.push({ name: pkg.name, version: pkg.version });
+    }
+  }
+  return packages.sort((a, b) => a.name.localeCompare(b.name));
+}
+function npmHasVersion(name, packageVersion) {
+  const out = spawnSync("npm", ["view", `${name}@${packageVersion}`, "version", "--json"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (out.status === 0) return true;
+  const msg = `${out.stdout}\n${out.stderr}`;
+  if (msg.includes("E404") || msg.includes("404 Not Found")) return false;
+  throw new Error(`could not check npm registry for ${name}@${packageVersion}:\n${msg.trim()}`);
+}
+function publishArgsForUnpublishedPackages() {
+  log("publish", "checking npm registry for already-published package versions");
+  const packages = workspacePackages();
+  const mismatched = packages.filter((pkg) => pkg.version !== version);
+  if (mismatched.length > 0) {
+    throw new Error(
+      `workspace package versions must match root ${version} before release:\n${mismatched
+        .map((pkg) => `  ${pkg.name}: ${pkg.version}`)
+        .join("\n")}`,
+    );
+  }
+
+  const published = packages.filter((pkg) => npmHasVersion(pkg.name, pkg.version));
+  for (const pkg of published) {
+    console.log(`  = ${pkg.name}@${pkg.version} already published — skipping`);
+  }
+  if (published.length === packages.length) return null;
+  return [
+    "-r",
+    ...published.flatMap((pkg) => ["--filter", `!${pkg.name}`]),
+    "publish",
+    "--access",
+    "public",
+    "--no-git-checks",
+    ...(OTP ? [`--otp=${OTP}`] : []),
+  ];
 }
 
 log("version", `releasing v${version} (from root package.json)`);
@@ -86,6 +152,9 @@ if (!SKIP_CHECKS) {
   log("checks", "skipped (--skip-checks)");
 }
 
+log("jj", "pnpm fetch:jj");
+run("pnpm fetch:jj");
+
 if (!DRY_RUN) {
   log("auth", "checking npm login");
   const who = spawnSync("npm", ["whoami"], { cwd: root, encoding: "utf8" });
@@ -97,12 +166,19 @@ if (!DRY_RUN) {
   }
 }
 
-const otpFlag = OTP ? ` --otp=${OTP}` : "";
+const publishArgs = publishArgsForUnpublishedPackages();
 if (DRY_RUN) {
-  log("publish", `DRY RUN — would run: pnpm -r publish --access public --no-git-checks${otpFlag}`);
+  log(
+    "publish",
+    publishArgs
+      ? `DRY RUN — would run: ${["pnpm", ...publishArgs].map(shellQuote).join(" ")}`
+      : "DRY RUN — all public workspace package versions are already on npm",
+  );
+} else if (!publishArgs) {
+  log("publish", "all public workspace package versions are already on npm");
 } else {
   log("publish", "pnpm -r publish --access public --no-git-checks");
-  run(`pnpm -r publish --access public --no-git-checks${otpFlag}`);
+  runArgs("pnpm", publishArgs);
 }
 
 const tag = `v${version}`;

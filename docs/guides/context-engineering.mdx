@@ -22,6 +22,19 @@ The first four shape what the agent *can* do; **backpressure** decides whether t
 work is allowed to move forward. A workflow that just "tries its best and moves on"
 has no backpressure, and that is where unreliable agents come from.
 
+```mermaid
+flowchart TB
+  subgraph SHAPE[What the agent CAN do]
+    direction TB
+    P[Prompt engineering] --> C[Context engineering] --> H[Harness engineering] --> W[Workflow engineering]
+  end
+  SHAPE --> B{Backpressure<br/>is the work allowed to move forward?}
+  B -- gate passes --> F[Forward]
+  B -- gate fails --> SHAPE
+  style B fill:#fef,stroke:#a3a
+  style F fill:#dfe,stroke:#3a3
+```
+
 ## Backpressure, concretely
 
 Turn each success criterion into a verification signal, and pick the Smithers
@@ -37,6 +50,17 @@ primitive that enforces it:
 
 Loop until the gate passes (`<Loop>` / `<Ralph until={…}>`) rather than running once
 and hoping.
+
+```mermaid
+flowchart LR
+  S[Success criterion] --> V[Verification signal<br/>schema · test · eval · review · approval]
+  V --> G{Gate}
+  G -- pass --> N[Next step]
+  G -- fail --> R[Re-run with feedback]
+  R --> V
+  style G fill:#fef,stroke:#a3a
+  style N fill:#dfe,stroke:#3a3
+```
 
 ## Smithers does the context engineering for you
 

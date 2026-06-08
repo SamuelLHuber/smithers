@@ -32,6 +32,10 @@ agent writes the workflow, a composable TypeScript tree, then runs it for minute
 days with crash recovery, retries, human approvals, replay, and full observability across
 any agent, any model, and any machine.
 
+<Frame caption="Models change weekly and agent topologies change quarterly, but the durable orchestration layer underneath does not. That layer is Smithers.">
+  <img src="/images/why/three-layer-stack.svg" alt="Three stacked layers: a volatile model layer, a fluid agent-topology layer, and a stable Smithers orchestration layer underneath" />
+</Frame>
+
 <Note>
 These docs are split by audience, so pick your path:
 
@@ -774,6 +778,10 @@ bunx smithers-orchestrator up workflow.tsx --run-id review-1 --resume true
 # analyze is skipped (already in DB), fix re-runs from scratch (was incomplete)
 ```
 
+<Frame caption="The same crash-and-resume mechanic: a run is killed mid-task, then resuming skips the finished work and re-runs only the interrupted task from its last persisted frame.">
+  <img src="/images/why/crash-resume.gif" alt="A Smithers run is killed partway through, then resumes: the completed task is skipped, the in-flight task re-runs as a new attempt, and the run finishes" />
+</Frame>
+
 In-flight attempts are marked stale and re-tried; finished tasks are not. Resume is deterministic: same input + same code = same task IDs.
 
 For unattended recovery, run the supervisor:
@@ -807,15 +815,9 @@ It auto-resumes runs whose owner process died.
 
 Smithers is a React reconciler whose host elements are tasks instead of DOM nodes. Each render produces a snapshot of the workflow plan; the runtime extracts ready tasks from that plan, executes them, persists their outputs, and re-renders. The plan evolves because each render reads the persisted state.
 
-```
-+--------+        +-----------+        +---------+        +---------+
-| Render | -----> | Extract   | -----> | Execute | -----> | Persist |
-|  JSX   |        | task list |        |  ready  |        | outputs |
-+--------+        +-----------+        +---------+        +---------+
-    ^                                                          |
-    |__________________________________________________________|
-                       (re-render with new state)
-```
+<Frame caption="The whole runtime in one loop: render the tree, extract the ready tasks, execute them, persist their outputs, then re-render against the new state. State is the source of truth; the plan is a pure function of state.">
+  <img src="/images/why/render-loop.svg" alt="A four-stage loop: render the workflow tree, extract ready tasks, execute them, persist outputs to SQLite, then re-render against the new state" />
+</Frame>
 
 That loop is the entire model. Everything below, including branching, loops, approvals, resume, and time travel, is either a JSX construct that affects rendering or a CLI surface over the persisted state.
 
@@ -884,6 +886,19 @@ Four primitives. Compose freely.
 
 Use `.map()` and ternaries when the *number* or *presence* of tasks depends on state. Use `<Parallel>` and `<Branch>` for fixed task sets whose execution shape depends on state.
 
+`<Loop>` is the one primitive that re-renders the same body repeatedly: it runs the body, reads the result on the next frame, and re-mounts until `until` holds or `maxIterations` is reached. That cycle is what turns a one-shot agent into one that keeps swinging until the tests are green.
+
+```mermaid
+flowchart LR
+  R[Render loop body] --> X[Execute tasks]
+  X --> Q{until condition met?}
+  Q -- no --> R
+  Q -- yes --> D[Exit · return last output]
+  Q -. maxIterations hit .-> D
+  style Q fill:#fef,stroke:#a3a
+  style D fill:#dfe,stroke:#3a3
+```
+
 ## Data flow is unidirectional
 
 Workflow state lives in SQLite. The render function is a pure function of `ctx` (which reads SQLite). Tasks emit outputs; the runtime persists them; the next render reads them. No mutation, no refs, no `useState` for durable values.
@@ -892,6 +907,10 @@ This is the same shape as React rendering UI from props/state, except:
 - the "DOM" is the task graph
 - "events" are task completions
 - "state updates" are output writes that the runtime triggers
+
+<Frame caption="State is the only source of truth. Task completions update it, and the next plan is a pure function of that state, so you never mutate the plan by hand.">
+  <img src="/images/unidirectional-dataflow.jpg" alt="Unidirectional data flow: action events update state, state maps forward into the execution plan, and the plan registers the next action handlers" />
+</Frame>
 
 Three consequences:
 - The plan is a **derived value**. Re-render after any state change automatically computes the new plan; you never manually mutate the plan.
@@ -943,6 +962,19 @@ Two surfaces.
 
 Three denial policies: `"fail"` (abort the run), `"continue"` (proceed without the gated branch), `"skip"` (skip the gated tasks but continue siblings).
 
+```mermaid
+flowchart TD
+  A[Approval node] --> Q{your decision}
+  Q -- approved --> G[Gated branch runs]
+  Q -- denied --> P{onDeny}
+  P -- fail --> F[Abort the run]
+  P -- continue --> C[Proceed without the gated branch]
+  P -- skip --> S[Skip gated tasks · run siblings]
+  style F fill:#fde,stroke:#c33
+  style C fill:#dfe,stroke:#3a3
+  style S fill:#def,stroke:#36c
+```
+
 Operator side is identical for both:
 
 ```bash
@@ -960,6 +992,10 @@ The contract: **a completed task is never re-executed.** Resume loads persisted 
 ```bash
 bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true
 ```
+
+<Frame caption="A run is killed mid-flight: the completed task is skipped on resume, the interrupted one re-runs as a fresh attempt, and the run finishes from the last persisted frame instead of starting over.">
+  <img src="/images/why/crash-resume.gif" alt="A Smithers run crashes partway through, then resumes: the finished task is skipped, the in-flight task re-runs as a new attempt, and the remaining tasks execute" />
+</Frame>
 
 For resume to work, **task IDs must be stable across renders.** Derive them from data, not from indices or timestamps:
 

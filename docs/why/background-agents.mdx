@@ -190,6 +190,18 @@ These are five capabilities the substrate has to provide, not five sealed primit
 | Event-driven control flow | `<Signal>`, `<WaitForEvent>`, `<Approval>`, `<HumanTask>`. Durably suspend until something happens.                                                            |
 | Structured observability  | Prometheus metrics out of the box, plus the SQLite event log. Every state transition, every attempt, every input/output, every retry, every approval is a row. |
 
+```mermaid
+flowchart TB
+  SUB[Durable substrate · uniform Effect.ts effects] --> S1[Durable steps]
+  SUB --> S2[Persistent external state]
+  SUB --> S3[Parallel work coordination]
+  SUB --> S4[Event-driven control flow]
+  SUB --> S5[Structured observability]
+  S1 & S2 & S3 & S4 & S5 --> C[Named patterns compose on top<br/>ReviewLoop · Panel · Saga · Supervisor …]
+  style SUB fill:#def,stroke:#36c
+  style C fill:#dfe,stroke:#3a3
+```
+
 A retry policy is just a `Schedule`. A dependency is a `Layer`. A timeout is `Effect.timeout`. We didn't invent a parallel ecosystem. We borrowed an existing one that already does this well.
 
 ---
@@ -262,6 +274,20 @@ Composability is what lets the named patterns above exist as libraries instead o
 > The orchestration layer (stable). The agent layer (fluid). The model layer (volatile).
 
 The three-layer model misses a fourth: the _authoring_ layer. In 2026 a lot of workflow code is written and re-tuned by other agents. The authoring surface has to be legible to the agents that are increasingly editing it, and to the humans auditing what those agents wrote. That's why we picked React, above.
+
+```mermaid
+flowchart TB
+  M[Model layer · volatile, changes weekly]:::vol
+  AG[Agent layer · fluid, changes quarterly]:::flu
+  O[Orchestration substrate · stable, does not change]:::stab
+  AU[Authoring layer · the missing fourth<br/>declarative JSX, legible to agents and humans]:::auth
+  M --> AG --> O
+  AU -. writes + retunes .-> AG
+  classDef vol fill:#fde,stroke:#c33
+  classDef flu fill:#fef,stroke:#a3a
+  classDef stab fill:#dfe,stroke:#3a3
+  classDef auth fill:#def,stroke:#36c
+```
 
 It's also where we have our one real disagreement with the essay.
 
