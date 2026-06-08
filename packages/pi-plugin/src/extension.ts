@@ -6,7 +6,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { ExtensionAPI as PiExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Text, truncateToWidth } from "@mariozechner/pi-tui";
-import { Type } from "@sinclair/typebox";
+import { Type, type TSchema } from "@sinclair/typebox";
 import {
   createSmithersAgentContract,
   type SmithersAgentContract,
@@ -158,7 +158,25 @@ async function callMcpTool(name: string, args: Record<string, unknown>) {
   return { text, isError: result.isError === true };
 }
 
-function jsonSchemaToTypebox(schema: Record<string, any>) {
+export function jsonSchemaTypeToTypebox(node: any): TSchema {
+  switch (node?.type) {
+    case "number":
+    case "integer":
+      return Type.Number();
+    case "boolean":
+      return Type.Boolean();
+    case "string":
+      return Type.String();
+    case "array":
+      return Type.Array(jsonSchemaTypeToTypebox(node.items));
+    case "object":
+      return Type.Record(Type.String(), Type.Unknown());
+    default:
+      return Type.Unknown();
+  }
+}
+
+export function jsonSchemaToTypebox(schema: Record<string, any>) {
   const properties = schema.properties ?? {};
   const required = new Set<string>(schema.required ?? []);
   const result: Record<string, any> = {};
@@ -174,7 +192,10 @@ function jsonSchemaToTypebox(schema: Record<string, any>) {
         field = Type.Boolean(opts);
         break;
       case "array":
-        field = Type.Array(Type.String(), opts);
+        field = Type.Array(jsonSchemaTypeToTypebox(prop.items), opts);
+        break;
+      case "object":
+        field = Type.Record(Type.String(), Type.Unknown(), opts);
         break;
       default:
         field = Type.String(opts);
@@ -353,7 +374,23 @@ export function extension(pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (_event: unknown, ctx: ExtensionContext) => {
-    pollInterval = setInterval(() => updateStatusBar(ctx), 5_000);
+    // Clear any timer left over from a previous session before re-arming, so a
+    // reload/session-replacement never leaves a timer holding a stale ctx.
+    if (pollInterval) {
+      clearInterval(pollInterval);
+    }
+    pollInterval = setInterval(() => {
+      // ctx becomes stale after reload/newSession/fork/switchSession; touching
+      // ctx.ui then throws. Stop polling instead of crashing the Pi process.
+      try {
+        updateStatusBar(ctx);
+      } catch {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = undefined;
+        }
+      }
+    }, 5_000);
     await registerMcpTools(pi, ctx);
     if (ctx.hasUI) {
       ctx.ui.setHeader?.((_tui: unknown, theme: any) => ({
@@ -540,24 +577,30 @@ export function extension(pi: ExtensionAPI) {
   pi.registerCommand("smithers-run", {
     description: "Start a Smithers workflow through MCP",
     handler: async (args: string, ctx: ExtensionContext) => {
-      const workflow = args.trim() || (await ctx.ui.input("Workflow path", "e.g. ./workflows/deploy.tsx"));
-      if (!workflow) {
+      const workflowId = args.trim() || (await ctx.ui.input("Workflow ID", "e.g. deploy (from .smithers/workflows)"));
+      if (!workflowId) {
         return;
       }
-      const input = await ctx.ui.input("Input JSON (optional)", "{}");
-      const params: Record<string, unknown> = { workflow };
-      if (input && input !== "{}") {
-        params.input = input;
+      const inputText = await ctx.ui.input("Input JSON (optional)", "{}");
+      const params: Record<string, unknown> = { workflowId };
+      if (inputText && inputText.trim() && inputText.trim() !== "{}") {
+        try {
+          params.input = JSON.parse(inputText);
+        } catch {
+          ctx.ui.notify("Input must be valid JSON object", "error");
+          return;
+        }
       }
-      const result = await callMcpTool("run", params);
+      const result = await callMcpTool("run_workflow", params);
       if (result.isError) {
         throw new SmithersError("PI_MCP_ERROR", result.text);
       }
       try {
         const parsed = JSON.parse(result.text);
-        if (typeof parsed.runId === "string") {
-          trackRun(parsed.runId, workflow.split("/").pop() ?? workflow);
-          ctx.ui.notify(`Started ${workflow} - run ${parsed.runId.slice(0, 8)}`, "info");
+        const runId = parsed?.data?.runId ?? parsed?.runId;
+        if (typeof runId === "string") {
+          trackRun(runId, workflowId);
+          ctx.ui.notify(`Started ${workflowId} - run ${runId.slice(0, 8)}`, "info");
           return;
         }
       } catch {
