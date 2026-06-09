@@ -15,10 +15,13 @@
 #   • Docker running, with `docker compose` (v2).
 #
 # Readiness — "ready" means BOTH legs are actually reachable:
-#   1. Plue answers /api/healthz on PLUE_API_BASE_URL (not just any open port).
+#   1. Plue answers /api/health on PLUE_API_BASE_URL (not just any open port).
+#      Plue exposes /api/health, /health, and /healthz; /api/healthz is NOT
+#      a route and returns 404. The probe path is pinned here and asserted in
+#      tests/assumptions/dev-backend-bridge.assumptions.test.ts.
 #   2. The vite dev server is up on SMITHERS_DEV_PORT.
 #   3. Vite's configured Plue proxy actually proxies — we hit
-#      http://127.0.0.1:$SMITHERS_DEV_PORT/api/healthz and require the same
+#      http://127.0.0.1:$SMITHERS_DEV_PORT/api/health and require the same
 #      success response we got direct from Plue. A misconfigured proxy
 #      (forgot env var, wrong target, dev-server bound to wrong host) fails
 #      this gate instead of silently shipping a "looks-running" dev server.
@@ -50,17 +53,18 @@ echo "[dev-with-plue] Bringing up Plue stack from $PLUE_DIR …"
   docker compose up -d postgres migrate seed repo-host api
 )
 
-# Probe Plue directly. /api/healthz must respond — the previous "or anything on
+# Probe Plue directly. /api/health must respond — the previous "or anything on
 # the port" fallback would accept any tcp listener on 4000 and was the cause of
-# false-positive readiness when a stale container squatted the port.
-echo "[dev-with-plue] Waiting for Plue /api/healthz at $PLUE_API_BASE_URL …"
+# false-positive readiness when a stale container squatted the port. Plue
+# does NOT serve /api/healthz; it 404s there.
+echo "[dev-with-plue] Waiting for Plue /api/health at $PLUE_API_BASE_URL …"
 for attempt in $(seq 1 60); do
-  if curl -fsS --max-time 1 "$PLUE_API_BASE_URL/api/healthz" >/dev/null 2>&1; then
+  if curl -fsS --max-time 1 "$PLUE_API_BASE_URL/api/health" >/dev/null 2>&1; then
     break
   fi
   sleep 1
   if [[ $attempt -eq 60 ]]; then
-    echo "error: Plue /api/healthz did not respond at $PLUE_API_BASE_URL within 60s." >&2
+    echo "error: Plue /api/health did not respond at $PLUE_API_BASE_URL within 60s." >&2
     exit 3
   fi
 done
@@ -84,7 +88,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-VITE_HEALTH_URL="http://${SMITHERS_DEV_HOST}:${SMITHERS_DEV_PORT}/api/healthz"
+VITE_HEALTH_URL="http://${SMITHERS_DEV_HOST}:${SMITHERS_DEV_PORT}/api/health"
 echo "[dev-with-plue] Waiting for vite + Plue proxy at $VITE_HEALTH_URL …"
 for attempt in $(seq 1 60); do
   # The probe goes vite → proxy → Plue. A 2xx here proves both legs are real.
