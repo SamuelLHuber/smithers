@@ -13,6 +13,13 @@ function kebabCase(name) {
     return name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
+function parseNamedExports(source) {
+    return [...source.matchAll(/export\s+\{([^}]+)\}/g)]
+        .flatMap((match) => match[1].split(","))
+        .map((name) => name.trim().replace(/\s+as\s+.*$/u, ""))
+        .filter(Boolean);
+}
+
 test("component reference docs cover exported components", () => {
     const smithersIndex = readRepoFile("packages/smithers/src/index.js");
     const componentExportBlock = smithersIndex.match(
@@ -46,9 +53,9 @@ test("agent integration docs cover exported agent classes", () => {
     const cliAgentDoc = readRepoFile("docs/integrations/cli-agents.mdx");
     const sdkAgentDoc = readRepoFile("docs/integrations/sdk-agents.mdx");
     const documentedAgents = `${cliAgentDoc}\n${sdkAgentDoc}`;
-    const exportedAgents = [...agentsIndex.matchAll(/export \{ ([A-Za-z]+Agent) \}/g)]
-        .map((match) => match[1])
-        .filter((name) => name !== "BaseCliAgent" && name !== "GeminiAgent");
+    const exportedAgents = parseNamedExports(agentsIndex)
+        .filter((name) => /^[A-Z][A-Za-z]+Agent$/.test(name))
+        .filter((name) => name !== "BaseCliAgent");
 
     for (const agent of exportedAgents) {
         expect(documentedAgents).toContain(agent);
@@ -63,8 +70,10 @@ test("CLI agent docs mention current agent-specific option names", () => {
         "ClaudeCodeAgentOptions.ts",
         "CodexAgentOptions.ts",
         "ForgeAgentOptions.ts",
+        "GeminiAgentOptions.ts",
         "KimiAgentOptions.ts",
         "PiAgentOptions.ts",
+        "VibeAgentOptions.ts",
     ];
 
     for (const file of optionFiles) {
