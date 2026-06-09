@@ -25,6 +25,7 @@ type SandboxProps = {
 
   image?: string;
   env?: Record<string, string>;
+  // Coming soon in the next release after 0.23.0.
   egress?: {
     env?: Record<string, string>; // HTTP_PROXY, HTTPS_PROXY, NO_PROXY, etc.
     httpProxy?: string;
@@ -45,10 +46,28 @@ type SandboxProps = {
     idleTimeoutSecs?: number;
     persistence?: "ephemeral" | "sticky";
   };
+  skipIf?: boolean;
+  timeoutMs?: number;
+  heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;
+  retries?: number;
+  retryPolicy?: RetryPolicy;
+  continueOnFail?: boolean;
+  cache?: CachePolicy;
+  dependsOn?: string[];
+  needs?: Record<string, string>;
+  label?: string;
+  meta?: Record<string, unknown>;
+  key?: string;
+  children?: ReactNode;
 };
 ```
 
-## Egress controls
+## Egress controls (coming soon)
+
+<Note>
+Sandbox egress controls were added after the last published package/docs release, `0.23.0`. Use the next release or build from `main` before relying on this API.
+</Note>
 
 Use `egress` when the sandbox itself should own outbound-network configuration. Smithers does not mutate the parent harness environment for this path. It serializes the egress contract into the sandbox request and passes it to the selected provider or local transport.
 

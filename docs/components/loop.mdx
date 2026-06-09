@@ -7,6 +7,7 @@ description: Re-run children until `until` is true or `maxIterations` is hit.
 import { Loop } from "smithers-orchestrator";
 
 type LoopProps = {
+  key?: string;
   id?: string; // auto-generated from tree position
   until?: boolean;
   maxIterations?: number; // default 5

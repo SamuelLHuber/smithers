@@ -197,7 +197,7 @@ const { submitApproval, submitSignal, cancelRun } = useGatewayActions();
 <button onClick={() => cancelRun({ runId })}>Cancel</button>
 ```
 
-A correlation key on a signal must match the `<WaitForEvent event="utterance" correlationKey="utterance">` your workflow opened. The Gateway enforces approval scopes (`allowedScopes`, `allowedUsers`) per the workflow's `<Approval>` declaration, so a UI that surfaces "Approve" for an unauthorized user will still fail at the RPC boundary. Render the gate optimistically and let the error surface through `useGatewayActions`'s return value.
+The `correlationKey` passed to `submitSignal` must match the workflow wait's `correlationId`, for example `<WaitForEvent event="utterance" correlationId="utterance">`. The Gateway enforces approval scopes (`allowedScopes`, `allowedUsers`) per the workflow's `<Approval>` declaration, so a UI that surfaces "Approve" for an unauthorized user will still fail at the RPC boundary. Render the gate optimistically and let the error surface through `useGatewayActions`'s return value.
 
 `useGatewayApprovals({ filter: { runId } })` lists every pending gate for the run; pair it with `useGatewayActions().submitApproval` to drive a "pending approvals" surface. The reference UIs in `.smithers/ui/grill-me.tsx` and `.smithers/ui/ultragrill.tsx` show this pattern at scale.
 

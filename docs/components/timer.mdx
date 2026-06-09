@@ -37,7 +37,11 @@ type TimerProps = {
 - Produces no output. Past `until` timestamps fire immediately.
 - Worker restarts during the wait don't reset the timer.
 
-## Durable suspend and wake
+## Durable suspend and wake (coming soon)
+
+<Note>
+Automatic gateway wake sweeps for due timers landed after the last published package/docs release, `0.23.0`. The timer API exists in published packages, but this host-restart wake guarantee depends on the next release or a build from `main`.
+</Note>
 
 A waiting timer holds no worker and no CPU. The run's status becomes `waiting-timer`, only the absolute fire time is persisted, and the host releases the worker. Tear the worker down or redeploy mid-wait and nothing is lost.
 

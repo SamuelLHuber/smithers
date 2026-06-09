@@ -2551,6 +2551,7 @@ type BranchProps = {
 import { Loop } from "smithers-orchestrator";
 
 type LoopProps = {
+  key?: string;
   id?: string; // auto-generated from tree position
   until?: boolean;
   maxIterations?: number; // default 5
@@ -3039,7 +3040,11 @@ type TimerProps = {
 - Produces no output. Past `until` timestamps fire immediately.
 - Worker restarts during the wait don't reset the timer.
 
-## Durable suspend and wake
+## Durable suspend and wake (coming soon)
+
+<Note>
+Automatic gateway wake sweeps for due timers landed after the last published package/docs release, `0.23.0`. The timer API exists in published packages, but this host-restart wake guarantee depends on the next release or a build from `main`.
+</Note>
 
 A waiting timer holds no worker and no CPU. The run's status becomes `waiting-timer`, only the absolute fire time is persisted, and the host releases the worker. Tear the worker down or redeploy mid-wait and nothing is lost.
 
@@ -3170,6 +3175,7 @@ type SandboxProps = {
 
   image?: string;
   env?: Record<string, string>;
+  // Coming soon in the next release after 0.23.0.
   egress?: {
     env?: Record<string, string>; // HTTP_PROXY, HTTPS_PROXY, NO_PROXY, etc.
     httpProxy?: string;
@@ -3190,10 +3196,28 @@ type SandboxProps = {
     idleTimeoutSecs?: number;
     persistence?: "ephemeral" | "sticky";
   };
+  skipIf?: boolean;
+  timeoutMs?: number;
+  heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;
+  retries?: number;
+  retryPolicy?: RetryPolicy;
+  continueOnFail?: boolean;
+  cache?: CachePolicy;
+  dependsOn?: string[];
+  needs?: Record<string, string>;
+  label?: string;
+  meta?: Record<string, unknown>;
+  key?: string;
+  children?: ReactNode;
 };
 ```
 
-## Egress controls
+## Egress controls (coming soon)
+
+<Note>
+Sandbox egress controls were added after the last published package/docs release, `0.23.0`. Use the next release or build from `main` before relying on this API.
+</Note>
 
 Use `egress` when the sandbox itself should own outbound-network configuration. Smithers does not mutate the parent harness environment for this path. It serializes the egress contract into the sandbox request and passes it to the selected provider or local transport.
 
@@ -5250,6 +5274,7 @@ type KanbanProps = {
 
 // Sandbox
 type SandboxRuntime = "bubblewrap" | "docker" | "codeplane";
+// Coming soon in the next release after 0.23.0.
 type SandboxEgressConfig = {
   env?: Record<string, string>;
   httpProxy?: string;
@@ -5279,7 +5304,7 @@ type SandboxProviderRequest = {
   allowNetwork: boolean;
   maxOutputBytes: number;
   toolTimeoutMs: number;
-  egress?: SandboxEgressConfig;
+  egress?: SandboxEgressConfig;    // coming soon
   config: Record<string, unknown>;
   signal?: AbortSignal;
   heartbeat: (data?: unknown) => void;
@@ -5318,7 +5343,7 @@ type SandboxProps = {
   allowNested?: boolean;
   image?: string;
   env?: Record<string, string>;
-  egress?: SandboxEgressConfig;
+  egress?: SandboxEgressConfig;    // coming soon
   ports?: Array<{ host: number; container: number }>;
   volumes?: SandboxVolumeMount[];
   memoryLimit?: string;
@@ -5402,11 +5427,12 @@ type SmithersErrorCode = KnownSmithersErrorCode | (string & {});
 type KnownSmithersErrorCode =
   | "INVALID_INPUT" | "MISSING_INPUT" | "MISSING_INPUT_TABLE" | "RESUME_METADATA_MISMATCH"
   | "UNKNOWN_OUTPUT_SCHEMA" | "INVALID_OUTPUT" | "WORKTREE_CREATE_FAILED" | "VCS_NOT_FOUND"
-  | "SNAPSHOT_NOT_FOUND" | "VCS_WORKSPACE_CREATE_FAILED" | "TASK_TIMEOUT" | "TASK_ABORTED"
-  | "TASK_HIJACK_UNSUPPORTED" | "RUN_NOT_FOUND" | "NODE_NOT_FOUND" | "INVALID_EVENTS_OPTIONS"
+  | "SNAPSHOT_NOT_FOUND" | "VCS_WORKSPACE_CREATE_FAILED" | "TASK_TIMEOUT"
+  | "TASK_HIJACK_UNSUPPORTED" | "TASK_FORK_SOURCE_NOT_FOUND" | "TASK_FORK_SOURCE_NOT_COMPLETE"
+  | "TASK_FORK_SESSION_UNAVAILABLE" | "TASK_FORK_CYCLE" | "RUN_NOT_FOUND" | "NODE_NOT_FOUND" | "INVALID_EVENTS_OPTIONS"
   | "SANDBOX_BUNDLE_INVALID" | "SANDBOX_BUNDLE_TOO_LARGE" | "WORKFLOW_EXECUTION_FAILED"
   | "SANDBOX_EXECUTION_FAILED" | "TASK_HEARTBEAT_TIMEOUT" | "HEARTBEAT_PAYLOAD_TOO_LARGE"
-  | "HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE" | "RUN_CANCELLED" | "RUN_NOT_RESUMABLE"
+  | "HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE" | "TASK_ABORTED" | "RUN_CANCELLED" | "RUN_NOT_RESUMABLE"
   | "RUN_OWNER_ALIVE" | "RUN_STILL_RUNNING" | "RUN_RESUME_CLAIM_LOST" | "RUN_RESUME_CLAIM_FAILED"
   | "RUN_RESUME_ACTIVATION_FAILED" | "RUN_HIJACKED" | "CONTINUATION_STATE_TOO_LARGE"
   | "INVALID_CONTINUATION_STATE" | "RALPH_MAX_REACHED" | "SCHEDULER_ERROR" | "SESSION_ERROR"
@@ -5680,12 +5706,8 @@ try {
 | `TASK_TIMEOUT` | A task compute callback exceeds its configured timeout. | `{ nodeId, attempt, timeoutMs }` |
 | `TASK_HIJACK_UNSUPPORTED` | A task requests auto-hijack but its agent cannot provide a resumable session or conversation. | `{ nodeId, agentId? }` |
 | `TASK_FORK_SOURCE_NOT_COMPLETE` | A forked task began executing but its fork source has not completed, so no session snapshot exists yet. | `{ nodeId, forkSource }` |
-| `TASK_FORK_SESSION_UNAVAILABLE` | A `<Task fork>` cannot obtain a usable agent session snapshot from the source task. | `{ nodeId, forkSource }` |
-| `TASK_ABORTED` | A running task is aborted through an AbortSignal or shutdown path. | -- |
-| `TASK_FORK_SOURCE_NOT_FOUND` | A `<Task fork>` references a source task id that is not present in the workflow graph (including a source that exists only in an unselected branch). | `{ nodeId, forkSource }` |
-| `TASK_FORK_SOURCE_NOT_COMPLETE` | A forked task began executing but its fork source has not completed, so no session snapshot exists yet. | `{ nodeId, forkSource }` |
 | `TASK_FORK_SESSION_UNAVAILABLE` | A `<Task fork>` cannot obtain a usable agent session snapshot, either because the forking task is not an agent task or because the source completed without producing a forkable conversation (e.g. a compute/static, skipped, or cancelled source). | `{ nodeId, forkSource }` |
-| `TASK_FORK_CYCLE` | A `<Task fork>` introduces a dependency cycle, directly or indirectly. | `{ nodeId, forkSource }` |
+| `TASK_ABORTED` | A running task is aborted through an AbortSignal or shutdown path. | -- |
 | `RUN_NOT_FOUND` | A CLI or engine command references a run ID that does not exist in the database. | `{ runId }` |
 | `NODE_NOT_FOUND` | A CLI command references a node ID that does not exist for the given run. | `{ runId, nodeId }` |
 | `SANDBOX_BUNDLE_INVALID` | A sandbox bundle fails validation (missing README, invalid manifest, etc.). | `{ bundlePath }` |
@@ -5715,7 +5737,7 @@ try {
 |---|---|---|
 | `TASK_ID_REQUIRED` | `<Task>` is missing a valid string id. | -- |
 | `TASK_MISSING_OUTPUT` | `<Task>` is missing its output prop. | `{ nodeId }` |
-| `TASK_FORK_SOURCE_NOT_FOUND` | A `<Task fork>` references a source task id that is not present in the workflow graph. | `{ nodeId, forkSource }` |
+| `TASK_FORK_SOURCE_NOT_FOUND` | A `<Task fork>` references a source task id that is not present in the workflow graph, including a source that exists only in an unselected branch. | `{ nodeId, forkSource }` |
 | `TASK_FORK_CYCLE` | A `<Task fork>` introduces a dependency cycle, directly or indirectly. | `{ nodeId, forkSource }` |
 | `DUPLICATE_ID` | Two nodes with the same runtime id are mounted in one workflow graph. | `{ kind, id }` |
 | `NESTED_LOOP` | `<Loop>` or `<Ralph>` is nested inside another loop construct that Smithers does not support. | -- |

@@ -111,7 +111,7 @@ export const smithersErrorDefinitions = {
     TASK_HEARTBEAT_TIMEOUT: {
         category: "engine",
         when: "A task heartbeat timeout is exceeded while the task is still in progress.",
-        details: "{ nodeId, iteration, attempt, timeoutMs, staleForMs }",
+        details: "{ nodeId, iteration, attempt, timeoutMs, staleForMs, lastHeartbeatAtMs }",
     },
     HEARTBEAT_PAYLOAD_TOO_LARGE: {
         category: "engine",

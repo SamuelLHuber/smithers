@@ -18,6 +18,9 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = join(root, "docs");
+const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
+const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
+const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 
 let failed = false;
 
@@ -49,5 +52,51 @@ if (offenders.length) {
 } else {
   console.log("✓ no em-dashes in docs");
 }
+
+function readErrorDefinitionCodes() {
+  const source = readFileSync(ERROR_DEFINITIONS, "utf8");
+  return [...source.matchAll(/^\s{4}([A-Z0-9_]+):\s*\{/gm)].map((match) => match[1]);
+}
+
+function checkErrorReferenceCodes(codes) {
+  const docs = readFileSync(ERROR_REFERENCE, "utf8");
+  const runtimeSection = docs.split("\n## HTTP API Errors\n")[0] ?? docs;
+  const rows = [...runtimeSection.matchAll(/^\|\s+`([A-Z0-9_]+)`\s+\|/gm)]
+    .map((match) => match[1])
+    .filter((code) => codes.includes(code));
+  const missing = codes.filter((code) => !rows.includes(code));
+  const duplicates = [...new Set(rows.filter((code, index) => rows.indexOf(code) !== index))];
+  if (missing.length || duplicates.length) {
+    failed = true;
+    console.error("\n✗ docs/reference/errors.mdx does not match smithersErrorDefinitions:");
+    if (missing.length) console.error(`    missing: ${missing.join(", ")}`);
+    if (duplicates.length) console.error(`    duplicate: ${duplicates.join(", ")}`);
+  } else {
+    console.log("✓ error reference lists each built-in code once");
+  }
+}
+
+function checkKnownErrorCodeUnion(codes) {
+  const docs = readFileSync(TYPES_REFERENCE, "utf8");
+  const match = docs.match(/type KnownSmithersErrorCode =([\s\S]*?);/);
+  const documented = match
+    ? [...match[1].matchAll(/"([A-Z0-9_]+)"/g)].map((codeMatch) => codeMatch[1])
+    : [];
+  const missing = codes.filter((code) => !documented.includes(code));
+  const extra = documented.filter((code) => !codes.includes(code));
+  if (!match || missing.length || extra.length) {
+    failed = true;
+    console.error("\n✗ docs/reference/types.mdx KnownSmithersErrorCode does not match smithersErrorDefinitions:");
+    if (!match) console.error("    type KnownSmithersErrorCode block not found");
+    if (missing.length) console.error(`    missing: ${missing.join(", ")}`);
+    if (extra.length) console.error(`    extra: ${extra.join(", ")}`);
+  } else {
+    console.log("✓ KnownSmithersErrorCode docs match built-in codes");
+  }
+}
+
+const errorCodes = readErrorDefinitionCodes();
+checkErrorReferenceCodes(errorCodes);
+checkKnownErrorCodeUnion(errorCodes);
 
 process.exit(failed ? 1 : 0);
