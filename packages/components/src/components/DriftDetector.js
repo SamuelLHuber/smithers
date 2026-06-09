@@ -1,9 +1,33 @@
 import React from "react";
+import { SmithersContext } from "@smithers-orchestrator/react-reconciler/context";
 import { Task } from "./Task.js";
 import { Sequence } from "./Sequence.js";
 import { Branch } from "./Branch.js";
 import { Loop } from "./Ralph.js";
 /** @typedef {import("./DriftDetectorProps.ts").DriftDetectorProps} DriftDetectorProps */
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} comparison
+ * @param {((comparison: unknown) => boolean) | undefined} alertIf
+ * @returns {boolean}
+ */
+function shouldAlert(comparison, alertIf) {
+    if (comparison == null) {
+        return false;
+    }
+    if (alertIf) {
+        return Boolean(alertIf(comparison));
+    }
+    return isRecord(comparison) && comparison.drifted === true;
+}
 
 /**
  * @param {DriftDetectorProps} props
@@ -12,9 +36,9 @@ export function DriftDetector(props) {
     if (props.skipIf)
         return null;
     const prefix = props.id ?? "drift";
-    // Determine if drift was detected from comparison output.
-    // At render time, comparison may not exist yet, so default to false.
-    const drifted = false; // Resolved at runtime via reactive re-render
+    const ctx = React.useContext(SmithersContext);
+    const comparison = ctx?.outputMaybe(props.compareOutput, { nodeId: `${prefix}-compare` });
+    const drifted = shouldAlert(comparison, props.alertIf);
     const captureTask = React.createElement(Task, {
         id: `${prefix}-capture`,
         output: props.captureOutput,

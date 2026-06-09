@@ -15,12 +15,13 @@ export type DriftDetectorProps = {
 	compareOutput: OutputTarget;
 	/** Static baseline data, or a function/agent that fetches it. */
 	baseline: unknown;
-	/** Condition function that determines whether to fire the alert. If omitted, uses the `drifted` field from comparison output. */
+	/** Condition function that determines whether to fire the alert. If omitted, uses `comparison.drifted === true`. */
 	alertIf?: (comparison: unknown) => boolean;
 	/** Element to render when drift is detected (e.g. a Task that sends a notification). */
 	alert?: React.ReactElement;
 	/** If set, wraps the detector in a Loop for periodic polling. */
 	poll?: {
+		/** Reserved for future delayed polling; maxPolls currently controls Loop iterations. */
 		intervalMs: number;
 		maxPolls?: number;
 	};

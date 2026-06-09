@@ -30,6 +30,10 @@ import {
 import { AspectContext, createAccumulator } from "../src/aspects/AspectContext.js";
 import { zodSchemaToJsonExample } from "../src/zod-to-example.js";
 import { SmithersRenderer } from "@smithers-orchestrator/react-reconciler/dom/renderer";
+import {
+    SmithersContext,
+    SmithersCtx,
+} from "@smithers-orchestrator/react-reconciler/context";
 
 const agent = { id: "agent", generate: async () => ({ text: "ok" }) };
 const otherAgent = { id: "other", generate: async () => ({ text: "ok" }) };
@@ -37,6 +41,16 @@ const otherAgent = { id: "other", generate: async () => ({ text: "ok" }) };
 async function render(el) {
     const renderer = new SmithersRenderer();
     return renderer.render(el);
+}
+
+async function renderWithOutputs(el, outputs) {
+    const ctx = new SmithersCtx({
+        runId: "test-run",
+        iteration: 0,
+        input: {},
+        outputs,
+    });
+    return render(<SmithersContext.Provider value={ctx}>{el}</SmithersContext.Provider>);
 }
 
 function childArray(element) {
@@ -405,6 +419,41 @@ describe("composite component expansion coverage", () => {
         ]);
         expect(drift.tasks[0].ralphId).toBe("drift-poll");
         expect(drift.tasks[1].prompt).toContain("{\"hash\":\"abc\"}");
+
+        const driftWithAlert = await renderWithOutputs(
+            <DriftDetector
+                id="drift"
+                captureAgent={agent}
+                compareAgent={otherAgent}
+                captureOutput="capture_out"
+                compareOutput="compare_out"
+                baseline={{ hash: "abc" }}
+                alert={alert}
+            />,
+            {
+                compare_out: [{ nodeId: "drift-compare", iteration: 0, drifted: true }],
+            },
+        );
+        expect(driftWithAlert.tasks.map((task) => task.nodeId)).toContain("alert");
+
+        const driftSuppressedByAlertIf = await renderWithOutputs(
+            <DriftDetector
+                id="drift"
+                captureAgent={agent}
+                compareAgent={otherAgent}
+                captureOutput="capture_out"
+                compareOutput="compare_out"
+                baseline={{ hash: "abc" }}
+                alertIf={(comparison) => comparison?.severity === "critical"}
+                alert={alert}
+            />,
+            {
+                compare_out: [
+                    { nodeId: "drift-compare", iteration: 0, drifted: true, severity: "minor" },
+                ],
+            },
+        );
+        expect(driftSuppressedByAlertIf.tasks.map((task) => task.nodeId)).not.toContain("alert");
 
         const pipeline = await render(
             <ContentPipeline
