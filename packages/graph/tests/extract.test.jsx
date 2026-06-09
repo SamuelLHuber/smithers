@@ -517,6 +517,11 @@ describe("extractGraph", () => {
 						provider,
 						allowNested: true,
 						image: "node:22-slim",
+						egress: {
+							provider: "iron-proxy",
+							httpsProxy: "http://127.0.0.1:8080",
+							noProxy: ["127.0.0.1", "localhost"],
+						},
 						__smithersSandboxWorkflow: { build: () => null },
 					},
 					[hostEl("smithers:task", { id: "inside", output: "inner_out" })],
@@ -530,7 +535,14 @@ describe("extractGraph", () => {
 			expect(result.tasks[0].meta?.__sandboxRuntime).toBe("docker");
 			expect(result.tasks[0].meta?.__sandboxProvider).toBe(provider);
 			expect(result.tasks[0].meta?.__sandboxAllowNested).toBe(true);
-			expect(result.tasks[0].meta?.__sandboxConfig).toMatchObject({ image: "node:22-slim" });
+			expect(result.tasks[0].meta?.__sandboxConfig).toMatchObject({
+				image: "node:22-slim",
+				egress: {
+					provider: "iron-proxy",
+					httpsProxy: "http://127.0.0.1:8080",
+					noProxy: ["127.0.0.1", "localhost"],
+				},
+			});
 		});
 
 		test("sandbox runtime is optional for provider-backed sandboxes", () => {

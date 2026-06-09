@@ -486,11 +486,19 @@ describe("composite component expansion coverage", () => {
             workflow: { build: () => null },
             output: "sandbox_out",
             allowNested: true,
+            egress: {
+                provider: "iron-proxy",
+                httpsProxy: "http://127.0.0.1:8080",
+            },
         });
         expect(sandbox.type).toBe("smithers:sandbox");
         expect(sandbox.props.runtime).toBeUndefined();
         expect(sandbox.props.__smithersSandboxProvider).toBe(provider);
         expect(sandbox.props.__smithersSandboxAllowNested).toBe(true);
+        expect(sandbox.props.egress).toEqual({
+            provider: "iron-proxy",
+            httpsProxy: "http://127.0.0.1:8080",
+        });
 
         expect(SuperSmithers({ skipIf: true })).toBeNull();
         const dryRun = SuperSmithers({

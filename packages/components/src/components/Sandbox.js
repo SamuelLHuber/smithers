@@ -1,5 +1,6 @@
 // @smithers-type-exports-begin
 /** @typedef {import("./SandboxRuntime.ts").SandboxRuntime} SandboxRuntime */
+/** @typedef {import("./SandboxEgressConfig.ts").SandboxEgressConfig} SandboxEgressConfig */
 /** @typedef {import("./SandboxVolumeMount.ts").SandboxVolumeMount} SandboxVolumeMount */
 /** @typedef {import("./SandboxWorkspaceSpec.ts").SandboxWorkspaceSpec} SandboxWorkspaceSpec */
 // @smithers-type-exports-end
@@ -25,6 +26,7 @@ export function Sandbox(props) {
         allowNested: props.allowNested,
         image: props.image,
         env: props.env,
+        egress: props.egress,
         ports: props.ports,
         volumes: props.volumes,
         memoryLimit: props.memoryLimit,

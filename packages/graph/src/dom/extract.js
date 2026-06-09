@@ -464,6 +464,7 @@ export function extractFromHost(root, opts) {
                         config: {
                             image: raw.image,
                             env: raw.env,
+                            egress: raw.egress,
                             ports: raw.ports,
                             volumes: raw.volumes,
                             memoryLimit: raw.memoryLimit,
@@ -488,6 +489,7 @@ export function extractFromHost(root, opts) {
                     __sandboxConfig: {
                         image: raw.image,
                         env: raw.env,
+                        egress: raw.egress,
                         ports: raw.ports,
                         volumes: raw.volumes,
                         memoryLimit: raw.memoryLimit,

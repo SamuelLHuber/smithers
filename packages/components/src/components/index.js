@@ -51,6 +51,7 @@
 /** @typedef {import("./SagaProps.ts").SagaProps} SagaProps */
 /** @typedef {import("./SagaStepDef.ts").SagaStepDef} SagaStepDef */
 /** @typedef {import("./SagaStepProps.ts").SagaStepProps} SagaStepProps */
+/** @typedef {import("./SandboxEgressConfig.ts").SandboxEgressConfig} SandboxEgressConfig */
 /** @typedef {import("./SandboxProps.ts").SandboxProps} SandboxProps */
 /** @typedef {import("./SandboxRuntime.ts").SandboxRuntime} SandboxRuntime */
 /** @typedef {import("./SandboxVolumeMount.ts").SandboxVolumeMount} SandboxVolumeMount */

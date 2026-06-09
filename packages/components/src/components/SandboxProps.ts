@@ -6,6 +6,7 @@ import type { OutputTarget } from "./OutputTarget.ts";
 import type { SandboxRuntime } from "./SandboxRuntime.ts";
 import type { SandboxVolumeMount } from "./SandboxVolumeMount.ts";
 import type { SandboxWorkspaceSpec } from "./SandboxWorkspaceSpec.ts";
+import type { SandboxEgressConfig } from "./SandboxEgressConfig.ts";
 
 export type SandboxProps = {
 	id: string;
@@ -25,6 +26,7 @@ export type SandboxProps = {
 	allowNested?: boolean;
 	image?: string;
 	env?: Record<string, string>;
+	egress?: SandboxEgressConfig;
 	ports?: Array<{
 		host: number;
 		container: number;
