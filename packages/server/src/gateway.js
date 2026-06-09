@@ -1074,6 +1074,26 @@ function parseWebhookWaitForEventSnapshot(metaJson) {
     }
 }
 /**
+ * Absolute fire time (ms since epoch) recorded on a still-waiting timer attempt,
+ * or null when the metadata carries no usable timer snapshot. Mirrors the
+ * `{ timer: { firesAtMs } }` shape written by the engine's timer bridge.
+ * @param {string | null | undefined} metaJson
+ * @returns {number | null}
+ */
+function parseTimerFiresAtMs(metaJson) {
+    if (!metaJson) {
+        return null;
+    }
+    try {
+        const timer = asObject(asObject(JSON.parse(metaJson))?.timer);
+        const firesAtMs = Number(timer?.firesAtMs);
+        return Number.isFinite(firesAtMs) ? firesAtMs : null;
+    }
+    catch {
+        return null;
+    }
+}
+/**
  * @param {unknown} source
  * @param {string | undefined} path
  * @returns {unknown}
@@ -2360,6 +2380,7 @@ export class Gateway {
         const intervalMs = Math.max(1_000, Math.min(this.heartbeatMs, 15_000));
         this.schedulerTimer = setInterval(() => {
             void this.processDueCrons();
+            void this.processDueTimers();
         }, intervalMs);
     }
     async syncRegisteredSchedules() {
@@ -2435,6 +2456,108 @@ export class Gateway {
                     await adapter.updateCronRunTime(cron.cronId, now, cron.nextRunAtMs ?? now + 60_000, error?.message ?? "cron trigger failed");
                 }
             }
+        }
+    }
+    /**
+   * Earliest fire time across a run's still-pending timer nodes, or null when the
+   * run has no timer waiting to fire. Lets the scheduler tick decide when a
+   * torn-down `waiting-timer` run is due to resume without re-driving it blindly.
+   * @param {SmithersDb} adapter
+   * @param {string} runId
+   * @returns {Promise<number | null>}
+   */
+    async runTimerDueAtMs(adapter, runId) {
+        const nodes = await adapter.listNodes(runId);
+        let earliest = null;
+        for (const node of nodes) {
+            if (node.state !== "waiting-timer") {
+                continue;
+            }
+            const iteration = node.iteration ?? 0;
+            const attempts = await runPromise(adapter.listAttempts(runId, node.nodeId, iteration));
+            const waitingAttempt = attempts.find((attempt) => attempt.state === "waiting-timer") ??
+                attempts[0];
+            const firesAtMs = parseTimerFiresAtMs(waitingAttempt?.metaJson);
+            if (firesAtMs === null) {
+                continue;
+            }
+            if (earliest === null || firesAtMs < earliest) {
+                earliest = firesAtMs;
+            }
+        }
+        return earliest;
+    }
+    /**
+   * Wake suspended timer runs whose fire time has passed. The engine releases the
+   * worker when a `<Timer>` starts waiting, persisting only the fire time, so this
+   * sweep is what resumes the run on its own without a live process holding CPU.
+   * Mirrors `processDueCrons`: one pass per shared DB, attribute each run to its
+   * true workflow key, and let `resumeRunIfNeeded` re-acquire the durable lease.
+   * @returns {Promise<void>}
+   */
+    async processDueTimers() {
+        if (this.timerSweepInFlight) {
+            return;
+        }
+        this.timerSweepInFlight = true;
+        try {
+            const now = nowMs();
+            const registeredKeys = new Set(this.workflows.keys());
+            const seenAdapters = new Set();
+            for (const entry of this.workflows.values()) {
+                const adapter = this.adapterForWorkflow(entry.workflow);
+                // Shared-DB workflows share an adapter; sweep each DB exactly once.
+                if (seenAdapters.has(adapter)) {
+                    continue;
+                }
+                seenAdapters.add(adapter);
+                let waitingRuns;
+                try {
+                    waitingRuns = await adapter.listRuns(1_000, "waiting-timer");
+                }
+                catch (error) {
+                    emitGatewayLog("error", "Gateway timer sweep failed to list runs", {
+                        ...gatewayErrorAnnotations(error),
+                    }, "gateway:timer");
+                    continue;
+                }
+                for (const run of waitingRuns) {
+                    if (this.activeRuns.has(run.runId)) {
+                        continue;
+                    }
+                    const workflowKey = this.resolveRunWorkflowKey(run, registeredKeys, entry.key);
+                    try {
+                        const dueAtMs = await this.runTimerDueAtMs(adapter, run.runId);
+                        if (dueAtMs === null || dueAtMs > now) {
+                            continue;
+                        }
+                        await this.resumeRunIfNeeded(run.runId, workflowKey, adapter, {
+                            triggeredBy: "timer:gateway",
+                            scopes: ["*"],
+                            role: "system",
+                        });
+                        emitGatewayLog("info", "Gateway timer resumed run", {
+                            runId: run.runId,
+                            workflow: workflowKey,
+                            dueAtMs,
+                        }, "gateway:timer");
+                    }
+                    catch (error) {
+                        emitGatewayEffect(incrementMetric(gatewayErrorsTotal, {
+                            kind: "timer",
+                            code: gatewayErrorCode(error),
+                        }));
+                        emitGatewayLog("error", "Gateway timer resume failed", {
+                            runId: run.runId,
+                            workflow: workflowKey,
+                            ...gatewayErrorAnnotations(error),
+                        }, "gateway:timer");
+                    }
+                }
+            }
+        }
+        finally {
+            this.timerSweepInFlight = false;
         }
     }
     /**
