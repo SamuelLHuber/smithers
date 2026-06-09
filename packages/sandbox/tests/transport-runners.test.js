@@ -260,7 +260,6 @@ describe("sandbox transport runners", () => {
                         allowNetwork: true,
                         env: { SAFE_VALUE: "ok" },
                         egress: {
-                            provider: "iron-proxy",
                             httpsProxy: "http://127.0.0.1:8080",
                             httpProxy: "http://127.0.0.1:8080",
                             noProxy: ["127.0.0.1", "localhost"],
@@ -270,7 +269,6 @@ describe("sandbox transport runners", () => {
                     }),
                 );
                 expect(handle.egress).toMatchObject({
-                    provider: "iron-proxy",
                     httpsProxy: "http://127.0.0.1:8080",
                     httpProxy: "http://127.0.0.1:8080",
                     noProxy: "127.0.0.1,localhost",

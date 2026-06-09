@@ -318,7 +318,6 @@ type SandboxVolumeMount$1 = {
 type SandboxRuntime$1 = "bubblewrap" | "docker" | "codeplane";
 
 type SandboxEgressConfig$1 = {
-    provider?: string;
     env?: Record<string, string>;
     httpProxy?: string;
     httpsProxy?: string;

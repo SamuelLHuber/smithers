@@ -1,5 +1,4 @@
 export type SandboxEgressConfig = {
-	provider?: string;
 	env?: Record<string, string>;
 	httpProxy?: string;
 	httpsProxy?: string;

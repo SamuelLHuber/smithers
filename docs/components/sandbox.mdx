@@ -26,7 +26,6 @@ type SandboxProps = {
   image?: string;
   env?: Record<string, string>;
   egress?: {
-    provider?: string; // adapter label, e.g. "iron-proxy"
     env?: Record<string, string>; // HTTP_PROXY, HTTPS_PROXY, NO_PROXY, etc.
     httpProxy?: string;
     httpsProxy?: string;
@@ -62,7 +61,6 @@ Use `egress` when the sandbox itself should own outbound-network configuration. 
   output={outputs.result}
   allowNetwork
   egress={{
-    provider: "iron-proxy",
     env: {
       ANTHROPIC_API_KEY: "sk-proxy-anthropic",
     },

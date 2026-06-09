@@ -268,7 +268,6 @@ describe("extractFromHost", () => {
                 allowNested: true,
                 image: "node:22-slim",
                 egress: {
-                    provider: "iron-proxy",
                     httpsProxy: "http://127.0.0.1:8080",
                     noProxy: ["127.0.0.1", "localhost"],
                 },
@@ -288,7 +287,6 @@ describe("extractFromHost", () => {
         expect(result.tasks[0].meta?.__sandboxConfig).toMatchObject({
             image: "node:22-slim",
             egress: {
-                provider: "iron-proxy",
                 httpsProxy: "http://127.0.0.1:8080",
                 noProxy: ["127.0.0.1", "localhost"],
             },

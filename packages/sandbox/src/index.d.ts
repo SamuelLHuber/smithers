@@ -73,7 +73,6 @@ type SandboxWorkspaceSpec = {
     persistence?: "ephemeral" | "sticky";
 };
 type SandboxEgressConfig = {
-    provider?: string;
     env?: Record<string, string>;
     httpProxy?: string;
     httpsProxy?: string;

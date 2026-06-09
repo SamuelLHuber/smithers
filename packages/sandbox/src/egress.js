@@ -98,7 +98,6 @@ export function normalizeSandboxEgressConfig(value) {
     if (!isPlainObject(value)) {
         invalidEgressConfig("Sandbox egress must be an object.");
     }
-    const provider = optionalString(value.provider, "egress.provider");
     const env = optionalStringRecord(value.env, "egress.env");
     const httpProxy = optionalString(value.httpProxy, "egress.httpProxy");
     const httpsProxy = optionalString(value.httpsProxy, "egress.httpsProxy");
@@ -111,8 +110,6 @@ export function normalizeSandboxEgressConfig(value) {
     }
     /** @type {import("./SandboxEgressConfig.ts").SandboxEgressConfig} */
     const normalized = {};
-    if (provider)
-        normalized.provider = provider;
     if (env && Object.keys(env).length > 0)
         normalized.env = env;
     if (httpProxy)
@@ -205,8 +202,6 @@ export function redactSandboxEgressConfig(value) {
     }
     /** @type {Record<string, unknown>} */
     const redacted = {};
-    if (egress.provider)
-        redacted.provider = egress.provider;
     if (egress.env)
         redacted.env = redactRecord(egress.env);
     if (egress.httpProxy)

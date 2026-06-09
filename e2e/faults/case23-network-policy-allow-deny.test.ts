@@ -66,7 +66,6 @@ describe("case 23: sandbox-owned egress proxy config", () => {
                 providerCalls.push(request.egress);
                 expect(process.env.HTTPS_PROXY).toBe("http://harness.invalid:9999");
                 expect(request.egress).toMatchObject({
-                  provider: "iron-proxy",
                   httpsProxy: "http://127.0.0.1:8080",
                   httpProxy: "http://127.0.0.1:8080",
                   noProxy: "127.0.0.1,localhost",
@@ -99,7 +98,6 @@ describe("case 23: sandbox-owned egress proxy config", () => {
             reviewDiffs: false,
             config: {
               egress: {
-                provider: "iron-proxy",
                 httpsProxy: "http://127.0.0.1:8080",
                 httpProxy: "http://127.0.0.1:8080",
                 noProxy: ["127.0.0.1", "localhost"],

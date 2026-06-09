@@ -361,7 +361,6 @@ describe("executeSandbox", () => {
                     run: async (request) => {
                         providerRequests.push(request);
                         expect(request.egress).toEqual({
-                            provider: "iron-proxy",
                             env: { HTTP_PROXY: "http://127.0.0.1:8080" },
                             httpProxy: "http://127.0.0.1:8080",
                             httpsProxy: "http://127.0.0.1:8080",
@@ -387,7 +386,6 @@ describe("executeSandbox", () => {
                 reviewDiffs: false,
                 config: {
                     egress: {
-                        provider: "iron-proxy",
                         env: { HTTP_PROXY: "http://127.0.0.1:8080" },
                         httpProxy: "http://127.0.0.1:8080",
                         httpsProxy: "http://127.0.0.1:8080",
@@ -405,7 +403,6 @@ describe("executeSandbox", () => {
             const sandbox = await adapter.getSandbox("run-egress-provider", "sandbox-egress-provider");
             const config = JSON.parse(String(sandbox.configJson));
             expect(config.egress).toEqual({
-                provider: "iron-proxy",
                 env: { HTTP_PROXY: "[redacted]" },
                 httpProxy: "[redacted]",
                 httpsProxy: "[redacted]",

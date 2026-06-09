@@ -487,7 +487,6 @@ describe("composite component expansion coverage", () => {
             output: "sandbox_out",
             allowNested: true,
             egress: {
-                provider: "iron-proxy",
                 httpsProxy: "http://127.0.0.1:8080",
             },
         });
@@ -496,7 +495,6 @@ describe("composite component expansion coverage", () => {
         expect(sandbox.props.__smithersSandboxProvider).toBe(provider);
         expect(sandbox.props.__smithersSandboxAllowNested).toBe(true);
         expect(sandbox.props.egress).toEqual({
-            provider: "iron-proxy",
             httpsProxy: "http://127.0.0.1:8080",
         });
 

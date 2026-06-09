@@ -8,7 +8,6 @@ const SandboxEnvSchema = Schema.Record({
     value: Schema.String,
 });
 const SandboxEgressSchema = Schema.Struct({
-    provider: Schema.optional(Schema.String),
     env: Schema.optional(SandboxEnvSchema),
     httpProxy: Schema.optional(Schema.String),
     httpsProxy: Schema.optional(Schema.String),
