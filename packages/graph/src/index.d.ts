@@ -26,9 +26,6 @@ type HostText$1 = {
 type RetryPolicy$1 = {
     backoff?: "fixed" | "linear" | "exponential";
     initialDelayMs?: number;
-    maxDelayMs?: number;
-    multiplier?: number;
-    jitter?: boolean;
 };
 type CachePolicy$1<Ctx = unknown> = {
     by?: (ctx: Ctx) => unknown;

@@ -32,9 +32,6 @@ export type HostText = {
 export type RetryPolicy = {
   backoff?: "fixed" | "linear" | "exponential";
   initialDelayMs?: number;
-  maxDelayMs?: number;
-  multiplier?: number;
-  jitter?: boolean;
 };
 
 export type CachePolicy<Ctx = unknown> = {

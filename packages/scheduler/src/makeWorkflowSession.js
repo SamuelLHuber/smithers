@@ -4,6 +4,7 @@ import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { buildPlanTree } from "./buildPlanTree.js";
 import { buildStateKey } from "./buildStateKey.js";
 import { cloneTaskStateMap } from "./cloneTaskStateMap.js";
+import { computeRetryDelayMs } from "./computeRetryDelayMs.js";
 import { parseStateKey } from "./parseStateKey.js";
 import { scheduleTasks } from "./scheduleTasks.js";
 /** @typedef {import("./ApprovalResolution.ts").ApprovalResolution} ApprovalResolution */
@@ -148,27 +149,6 @@ function parseDurationMs(value) {
         default:
             return amount;
     }
-}
-/**
- * @param {TaskDescriptor} descriptor
- * @param {number} failureCount
- * @returns {number}
- */
-function retryDelayMs(descriptor, failureCount) {
-    const policy = descriptor.retryPolicy;
-    if (!policy)
-        return 0;
-    const initial = policy.initialDelayMs ?? 0;
-    if (policy.backoff === "exponential") {
-        const multiplier = policy.multiplier ?? 2;
-        const computed = initial * Math.pow(multiplier, Math.max(0, failureCount - 1));
-        return Math.min(policy.maxDelayMs ?? computed, computed);
-    }
-    if (policy.backoff === "linear") {
-        const computed = initial * Math.max(1, failureCount);
-        return Math.min(policy.maxDelayMs ?? computed, computed);
-    }
-    return initial;
 }
 /**
  * @param {TaskDescriptor} descriptor
@@ -367,7 +347,7 @@ export function makeWorkflowSession(options = {}) {
         const canRetry = retryable &&
             (descriptor.retries === Infinity || failureCount <= descriptor.retries);
         if (canRetry) {
-            const delay = retryDelayMs(descriptor, failureCount);
+            const delay = computeRetryDelayMs(descriptor.retryPolicy, failureCount);
             state.states.set(key, "pending");
             if (delay > 0) {
                 state.retryWait.set(key, nowMs() + delay);
