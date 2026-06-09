@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@smithers-orchestrator/db": "workspace:*",
+    "@smithers-orchestrator/driver": "workspace:*",
     "@smithers-orchestrator/engine": "workspace:*",
     "@smithers-orchestrator/gateway": "workspace:*",
     "@smithers-orchestrator/sandbox": "workspace:*",

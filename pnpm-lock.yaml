@@ -506,6 +506,9 @@ importers:
       '@smithers-orchestrator/db':
         specifier: workspace:*
         version: link:../packages/db
+      '@smithers-orchestrator/driver':
+        specifier: workspace:*
+        version: link:../packages/driver
       '@smithers-orchestrator/engine':
         specifier: workspace:*
         version: link:../packages/engine
