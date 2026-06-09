@@ -134,10 +134,38 @@ function checkFacadeDeclarations() {
   ]);
 }
 
+function checkImplementedApisNotMarkedComingSoon() {
+  const files = [
+    "docs/components/sandbox.mdx",
+    "docs/components/timer.mdx",
+    "docs/reference/types.mdx",
+  ];
+  const offenders = [];
+  for (const file of files) {
+    const source = readFileSync(join(root, file), "utf8");
+    for (const line of source.split("\n")) {
+      if (
+        /coming soon/i.test(line) &&
+        /(egress|SandboxEgressConfig|Durable suspend|Durable Suspend|timer wake|Gateway wake)/i.test(line)
+      ) {
+        offenders.push(`${file}: ${line.trim()}`);
+      }
+    }
+  }
+  if (offenders.length) {
+    failed = true;
+    console.error("\n✗ implemented egress/timer APIs are still marked coming soon:");
+    console.error(offenders.map((offender) => `    ${offender}`).join("\n"));
+  } else {
+    console.log("✓ implemented egress/timer APIs are not marked coming soon");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
 checkGatewayTypeDocs();
 checkFacadeDeclarations();
+checkImplementedApisNotMarkedComingSoon();
 
 process.exit(failed ? 1 : 0);

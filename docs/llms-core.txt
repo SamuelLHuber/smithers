@@ -3040,10 +3040,10 @@ type TimerProps = {
 - Produces no output. Past `until` timestamps fire immediately.
 - Worker restarts during the wait don't reset the timer.
 
-## Durable suspend and wake (coming soon)
+## Durable Suspend and Wake
 
 <Note>
-Automatic gateway wake sweeps for due timers landed after the last published package/docs release, `0.23.0`. The timer API exists in published packages, but this host-restart wake guarantee depends on the next release or a build from `main`.
+Automatic Gateway wake sweeps for due timers landed after `0.23.0`. The timer API exists in `0.23.0`, but host-restart wake guarantees require a build from `main` or a release newer than `0.23.0`.
 </Note>
 
 A waiting timer holds no worker and no CPU. The run's status becomes `waiting-timer`, only the absolute fire time is persisted, and the host releases the worker. Tear the worker down or redeploy mid-wait and nothing is lost.
@@ -3175,7 +3175,7 @@ type SandboxProps = {
 
   image?: string;
   env?: Record<string, string>;
-  // Coming soon in the next release after 0.23.0.
+  // Added after 0.23.0; available on main and later releases.
   egress?: {
     env?: Record<string, string>; // HTTP_PROXY, HTTPS_PROXY, NO_PROXY, etc.
     httpProxy?: string;
@@ -3213,10 +3213,10 @@ type SandboxProps = {
 };
 ```
 
-## Egress controls (coming soon)
+## Egress controls
 
 <Note>
-Sandbox egress controls were added after the last published package/docs release, `0.23.0`. Use the next release or build from `main` before relying on this API.
+Sandbox egress controls were added after `0.23.0`. Use a build from `main` or a release newer than `0.23.0` before relying on this API.
 </Note>
 
 Use `egress` when the sandbox itself should own outbound-network configuration. Smithers does not mutate the parent harness environment for this path. It serializes the egress contract into the sandbox request and passes it to the selected provider or local transport.
@@ -5274,7 +5274,7 @@ type KanbanProps = {
 
 // Sandbox
 type SandboxRuntime = "bubblewrap" | "docker" | "codeplane";
-// Coming soon in the next release after 0.23.0.
+// Added after 0.23.0; available on main and later releases.
 type SandboxEgressConfig = {
   env?: Record<string, string>;
   httpProxy?: string;
@@ -5304,7 +5304,7 @@ type SandboxProviderRequest = {
   allowNetwork: boolean;
   maxOutputBytes: number;
   toolTimeoutMs: number;
-  egress?: SandboxEgressConfig;    // coming soon
+  egress?: SandboxEgressConfig;
   config: Record<string, unknown>;
   signal?: AbortSignal;
   heartbeat: (data?: unknown) => void;
@@ -5343,7 +5343,7 @@ type SandboxProps = {
   allowNested?: boolean;
   image?: string;
   env?: Record<string, string>;
-  egress?: SandboxEgressConfig;    // coming soon
+  egress?: SandboxEgressConfig;
   ports?: Array<{ host: number; container: number }>;
   volumes?: SandboxVolumeMount[];
   memoryLimit?: string;

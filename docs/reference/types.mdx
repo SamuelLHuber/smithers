@@ -490,7 +490,7 @@ type KanbanProps = {
 
 // Sandbox
 type SandboxRuntime = "bubblewrap" | "docker" | "codeplane";
-// Coming soon in the next release after 0.23.0.
+// Added after 0.23.0; available on main and later releases.
 type SandboxEgressConfig = {
   env?: Record<string, string>;
   httpProxy?: string;
@@ -520,7 +520,7 @@ type SandboxProviderRequest = {
   allowNetwork: boolean;
   maxOutputBytes: number;
   toolTimeoutMs: number;
-  egress?: SandboxEgressConfig;    // coming soon
+  egress?: SandboxEgressConfig;
   config: Record<string, unknown>;
   signal?: AbortSignal;
   heartbeat: (data?: unknown) => void;
@@ -559,7 +559,7 @@ type SandboxProps = {
   allowNested?: boolean;
   image?: string;
   env?: Record<string, string>;
-  egress?: SandboxEgressConfig;    // coming soon
+  egress?: SandboxEgressConfig;
   ports?: Array<{ host: number; container: number }>;
   volumes?: SandboxVolumeMount[];
   memoryLimit?: string;
