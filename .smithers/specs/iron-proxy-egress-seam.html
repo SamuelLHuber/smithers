@@ -104,12 +104,12 @@
   <section class="slide">
     <p class="kicker">Research &amp; integration design</p>
     <h1>Iron-Proxy meets<br/>Smithers &amp; Plue</h1>
-    <p class="lead">A <span class="accent">pluggable egress seam</span> in the Smithers framework that knows nothing about iron-proxy, and a <span class="blue">Smithers Cloud (Plue)</span> that ships iron-proxy on by default.</p>
+    <p class="lead">A <span class="accent">sandbox-owned egress seam</span> in Smithers: proxy config is serialized into the sandbox request, interpreted by the selected sandbox provider, and never installed into the parent harness by core.</p>
     <div class="pill-row" style="margin-top:26px">
       <span class="pill">default-deny egress</span>
       <span class="pill">boundary secret rewriting</span>
       <span class="pill">per-request audit</span>
-      <span class="pill">vendor-neutral port</span>
+      <span class="pill">sandbox-owned config</span>
     </div>
     <p class="by">2026-06-09 · research deliverable</p>
   </section>
@@ -162,9 +162,9 @@
       <div class="card">
         <h3><span class="tag core">Smithers · framework</span></h3>
         <ul style="margin-top:12px">
-          <li>CLI agents (claude-code, codex) spawn as subprocesses; SDK agents call the <span class="filepath">ai</span> SDK. Both reach providers <b>directly</b>.</li>
-          <li>Provider keys live in <b>process.env</b> and flow into every spawned agent's environment.</li>
-          <li><b>No network isolation</b> of agent subprocesses. A compromised tool can exfiltrate keys or open a reverse shell.</li>
+          <li>Sandboxed child workflows need egress controls attached to the <b>sandbox request</b>, not to the parent Smithers process.</li>
+          <li>Provider keys should enter the sandbox as <b>placeholders</b>; real secrets stay at the proxy or provider boundary.</li>
+          <li><b>No core harness mutation</b>: Smithers should not set process-wide proxy env, global dispatchers, or built-in iron-proxy provider shortcuts.</li>
         </ul>
       </div>
     </div>
@@ -178,25 +178,25 @@
     <div class="cols">
       <div class="card">
         <h3><span class="tag core">Smithers framework</span></h3>
-        <p class="lead" style="font-size:20px">A clean, pluggable integration point that lets <em>any</em> egress tool slot in <strong>trivially</strong>, and that never names iron-proxy.</p>
-        <p class="mini">Core defines a port. iron-proxy, mitmproxy, Squid, a corporate proxy, or nothing at all are interchangeable adapters. Open-source users bring their own or run wide-open.</p>
+        <p class="lead" style="font-size:20px">A serializable <span class="filepath">SandboxEgressConfig</span> on <span class="filepath">&lt;Sandbox&gt;</span> and <span class="filepath">executeSandbox()</span>.</p>
+        <p class="mini">Core validates, redacts, writes CA material into the request bundle, and passes the normalized contract to provider-backed sandboxes. It does not name iron-proxy.</p>
       </div>
       <div class="card">
         <h3><span class="tag cloud">Plue · Smithers Cloud</span></h3>
-        <p class="lead" style="font-size:20px">Registers <strong>iron-proxy as the default adapter</strong>. Every cloud agent gets default-deny egress, secret rewriting, and audit with zero opt-in.</p>
-        <p class="mini">The framework stays vendor-neutral. The hosted product makes a strong default choice on top of it.</p>
+        <p class="lead" style="font-size:20px">Runs iron-proxy inside the Freestyle sandbox provider implementation.</p>
+        <p class="mini">The hosted product can choose a sidecar, firewall, and secret-rewrite policy, but the workflow still passes a provider object and an egress config.</p>
       </div>
     </div>
     <div class="flow" style="margin-top:26px; justify-content:center">
-      <span class="node steel">Smithers core</span>
-      <span class="arr">→ defines →</span>
-      <span class="node">EgressProvider port</span>
-      <span class="arr">← implements ←</span>
-      <span class="node good">iron-proxy adapter</span>
-      <span class="arr">← default in ←</span>
+      <span class="node steel">&lt;Sandbox egress&gt;</span>
+      <span class="arr">→ normalizes →</span>
+      <span class="node">executeSandbox()</span>
+      <span class="arr">→ passes →</span>
+      <span class="node good">SandboxProvider.run(request)</span>
+      <span class="arr">← supplied by ←</span>
       <span class="node rust">Plue Cloud</span>
     </div>
-    <p class="note" style="text-align:center; margin-top:6px">Ports &amp; adapters. Dependencies point inward; core depends on nothing.</p>
+    <p class="note" style="text-align:center; margin-top:6px">Provider objects are dependency injection. String provider ids only work after registerSandboxProvider(); core has no built-in iron-proxy id.</p>
   </section>
 
   <!-- 5 KEY INSIGHT -->
@@ -209,130 +209,119 @@
         <div class="pill-row" style="margin:16px 0">
           <span class="pill">HTTP_PROXY</span><span class="pill">HTTPS_PROXY</span><span class="pill">NO_PROXY</span><span class="pill">NODE_EXTRA_CA_CERTS</span>
         </div>
-        <p>Set those four values plus a trusted CA, and a process routes all egress through the proxy, including TLS. That is the whole vendor-neutral surface. Smithers does not need an iron-proxy SDK; it needs to <strong>thread proxy env + a CA into every place an agent makes a request</strong>.</p>
+        <p>Set those four values plus a trusted CA, and a sandbox process routes egress through the proxy, including TLS. Smithers does not need an iron-proxy SDK; it needs to <strong>serialize proxy env + CA into the sandbox request</strong>.</p>
         <p>Iron-proxy's secret rewriting is the bonus on top: because the proxy terminates TLS, it can swap a placeholder for a real key. Smithers gets that for free by honoring the same contract.</p>
       </div>
       <div class="card">
         <h3>What the seam carries</h3>
         <table>
           <tr><th>Field</th><th>Meaning</th></tr>
-          <tr><td><b>env</b></td><td>proxy + CA env overlay</td></tr>
-          <tr><td><b>caCertPem</b></td><td>CA to trust for MITM</td></tr>
+          <tr><td><b>env</b></td><td>extra sandbox env such as placeholder API keys</td></tr>
+          <tr><td><b>httpProxy / httpsProxy</b></td><td>proxy endpoints visible inside the sandbox</td></tr>
+          <tr><td><b>noProxy</b></td><td>host bypass list, normalized to a comma-separated value</td></tr>
+          <tr><td><b>caCertPem / caCertPath</b></td><td>CA written into the request bundle, or a path already present in the sandbox</td></tr>
           <tr><td><b>secretBindings</b></td><td>placeholder → logical secret</td></tr>
-          <tr><td><b>lifecycle</b></td><td>start / stop per run</td></tr>
-          <tr><td><b>onDecision</b></td><td>audit events to the bus</td></tr>
         </table>
-        <p class="note" style="margin-top:12px">A no-op provider returns <span class="filepath">{ env: {} }</span>. That is the open-source default.</p>
+        <p class="note" style="margin-top:12px">No egress config means the current open-source behavior: no proxy overlay added by Smithers.</p>
       </div>
     </div>
   </section>
 
-  <!-- 6 THE PORT -->
+  <!-- 6 THE CONTRACT -->
   <section class="slide">
     <p class="kicker">Smithers core · no vendor names</p>
-    <h2>The EgressProvider port</h2>
-    <p class="filepath" style="margin-bottom:6px">packages/driver/src/egress/EgressProvider.ts</p>
-    <pre><code><span class="c-com">// Smithers CORE. Knows nothing about iron-proxy or any vendor.</span>
-<span class="c-key">export interface</span> <span class="c-type">EgressContext</span> <span class="c-punc">{</span> runId<span class="c-punc">:</span> <span class="c-type">string</span><span class="c-punc">;</span> nodeId<span class="c-punc">:</span> <span class="c-type">string</span><span class="c-punc">;</span> agentKind<span class="c-punc">:</span> <span class="c-type">string</span><span class="c-punc">;</span> workspaceId<span class="c-punc">?:</span> <span class="c-type">string</span> <span class="c-punc">}</span>
-
-<span class="c-key">export interface</span> <span class="c-type">EgressBinding</span> <span class="c-punc">{</span>
-  <span class="c-com">/** Env overlay merged into every agent process and subprocess. */</span>
-  env<span class="c-punc">:</span> <span class="c-type">Record</span><span class="c-punc">&lt;</span><span class="c-type">string</span><span class="c-punc">,</span> <span class="c-type">string</span><span class="c-punc">&gt;</span><span class="c-punc">;</span>          <span class="c-com">// HTTP_PROXY, HTTPS_PROXY, NO_PROXY, NODE_EXTRA_CA_CERTS</span>
-  caCertPem<span class="c-punc">?:</span> <span class="c-type">string</span><span class="c-punc">;</span>                      <span class="c-com">// CA to trust for TLS interception, if any</span>
-  secretBindings<span class="c-punc">?:</span> <span class="c-type">Record</span><span class="c-punc">&lt;</span><span class="c-type">string</span><span class="c-punc">,</span> <span class="c-type">string</span><span class="c-punc">&gt;</span><span class="c-punc">;</span>   <span class="c-com">// "sk-proxy-XXX" -> "anthropic"  (real value resolved at the boundary)</span>
-<span class="c-punc">}</span>
-
-<span class="c-key">export interface</span> <span class="c-type">EgressProvider</span> <span class="c-punc">{</span>
-  <span class="c-fn">attach</span><span class="c-punc">(</span>ctx<span class="c-punc">:</span> <span class="c-type">EgressContext</span><span class="c-punc">):</span> <span class="c-type">Promise</span><span class="c-punc">&lt;</span><span class="c-type">EgressBinding</span><span class="c-punc">&gt;</span><span class="c-punc">;</span>   <span class="c-com">// once per run/agent, before any outbound call</span>
-  <span class="c-fn">detach</span><span class="c-punc">(</span>ctx<span class="c-punc">:</span> <span class="c-type">EgressContext</span><span class="c-punc">):</span> <span class="c-type">Promise</span><span class="c-punc">&lt;</span><span class="c-type">void</span><span class="c-punc">&gt;</span><span class="c-punc">;</span>             <span class="c-com">// tear down any per-run sidecar</span>
-  <span class="c-fn">onDecision</span><span class="c-punc">?(</span>cb<span class="c-punc">:</span> <span class="c-punc">(</span>d<span class="c-punc">:</span> <span class="c-type">EgressDecision</span><span class="c-punc">) =&gt;</span> <span class="c-type">void</span><span class="c-punc">):</span> <span class="c-type">void</span><span class="c-punc">;</span>  <span class="c-com">// structured audit -> event bus / OTEL</span>
-<span class="c-punc">}</span></code></pre>
-    <p class="note" style="margin-top:10px">This is the only thing core knows. It is wired in exactly like the existing <span class="filepath">spawnFn</span> dependency-injection seam: pass a real provider in production, a fake in tests, no module mocks.</p>
+    <h2>The SandboxEgressConfig contract</h2>
+    <p class="filepath" style="margin-bottom:6px">packages/sandbox/src/SandboxEgressConfig.ts</p>
+    <pre><code>export type SandboxEgressConfig = {
+  env?: Record&lt;string, string&gt;;
+  httpProxy?: string;
+  httpsProxy?: string;
+  noProxy?: string | string[];
+  caCertPem?: string;
+  caCertPath?: string;
+  secretBindings?: Record&lt;string, string&gt;;
+};</code></pre>
+    <p class="note" style="margin-top:10px">This is the seam Smithers implements. It is serializable, redacted before persistence, and passed to the sandbox provider as request.egress.</p>
   </section>
 
   <!-- 7 THREADING -->
   <section class="slide">
-    <p class="kicker">Smithers core · plumbing</p>
-    <h2>Threading it through both agent paths</h2>
-    <p class="lead" style="margin-bottom:14px">Core calls <span class="filepath">provider.attach()</span> once per run, then propagates the binding to wherever agents actually make requests. Three honest insertion points, all of which exist today.</p>
+    <p class="kicker">Smithers core · sandbox plumbing</p>
+    <h2>Threading it into the sandbox, not the harness</h2>
+    <p class="lead" style="margin-bottom:14px">The parent Smithers process does not install proxy env or a global dispatcher. The config stays attached to the sandbox boundary.</p>
     <div class="cols3">
       <div class="card tight">
-        <h3>CLI agents</h3>
-        <p class="mini"><span class="filepath">BaseCliAgent</span> already merges an <span class="filepath">env</span> overlay into the spawned command env. Add the binding's env to that merge.</p>
-        <pre><code><span class="c-key">const</span> env <span class="c-punc">=</span> <span class="c-punc">{</span>
-  ...process.env<span class="c-punc">,</span>
-  ...binding.env<span class="c-punc">,</span> <span class="c-com">// proxy + CA</span>
-  ...this.env<span class="c-punc">,</span>
-<span class="c-punc">}</span></code></pre>
+        <h3>&lt;Sandbox&gt;</h3>
+        <p class="mini">The React component accepts <span class="filepath">egress</span> and stores it in task config. A workflow passes a provider object directly, or a registered provider id.</p>
+        <pre><code>&lt;Sandbox
+  provider={remoteVmProvider}
+  egress={{ httpsProxy, caCertPem, secretBindings }}
+/&gt;</code></pre>
       </div>
       <div class="card tight">
-        <h3>SDK agents</h3>
-        <p class="mini">The <span class="filepath">ai</span> SDK accepts a custom <span class="filepath">fetch</span>. Set a global undici <span class="filepath">ProxyAgent</span> dispatcher + <span class="filepath">NODE_EXTRA_CA_CERTS</span> so <span class="filepath">api.anthropic.com</span> calls route through the proxy.</p>
-        <pre><code><span class="c-fn">setGlobalDispatcher</span><span class="c-punc">(</span>
-  <span class="c-key">new</span> <span class="c-type">ProxyAgent</span><span class="c-punc">(</span>binding.env.HTTPS_PROXY<span class="c-punc">))</span></code></pre>
+        <h3>executeSandbox()</h3>
+        <p class="mini">Execution normalizes <span class="filepath">config.egress</span>, redacts secrets in persisted config, writes CA PEM into the request bundle, and builds the provider request.</p>
+        <pre><code>const egress = normalizeSandboxEgressConfig(rawConfig.egress);
+await writeSandboxEgressFiles(egress, requestBundlePath);
+provider.run({ ...request, egress, config: rawConfig });</code></pre>
       </div>
       <div class="card tight">
-        <h3>MCP tools</h3>
-        <p class="mini"><span class="filepath">createMcpToolset</span> spawns servers with a <span class="filepath">StdioClientTransport</span> that takes <span class="filepath">env</span>. Merge the binding in so MCP egress is governed too.</p>
-        <pre><code><span class="c-key">new</span> <span class="c-type">StdioClientTransport</span><span class="c-punc">(</span><span class="c-punc">{</span>
-  env<span class="c-punc">:</span> <span class="c-punc">{</span> ...binding.env<span class="c-punc">,</span> ...cfg.env <span class="c-punc">}</span>
-<span class="c-punc">}</span><span class="c-punc">)</span></code></pre>
+        <h3>Provider / local transport</h3>
+        <p class="mini">Provider-backed sandboxes receive <span class="filepath">request.egress</span>. Built-in local transports derive sandbox env from the same config.</p>
+        <pre><code>const env = {
+  ...sandbox.env,
+  ...sandboxEgressEnv(sandbox.egress),
+};</code></pre>
       </div>
     </div>
-    <p class="note" style="margin-top:16px">Result: one <span class="filepath">attach()</span> governs CLI subprocesses, SDK fetches, and MCP servers alike. Core never imports a proxy.</p>
+    <p class="note" style="margin-top:16px">Result: egress policy is sandbox-owned. Smithers core does not mutate parent env, does not hardcode iron-proxy, and does not route unrelated agent calls.</p>
   </section>
 
-  <!-- 8 ADAPTER -->
+  <!-- 8 PROVIDER IMPLEMENTATION -->
   <section class="slide">
-    <p class="kicker">Outside core · optional package</p>
-    <h2>The iron-proxy adapter</h2>
-    <p class="filepath" style="margin-bottom:6px">@smithers-orchestrator/iron-proxy &nbsp;·&nbsp; a thin EgressProvider, importable only by people who want it</p>
-    <pre><code><span class="c-key">import</span> <span class="c-punc">{</span> <span class="c-type">EgressProvider</span> <span class="c-punc">}</span> <span class="c-key">from</span> <span class="c-str">"smithers-orchestrator/egress"</span><span class="c-punc">;</span>
+    <p class="kicker">Outside core · provider-owned</p>
+    <h2>Iron-proxy lives inside the sandbox provider</h2>
+    <p class="lead" style="margin-bottom:14px">A Freestyle provider can choose to start iron-proxy, install its CA, set firewall rules, and translate <span class="filepath">request.egress</span> into VM-local config. Smithers only passes the request.</p>
+    <pre><code>function createPlueFreestyleProvider(providerId) {
+  return {
+    id: providerId,
+    async run(request) {
+      const proxy = await startIronProxyInVm({
+        httpProxy: request.egress?.httpProxy,
+        httpsProxy: request.egress?.httpsProxy,
+        caCertPem: request.egress?.caCertPem,
+        secretBindings: request.egress?.secretBindings,
+      });
 
-<span class="c-key">export function</span> <span class="c-fn">ironProxyProvider</span><span class="c-punc">(</span>opts<span class="c-punc">):</span> <span class="c-type">EgressProvider</span> <span class="c-punc">{</span>
-  <span class="c-key">return</span> <span class="c-punc">{</span>
-    <span class="c-key">async</span> <span class="c-fn">attach</span><span class="c-punc">(</span>ctx<span class="c-punc">)</span> <span class="c-punc">{</span>
-      <span class="c-key">const</span> <span class="c-punc">{</span> port<span class="c-punc">,</span> caCertPem <span class="c-punc">}</span> <span class="c-punc">=</span> <span class="c-key">await</span> <span class="c-fn">startOrReuseIronProxy</span><span class="c-punc">(</span>opts<span class="c-punc">)</span><span class="c-punc">;</span>  <span class="c-com">// sidecar or shared listener</span>
-      <span class="c-key">return</span> <span class="c-punc">{</span>
-        env<span class="c-punc">:</span> <span class="c-punc">{</span>
-          HTTP_PROXY<span class="c-punc">:</span>  <span class="c-str">`http://127.0.0.1:${port}`</span><span class="c-punc">,</span>
-          HTTPS_PROXY<span class="c-punc">:</span> <span class="c-str">`http://127.0.0.1:${port}`</span><span class="c-punc">,</span>
-          NO_PROXY<span class="c-punc">:</span>    <span class="c-str">"127.0.0.1,localhost"</span><span class="c-punc">,</span>
-          NODE_EXTRA_CA_CERTS<span class="c-punc">:</span> <span class="c-fn">writeCa</span><span class="c-punc">(</span>caCertPem<span class="c-punc">),</span>
-        <span class="c-punc">}</span><span class="c-punc">,</span>
-        caCertPem<span class="c-punc">,</span>
-        secretBindings<span class="c-punc">:</span> opts.secrets<span class="c-punc">,</span>   <span class="c-com">// sk-proxy-XXX -> "anthropic"</span>
-      <span class="c-punc">}</span><span class="c-punc">;</span>
-    <span class="c-punc">}</span><span class="c-punc">,</span>
-    <span class="c-key">async</span> <span class="c-fn">detach</span><span class="c-punc">(</span>ctx<span class="c-punc">)</span> <span class="c-punc">{</span> <span class="c-com">/* stop sidecar if owned */</span> <span class="c-punc">}</span><span class="c-punc">,</span>
-    <span class="c-fn">onDecision</span><span class="c-punc">(</span>cb<span class="c-punc">)</span> <span class="c-punc">{</span> <span class="c-fn">tailIronProxyAuditJson</span><span class="c-punc">(</span>cb<span class="c-punc">)</span><span class="c-punc">;</span> <span class="c-punc">}</span><span class="c-punc">,</span>
-  <span class="c-punc">}</span><span class="c-punc">;</span>
-<span class="c-punc">}</span></code></pre>
-    <p class="note" style="margin-top:10px">Maybe 150 lines. All vendor specifics live here. Swap in <span class="filepath">mitmproxyProvider</span> or <span class="filepath">squidProvider</span> without touching core.</p>
+      return runSmithersBundleInVm({ request, proxy });
+    },
+  };
+}</code></pre>
+    <p class="note" style="margin-top:10px">The provider id is an injected object property or a registered id. Smithers core has no built-in iron-proxy provider shortcut.</p>
   </section>
 
   <!-- 9 PLUE WIRING -->
   <section class="slide">
     <p class="kicker">Plue · iron-proxy ON by default</p>
-    <h2>Wiring the default into the cloud</h2>
-    <p class="filepath" style="margin-bottom:6px">internal/services/agent_dispatch.go · buildServiceSpec()</p>
-    <pre><code><span class="c-com">// 1) Run iron-proxy as a sidecar systemd unit inside the Freestyle microVM.</span>
-d.units <span class="c-punc">=</span> <span class="c-fn">append</span><span class="c-punc">(</span>d.units<span class="c-punc">,</span> <span class="c-fn">ironProxySystemdUnit</span><span class="c-punc">(</span>d.svc.ironProxyCfg<span class="c-punc">))</span>
+    <h2>Wiring the default into sandbox execution</h2>
+    <p class="filepath" style="margin-bottom:6px">Plue sandbox provider · build VM request from SandboxProviderRequest</p>
+    <pre><code>// 1) Workflow or cloud policy supplies a provider object and sandbox egress config.
+&lt;Sandbox
+  provider={plueFreestyleProvider}
+  egress={{
+    httpsProxy: "http://127.0.0.1:8080",
+    httpProxy: "http://127.0.0.1:8080",
+    caCertPem,
+    env: { ANTHROPIC_API_KEY: "sk-proxy-" + runId },
+    secretBindings: { ["sk-proxy-" + runId]: "anthropic" },
+  }}
+/&gt;
 
-<span class="c-com">// 2) Point the agent at the proxy and trust its CA  (the vendor-neutral contract).</span>
-d.agentServiceSpec.Env<span class="c-punc">[</span><span class="c-str">"HTTP_PROXY"</span><span class="c-punc">]</span>          <span class="c-punc">=</span> <span class="c-str">"http://127.0.0.1:8080"</span>
-d.agentServiceSpec.Env<span class="c-punc">[</span><span class="c-str">"HTTPS_PROXY"</span><span class="c-punc">]</span>         <span class="c-punc">=</span> <span class="c-str">"http://127.0.0.1:8080"</span>
-d.agentServiceSpec.Env<span class="c-punc">[</span><span class="c-str">"NODE_EXTRA_CA_CERTS"</span><span class="c-punc">]</span> <span class="c-punc">=</span> <span class="c-str">"/etc/iron-proxy/ca.crt"</span>
-
-<span class="c-com">// 3) The sandbox only ever sees a placeholder. iron-proxy holds the real key.</span>
-d.agentServiceSpec.Env<span class="c-punc">[</span><span class="c-str">"ANTHROPIC_API_KEY"</span><span class="c-punc">]</span> <span class="c-punc">=</span> <span class="c-str">"sk-proxy-"</span> <span class="c-punc">+</span> d.runID   <span class="c-com">// was plaintext sk-ant-...</span>
-
-<span class="c-com">// 4) Belt and suspenders: Freestyle default-deny so the proxy cannot be bypassed.</span>
-d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>freestyle.<span class="c-type">FirewallPolicy</span><span class="c-punc">{</span>
-  DefaultEgressAction<span class="c-punc">:</span> <span class="c-str">"deny"</span><span class="c-punc">,</span>
-  EgressAllow<span class="c-punc">:</span> <span class="c-punc">[]</span>freestyle.<span class="c-type">FirewallEgressRule</span><span class="c-punc">{{</span> Host<span class="c-punc">:</span> <span class="c-str">"127.0.0.1"</span><span class="c-punc">,</span> Port<span class="c-punc">:</span> <span class="c-num">8080</span> <span class="c-punc">}},</span>
-<span class="c-punc">}</span></code></pre>
-    <p class="note" style="margin-top:10px">Reuses the <span class="filepath">FirewallPolicy</span> type and the deny-default pattern Plue already runs for workflow sandboxes (<span class="filepath">buildFirewallPolicy</span>). Agent VMs finally get the same treatment, plus secret rewriting on top.</p>
+// 2) The provider, not the Smithers harness, creates sidecars/firewall inside the VM.
+vm.units.push(ironProxySystemdUnit(request.egress));
+vm.firewall = denyDefaultAllowProxyOnly();
+vm.env = { ...vm.env, ...sandboxEgressEnv(request.egress) };</code></pre>
+    <p class="note" style="margin-top:10px">The parent process keeps its original env. The proxy config crosses the boundary through the sandbox request and is enforced by the selected sandbox provider.</p>
   </section>
 
   <!-- 10 TOPOLOGIES -->
@@ -366,7 +355,7 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
         <td>Audit + secret-rewrite, looser allowlist.</td>
       </tr>
     </table>
-    <p class="note" style="margin-top:18px">Agent VMs want a tight allowlist. Interactive workspaces want full reach with audit. Same adapter, two policy profiles.</p>
+    <p class="note" style="margin-top:18px">Sandbox runs want a tight allowlist. Interactive workspaces may need broader reach with audit. Same sandbox egress contract, provider-specific policy profiles.</p>
   </section>
 
   <!-- 11 SECRET REWRITING -->
@@ -399,11 +388,11 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
     <h2>Every request, on the record</h2>
     <div class="cols">
       <div>
-        <p>iron-proxy emits one structured JSON entry per request. The adapter forwards it through <span class="filepath">onDecision</span> onto the surfaces Smithers and Plue already have:</p>
+        <p>iron-proxy emits one structured JSON entry per request. In the current Smithers seam that log is provider-owned; Plue can forward it onto its own event and OTEL surfaces:</p>
         <ul>
-          <li>Smithers' <b>event bus</b> as <span class="filepath">egress.decision</span> events, alongside existing run events.</li>
+          <li><b>Sandbox lifecycle context</b>: attach audit records to run id, sandbox id, and provider id from <span class="filepath">SandboxProviderRequest</span>.</li>
           <li>Plue's <b>OTEL export</b> to Cloud Logging, the same path the proxy supports natively (Axiom, Logfire).</li>
-          <li>A per-run <b>egress timeline</b> surfaced in the run UI: who tried to reach what, allowed or denied, and which secret was swapped.</li>
+          <li>A future per-run <b>egress timeline</b> in the run UI: who tried to reach what, allowed or denied, and which secret was swapped.</li>
         </ul>
         <p class="mini">Denials become alerts. A burst of blocked hosts on a run is a strong tamper signal.</p>
       </div>
@@ -431,7 +420,7 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
       <div class="card">
         <h3>MCP policy</h3>
         <p>iron-proxy can enforce a <b>default-deny tool allowlist</b> for MCP servers: it filters <span class="filepath">tools/list</span> and rejects denied <span class="filepath">tools/call</span>.</p>
-        <p class="mini">Smithers spawns MCP servers through <span class="filepath">createMcpToolset</span>. Routing that traffic through the proxy means tool exposure becomes policy, not trust. A poisoned MCP server cannot offer a tool you never allowed.</p>
+        <p class="mini">For sandboxed workflows, the sandbox provider can route MCP server traffic through the same VM-local proxy. Core does not add a separate MCP egress hook.</p>
       </div>
       <div class="card">
         <h3>Judge</h3>
@@ -439,7 +428,7 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
         <p class="mini">Smithers already orchestrates models. A judge call is a natural extension of the same machinery, gating the gray-area egress that a static allowlist cannot classify.</p>
       </div>
     </div>
-    <p class="note" style="margin-top:18px">Both are opt-in transforms in the adapter config. Core stays unaware; Plue decides the posture.</p>
+    <p class="note" style="margin-top:18px">Both are provider or proxy policy, outside the Smithers core API. Core stays unaware; Plue decides the posture.</p>
   </section>
 
   <!-- 14 ROLLOUT -->
@@ -447,14 +436,14 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
     <p class="kicker">Delivery</p>
     <h2>Phased, each step shippable</h2>
     <div class="grid-steps">
-      <div class="step"><div class="n">P0</div><h4>Spec</h4><p>Write the seam spec in <span class="filepath">.smithers/specs/</span>. Agree the port shape.</p></div>
-      <div class="step"><div class="n">P1</div><h4>Port + CLI</h4><p>Add <span class="filepath">EgressProvider</span>, thread the binding into <span class="filepath">BaseCliAgent</span> env. No-op default.</p></div>
-      <div class="step"><div class="n">P2</div><h4>SDK + MCP</h4><p>Global undici dispatcher + CA for SDK agents; merge env into MCP transports.</p></div>
-      <div class="step"><div class="n">P3</div><h4>Adapter</h4><p>Ship <span class="filepath">@smithers-orchestrator/iron-proxy</span>. Local dev opt-in.</p></div>
-      <div class="step"><div class="n">P4</div><h4>Plue default</h4><p>Sidecar + proxy env + secret placeholders in <span class="filepath">agent_dispatch</span>. Deny-default firewall.</p></div>
+      <div class="step"><div class="n">P0</div><h4>Spec</h4><p>Document sandbox-owned egress in <span class="filepath">.smithers/specs/</span> and public docs.</p></div>
+      <div class="step"><div class="n">P1</div><h4>Config API</h4><p>Add <span class="filepath">SandboxEgressConfig</span> to <span class="filepath">&lt;Sandbox&gt;</span> and <span class="filepath">executeSandbox()</span>.</p></div>
+      <div class="step"><div class="n">P2</div><h4>Provider path</h4><p>Pass normalized <span class="filepath">request.egress</span> into provider-backed sandboxes and redact persisted config.</p></div>
+      <div class="step"><div class="n">P3</div><h4>Local path</h4><p>Materialize CA files and merge proxy env only inside built-in local sandbox transports.</p></div>
+      <div class="step"><div class="n">P4</div><h4>Plue default</h4><p>Freestyle provider starts sidecar, injects placeholder env, and applies deny-default firewall.</p></div>
       <div class="step"><div class="n">P5</div><h4>Harden</h4><p>nftables enforcement, OTEL audit, egress timeline, denial alerts.</p></div>
     </div>
-    <p class="note" style="margin-top:20px">P1 ships value with no proxy at all (a real, testable seam). P4 flips the cloud default. Nothing forces open-source users to adopt iron-proxy at any point.</p>
+    <p class="note" style="margin-top:20px">P1-P3 are the Smithers seam and can ship without iron-proxy. P4 flips the hosted provider default. Nothing forces open-source users to adopt iron-proxy.</p>
   </section>
 
   <!-- 15 WHY RIGHT -->
@@ -464,16 +453,16 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
     <div class="cols">
       <div>
         <ul>
-          <li><b>Core stays clean and testable.</b> A fake provider in tests, a real one in prod. Matches the existing <span class="filepath">spawnFn</span> DI idiom, no module mocks.</li>
-          <li><b>Open-source users keep control.</b> Bring your own proxy, run wide-open, or point at a corporate proxy. All speak the same contract.</li>
-          <li><b>Cloud gets defense in depth by default.</b> Default-deny egress, secret rewriting, audit, with no per-workflow opt-in.</li>
+          <li><b>Core stays clean and testable.</b> Tests pass provider objects directly and assert <span class="filepath">request.egress</span>. No module mocks or harness env mutation.</li>
+          <li><b>Open-source users keep control.</b> Bring a sandbox provider, use local transports, or omit egress entirely. All paths share the same config type.</li>
+          <li><b>Cloud gets defense in depth by default.</b> Default-deny egress, secret rewriting, and audit can live inside the hosted Freestyle provider.</li>
         </ul>
       </div>
       <div>
         <ul>
           <li><b>It composes.</b> Because the seam is the standard proxy contract, it stacks with enterprise proxies and existing firewall rules.</li>
-          <li><b>One choke point.</b> Network policy, secret handling, and audit converge in a single place instead of being smeared across every agent.</li>
-          <li><b>Reuses what exists.</b> Plue's <span class="filepath">FirewallPolicy</span>, Smithers' env overlay and event bus. Mostly wiring, little new surface.</li>
+          <li><b>One choke point.</b> Network policy, secret handling, and audit converge at the sandbox provider boundary instead of the parent harness.</li>
+          <li><b>Reuses what exists.</b> Smithers already has provider-backed sandboxes, request bundles, local transports, sandbox events, and diff review.</li>
         </ul>
       </div>
     </div>
@@ -486,7 +475,7 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
     <ul>
       <li><b>Freestyle firewall semantics.</b> Plue's own <span class="filepath">TODO</span> notes the hosted egress-enforcement contract is not finalized. The sidecar works regardless; nftables is the fallback if the hosted firewall is weak.</li>
       <li><b>CA trust distribution.</b> The MITM CA must be present and trusted in every sandbox image, including for non-Node runtimes (Python, Go, curl) that ignore <span class="filepath">NODE_EXTRA_CA_CERTS</span>.</li>
-      <li><b>Global dispatcher is process-wide.</b> Setting one undici <span class="filepath">ProxyAgent</span> affects the whole process. Fine in a per-run VM; needs care if many runs share one Smithers process.</li>
+      <li><b>Provider audit surface.</b> Smithers currently passes config and sandbox lifecycle events; a first-class egress decision event would be additional work.</li>
       <li><b>Streaming.</b> SSE and websocket model streams must pass through cleanly. iron-proxy proxies both natively; verify under load.</li>
       <li><b>TLS-MITM cost.</b> Leaf-cert generation and re-encryption add latency. Measure against agent call volume.</li>
       <li><b>Workspaces differ from agents.</b> Interactive workspaces need broad egress. They get audit and secret-rewrite, not a tight allowlist.</li>
@@ -496,8 +485,8 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
   <!-- 17 CLOSE -->
   <section class="slide">
     <p class="kicker">Recap</p>
-    <h2>One port, two postures</h2>
-    <p class="lead">Smithers core exposes a vendor-neutral <span class="accent">EgressProvider</span> seam built on the universal proxy contract, and never names iron-proxy. Plue registers <span class="blue">iron-proxy as the default adapter</span>, so every cloud agent gets default-deny egress, boundary secret rewriting, and a full audit trail out of the box.</p>
+    <h2>One sandbox contract, two postures</h2>
+    <p class="lead">Smithers core exposes <span class="accent">SandboxEgressConfig</span>, writes CA material into the request bundle, and passes normalized egress to the selected sandbox provider. Plue can make iron-proxy the default inside its Freestyle provider without core hardcoding a provider string or mutating the parent harness.</p>
     <div class="pill-row" style="margin-top:22px">
       <span class="pill">core: pluggable, no vendor lock-in</span>
       <span class="pill">cloud: secure by default</span>
@@ -506,8 +495,8 @@ d.vmReq.Firewall <span class="c-punc">=</span> <span class="c-punc">&amp;</span>
     <h3 style="margin-top:34px">Sources</h3>
     <div class="src">
       github.com/ironsh/iron-proxy &nbsp;·&nbsp; Apache-2.0, Go &nbsp;·&nbsp; @mslipper (Optimism)<br/>
-      Smithers framework: <span class="filepath">packages/agents/src/BaseCliAgent</span>, <span class="filepath">AnthropicAgent</span>, <span class="filepath">mcp/createMcpToolset</span><br/>
-      Plue: <span class="filepath">internal/services/agent_dispatch.go</span>, <span class="filepath">internal/sandbox/client.go (FirewallPolicy)</span>, <span class="filepath">workflow_sandbox_scheduler.go</span>
+      Smithers framework: <span class="filepath">packages/sandbox/src/execute.js</span>, <span class="filepath">packages/sandbox/src/egress.js</span>, <span class="filepath">packages/components/src/components/Sandbox.js</span><br/>
+      Plue: Freestyle sandbox provider implementation, sidecar policy, and firewall enforcement
     </div>
   </section>
 

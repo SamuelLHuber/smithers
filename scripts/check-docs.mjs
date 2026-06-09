@@ -22,6 +22,7 @@ const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitio
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
 const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
+const IRON_PROXY_EGRESS_SPEC = join(root, ".smithers/specs/iron-proxy-egress-seam.html");
 
 let failed = false;
 
@@ -161,11 +162,48 @@ function checkImplementedApisNotMarkedComingSoon() {
   }
 }
 
+function checkIronProxySpecMatchesSandboxSeam() {
+  const source = readFileSync(IRON_PROXY_EGRESS_SPEC, "utf8");
+  const required = [
+    "sandbox-owned egress seam",
+    "SandboxEgressConfig",
+    "packages/sandbox/src/SandboxEgressConfig.ts",
+    "executeSandbox()",
+    "request.egress",
+    "Smithers core has no built-in iron-proxy provider shortcut.",
+  ];
+  const forbidden = [
+    "EgressProvider",
+    "packages/driver/src/egress",
+    "provider.attach",
+    "BaseCliAgent",
+    "ProxyAgent",
+    "global undici",
+    "agentServiceSpec",
+    "@smithers-orchestrator/iron-proxy",
+    'provider: "iron-proxy"',
+    'provider="iron-proxy"',
+    'provider: "freestyle-vm"',
+    'provider="freestyle-vm"',
+  ];
+  const missing = required.filter((needle) => !source.includes(needle));
+  const stale = forbidden.filter((needle) => source.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ .smithers/specs/iron-proxy-egress-seam.html does not match the sandbox-owned egress implementation:");
+    if (missing.length) console.error(`    missing: ${missing.join(", ")}`);
+    if (stale.length) console.error(`    stale: ${stale.join(", ")}`);
+  } else {
+    console.log("✓ iron-proxy spec describes sandbox-owned egress, not harness-level proxy wiring");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
 checkGatewayTypeDocs();
 checkFacadeDeclarations();
 checkImplementedApisNotMarkedComingSoon();
+checkIronProxySpecMatchesSandboxSeam();
 
 process.exit(failed ? 1 : 0);
