@@ -14,10 +14,6 @@ agent writes the workflow, a composable TypeScript tree, then runs it for minute
 days with crash recovery, retries, human approvals, replay, and full observability across
 any agent, any model, and any machine.
 
-<Frame caption="Models change weekly and agent topologies change quarterly, but the durable orchestration layer underneath does not. That layer is Smithers.">
-  <img src="/images/why/three-layer-stack.svg" alt="Three stacked layers: a volatile model layer, a fluid agent-topology layer, and a stable Smithers orchestration layer underneath" />
-</Frame>
-
 <Note>
 These docs are split by audience, so pick your path:
 
@@ -29,6 +25,23 @@ These docs are split by audience, so pick your path:
 3. **Author workflows** (you are a developer): the [JSX surface](/jsx/overview) and
    [Components](/components/workflow) to build or fork your own.
 </Note>
+
+<Frame caption="Models make stateless calls, harnesses manage the context window around them, topologies wire agents into patterns, and Smithers runs the whole stack as durable workflows. Everything above the orchestration layer churns; that bottom layer holds still.">
+  <img src="/images/why/agent-stack.svg" alt="Four stacked layers: a model layer of stateless calls, a harness layer that manages the context window, a topology layer of orchestration patterns, and a stable Smithers orchestration layer underneath" />
+</Frame>
+
+Read the stack from the top down. The **model layer** is stateless: a request goes in,
+tokens come out, and nothing is remembered between calls. The **harness layer** wraps a
+model and manages its context window, choosing what to put in front of the model on each
+call and running the tool loop around it. Claude Code, Codex, Pi, and opencode all live
+here; this is what most people mean by "an agent."
+
+Between the harness and the orchestration layer sits the **topology layer**: the pattern
+you arrange agents in, like ReAct, crew, swarm, plan-execute, or subagent fan-out.
+Smithers adapts to all of them and can implement any of them. The **orchestration layer**
+at the bottom is Smithers itself. It wires humans, plain code, and harnesses into larger
+workflows and makes them durable, with retries, persisted state, human approvals, replay,
+and full observability. The layers above it change constantly. This one holds still.
 
 <CardGroup cols={2}>
   <Card title="For Humans: start here" icon="compass" href="/guide/what-is-smithers">
@@ -195,6 +208,23 @@ bunx smithers-orchestrator up workflow.tsx --serve --metrics               # HTT
 Every run emits Prometheus metrics and OpenTelemetry traces, so you can watch token spend,
 task latency, retries, and failures across thousands of runs. See
 [How It Works](/how-it-works) for the render → execute → persist loop.
+
+## Eval-driven and self-improving
+
+A workflow you cannot measure is a workflow you cannot trust. Write an eval suite of input
+cases and expected results, and Smithers runs your workflow across every case and writes a
+regression report, so you know it still works before you ship a change.
+
+```bash
+bunx smithers-orchestrator eval workflow.tsx --cases evals/smoke.jsonl --suite smoke
+bunx smithers-orchestrator optimize workflow.tsx --cases evals/smoke.jsonl --suite smoke-gepa
+```
+
+`optimize` turns a workflow on itself: it runs your eval suite, uses GEPA to rewrite the
+prompts on your agent tasks, re-runs the suite, and keeps the new prompts only when they
+score higher. Your workflow improves itself against your own rubric, and the report proves
+the gain. See [Eval Suites](/guides/evals-quickstart) and
+[Workflow Optimization](/guides/workflow-optimization).
 
 ## Scale across machines
 
