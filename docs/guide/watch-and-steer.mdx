@@ -33,12 +33,11 @@ Smithers pulls the reviewer step's output and reads you the findings: the struct
   <img src="/images/why/runs-live.gif" alt="A Smithers run streaming live step transitions into a tree as each task starts and finishes" />
 </Frame>
 
-## Studio: the visual console
+## Studio: the visual console (coming soon)
 
-When you want eyes on it instead of a transcript, ask your agent to open Studio, the Smithers operations console.
+When you want eyes on it instead of a transcript, Studio is the Smithers operations console: one window for watching runs and workspaces. Studio is coming soon; the screenshots below preview what it adds on top of the CLI watch loop.
 
-**You:** "Open Studio so I can watch the kanban board."
-Smithers opens the workspace in Studio, where you browse runs and workspaces, watch them update live, and drop into an embedded terminal, all in one window.
+When Studio ships, you open it the same way you do everything else, by asking. "Open Studio so I can watch the kanban board." Smithers opens the workspace in Studio, where you browse runs and workspaces, watch them update live, and drop into an embedded terminal, all in one window.
 
 <Frame caption="Studio's home surface lists your workspaces and a live operations strip, so you start every session knowing exactly what is in flight.">
   <img src="/images/studio-2/home.png" alt="Smithers Studio home screen showing recent workspaces and a live operations strip" />
@@ -46,7 +45,7 @@ Smithers opens the workspace in Studio, where you browse runs and workspaces, wa
 
 The Runs surface is the live view. Each run streams its step tree and inspector as the agent works, with no refresh and no polling.
 
-<Frame caption="The Runs surface streams live run events into a tree and inspector, proving you can follow a run's every step visually as it happens.">
+<Frame caption="The Runs surface streams live run events into a tree and inspector, so you can follow a run's every step visually as it happens.">
   <img src="/images/studio-2/runs-live.gif" alt="Studio Runs surface streaming live run events into a step tree with a node inspector" />
 </Frame>
 
@@ -58,12 +57,12 @@ Color only ever means run state, so what is running, paused, or failed reads at 
 
 When you need to get hands-on inside a run's workspace, Studio gives you a real embedded terminal, a live shell in the same window you are watching from.
 
-<Frame caption="A real shell embedded in the workspace surface, proving you can inspect or intervene inside a run without leaving the console.">
+<Frame caption="A real shell embedded in the workspace surface, so you can inspect or intervene inside a run without leaving the console.">
   <img src="/images/studio-2/workspace-terminal.png" alt="Studio in-app workspace terminal running a live shell" />
 </Frame>
 
 <Note>
-Studio runs as a web app today with a desktop shell in the wings. The CLI watch loop (`ps`, `chat --follow`, `inspect --watch`) is the always-available path and works any machine, any agent, with no GUI required.
+Studio is coming soon. Until it lands, the CLI watch loop (`ps`, `chat --follow`, `inspect --watch`) and the installable web app are the always-available paths, and work on any machine, with any agent, no GUI required.
 </Note>
 
 ## A browser and remote view
