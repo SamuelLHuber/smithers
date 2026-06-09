@@ -4,16 +4,23 @@
 // smithers-tags: growth, outreach, github
 /** @jsxImportSource smithers-orchestrator */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createSmithers } from "smithers-orchestrator";
 import { z } from "zod/v4";
-import { agents } from "../agents";
+import { providers } from "../agents";
 
 const LEDGER = ".smithers/state/repo-prospector.json";
 const WORK_ROOT = ".smithers/tmp/repo-prospector";
 const FORK_OWNER = "roninjin10";
 const THROTTLE_MS = 15 * 60 * 1000;
+
+// Curated worker pool — only providers proven to run in THIS environment. The
+// shared `agents.smartTool` includes kimi/configDir variants that throw a
+// NON-RETRYABLE "LLM not set" config error here; when provider rotation lands on
+// one mid-run it kills the whole run. claude (subscription) leads, with codex /
+// opencode / claudeSonnet as same-tier fallbacks. No kimi, no configDir variants.
+const WORKER = [providers.claude, providers.codex, providers.opencode, providers.claudeSonnet];
 
 // ---------------------------------------------------------------------------
 // Seen ledger — local, gitignored, the source of truth for "never look twice".
@@ -81,6 +88,17 @@ const assessSchema = z.object({
   maintainerContact: z.string().nullable().default(null).describe("Email or other contact if discoverable."),
 });
 
+// Deterministic fork+clone+branch (compute) — keeps the flaky, async `gh repo
+// fork` off the non-deterministic agent so a transient race never burns a target.
+const forkSchema = z.object({
+  forked: z.boolean(),
+  forkFullName: z.string().describe("roninjin10/<repo>"),
+  clonePath: z.string(),
+  branch: z.string(),
+  defaultBranch: z.string(),
+  note: z.string(),
+});
+
 const implementSchema = z.object({
   forked: z.boolean(),
   pushed: z.boolean(),
@@ -91,7 +109,17 @@ const implementSchema = z.object({
   summary: z.string(),
 });
 
-const diffSchema = z.object({ compareUrl: z.string(), branch: z.string(), forkFullName: z.string() });
+// Deterministic push + verify (compute). Never trusts the implement agent's
+// self-reported push — confirms the branch is really on the fork via git/gh.
+const publishSchema = z.object({
+  pushed: z.boolean(),
+  commitSha: z.string().default(""),
+  filesChanged: z.array(z.string()).default([]),
+  compareUrl: z.string(),
+  forkFullName: z.string(),
+  branch: z.string(),
+  note: z.string(),
+});
 
 const draftSchema = z.object({
   channel: z.enum(["issue", "email", "dm"]),
@@ -121,8 +149,9 @@ const { Workflow, Task, Sequence, Approval, smithers, outputs } = createSmithers
   discover: discoverSchema,
   record: recordSchema,
   assess: assessSchema,
+  fork: forkSchema,
   implement: implementSchema,
-  diff: diffSchema,
+  publish: publishSchema,
   draft: draftSchema,
   approval: approvalSchema,
   send: sendSchema,
@@ -148,6 +177,9 @@ function discoverPrompt(seen: string[], topic: string | null, minStars: number):
     "AI/LLM glue (langchain, crewai, autogen, n8n), flaky bots, release or triage scripts, doc generators.",
     "",
     `Use the gh CLI to search and inspect (e.g. \`gh search repos\`, \`gh api\`). Require at least ${minStars} stars.`,
+    "Prefer SCRAPPY, indie projects with an individual or tiny-team maintainer who would personally read a message —",
+    "roughly 100–8000 stars, pushed to in the last couple of months. AVOID mega-projects and big company/foundation",
+    "repos (30k+ star flagship frameworks, anything under a large org): they have process and ignore cold outreach.",
     topic ? `Bias the search toward: ${topic}.` : "Pick any healthy, active repo that fits.",
     "",
     "DENYLIST — these were already looked at, you MUST NOT pick any of them:",
@@ -189,30 +221,25 @@ function assessPrompt(repo: z.infer<typeof discoverSchema>, workDir: string): st
 function implementPrompt(
   repo: z.infer<typeof discoverSchema>,
   assess: z.infer<typeof assessSchema>,
-  workDir: string,
+  fork: z.infer<typeof forkSchema>,
 ): string {
-  const slug = "smithers-demo";
   return [
-    "You build a real demonstration of a Smithers improvement on a FORK. A branch, never a PR.",
+    "You build a real demonstration of a Smithers improvement in an ALREADY-FORKED, ALREADY-CLONED repo.",
+    "A branch, never a PR. The fork and branch already exist — do NOT fork again.",
     NEVER_TOUCH_HOST,
     "",
-    `TARGET (upstream): ${repo.fullName}`,
+    `Upstream: ${repo.fullName}    Fork: ${fork.forkFullName}`,
+    `Clone is at: ${fork.clonePath}    Branch (already checked out): ${fork.branch}`,
     `Proposed change: ${assess.proposedChange}`,
-    `Default branch: ${assess.defaultBranch || repo.defaultBranch}`,
     "",
-    "STEPS (run each git/gh command from inside the cloned fork directory):",
-    `1. Fork into ${FORK_OWNER} and clone the fork:`,
-    `   cd ${workDir} && gh repo fork ${repo.fullName} --clone --default-branch-only`,
-    `   (this creates ${FORK_OWNER}/${repo.repo} and clones it to ${workDir}/${repo.repo})`,
-    `2. cd ${workDir}/${repo.repo}`,
-    `3. git checkout -b ${slug}/smithers-improvement`,
-    "4. Implement the proposed change. Make it real and minimal — something a maintainer would actually merge.",
-    "   Add a short note (e.g. SMITHERS_DEMO.md) explaining what changed and why Smithers helps.",
-    "5. git add -A && git commit (clear message). Then push the branch to the FORK:",
-    `   git push -u origin ${slug}/smithers-improvement`,
-    "   The fork's origin is your push target; never push to upstream and never open a PR.",
+    `STEPS (run every git command with \`git -C ${fork.clonePath} ...\`, or cd into it first):`,
+    `1. cd ${fork.clonePath}  (confirm you are on branch ${fork.branch} with \`git status\`).`,
+    "2. Implement the proposed change. Make it real and minimal — something a maintainer would actually merge.",
+    "   Add a short SMITHERS_DEMO.md explaining what changed and why Smithers helps.",
+    "3. Commit everything:  git add -A && git commit -m '<clear message>'.",
+    "   You do NOT need to push — a later deterministic step pushes the branch and verifies it. Just leave a clean commit on the branch.",
     "",
-    "Return ONLY the JSON: forked, pushed, forkFullName, branch, commitSha, filesChanged[], summary.",
+    "Return ONLY the JSON: forked (true), pushed (false is fine), forkFullName, branch, commitSha, filesChanged[], summary.",
   ].join("\n");
 }
 
@@ -220,15 +247,16 @@ function draftPrompt(
   repo: z.infer<typeof discoverSchema>,
   assess: z.infer<typeof assessSchema>,
   implement: z.infer<typeof implementSchema>,
-  compareUrl: string,
+  publish: z.infer<typeof publishSchema>,
 ): string {
   return [
     "Draft outreach to the maintainer about the Smithers demo you just built. Pick the single best channel.",
     "",
     `Repo: ${repo.fullName}`,
     `Maintainer: ${assess.maintainerHandle || "unknown"}${assess.maintainerContact ? ` (${assess.maintainerContact})` : ""}`,
-    `Demo branch: ${implement.forkFullName} @ ${implement.branch}`,
-    `Hypothetical-PR diff (include this link prominently): ${compareUrl}`,
+    `Demo branch: ${publish.forkFullName} @ ${publish.branch}`,
+    `Hypothetical-PR diff (include this link prominently): ${publish.compareUrl}`,
+    `Files changed: ${publish.filesChanged.join(", ")}`,
     `What it does: ${implement.summary}`,
     `Value props: ${assess.valueProps.join("; ")}`,
     "",
@@ -254,15 +282,20 @@ export default smithers((ctx) => {
   const gate = ctx.outputMaybe("gate", { nodeId: "gate" });
   const discover = ctx.outputMaybe("discover", { nodeId: "discover" });
   const assess = ctx.outputMaybe("assess", { nodeId: "assess" });
+  const fork = ctx.outputMaybe("fork", { nodeId: "fork" });
   const implement = ctx.outputMaybe("implement", { nodeId: "implement" });
-  const diff = ctx.outputMaybe("diff", { nodeId: "diff" });
+  const publish = ctx.outputMaybe("publish", { nodeId: "publish" });
   const draft = ctx.outputMaybe("draft", { nodeId: "draft" });
   const approval = ctx.outputMaybe("approval", { nodeId: "approval" });
 
   const proceed = gate?.proceed === true;
   const found = discover?.found === true;
-  const goodFit = assess !== undefined && assess.fit !== "none";
-  const pushed = implement?.pushed === true;
+  // Only a STRONG fit is worth forking + emailing a maintainer over. Weak/none stop
+  // here (already recorded as seen), so marginal pitches never go out.
+  const goodFit = assess?.fit === "strong";
+  const forked = fork?.forked === true && (fork?.clonePath ?? "") !== "";
+  const implemented = implement !== undefined;
+  const published = publish?.pushed === true;
   const drafted = draft !== undefined;
   const approved = approval?.approved === true;
 
@@ -289,7 +322,7 @@ export default smithers((ctx) => {
 
         {/* 2 — Find one unseen, high-fit repo via gh. */}
         {proceed ? (
-          <Task id="discover" output={outputs.discover} agent={agents.smartTool} heartbeatTimeoutMs={600_000}>
+          <Task id="discover" output={outputs.discover} agent={WORKER} heartbeatTimeoutMs={600_000}>
             {discoverPrompt(gate?.seen ?? [], topic, minStars)}
           </Task>
         ) : null}
@@ -311,36 +344,109 @@ export default smithers((ctx) => {
 
         {/* 4 — Inspect the repo and design the demo. */}
         {found ? (
-          <Task id="assess" output={outputs.assess} agent={agents.smartTool} heartbeatTimeoutMs={900_000}>
+          <Task id="assess" output={outputs.assess} agent={WORKER} heartbeatTimeoutMs={900_000}>
             {discover ? assessPrompt(discover, workDir) : ""}
           </Task>
         ) : null}
 
-        {/* 5 — Fork into roninjin10, branch, build the demo, push. Allowed without approval. */}
+        {/* 5 — Fork into roninjin10 + clone + branch, deterministically. Polls past
+            GitHub's async fork replication so a transient race can't burn the target. */}
         {goodFit ? (
-          <Task id="implement" output={outputs.implement} agent={agents.smartTool} heartbeatTimeoutMs={1_800_000}>
-            {discover && assess ? implementPrompt(discover, assess, workDir) : ""}
+          <Task id="fork" output={outputs.fork} timeoutMs={420_000} retries={1}>
+            {async () => {
+              const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+              const repo = discover?.repo ?? "";
+              const full = discover?.fullName ?? `${discover?.owner ?? ""}/${repo}`;
+              const branch = "smithers-demo/smithers-improvement";
+              const defaultBranch = assess?.defaultBranch || discover?.defaultBranch || "main";
+              const forkFullName = `${FORK_OWNER}/${repo}`;
+              // Distinct from assess's read-only inspect clone (`${workDir}/${repo}`).
+              const clonePath = `${workDir}/fork/${repo}`;
+              mkdirSync(`${workDir}/fork`, { recursive: true });
+              const tryGh = (args: string[], cwd?: string) => {
+                try {
+                  execFileSync("gh", args, { encoding: "utf8", cwd, stdio: ["ignore", "pipe", "pipe"] });
+                  return { ok: true, out: "" };
+                } catch (e: unknown) {
+                  const o = (e as { stderr?: unknown; stdout?: unknown; message?: unknown }) ?? {};
+                  return { ok: false, out: String(o.stderr ?? o.stdout ?? o.message ?? e) };
+                }
+              };
+              // Create the fork from a neutral dir so gh never touches the Smithers repo.
+              // The create itself can fail transiently — retry it and capture the error,
+              // otherwise a silent failure looks identical to slow replication below.
+              let created = false;
+              let createErr = "";
+              for (let i = 0; i < 3 && !created; i++) {
+                const r = tryGh(["repo", "fork", full, "--default-branch-only"], workDir);
+                if (r.ok || /already exists/i.test(r.out)) created = true;
+                else { createErr = r.out; await sleep(5000); }
+              }
+              // GitHub replicates forks asynchronously — poll until it resolves (~up to 180s).
+              let exists = false;
+              for (let i = 0; i < 60 && !exists; i++) {
+                if (tryGh(["repo", "view", forkFullName, "--json", "name"]).ok) exists = true;
+                else await sleep(3000);
+              }
+              if (!exists) {
+                return { forked: false, forkFullName, clonePath: "", branch, defaultBranch, note: `fork never resolved (create ${created ? "reported ok" : `failed: ${createErr.slice(0, 200)}`})` };
+              }
+              rmSync(clonePath, { recursive: true, force: true });
+              const cloned = tryGh(["repo", "clone", forkFullName, clonePath, "--", "--depth=1"]);
+              if (!cloned.ok) {
+                return { forked: true, forkFullName, clonePath: "", branch, defaultBranch, note: `clone failed: ${cloned.out.slice(0, 300)}` };
+              }
+              try {
+                execFileSync("git", ["-C", clonePath, "checkout", "-b", branch], { encoding: "utf8" });
+              } catch (e: unknown) {
+                return { forked: true, forkFullName, clonePath, branch, defaultBranch, note: `branch create failed: ${String(e).slice(0, 200)}` };
+              }
+              return { forked: true, forkFullName, clonePath, branch, defaultBranch, note: "forked, cloned (depth 1), branched" };
+            }}
           </Task>
         ) : null}
 
-        {/* 6 — The hypothetical-PR link: GitHub's cross-fork compare/PR-creator UI. */}
-        {pushed ? (
-          <Task id="diff" output={outputs.diff}>
+        {/* 5b — Build the demo on the prepared branch and push. Allowed without approval. */}
+        {forked ? (
+          <Task id="implement" output={outputs.implement} agent={WORKER} heartbeatTimeoutMs={1_800_000}>
+            {discover && assess && fork ? implementPrompt(discover, assess, fork) : ""}
+          </Task>
+        ) : null}
+
+        {/* 6 — Deterministically push the branch and VERIFY it on the fork. Builds the
+            hypothetical-PR compare URL from git, never from the agent's self-report. */}
+        {implemented ? (
+          <Task id="publish" output={outputs.publish} timeoutMs={300_000} retries={1}>
             {() => {
-              const base = assess?.defaultBranch || discover?.defaultBranch || "main";
+              const clonePath = fork?.clonePath ?? "";
+              const branch = fork?.branch ?? "smithers-demo/smithers-improvement";
+              const base = fork?.defaultBranch || assess?.defaultBranch || discover?.defaultBranch || "main";
               const owner = discover?.owner ?? "";
               const repo = discover?.repo ?? "";
-              const branch = implement?.branch ?? "";
+              const forkFullName = fork?.forkFullName ?? `${FORK_OWNER}/${repo}`;
               const compareUrl = `https://github.com/${owner}/${repo}/compare/${base}...${FORK_OWNER}:${repo}:${branch}?expand=1`;
-              return { compareUrl, branch, forkFullName: implement?.forkFullName ?? `${FORK_OWNER}/${repo}` };
+              const base0 = { pushed: false, commitSha: "", filesChanged: [] as string[], compareUrl, forkFullName, branch };
+              if (!clonePath) return { ...base0, note: "no clone path from fork step" };
+              const git = (args: string[]) => {
+                try { return { ok: true, out: execFileSync("git", ["-C", clonePath, ...args], { encoding: "utf8" }) }; }
+                catch (e: unknown) { return { ok: false, out: String((e as { stderr?: unknown; message?: unknown })?.stderr ?? (e as { message?: unknown })?.message ?? e) }; }
+              };
+              const sha = git(["rev-parse", "HEAD"]).out.trim();
+              const ahead = git(["rev-list", "--count", `origin/${base}..HEAD`]).out.trim();
+              if (ahead === "" || ahead === "0") return { ...base0, commitSha: sha, note: `no commit ahead of origin/${base} — implement left nothing to push` };
+              const files = git(["diff", "--name-only", `origin/${base}..HEAD`]).out.split("\n").map((s) => s.trim()).filter(Boolean);
+              const push = git(["push", "-u", "origin", branch]);
+              let verified = false;
+              try { execFileSync("gh", ["api", `repos/${forkFullName}/branches/${branch}`, "--jq", ".name"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); verified = true; } catch { /* not on fork */ }
+              return { pushed: verified, commitSha: sha, filesChanged: files, compareUrl, forkFullName, branch, note: verified ? "pushed + verified on fork" : `push/verify failed: ${push.out.slice(0, 200)}` };
             }}
           </Task>
         ) : null}
 
         {/* 7 — Draft the outreach (issue / email / dm). Nothing is sent yet. */}
-        {pushed ? (
-          <Task id="draft" output={outputs.draft} agent={agents.smart}>
-            {discover && assess && implement && diff ? draftPrompt(discover, assess, implement, diff.compareUrl) : ""}
+        {published ? (
+          <Task id="draft" output={outputs.draft} agent={WORKER}>
+            {discover && assess && implement && publish ? draftPrompt(discover, assess, implement, publish) : ""}
           </Task>
         ) : null}
 
@@ -355,8 +461,8 @@ export default smithers((ctx) => {
               summary: [
                 `Repo: ${discover?.fullName}  (${discover?.stars ?? 0}★)`,
                 `Fit: ${assess?.fit} — ${assess?.smithersWorkflows?.join(", ") || "n/a"}`,
-                `Demo branch: ${implement?.forkFullName} @ ${implement?.branch}`,
-                `Hypothetical PR: ${diff?.compareUrl}`,
+                `Demo branch: ${publish?.forkFullName} @ ${publish?.branch}`,
+                `Hypothetical PR: ${publish?.compareUrl}`,
                 "",
                 `Channel: ${draft?.channel} → ${draft?.to}`,
                 `Subject: ${draft?.subject}`,
