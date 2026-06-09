@@ -1,4 +1,5 @@
 import type { SandboxRuntime } from "./SandboxRuntime.ts";
+import type { SandboxEgressConfig } from "./SandboxEgressConfig.ts";
 
 export type SandboxPortMapping = {
     host: number;
@@ -28,6 +29,7 @@ export type SandboxHandle = {
     image?: string;
     allowNetwork?: boolean;
     env?: Record<string, string>;
+    egress?: SandboxEgressConfig;
     ports?: SandboxPortMapping[];
     volumes?: SandboxVolumeMount[];
     memoryLimit?: string;

@@ -347,6 +347,80 @@ describe("executeSandbox", () => {
         }
     });
 
+    test("passes egress config into provider-backed sandboxes and redacts persisted values", async () => {
+        const { adapter, db, sqlite } = createDb();
+        const rootDir = tempDir("smithers-sandbox-egress-provider-");
+        const runtime = createRuntime(db, { runId: "run-egress-provider" });
+        const providerRequests = [];
+        const caPem = "-----BEGIN CERTIFICATE-----\nproxy-ca\n-----END CERTIFICATE-----\n";
+        try {
+            const output = await runInRuntime(runtime, {
+                sandboxId: "sandbox-egress-provider",
+                provider: {
+                    id: "egress-provider",
+                    run: async (request) => {
+                        providerRequests.push(request);
+                        expect(request.egress).toEqual({
+                            provider: "iron-proxy",
+                            env: { HTTP_PROXY: "http://127.0.0.1:8080" },
+                            httpProxy: "http://127.0.0.1:8080",
+                            httpsProxy: "http://127.0.0.1:8080",
+                            noProxy: "127.0.0.1,localhost",
+                            caCertPem: caPem,
+                            secretBindings: { "sk-proxy-anthropic": "anthropic" },
+                        });
+                        expect(
+                            readFileSync(join(request.requestBundlePath, ".smithers", "egress", "ca.crt"), "utf8"),
+                        ).toBe(caPem);
+                        return {
+                            status: "finished",
+                            output: {
+                                proxy: request.egress?.httpsProxy,
+                                caPath: join(request.requestBundlePath, ".smithers", "egress", "ca.crt"),
+                            },
+                            runId: "remote-egress",
+                        };
+                    },
+                },
+                runtime: undefined,
+                rootDir,
+                reviewDiffs: false,
+                config: {
+                    egress: {
+                        provider: "iron-proxy",
+                        env: { HTTP_PROXY: "http://127.0.0.1:8080" },
+                        httpProxy: "http://127.0.0.1:8080",
+                        httpsProxy: "http://127.0.0.1:8080",
+                        noProxy: ["127.0.0.1", "localhost"],
+                        caCertPem: caPem,
+                        secretBindings: { "sk-proxy-anthropic": "anthropic" },
+                    },
+                },
+            });
+
+            expect(output).toMatchObject({
+                proxy: "http://127.0.0.1:8080",
+            });
+            expect(providerRequests).toHaveLength(1);
+            const sandbox = await adapter.getSandbox("run-egress-provider", "sandbox-egress-provider");
+            const config = JSON.parse(String(sandbox.configJson));
+            expect(config.egress).toEqual({
+                provider: "iron-proxy",
+                env: { HTTP_PROXY: "[redacted]" },
+                httpProxy: "[redacted]",
+                httpsProxy: "[redacted]",
+                noProxy: "[redacted]",
+                caCertPem: "[redacted]",
+                secretBindings: { binding_1: "[redacted]" },
+            });
+            expect(String(sandbox.configJson)).not.toContain("proxy-ca");
+            expect(String(sandbox.configJson)).not.toContain("sk-proxy-anthropic");
+        }
+        finally {
+            sqlite.close();
+        }
+    });
+
     test("provider diff bundles require review unless auto-accepted", async () => {
         const { adapter, db, sqlite } = createDb();
         const rootDir = tempDir("smithers-sandbox-provider-review-");

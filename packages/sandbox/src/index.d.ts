@@ -72,6 +72,16 @@ type SandboxWorkspaceSpec = {
     idleTimeoutSecs?: number;
     persistence?: "ephemeral" | "sticky";
 };
+type SandboxEgressConfig = {
+    provider?: string;
+    env?: Record<string, string>;
+    httpProxy?: string;
+    httpsProxy?: string;
+    noProxy?: string | string[];
+    caCertPem?: string;
+    caCertPath?: string;
+    secretBindings?: Record<string, string>;
+};
 type SandboxTransportConfig$1 = {
     runId: string;
     sandboxId: string;
@@ -80,6 +90,7 @@ type SandboxTransportConfig$1 = {
     image?: string;
     allowNetwork?: boolean;
     env?: Record<string, string>;
+    egress?: SandboxEgressConfig;
     ports?: SandboxPortMapping[];
     volumes?: SandboxVolumeMount[];
     memoryLimit?: string;
@@ -97,6 +108,7 @@ type SandboxHandle = {
     image?: string;
     allowNetwork?: boolean;
     env?: Record<string, string>;
+    egress?: SandboxEgressConfig;
     ports?: SandboxPortMapping[];
     volumes?: SandboxVolumeMount[];
     memoryLimit?: string;
@@ -169,6 +181,7 @@ type SandboxProviderRequest = {
     allowNetwork: boolean;
     maxOutputBytes: number;
     toolTimeoutMs: number;
+    egress?: SandboxEgressConfig;
     config: Record<string, unknown>;
     signal?: AbortSignal;
     heartbeat: (data?: unknown) => void;
@@ -232,6 +245,15 @@ declare function executeSandbox(options: ExecuteSandboxOptions): Promise<unknown
 type ExecuteSandboxOptions = ExecuteSandboxOptions$1;
 type SmithersEvent = _smithers_observability_SmithersEvent.SmithersEvent;
 
+declare const SANDBOX_EGRESS_CA_BUNDLE_RELATIVE_PATH = ".smithers/egress/ca.crt";
+declare const SANDBOX_EGRESS_CA_WORKSPACE_PATH = "/workspace/.smithers/egress/ca.crt";
+declare function normalizeSandboxEgressConfig(value: unknown): SandboxEgressConfig | undefined;
+declare function sandboxEgressEnv(value: unknown, options?: {
+    caCertPath?: string;
+}): Record<string, string>;
+declare function writeSandboxEgressFiles(value: unknown, requestBundlePath: string): Promise<void>;
+declare function redactSandboxEgressConfig(value: unknown): unknown;
+
 declare class SandboxEntityExecutor extends Context.TagClassShape<"SandboxEntityExecutor", SandboxTransportService> {
 }
 
@@ -256,4 +278,4 @@ type SandboxBundleResult = SandboxBundleResult$1;
 type SandboxTransportConfig = SandboxTransportConfig$1;
 type SandboxRuntime = SandboxRuntime$1;
 
-export { type ExecuteSandboxOptions, SANDBOX_BUNDLE_OUTPUT_MAX_ARRAY_LENGTH, SANDBOX_BUNDLE_OUTPUT_MAX_DEPTH, SANDBOX_BUNDLE_OUTPUT_MAX_STRING_LENGTH, SANDBOX_BUNDLE_PATH_MAX_LENGTH, SANDBOX_BUNDLE_RUN_ID_MAX_LENGTH, SANDBOX_MAX_BUNDLE_BYTES, SANDBOX_MAX_PATCH_FILES, SANDBOX_MAX_README_BYTES, type SandboxBundleManifest, type SandboxBundleResult, type SandboxBundleStatus, type SandboxDiffBundleLike, type SandboxProvider, type SandboxProviderRequest, type SandboxProviderResult, SandboxTransport, type SandboxTransportConfig, type SmithersEvent, type ValidatedSandboxBundle, executeSandbox, layerForSandboxRuntime, makeSandboxTransportLayer, registerSandboxProvider, resolveSandboxProvider, resolveSandboxRuntime, validateSandboxBundle, writeSandboxBundle };
+export { type ExecuteSandboxOptions, SANDBOX_BUNDLE_OUTPUT_MAX_ARRAY_LENGTH, SANDBOX_BUNDLE_OUTPUT_MAX_DEPTH, SANDBOX_BUNDLE_OUTPUT_MAX_STRING_LENGTH, SANDBOX_BUNDLE_PATH_MAX_LENGTH, SANDBOX_BUNDLE_RUN_ID_MAX_LENGTH, SANDBOX_EGRESS_CA_BUNDLE_RELATIVE_PATH, SANDBOX_EGRESS_CA_WORKSPACE_PATH, SANDBOX_MAX_BUNDLE_BYTES, SANDBOX_MAX_PATCH_FILES, SANDBOX_MAX_README_BYTES, type SandboxBundleManifest, type SandboxBundleResult, type SandboxBundleStatus, type SandboxDiffBundleLike, type SandboxEgressConfig, type SandboxProvider, type SandboxProviderRequest, type SandboxProviderResult, SandboxTransport, type SandboxTransportConfig, type SmithersEvent, type ValidatedSandboxBundle, executeSandbox, layerForSandboxRuntime, makeSandboxTransportLayer, normalizeSandboxEgressConfig, redactSandboxEgressConfig, registerSandboxProvider, resolveSandboxProvider, resolveSandboxRuntime, sandboxEgressEnv, validateSandboxBundle, writeSandboxBundle, writeSandboxEgressFiles };

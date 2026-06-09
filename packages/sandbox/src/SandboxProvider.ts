@@ -1,4 +1,5 @@
 import type { SandboxChildWorkflowDefinition, SandboxWorkflow, ExecuteSandboxChildWorkflow } from "./ExecuteSandboxOptions.ts";
+import type { SandboxEgressConfig } from "./SandboxEgressConfig.ts";
 
 export type SandboxBundleStatus = "finished" | "failed" | "cancelled";
 
@@ -26,6 +27,7 @@ export type SandboxProviderRequest = {
 	allowNetwork: boolean;
 	maxOutputBytes: number;
 	toolTimeoutMs: number;
+	egress?: SandboxEgressConfig;
 	config: Record<string, unknown>;
 	signal?: AbortSignal;
 	heartbeat: (data?: unknown) => void;

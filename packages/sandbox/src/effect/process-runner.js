@@ -3,6 +3,7 @@ import { isAbsolute, join } from "node:path";
 import { spawnCaptureEffect } from "@smithers-orchestrator/driver/child-process";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { Effect } from "effect";
+import { normalizeSandboxEgressConfig, sandboxEgressEnv } from "../egress.js";
 
 const DEFAULT_SANDBOX_COMMAND_TIMEOUT_MS = 10 * 60 * 1000;
 const DEFAULT_SANDBOX_OUTPUT_BYTES = 5 * 1024 * 1024;
@@ -213,8 +214,13 @@ function normalizeSandboxWorkspace(workspace) {
  */
 export function normalizeSandboxHandleControls(input) {
     const source = isPlainObject(input) ? input : {};
+    const egress = normalizeSandboxEgressConfig(source.egress);
     return {
-        env: normalizeSandboxEnv(source.env),
+        env: {
+            ...normalizeSandboxEnv(source.env),
+            ...sandboxEgressEnv(egress),
+        },
+        ...(egress ? { egress } : {}),
         ports: normalizeSandboxPorts(source.ports),
         volumes: normalizeSandboxVolumes(source.volumes),
         memoryLimit: normalizeResourceLimit(source.memoryLimit, "memoryLimit", MEMORY_LIMIT_RE),

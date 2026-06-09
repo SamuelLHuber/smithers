@@ -9,6 +9,7 @@ import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { errorToJson } from "@smithers-orchestrator/errors/errorToJson";
 import { requireTaskRuntime } from "@smithers-orchestrator/driver/task-runtime";
 import { validateSandboxBundle, writeSandboxBundle } from "./bundle.js";
+import { normalizeSandboxEgressConfig, redactSandboxEgressConfig, writeSandboxEgressFiles } from "./egress.js";
 import { SandboxTransport, layerForSandboxRuntime, resolveSandboxRuntime, } from "./transport.js";
 /** @typedef {import("./ExecuteSandboxOptions.ts").ExecuteSandboxOptions} ExecuteSandboxOptions */
 /** @typedef {import("./SandboxRuntime.ts").SandboxRuntime} SandboxRuntime */
@@ -286,6 +287,9 @@ function redactSandboxConfig(config) {
     if (env) {
         redacted.env = Object.fromEntries(Object.keys(env).sort().map((key) => [key, "[redacted]"]));
     }
+    if (source.egress !== undefined) {
+        redacted.egress = redactSandboxEgressConfig(source.egress);
+    }
     return redacted;
 }
 export const __executeSandboxInternals = {
@@ -352,6 +356,7 @@ export async function executeSandbox(options) {
     const selectedRuntime = provider ? provider.id : resolveSandboxRuntime(requestedRuntime ?? "bubblewrap");
     const createdAtMs = nowMs();
     const rawConfig = asPlainObject(options.config) ?? {};
+    const egress = normalizeSandboxEgressConfig(rawConfig.egress);
     const configJson = JSON.stringify({
         provider: provider?.id,
         runtime: requestedRuntime ?? (provider ? undefined : selectedRuntime),
@@ -416,6 +421,7 @@ export async function executeSandbox(options) {
             runtime: provider ? options.runtime : selectedRuntime,
             input: options.input ?? {},
         }, null, 2), "utf8");
+        await writeSandboxEgressFiles(egress, requestBundlePath);
         if (provider) {
             const bundleSizeBytes = await directorySize(join(requestBundlePath, "README.md"));
             await emitSandboxEvent(runtimeDb, {
@@ -463,6 +469,7 @@ export async function executeSandbox(options) {
                 allowNetwork: options.allowNetwork,
                 maxOutputBytes: options.maxOutputBytes,
                 toolTimeoutMs: options.toolTimeoutMs,
+                egress,
                 config: rawConfig,
                 signal: runtime.signal,
                 heartbeat: runtime.heartbeat,
@@ -560,6 +567,7 @@ export async function executeSandbox(options) {
             image: typeof rawConfig.image === "string" ? rawConfig.image : undefined,
             allowNetwork: options.allowNetwork,
             env: rawConfig.env,
+            egress,
             ports: rawConfig.ports,
             volumes: rawConfig.volumes,
             memoryLimit: rawConfig.memoryLimit,

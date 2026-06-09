@@ -245,6 +245,58 @@ describe("sandbox transport runners", () => {
         expect(args).not.toContain("--network");
     });
 
+    test("local sandbox handles merge egress proxy config into sandbox env", async () => {
+        const fake = makeFakeBin("bwrap");
+        await withPlatform("linux", () =>
+            withBunWhich((command) => (command === "bwrap" ? fake.binPath : null), async () => {
+                const handle = await runExecutor(BubblewrapSandboxExecutorLive, (executor) =>
+                    executor.create({
+                        ...configFor(
+                            tempDir("smithers-bubblewrap-egress-"),
+                            "run-bwrap-egress",
+                            "sandbox",
+                            "bubblewrap",
+                        ),
+                        allowNetwork: true,
+                        env: { SAFE_VALUE: "ok" },
+                        egress: {
+                            provider: "iron-proxy",
+                            httpsProxy: "http://127.0.0.1:8080",
+                            httpProxy: "http://127.0.0.1:8080",
+                            noProxy: ["127.0.0.1", "localhost"],
+                            caCertPem: "-----BEGIN CERTIFICATE-----\nproxy-ca\n-----END CERTIFICATE-----\n",
+                            secretBindings: { "sk-proxy-anthropic": "anthropic" },
+                        },
+                    }),
+                );
+                expect(handle.egress).toMatchObject({
+                    provider: "iron-proxy",
+                    httpsProxy: "http://127.0.0.1:8080",
+                    httpProxy: "http://127.0.0.1:8080",
+                    noProxy: "127.0.0.1,localhost",
+                });
+                expect(handle.env).toEqual({
+                    SAFE_VALUE: "ok",
+                    HTTP_PROXY: "http://127.0.0.1:8080",
+                    HTTPS_PROXY: "http://127.0.0.1:8080",
+                    NO_PROXY: "127.0.0.1,localhost",
+                    NODE_EXTRA_CA_CERTS: "/workspace/.smithers/egress/ca.crt",
+                });
+
+                const bwrap = bubblewrapArgs("env", handle);
+                expect(bwrap).toContain("HTTPS_PROXY");
+                expect(bwrap).toContain("http://127.0.0.1:8080");
+                expect(bwrap).toContain("NODE_EXTRA_CA_CERTS");
+                expect(bwrap).toContain("/workspace/.smithers/egress/ca.crt");
+
+                const docker = dockerArgs("env", { ...handle, runtime: "docker", image: "node:22-slim" });
+                expect(docker).toContain("--env");
+                expect(docker).toContain("HTTPS_PROXY=http://127.0.0.1:8080");
+                expect(docker).toContain("NODE_EXTRA_CA_CERTS=/workspace/.smithers/egress/ca.crt");
+            }),
+        );
+    });
+
     test("sandbox controls fail closed when a runtime cannot enforce them", () => {
         expect(() =>
             dockerArgs("run", {

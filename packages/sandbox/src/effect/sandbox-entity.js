@@ -7,6 +7,16 @@ const SandboxEnvSchema = Schema.Record({
     key: Schema.String,
     value: Schema.String,
 });
+const SandboxEgressSchema = Schema.Struct({
+    provider: Schema.optional(Schema.String),
+    env: Schema.optional(SandboxEnvSchema),
+    httpProxy: Schema.optional(Schema.String),
+    httpsProxy: Schema.optional(Schema.String),
+    noProxy: Schema.optional(Schema.Union(Schema.String, Schema.Array(Schema.String))),
+    caCertPem: Schema.optional(Schema.String),
+    caCertPath: Schema.optional(Schema.String),
+    secretBindings: Schema.optional(SandboxEnvSchema),
+});
 const SandboxPortSchema = Schema.Struct({
     host: Schema.Number,
     container: Schema.Number,
@@ -30,6 +40,7 @@ const SandboxTransportConfigSchema = Schema.Struct({
     image: Schema.optional(Schema.String),
     allowNetwork: Schema.optional(Schema.Boolean),
     env: Schema.optional(SandboxEnvSchema),
+    egress: Schema.optional(SandboxEgressSchema),
     ports: Schema.optional(Schema.Array(SandboxPortSchema)),
     volumes: Schema.optional(Schema.Array(SandboxVolumeSchema)),
     memoryLimit: Schema.optional(Schema.String),
@@ -46,6 +57,7 @@ const SandboxHandleSchema = Schema.Struct({
     image: Schema.optional(Schema.String),
     allowNetwork: Schema.optional(Schema.Boolean),
     env: Schema.optional(SandboxEnvSchema),
+    egress: Schema.optional(SandboxEgressSchema),
     ports: Schema.optional(Schema.Array(SandboxPortSchema)),
     volumes: Schema.optional(Schema.Array(SandboxVolumeSchema)),
     memoryLimit: Schema.optional(Schema.String),
