@@ -25,6 +25,16 @@ type SandboxProps = {
 
   image?: string;
   env?: Record<string, string>;
+  egress?: {
+    provider?: string; // adapter label, e.g. "iron-proxy"
+    env?: Record<string, string>; // HTTP_PROXY, HTTPS_PROXY, NO_PROXY, etc.
+    httpProxy?: string;
+    httpsProxy?: string;
+    noProxy?: string | string[];
+    caCertPem?: string; // materialized into the request bundle
+    caCertPath?: string; // path that already exists inside the sandbox
+    secretBindings?: Record<string, string>;
+  };
   ports?: Array<{ host: number; container: number }>;
   volumes?: Array<{ host: string; container: string; readonly?: boolean }>;
   memoryLimit?: string;
@@ -38,6 +48,38 @@ type SandboxProps = {
   };
 };
 ```
+
+## Egress controls
+
+Use `egress` when the sandbox itself should own outbound-network configuration. Smithers does not mutate the parent harness environment for this path. It serializes the egress contract into the sandbox request and passes it to the selected provider or local transport.
+
+```tsx
+<Sandbox
+  id="review"
+  provider="freestyle-vm"
+  workflow={reviewWorkflow}
+  input={{ ticketId: ctx.input.ticketId }}
+  output={outputs.result}
+  allowNetwork
+  egress={{
+    provider: "iron-proxy",
+    env: {
+      ANTHROPIC_API_KEY: "sk-proxy-anthropic",
+    },
+    httpsProxy: "http://127.0.0.1:8080",
+    httpProxy: "http://127.0.0.1:8080",
+    noProxy: ["127.0.0.1", "localhost"],
+    caCertPem: process.env.IRON_PROXY_CA_PEM,
+    secretBindings: {
+      "sk-proxy-anthropic": "anthropic",
+    },
+  }}
+/>
+```
+
+Provider-backed sandboxes receive the normalized contract as `request.egress`, and the raw serializable value remains in `request.config.egress` for adapters that need provider-specific fields. Local transports merge the generated proxy environment into the sandbox handle environment, after `env`, so `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, and `NODE_EXTRA_CA_CERTS` are visible inside the sandbox process.
+
+When `caCertPem` is provided, Smithers writes it into the request bundle at `.smithers/egress/ca.crt` and points local transports at `/workspace/.smithers/egress/ca.crt`. If the CA is already installed by the sandbox image or sidecar, use `caCertPath` instead. Persisted sandbox config redacts egress env values, CA PEM, and secret-binding entries.
 
 ## Basic usage
 
