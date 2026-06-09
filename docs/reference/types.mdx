@@ -227,9 +227,6 @@ type TaskDescriptor = {
 type RetryPolicy = {
   backoff?: "fixed" | "linear" | "exponential";   // default "fixed"
   initialDelayMs?: number;                         // default 0
-  maxDelayMs?: number;
-  multiplier?: number;
-  jitter?: boolean;
 };
 
 type CachePolicy<Ctx = any> = {
@@ -324,9 +321,10 @@ type TaskProps<Row, Output extends OutputTarget = OutputTarget, D extends DepsSp
   async?: boolean;                  // only with needsApproval
   timeoutMs?: number;
   heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;       // alias for heartbeatTimeoutMs
   noRetry?: boolean;
   retries?: number;                 // default Infinity (set 0 to disable)
-  retryPolicy?: RetryPolicy;        // default exponential, 1000ms, capped 5min
+  retryPolicy?: RetryPolicy;
   continueOnFail?: boolean;
   cache?: CachePolicy;
   scorers?: ScorersMap;
@@ -341,10 +339,11 @@ type TaskProps<Row, Output extends OutputTarget = OutputTarget, D extends DepsSp
   children: string | Row | (() => Row | Promise<Row>) | React.ReactNode | ((deps: InferDeps<D>) => Row | React.ReactNode);
 };
 
-type SequenceProps  = { skipIf?: boolean; children?: React.ReactNode };
+type SequenceProps  = { key?: string; skipIf?: boolean; children?: React.ReactNode };
 type ParallelProps  = { id?: string; maxConcurrency?: number; skipIf?: boolean; children?: React.ReactNode };
 type BranchProps    = { if: boolean; then: React.ReactElement; else?: React.ReactElement | null; skipIf?: boolean };
 type LoopProps      = {
+  key?: string;
   id?: string;
   until?: boolean;
   maxIterations?: number;
@@ -385,6 +384,7 @@ type ApprovalProps<Row = ApprovalDecision, Output extends OutputTarget = OutputT
   skipIf?: boolean;
   timeoutMs?: number;
   heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;       // alias for heartbeatTimeoutMs
   retries?: number;
   retryPolicy?: RetryPolicy;
   continueOnFail?: boolean;
@@ -432,7 +432,7 @@ type TimerProps = {
   id: string;
   duration?: string;                // e.g. "30s", "5m"
   until?: string | Date;            // absolute timestamp
-  every?: string;                   // periodic
+  every?: string;                   // reserved; recurring timers are not supported yet
   skipIf?: boolean;
   dependsOn?: string[];
   needs?: Record<string, string>;
@@ -490,6 +490,15 @@ type KanbanProps = {
 
 // Sandbox
 type SandboxRuntime = "bubblewrap" | "docker" | "codeplane";
+type SandboxEgressConfig = {
+  env?: Record<string, string>;
+  httpProxy?: string;
+  httpsProxy?: string;
+  noProxy?: string | string[];
+  caCertPem?: string;
+  caCertPath?: string;
+  secretBindings?: Record<string, string>;
+};
 type SandboxVolumeMount = { host: string; container: string; readonly?: boolean };
 type SandboxWorkspaceSpec = {
   name: string;
@@ -497,18 +506,59 @@ type SandboxWorkspaceSpec = {
   idleTimeoutSecs?: number;
   persistence?: "ephemeral" | "sticky";
 };
+type SandboxProviderRequest = {
+  runId: string;
+  sandboxId: string;
+  input?: unknown;
+  rootDir: string;
+  requestBundlePath: string;
+  resultBundlePath: string;
+  workflow: unknown;
+  parentWorkflow?: unknown;
+  executeChildWorkflow: (args: unknown) => Promise<unknown>;
+  allowNetwork: boolean;
+  maxOutputBytes: number;
+  toolTimeoutMs: number;
+  egress?: SandboxEgressConfig;
+  config: Record<string, unknown>;
+  signal?: AbortSignal;
+  heartbeat: (data?: unknown) => void;
+};
+type SandboxProviderResult =
+  | { bundlePath: string; remoteRunId?: string; workspaceId?: string; containerId?: string }
+  | {
+      status: "finished" | "failed" | "cancelled";
+      output?: unknown;
+      outputs?: unknown;
+      runId?: string;
+      remoteRunId?: string;
+      workspaceId?: string;
+      containerId?: string;
+      diffBundle?: unknown;
+      patches?: Array<{ path: string; content: string }>;
+      artifacts?: Array<{ path: string; content: string }>;
+      streamLogPath?: string | null;
+    };
+type SandboxProvider = {
+  id: string;
+  run(request: SandboxProviderRequest): Promise<SandboxProviderResult> | SandboxProviderResult;
+  cleanup?(request: SandboxProviderRequest): Promise<void> | void;
+};
 
 type SandboxProps = {
   id: string;
   workflow?: (...args: any[]) => any;
   input?: unknown;
   output: OutputTarget;
-  runtime?: SandboxRuntime;
+  provider?: SandboxProvider | string; // object, or an id registered with registerSandboxProvider()
+  runtime?: SandboxRuntime;            // legacy local transports
   allowNetwork?: boolean;
   reviewDiffs?: boolean;
   autoAcceptDiffs?: boolean;
+  allowNested?: boolean;
   image?: string;
   env?: Record<string, string>;
+  egress?: SandboxEgressConfig;
   ports?: Array<{ host: number; container: number }>;
   volumes?: SandboxVolumeMount[];
   memoryLimit?: string;
@@ -518,6 +568,7 @@ type SandboxProps = {
   skipIf?: boolean;
   timeoutMs?: number;
   heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;       // alias for heartbeatTimeoutMs
   retries?: number;
   retryPolicy?: RetryPolicy;
   continueOnFail?: boolean;
@@ -528,6 +579,48 @@ type SandboxProps = {
   meta?: Record<string, unknown>;
   key?: string;
   children?: React.ReactNode;
+};
+
+type SubflowProps = {
+  id: string;
+  workflow: SmithersWorkflow<unknown>;
+  input?: unknown;
+  mode?: "childRun" | "inline";
+  output: OutputTarget;
+  skipIf?: boolean;
+  timeoutMs?: number;
+  heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;       // alias for heartbeatTimeoutMs
+  retries?: number;
+  retryPolicy?: RetryPolicy;
+  continueOnFail?: boolean;
+  cache?: CachePolicy;
+  dependsOn?: string[];
+  needs?: Record<string, string>;
+  label?: string;
+  meta?: Record<string, unknown>;
+  key?: string;
+  children?: React.ReactNode;
+};
+
+type WorktreeProps = {
+  key?: string;
+  id?: string;
+  path: string;
+  branch?: string;
+  baseBranch?: string;             // default "main"
+  skipIf?: boolean;
+  children?: React.ReactNode;
+};
+
+type SuperSmithersProps = {
+  id?: string;                     // default "super-smithers"; prefixes internal task ids
+  strategy: string | React.ReactElement;
+  agent: AgentLike;
+  targetFiles?: string[];
+  reportOutput?: OutputTarget;
+  dryRun?: boolean;                // default false
+  skipIf?: boolean;
 };
 
 // =============================================================================

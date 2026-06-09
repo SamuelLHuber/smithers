@@ -876,23 +876,33 @@ export function Optimizer({
       "Super-smithers spawns a whole nested workflow with its own database scope.",
     render: () => {
       printCode(
-`<Worktree base="main" maxConcurrency={3}>
+`const remoteVmProvider = {
+  id: "remote-vm",
+  async run(request) {
+    return runRemoteVm(request);
+  },
+};
+
+<Worktree path=".worktrees/feature-a" baseBranch="main">
   <Parallel>
-    <Task id="fix-a" agent={fixer}>Fix issue A</Task>
-    <Task id="fix-b" agent={fixer}>Fix issue B</Task>
-    <Task id="fix-c" agent={fixer}>Fix issue C</Task>
+    <Task id="fix-a" output={outputs.patch} agent={fixer}>Fix issue A</Task>
+    <Task id="fix-b" output={outputs.patch} agent={fixer}>Fix issue B</Task>
   </Parallel>
 </Worktree>
 
-<Sandbox provider="freestyle" tools={{ bash, edit }}>
-  <Task id="exec" agent={engineer}>Apply the patch and run the tests.</Task>
-</Sandbox>
+<Sandbox
+  id="exec"
+  provider={remoteVmProvider}
+  workflow={testWorkflow}
+  input={{ patch: outputs.patch }}
+  output={outputs.sandbox}
+/>
 
-<Subflow workflow="./review.tsx" input={{ repo, sha }} output={outputs.review} />
-<SuperSmithers workflow={complexNested} runId="nested-1" />`,
+<Subflow workflow={reviewWorkflow} input={{ repo, sha }} output={outputs.review} />
+<SuperSmithers strategy={strategyDoc} agent={engineer} reportOutput={outputs.report} />`,
       );
       write("\n");
-      write(`  ${C.dim}Pluggable providers: freestyle VMs, local docker, plain process, custom.${C.reset}\n`);
+      write(`  ${C.dim}Pluggable sandbox providers: VM adapters, local transports, or custom runners.${C.reset}\n`);
     },
   },
 

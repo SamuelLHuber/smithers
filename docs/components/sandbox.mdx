@@ -137,7 +137,7 @@ import { registerSandboxProvider } from "smithers-orchestrator/sandbox";
 
 const unregister = registerSandboxProvider(provider);
 
-<Sandbox id="generate" provider="remote-vm" workflow={child} output={outputs.result} />;
+<Sandbox id="generate" provider={provider.id} workflow={child} output={outputs.result} />;
 ```
 
 ## Result bundles
