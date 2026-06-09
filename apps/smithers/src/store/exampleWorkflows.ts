@@ -42,6 +42,14 @@ type ExampleSeed = {
  */
 const EXAMPLE_SEEDS: ExampleSeed[] = [
   {
+    id: "adaptive-rag-citation-loop",
+    name: "Adaptive RAG Citation Loop",
+    description:
+      "Route a query, retrieve evidence in parallel, draft cited answers, and retry until grounded.",
+    category: "Data",
+    icon: "📚",
+  },
+  {
     id: "alert-suppressor",
     name: "Alert Suppressor",
     description:
@@ -88,6 +96,14 @@ const EXAMPLE_SEEDS: ExampleSeed[] = [
       "Compare stable vs canary telemetry and recommend promote, hold, or rollback.",
     category: "Ops",
     icon: "🐤",
+  },
+  {
+    id: "calendar-negotiator-with-approval",
+    name: "Calendar Negotiator With Approval",
+    description:
+      "Parse scheduling requests, rank slots, draft replies, and write calendar events only after approval.",
+    category: "Agents",
+    icon: "📆",
   },
   {
     id: "change-blast-radius",
@@ -199,6 +215,14 @@ const EXAMPLE_SEEDS: ExampleSeed[] = [
       "Scan a codebase or API, categorize findings, and store structured results.",
     category: "Data",
     icon: "🔭",
+  },
+  {
+    id: "document-exception-queue",
+    name: "Document Exception Queue",
+    description:
+      "Classify document packets, extract fields, reconcile totals, and route exceptions for review.",
+    category: "Data",
+    icon: "📁",
   },
   {
     id: "doc-sync",
@@ -468,6 +492,14 @@ const EXAMPLE_SEEDS: ExampleSeed[] = [
     icon: "🛠️",
   },
   {
+    id: "playwright-test-agent",
+    name: "Playwright Test Agent",
+    description:
+      "Plan E2E flows, generate Playwright tests, run them, and heal failures in a bounded loop.",
+    category: "Testing",
+    icon: "🎭",
+  },
+  {
     id: "pr-lifecycle",
     name: "PR Lifecycle",
     description:
@@ -555,6 +587,14 @@ const EXAMPLE_SEEDS: ExampleSeed[] = [
     icon: "💰",
   },
   {
+    id: "rfp-response-room",
+    name: "RFP Response Room",
+    description:
+      "Extract RFP requirements, draft cited answers in parallel, review, and package the proposal.",
+    category: "Sales",
+    icon: "📄",
+  },
+  {
     id: "review-cycle",
     name: "Review Cycle",
     description: "Implement, review, fix, and loop until the work is approved.",
@@ -632,6 +672,14 @@ const EXAMPLE_SEEDS: ExampleSeed[] = [
       "Classify social inbox items into leads, support, noise, or follow-up.",
     category: "Sales",
     icon: "📥",
+  },
+  {
+    id: "sql-analyst-dashboard",
+    name: "SQL Analyst Dashboard",
+    description:
+      "Discover schema, draft and check read-only SQL, execute safely, and summarize with a chart.",
+    category: "Data",
+    icon: "📈",
   },
   {
     id: "standards-reviewer",

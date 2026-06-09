@@ -203,7 +203,9 @@ bunx smithers-orchestrator workflow run kanban
 
 The examples cover real patterns you can copy: multi-agent
 panels and debates, fan-out/fan-in, review and coverage loops, migrations, PR shepherding,
-canary judging, SLO breach explainers, repo janitors, and more.
+Playwright test agents, cited RAG loops, SQL analyst dashboards, RFP response rooms,
+calendar approvals, document exception queues, canary judging, SLO breach explainers,
+repo janitors, and more.
 
 <CardGroup cols={2}>
   <Card title="Multi-agent review" icon="users" href="/examples/multi-agent-review">

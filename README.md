@@ -214,10 +214,10 @@ See [`docs/workflows/`](./docs/workflows/overview.mdx) for the full pack.
 
 ## Examples
 
-The [`examples/`](./examples) folder has 90+ runnable workflows, one per orchestration
+The [`examples/`](./examples) folder has 100+ runnable workflows, one per orchestration
 pattern. Copy one as a starting point:
 
-[![Every orchestration pattern we could find: 90+ real, runnable Smithers workflows in one folder.](./marketing/examples/examples-folder.png)](./examples)
+[![Every orchestration pattern we could find: 100+ real, runnable Smithers workflows in one folder.](./marketing/examples/examples-folder.png)](./examples)
 
 | Example | Pattern |
 | --- | --- |
@@ -229,9 +229,16 @@ pattern. Copy one as a starting point:
 | [`parallel-tickets`](./examples/parallel-tickets.jsx) | Triage, run waves of work in parallel, merge-queue the results. |
 | [`migration`](./examples/migration.jsx) | Plan → transform files → validate → report. |
 | [`pr-shepherd`](./examples/pr-shepherd.jsx) | Watch a PR, gather context, leave structured review comments. |
+| [`playwright-test-agent`](./examples/playwright-test-agent.jsx) | Plan E2E flows, generate Playwright tests, run/heal until stable. |
+| [`adaptive-rag-citation-loop`](./examples/adaptive-rag-citation-loop.jsx) | Retrieve evidence, draft cited answers, grade grounding, retry. |
+| [`sql-analyst-dashboard`](./examples/sql-analyst-dashboard.jsx) | Discover schema, check read-only SQL, execute, summarize with a chart. |
+| [`rfp-response-room`](./examples/rfp-response-room.jsx) | Extract RFP requirements, draft cited answers, review, package. |
+| [`calendar-negotiator-with-approval`](./examples/calendar-negotiator-with-approval.jsx) | Rank meeting slots and write calendar state only after approval. |
+| [`document-exception-queue`](./examples/document-exception-queue.jsx) | Extract document packets, reconcile them, route exceptions. |
 
-That's eight of 90+. The folder also covers debates, canary judging, SLO-breach explainers,
-repo janitors, and dozens more. Browse the full set in [`examples/`](./examples).
+That's fourteen of 100+. The folder also covers debates, canary judging,
+SLO-breach explainers, repo janitors, and dozens more. Browse the full set in
+[`examples/`](./examples).
 
 ## Author your own
 
