@@ -25,6 +25,7 @@
  * @template Schema
  * @typedef {import("./CreateSmithersApi.ts").CreateSmithersApi<Schema>} CreateSmithersApi
  */
+/** @typedef {import("./CreateSmithersOptions.ts").CreateSmithersOptions} CreateSmithersOptions */
 /** @typedef {import("@smithers-orchestrator/components").DepsSpec} DepsSpec */
 /** @typedef {import("@smithers-orchestrator/server/gateway").EventFrame} EventFrame */
 /**
@@ -33,8 +34,14 @@
  */
 /** @typedef {import("@smithers-orchestrator/server/gateway").GatewayAuthConfig} GatewayAuthConfig */
 /** @typedef {import("@smithers-orchestrator/server/gateway").GatewayDefaults} GatewayDefaults */
+/** @typedef {import("@smithers-orchestrator/server/gateway").GatewayOperatorUiConfig} GatewayOperatorUiConfig */
 /** @typedef {import("@smithers-orchestrator/server/gateway").GatewayOptions} GatewayOptions */
+/** @typedef {import("@smithers-orchestrator/server/gateway").GatewayRegisterOptions} GatewayRegisterOptions */
 /** @typedef {import("@smithers-orchestrator/server/gateway").GatewayTokenGrant} GatewayTokenGrant */
+/** @typedef {import("@smithers-orchestrator/server/gateway").GatewayUiConfig} GatewayUiConfig */
+/** @typedef {import("@smithers-orchestrator/server/gateway").GatewayWebhookConfig} GatewayWebhookConfig */
+/** @typedef {import("@smithers-orchestrator/server/gateway").GatewayWebhookRunConfig} GatewayWebhookRunConfig */
+/** @typedef {import("@smithers-orchestrator/server/gateway").GatewayWebhookSignalConfig} GatewayWebhookSignalConfig */
 /** @typedef {import("@smithers-orchestrator/graph/GraphSnapshot").GraphSnapshot} GraphSnapshot */
 /** @typedef {import("@smithers-orchestrator/server/gateway").HelloResponse} HelloResponse */
 /** @typedef {import("@smithers-orchestrator/react-reconciler/dom/renderer").HostContainer} HostContainer */

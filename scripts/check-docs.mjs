@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = join(root, "docs");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
+const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
 const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 
@@ -95,8 +96,48 @@ function checkKnownErrorCodeUnion(codes) {
   }
 }
 
+function requireContains(label, source, needles) {
+  const missing = needles.filter((needle) => !source.includes(needle));
+  if (missing.length) {
+    failed = true;
+    console.error(`\n✗ ${label} is missing expected public API text:`);
+    console.error(missing.map((needle) => `    ${needle}`).join("\n"));
+  } else {
+    console.log(`✓ ${label} includes expected public API text`);
+  }
+}
+
+function checkGatewayTypeDocs() {
+  const docs = readFileSync(TYPES_REFERENCE, "utf8");
+  requireContains("gateway type docs", docs, [
+    "type GatewayUiConfig =",
+    "type GatewayOperatorUiConfig =",
+    "type GatewayRegisterOptions =",
+    "type GatewayWebhookConfig =",
+    "operatorUi?: GatewayOperatorUiConfig | false;",
+    "tokenId?: string;",
+    "issuedAtMs?: number;",
+    "expiresAtMs?: number;",
+    "revokedAtMs?: number;",
+  ]);
+}
+
+function checkFacadeDeclarations() {
+  const declarations = readFileSync(SMITHERS_FACADE_DECLARATIONS, "utf8");
+  requireContains("smithers facade declarations", declarations, [
+    "type CreateSmithersOptions",
+    "declare function createSmithersPostgres",
+    "type GatewayUiConfig",
+    "type GatewayOperatorUiConfig",
+    "type GatewayRegisterOptions",
+    "type GatewayWebhookConfig",
+  ]);
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
+checkGatewayTypeDocs();
+checkFacadeDeclarations();
 
 process.exit(failed ? 1 : 0);

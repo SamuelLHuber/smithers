@@ -5476,7 +5476,15 @@ type ServeOptions = {
   metrics?: boolean;
 };
 
-type GatewayTokenGrant = { role: string; scopes: string[]; userId?: string };
+type GatewayTokenGrant = {
+  role: string;
+  scopes: string[];
+  userId?: string;
+  tokenId?: string;
+  issuedAtMs?: number;
+  expiresAtMs?: number;
+  revokedAtMs?: number;
+};
 type GatewayAuthConfig =
   | { mode: "token"; tokens: Record<string, GatewayTokenGrant> }
   | { mode: "jwt"; issuer: string; audience: string | string[]; secret: string;
@@ -5484,6 +5492,48 @@ type GatewayAuthConfig =
       defaultRole?: string; defaultScopes?: string[]; clockSkewSeconds?: number }
   | { mode: "trusted-proxy"; trustedHeaders?: string[]; allowedOrigins?: string[];
       defaultRole?: string; defaultScopes?: string[] };
+type GatewayDefaults = { cliAgentTools?: "all" | "explicit-only" };
+
+type GatewayOperatorUiConfig = {
+  path?: string;                    // default "/console"
+  title?: string;
+  props?: Record<string, unknown>;
+};
+
+type GatewayUiConfig =
+  | true
+  | {
+      entry: string;
+      path?: string;                // gateway default "/"; workflow default "/workflows/<workflowKey>"
+      title?: string;
+      props?: Record<string, unknown>;
+    };
+
+type GatewayWebhookSignalConfig = {
+  name: string;
+  correlationIdPath?: string;
+  runIdPath?: string;
+  payloadPath?: string;
+};
+
+type GatewayWebhookRunConfig = {
+  enabled?: boolean;
+  inputPath?: string;
+};
+
+type GatewayWebhookConfig = {
+  secret: string;
+  signatureHeader?: string;
+  signaturePrefix?: string;
+  signal?: GatewayWebhookSignalConfig;
+  run?: GatewayWebhookRunConfig;
+};
+
+type GatewayRegisterOptions = {
+  schedule?: string;
+  webhook?: GatewayWebhookConfig;
+  ui?: GatewayUiConfig;
+};
 
 type GatewayOptions = {
   protocol?: number;
@@ -5491,7 +5541,8 @@ type GatewayOptions = {
   heartbeatMs?: number;
   auth?: GatewayAuthConfig;
   ui?: GatewayUiConfig;
-  defaults?: { cliAgentTools?: "all" | "explicit-only" };
+  operatorUi?: GatewayOperatorUiConfig | false;
+  defaults?: GatewayDefaults;
   maxBodyBytes?: number;
   maxPayload?: number;
   maxConnections?: number;
@@ -5577,25 +5628,49 @@ type OpenApiToolsOptions = {
 };
 
 // =============================================================================
-// CreateSmithers (createSmithers(...) return)
+// CreateSmithers
 // =============================================================================
+
+type CreateSmithersOptions = {
+  readableName?: string;
+  description?: string;
+  alertPolicy?: SmithersAlertPolicy;
+  dbPath?: string;
+  journalMode?: string;
+};
+
+type CreateSmithersPostgresOptions =
+  CreateSmithersOptions & (
+    | { provider?: "postgres"; connectionString?: string; connection?: object }
+    | { provider: "pglite"; dataDir?: string }
+  );
+
+declare function createSmithers<Schemas extends Record<string, import("zod").ZodObject<any>>>(
+  schemas: Schemas,
+  opts?: CreateSmithersOptions,
+): CreateSmithersApi<Schemas>;
+
+declare function createSmithersPostgres<Schemas extends Record<string, import("zod").ZodObject<any>>>(
+  schemas: Schemas,
+  opts?: CreateSmithersPostgresOptions,
+): Promise<CreateSmithersApi<Schemas> & { close: () => Promise<void> }>;
 
 type CreateSmithersApi<Schema = any> = {
   Workflow: (props: WorkflowProps) => React.ReactElement;
   Approval: <Row>(props: ApprovalProps<Row>) => React.ReactElement;
   Task: <Row, D extends DepsSpec = {}>(props: TaskProps<Row, any, D>) => React.ReactElement;
-  Sequence: (props: SequenceProps) => React.ReactElement;
-  Parallel: (props: ParallelProps) => React.ReactElement;
-  MergeQueue: (props: MergeQueueProps) => React.ReactElement;
-  Branch: (props: BranchProps) => React.ReactElement;
-  Loop: (props: LoopProps) => React.ReactElement;
-  Ralph: (props: LoopProps) => React.ReactElement;
+  Sequence: typeof Sequence;
+  Parallel: typeof Parallel;
+  MergeQueue: typeof MergeQueue;
+  Branch: typeof Branch;
+  Loop: typeof Loop;
+  Ralph: typeof Ralph;
+  ContinueAsNew: typeof ContinueAsNew;
+  continueAsNew: typeof continueAsNew;
   Worktree: any;                     // schema-generic; see <Worktree> component docs
   Sandbox: (props: SandboxProps) => React.ReactElement;
   Signal: <S extends import("zod").ZodObject<any>>(props: SignalProps<S>) => React.ReactElement;
   Timer: (props: TimerProps) => React.ReactElement;
-  ContinueAsNew: any;               // schema-generic; wraps continueAsNew() for JSX use
-  continueAsNew: any;               // schema-generic; typed at call-site via Schema
   useCtx: () => SmithersCtx<Schema>;
   smithers: (build: (ctx: SmithersCtx<Schema>) => React.ReactElement, opts?: SmithersWorkflowOptions) => SmithersWorkflow<Schema>;
   db: any;                          // schema-generic Drizzle db instance; typed at call-site
