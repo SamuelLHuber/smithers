@@ -147,6 +147,38 @@ nothing while it waits.
 </Ralph>
 ```
 
+## Reading outputs, and fanning out over worktrees
+
+Two data-access facts the API examples above don't make obvious, and that you
+need the moment you fan out:
+
+- `ctx.output(nodeId)` / `ctx.latest(nodeId)` read a single node. But
+  `ctx.outputs.<schemaName>` is the **full array of every row written for that
+  schema**, across all nodes and all loop iterations. That array is how you wire
+  per-item work: give each item an id field in its schema, then filter
+  (`ctx.outputs.review.filter(r => r.itemId === id)`) and take the last match to
+  get "this item's latest review." Without this you cannot tell which of N
+  parallel agents produced which row.
+- `ctx.input` fields arrive as their raw value or `null`, **not** their Zod
+  default. Always coalesce (`ctx.input?.maxConcurrency ?? 4`).
+
+Fan-out, isolate, then serialize the risky merge:
+
+- `<Worktree path={...} branch={...} baseBranch="main">` runs its children in an
+  **isolated checkout**. In a jj repo it is a `jj workspace` with a bookmark
+  named `branch`; the agent's edits auto-snapshot into `@`. To turn that into a
+  PR from a compute task: `jj describe -m ...` → `jj bookmark set <branch> -r @`
+  → `jj git push --bookmark <branch> --allow-new --remote origin` → `gh pr
+  create`. (Plain `git` does not work inside a jj workspace dir; use `jj`.)
+- `<MergeQueue maxConcurrency={1}>` is just a **concurrency limiter** (default 1).
+  It does not merge anything itself; you put your own merge `<Task>`s inside it so
+  they run one at a time instead of racing the shared base branch.
+
+The canonical end-to-end shape (discover → per-item `<Worktree>` with an
+implement/review `<Loop>` → `<Approval>` gate → `<MergeQueue>`) is worked out in
+`.smithers/workflows/studio-parity-swarm.tsx`; read it before hand-rolling a
+multi-worktree workflow.
+
 ## Why a durable runtime, not a queue or a framework
 
 The right agent topology changes every six months (chains → ReAct → tools →
