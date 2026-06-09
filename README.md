@@ -1,9 +1,19 @@
 # Smithers
 
-**Orchestrate agents at scale with composable workflows.**
+**Run long-horizon coding-agent work as durable workflows.**
+
+[![npm](https://img.shields.io/npm/v/smithers-orchestrator?color=2563eb&label=npm)](https://www.npmjs.com/package/smithers-orchestrator)
+[![CI](https://github.com/smithersai/smithers/actions/workflows/ci.yml/badge.svg)](https://github.com/smithersai/smithers/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2563eb)](#license)
+[![Docs](https://img.shields.io/badge/docs-smithers.sh-2563eb)](https://smithers.sh)
 
 Tell your coding agent to do real, multi-step work, then Smithers runs it for minutes or
-days with crash recovery, retries, human approvals, and full observability.
+days with crash recovery, retries, human approvals, and full observability. The same
+workflow runs across Claude Code, Codex, Pi, AI SDK models, and remote sandboxes.
+
+![Live runs in Smithers Studio: some succeeded, some running, some paused on an approval gate, every run resumable and rewindable.](./marketing/0.22.0/assets/runs-live.gif)
+
+*A workflow run is a list of steps you can watch, pause, approve, and rewind. The run above shows several in flight at once.*
 
 ## What you get
 
@@ -15,6 +25,23 @@ days with crash recovery, retries, human approvals, and full observability.
   structure that real work demands.
 - 🧩 **Dozens of ready-to-run workflows**: planning, implementation, review, debugging,
   tickets, audits, and long-horizon missions. Your agent can author new ones.
+
+## When to use Smithers
+
+| You want to… | Smithers? |
+| --- | --- |
+| Get one answer from one prompt | No, call the model directly |
+| Ship a chatbot or a simple tool-calling app | Usually no |
+| Let a coding agent change a repo across many steps | **Yes** |
+| Pause for a human approval, then resume later | **Yes** |
+| Run several agents that review, retry, and converge | **Yes** |
+| Survive crashes and replay, fork, or rewind a run | **Yes** |
+| Run durable backend jobs unrelated to agents | Consider [Temporal](https://temporal.io) or [Inngest](https://www.inngest.com) |
+| Host stateful per-user session agents | Consider [Cloudflare Agents](https://developers.cloudflare.com/agents/) |
+
+Smithers is the durable runtime for *coding-agent* work: when the unit of work is an agent
+editing a real repository over many steps, and you need that work to be inspectable,
+approvable, and recoverable.
 
 ## Prompt your agent
 
@@ -101,6 +128,14 @@ Durability is the differentiator. Runs survive crashes, restarts, and flaky tool
 knows what's done and what to run next. Approvals, human questions, retries, and replay are
 first-class.
 
+```text
+prompt → render workflow → run task → validate output → persist to SQLite → re-render → resume · inspect · replay
+```
+
+That loop is the whole model: a task runs, its output is validated against a schema and
+written down, then the workflow re-renders from persisted state to decide the next task. A
+crash at any point resumes from the last write, not from the top.
+
 ```bash
 bunx smithers-orchestrator up workflow.tsx --input '{"description":"Fix bug"}'
 bunx smithers-orchestrator up workflow.tsx --run-id abc123 --resume true   # resume after a crash
@@ -111,16 +146,35 @@ bunx smithers-orchestrator replay abc123                                    # re
 
 ## Any agent, any model
 
-Smithers doesn't bet on one lab or one harness. Point a task at whichever agent is best
-for the job and switch freely:
+Smithers doesn't bet on one lab or one harness. Point a task at whichever agent is best for
+the job, mix several in one workflow, and switch freely. The workflow doesn't change when
+the model does, so a frontier model can plan, a fast model can fan out, and a specialized
+harness can do the edits.
 
-- **CLI agents**: [Claude Code](./docs/integrations/cli-agents.mdx), Codex,
-  [Pi](./docs/integrations/pi-integration.mdx), Antigravity, and more, driven through
-  their own runtimes.
-- **SDK agents**: any model the [Vercel AI SDK](./docs/integrations/sdk-agents.mdx)
-  supports, with tools, structured output, and MCP.
-- **Mix them in one workflow**: let a frontier model plan, a fast model fan out, and a
-  specialized harness do the edits. The workflow doesn't change when the model does.
+**Agents that run tasks**
+
+| Agent | How it runs |
+| --- | --- |
+| [Claude Code](./docs/integrations/cli-agents.mdx) | CLI harness |
+| Codex | CLI harness |
+| [Pi](./docs/integrations/pi-integration.mdx) | CLI harness |
+| Antigravity | CLI harness |
+| Any [AI SDK](./docs/integrations/sdk-agents.mdx) model | SDK agent, with tools, structured output, and MCP |
+
+**Sandboxes that isolate them**
+
+The same `<Sandbox>` primitive runs an agent locally or on a remote provider with no change
+to the workflow:
+
+| Target | Notes |
+| --- | --- |
+| Local | default, runs on your machine |
+| [gVisor](https://gvisor.dev) | syscall-isolated containers |
+| Kubernetes | your own cluster |
+| [Freestyle](https://freestyle.sh) · [Daytona](https://daytona.io) · [Cloudflare](https://workers.cloudflare.com) | managed remote sandboxes |
+
+To drive Smithers itself, the [`skills add` / `mcp add`](#prompt-your-agent) commands also
+wire Cursor, Copilot, Hermes, OpenClaw, and ~20 more coding agents.
 
 ## Built-in workflows
 
@@ -160,22 +214,24 @@ See [`docs/workflows/`](./docs/workflows/overview.mdx) for the full pack.
 
 ## Examples
 
-The [`examples/`](./examples) folder has 90+ runnable workflows covering real patterns. Copy one as a starting point:
+The [`examples/`](./examples) folder has 90+ runnable workflows, one per orchestration
+pattern. Copy one as a starting point:
+
+[![Every orchestration pattern we could find: 90+ real, runnable Smithers workflows in one folder.](./marketing/examples/examples-folder.png)](./examples)
 
 | Example | Pattern |
 | --- | --- |
 | [`code-review-loop`](./examples/code-review-loop.jsx) | Implement → review → fix, looped until approved. |
 | [`coverage-loop`](./examples/coverage-loop.jsx) | Run tests, measure coverage, write tests, repeat to target. |
 | [`panel`](./examples/panel.jsx) | N specialist agents review in parallel, a moderator synthesizes. |
-| [`debate`](./examples/debate.jsx) | Two agents argue opposing positions; a judge decides. |
 | [`supervisor`](./examples/supervisor.jsx) | A boss agent plans and delegates to workers dynamically. |
 | [`fan-out-fan-in`](./examples/fan-out-fan-in.jsx) | Split work across N parallel agents, aggregate results. |
 | [`parallel-tickets`](./examples/parallel-tickets.jsx) | Triage, run waves of work in parallel, merge-queue the results. |
 | [`migration`](./examples/migration.jsx) | Plan → transform files → validate → report. |
 | [`pr-shepherd`](./examples/pr-shepherd.jsx) | Watch a PR, gather context, leave structured review comments. |
-| [`canary-judge`](./examples/canary-judge.jsx) | Compare stable vs. canary metrics; recommend promote/hold/rollback. |
-| [`slo-breach-explainer`](./examples/slo-breach-explainer.jsx) | On an SLO alarm, pull traces/logs/changes and explain the cause. |
-| [`repo-janitor`](./examples/repo-janitor.jsx) | On a schedule, clean warnings, stale TODOs, and doc drift. |
+
+That's eight of 90+. The folder also covers debates, canary judging, SLO-breach explainers,
+repo janitors, and dozens more. Browse the full set in [`examples/`](./examples).
 
 ## Author your own
 
@@ -257,12 +313,25 @@ composite patterns. See [Components](https://smithers.sh/components/workflow).
 - **Hot reload**: edit prompts, config, agent settings, or JSX structure mid-run with
   `bunx smithers-orchestrator up workflow.tsx --hot`. In-flight tasks finish on their original code; only
   newly scheduled tasks pick up changes.
-- **Scale across machines**: the same `<Sandbox>` primitive runs agents locally or on a
-  remote provider ([gVisor](https://gvisor.dev), Kubernetes,
-  [freestyle.sh](https://freestyle.sh), [Daytona](https://daytona.io), and
-  [Cloudflare](https://workers.cloudflare.com)) with no change to the workflow. See
+- **Scale across machines**: run agents in remote sandboxes via the `<Sandbox>` primitive
+  ([provider table above](#any-agent-any-model)) with no change to the workflow. Start from
   [`examples/freestyle-sandbox-provider`](./docs/examples/freestyle-sandbox-provider.mdx)
   and the [Sandbox component](https://smithers.sh/components/sandbox).
+
+## Security and safety
+
+Smithers is built for agents that modify real repositories, so control is wired into the
+runtime:
+
+- **Approvals**: gate destructive or risky steps behind a human `approve` / `deny` before
+  they run.
+- **Inspectable**: every step, tool call, and output is persisted and replayable, so you
+  can see exactly what an agent did and why.
+- **Reversible**: `rewind`, `fork`, or `replay` any run from a checkpoint instead of living
+  with whatever the agent left behind.
+- **Isolated**: run agents in a [sandbox](#any-agent-any-model) (gVisor, Kubernetes,
+  Freestyle, Daytona, Cloudflare) so edits never touch your host.
+- **Auditable**: every run emits Prometheus metrics and OpenTelemetry traces.
 
 ## Read next
 
