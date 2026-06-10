@@ -31,6 +31,7 @@ const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
 const COMMON_TOOLS_INTEGRATION = join(DOCS, "integrations/common-tools.mdx");
 const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
+const CUSTOM_UI_INTEGRATION = join(DOCS, "integrations/custom-ui.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
 const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
 const RUNTIME_EVENTS_REFERENCE = join(DOCS, "runtime/events.mdx");
@@ -2233,6 +2234,7 @@ function checkCliAgentOptionDocsMatchSourceTypes() {
 function checkGatewaySdkDocsMatchExports() {
   const files = new Map([
     [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
+    [CUSTOM_UI_INTEGRATION, readFileSync(CUSTOM_UI_INTEGRATION, "utf8")],
     [CUSTOM_WORKFLOW_UI_GUIDE, readFileSync(CUSTOM_WORKFLOW_UI_GUIDE, "utf8")],
     [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
     [GATEWAY_REACT_INDEX, readFileSync(GATEWAY_REACT_INDEX, "utf8")],
@@ -2282,6 +2284,7 @@ function checkGatewaySdkDocsMatchExports() {
       CUSTOM_WORKFLOW_UI_GUIDE,
       "const run = useGatewayRun(runId);                   // run record + optional runState, refetches when runId changes",
     ],
+    [CUSTOM_UI_INTEGRATION, 'useGatewayRuns({ filter: { status: "running" } });'],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
@@ -2295,6 +2298,7 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `{ data: WorkflowSummary[] }`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `{ data: NodeOutputResponse }`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `{ data: GatewayApprovalSummary[] }`"],
+    [CUSTOM_UI_INTEGRATION, 'useGatewayRuns({ status: "running" })'],
     [CUSTOM_WORKFLOW_UI_GUIDE, "refetches as the seq advances"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));

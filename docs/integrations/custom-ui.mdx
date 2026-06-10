@@ -249,7 +249,7 @@ Convenience wrappers cover the common reads:
 
 ```tsx
 useGatewayRun(runId);                                          // getRun, disabled when runId is undefined
-useGatewayRuns({ status: "running" });                         // listRuns
+useGatewayRuns({ filter: { status: "running" } });             // listRuns
 useGatewayWorkflows({ filter: { hasUi: true } });              // listWorkflows
 useGatewayApprovals({ filter: { runId: "run-1" } });           // listApprovals
 useGatewayNodeOutput({ runId, nodeId, iteration: 3 });         // getNodeOutput
