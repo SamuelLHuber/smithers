@@ -2223,7 +2223,7 @@ paths:
                   iteration: 0
                   approved: true
         400:
-          description: "The request shape is invalid."
+          description: "The request input failed validation."
           content:
             application/json:
               schema:
@@ -2258,10 +2258,10 @@ paths:
                         type: string
                         enum:
                           - InvalidRequest
+                          - InvalidInput
                           - Unauthorized
                           - Forbidden
                           - RunNotFound
-                          - NodeNotFound
                           - AlreadyDecided
                           - Internal
                       message:
@@ -2315,10 +2315,10 @@ paths:
                         type: string
                         enum:
                           - InvalidRequest
+                          - InvalidInput
                           - Unauthorized
                           - Forbidden
                           - RunNotFound
-                          - NodeNotFound
                           - AlreadyDecided
                           - Internal
                       message:
@@ -2372,10 +2372,10 @@ paths:
                         type: string
                         enum:
                           - InvalidRequest
+                          - InvalidInput
                           - Unauthorized
                           - Forbidden
                           - RunNotFound
-                          - NodeNotFound
                           - AlreadyDecided
                           - Internal
                       message:
@@ -2394,7 +2394,7 @@ paths:
                       refresh:
                         type: string
         404:
-          description: "The node does not exist on the run."
+          description: "The run does not exist."
           content:
             application/json:
               schema:
@@ -2429,10 +2429,10 @@ paths:
                         type: string
                         enum:
                           - InvalidRequest
+                          - InvalidInput
                           - Unauthorized
                           - Forbidden
                           - RunNotFound
-                          - NodeNotFound
                           - AlreadyDecided
                           - Internal
                       message:
@@ -2486,10 +2486,10 @@ paths:
                         type: string
                         enum:
                           - InvalidRequest
+                          - InvalidInput
                           - Unauthorized
                           - Forbidden
                           - RunNotFound
-                          - NodeNotFound
                           - AlreadyDecided
                           - Internal
                       message:
@@ -2543,10 +2543,10 @@ paths:
                         type: string
                         enum:
                           - InvalidRequest
+                          - InvalidInput
                           - Unauthorized
                           - Forbidden
                           - RunNotFound
-                          - NodeNotFound
                           - AlreadyDecided
                           - Internal
                       message:

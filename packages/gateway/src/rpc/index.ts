@@ -491,7 +491,7 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
       }, ["approved"]),
     }, ["runId", "nodeId", "decision"]),
     responseSchema: objectSchema({ runId, nodeId, iteration, approved: booleanSchema("Whether the approval was granted.") }, ["runId", "nodeId", "iteration", "approved"]),
-    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "NodeNotFound", "AlreadyDecided", "Internal"],
+    errors: ["InvalidRequest", "InvalidInput", "Unauthorized", "Forbidden", "RunNotFound", "AlreadyDecided", "Internal"],
     exampleRequest: { runId: "run_01", nodeId: "approve", decision: { approved: true, note: "ship it" } },
     exampleResponse: { runId: "run_01", nodeId: "approve", iteration: 0, approved: true },
   },

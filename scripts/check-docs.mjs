@@ -894,6 +894,43 @@ function checkGatewayCancelRunDocsMatchRuntimeErrors() {
   }
 }
 
+function checkGatewaySubmitApprovalDocsMatchRuntimeErrors() {
+  const approvalSource = join(root, "packages/engine/src/approvals.js");
+  const submitApprovalDoc = join(root, "docs/rpc/submit-approval.mdx");
+  const files = new Map([
+    [GATEWAY_RPC_INDEX, readFileSync(GATEWAY_RPC_INDEX, "utf8")],
+    [approvalSource, readFileSync(approvalSource, "utf8")],
+    [submitApprovalDoc, readFileSync(submitApprovalDoc, "utf8")],
+  ]);
+  const required = [
+    [approvalSource, 'new SmithersError("INVALID_INPUT", `Node ${nodeId} is not waiting for approval.`'],
+    [GATEWAY_RPC_INDEX, 'errors: ["InvalidRequest", "InvalidInput", "Unauthorized", "Forbidden", "RunNotFound", "AlreadyDecided", "Internal"],'],
+    [submitApprovalDoc, "include `InvalidRequest`, `InvalidInput`, `Unauthorized`, `Forbidden`, `RunNotFound`, `AlreadyDecided`, and `Internal`"],
+  ];
+  const forbidden = [
+    [GATEWAY_RPC_INDEX, 'errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "NodeNotFound", "AlreadyDecided", "Internal"],'],
+    [submitApprovalDoc, "`NodeNotFound`, `AlreadyDecided`"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ submitApproval docs must match runtime approval validation errors:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ submitApproval docs match runtime approval validation errors");
+  }
+}
+
 function checkHotReloadDocsMatchRuntimeDefaults() {
   const files = new Map([
     [DRIVER_RUN_OPTIONS_SOURCE, readFileSync(DRIVER_RUN_OPTIONS_SOURCE, "utf8")],
@@ -2184,6 +2221,7 @@ checkGatewayRpcErrorTableMatchesRegistry();
 checkGatewayGetRunDocsMatchResponseShape();
 checkGatewayStreamDevToolsDocsMatchRuntimeShape();
 checkGatewayCancelRunDocsMatchRuntimeErrors();
+checkGatewaySubmitApprovalDocsMatchRuntimeErrors();
 checkHotReloadDocsMatchRuntimeDefaults();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();

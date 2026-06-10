@@ -13,6 +13,6 @@ apiVersion: v1
 - Request: `{ runId, nodeId, iteration?, decision }`
 - Response: `{ runId, nodeId, iteration, approved }`
 
-Errors are versioned as `v1` and include `InvalidRequest`, `Unauthorized`, `Forbidden`, `RunNotFound`, `NodeNotFound`, `AlreadyDecided`, and `Internal`.
+Errors are versioned as `v1` and include `InvalidRequest`, `InvalidInput`, `Unauthorized`, `Forbidden`, `RunNotFound`, `AlreadyDecided`, and `Internal`.
 
 `decision.approved` is required. `decision.value` carries select/rank/decision payloads.
