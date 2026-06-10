@@ -31,6 +31,8 @@ const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
 const MCP_SEMANTIC_TOOLS_SOURCE = join(root, "apps/cli/src/mcp/semantic-tools.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
 const COMMON_TOOLS_INTEGRATION = join(DOCS, "integrations/common-tools.mdx");
+const SERVER_INTEGRATION = join(DOCS, "integrations/server.mdx");
+const SERVER_SOURCE = join(root, "packages/server/src/index.js");
 const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
 const CUSTOM_UI_INTEGRATION = join(DOCS, "integrations/custom-ui.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
@@ -1296,6 +1298,62 @@ function checkServeDocsMatchServerTypes() {
     }
   } else {
     console.log("✓ ServeOptions docs and SmithersDb facade declaration match server types");
+  }
+}
+
+function checkHttpServerDocsMatchRuntimeSurface() {
+  const files = new Map([
+    [SERVER_SOURCE, readFileSync(SERVER_SOURCE, "utf8")],
+    [SERVER_INTEGRATION, readFileSync(SERVER_INTEGRATION, "utf8")],
+  ]);
+  const required = [
+    [SERVER_SOURCE, 'url.pathname === "/metrics"'],
+    [SERVER_SOURCE, 'method === "POST" && url.pathname === "/v1/runs"'],
+    [SERVER_SOURCE, 'method === "GET" && url.pathname === "/v1/runs"'],
+    [SERVER_SOURCE, '/^\\/v1\\/runs\\/([^/]+)\\/resume$/'],
+    [SERVER_SOURCE, '/^\\/v1\\/runs\\/([^/]+)\\/cancel$/'],
+    [SERVER_SOURCE, '/^\\/v1\\/runs\\/([^/]+)\\/events$/'],
+    [SERVER_SOURCE, '/^\\/v1\\/runs\\/([^/]+)\\/frames$/'],
+    [SERVER_SOURCE, '/^\\/v1\\/runs\\/([^/]+)\\/nodes\\/([^/]+)\\/approve$/'],
+    [SERVER_SOURCE, '/^\\/v1\\/runs\\/([^/]+)\\/nodes\\/([^/]+)\\/deny$/'],
+    [SERVER_SOURCE, '/^\\/v1\\/runs\\/([^/]+)\\/signals\\/([^/]+)$/'],
+    [SERVER_SOURCE, 'url.pathname === "/v1/approval/list"'],
+    [SERVER_SOURCE, 'url.pathname === "/v1/approvals"'],
+    [SERVER_SOURCE, 'url.pathname === "/approval/list"'],
+    [SERVER_SOURCE, 'url.pathname === "/approvals"'],
+    [SERVER_SOURCE, '/^\\/signal\\/([^/]+)\\/([^/]+)$/'],
+    [SERVER_SOURCE, 'throw new HttpError(400, "INVALID_JSON"'],
+    [SERVER_SOURCE, 'throw new HttpError(413, "PAYLOAD_TOO_LARGE"'],
+    [SERVER_SOURCE, 'throw new HttpError(400, "RUN_ID_REQUIRED"'],
+    [SERVER_INTEGRATION, "routes[15]{method,path,purpose,auth}:"],
+    [SERVER_INTEGRATION, "GET,/metrics,Prometheus exposition,bearer"],
+    [SERVER_INTEGRATION, "POST,/v1/runs,Start or resume a run,bearer"],
+    [SERVER_INTEGRATION, "GET,/v1/runs,List runs (requires db),bearer"],
+    [SERVER_INTEGRATION, "GET,/v1/runs/:runId,Run status and node summary,bearer"],
+    [SERVER_INTEGRATION, "POST,/v1/runs/:runId/resume,Resume paused or failed run,bearer"],
+    [SERVER_INTEGRATION, "POST,/v1/runs/:runId/cancel,Abort an active run,bearer"],
+    [SERVER_INTEGRATION, "GET,/v1/runs/:runId/events,SSE event stream (?afterSeq=N),bearer"],
+    [SERVER_INTEGRATION, "GET,/v1/runs/:runId/frames,List render frames,bearer"],
+    [SERVER_INTEGRATION, "POST,/v1/runs/:runId/nodes/:nodeId/approve,Approve a paused node,bearer"],
+    [SERVER_INTEGRATION, "POST,/v1/runs/:runId/nodes/:nodeId/deny,Deny a paused node,bearer"],
+    [SERVER_INTEGRATION, "POST,/v1/runs/:runId/signals/:signalName,Deliver a named signal,bearer"],
+    [SERVER_INTEGRATION, "GET,/v1/approvals,List pending approvals (requires db),bearer"],
+    [SERVER_INTEGRATION, "GET,/v1/approval/list,Legacy alias for /v1/approvals,bearer"],
+    [SERVER_INTEGRATION, "GET,/approval/list and /approvals,Legacy aliases for /v1/approvals,bearer"],
+    [SERVER_INTEGRATION, "POST,/signal/:runId/:signalName,Legacy alias for signals,bearer"],
+    [SERVER_INTEGRATION, "`INVALID_JSON`"],
+    [SERVER_INTEGRATION, "`PAYLOAD_TOO_LARGE`"],
+    [SERVER_INTEGRATION, "`RUN_ID_REQUIRED`"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  if (missing.length) {
+    failed = true;
+    console.error("\n✗ HTTP server docs must match runtime routes and error codes:");
+    console.error(
+      `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+    );
+  } else {
+    console.log("✓ HTTP server docs match runtime routes and error codes");
   }
 }
 
@@ -2720,6 +2778,7 @@ checkHotReloadDocsMatchRuntimeDefaults();
 checkRunOptionsDocsMatchSourceType();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
+checkHttpServerDocsMatchRuntimeSurface();
 checkComponentPropsDocsMatchSourceTypes();
 checkPackageConfigurationDocsMatchRootConfig();
 checkPiPluginDocsMatchPackageRuntime();
