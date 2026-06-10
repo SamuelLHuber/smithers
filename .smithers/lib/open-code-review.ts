@@ -243,7 +243,7 @@ type CommandResult = {
   exitCode: number;
 };
 
-type DiffRecord = {
+export type DiffRecord = {
   oldPath: string;
   newPath: string;
   diff: string;
@@ -465,11 +465,11 @@ function isProviderExcluded(path: string, gitignorePatterns: string[]) {
   return gitignorePatterns.some((pattern) => gitignorePatternMatches(pattern, path));
 }
 
-function effectivePath(diff: DiffRecord) {
+export function effectivePath(diff: DiffRecord) {
   return diff.newPath === "/dev/null" ? diff.oldPath : diff.newPath;
 }
 
-function diffStatus(diff: DiffRecord) {
+export function diffStatus(diff: DiffRecord) {
   if (diff.isBinary) return "binary";
   if (diff.isNew) return "added";
   if (diff.isDeleted) return "deleted";
@@ -556,7 +556,7 @@ async function workspaceDiffText(repoDir: string) {
   return pieces.filter(Boolean).join("\n\n");
 }
 
-async function loadDiffs(repoDir: string, input: OpenCodeReviewInput) {
+export async function loadDiffs(repoDir: string, input: OpenCodeReviewInput) {
   const mode = reviewMode(input);
   let diffText = "";
   if (mode === "range") {

@@ -5,8 +5,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   buildNativeReviewPrompt,
+  diffStatus,
+  effectivePath,
   finalizeNativeReview,
   globMatch,
+  loadDiffs,
   previewOpenCodeReview,
   validateReviewInput,
   type OpenCodeReviewInput,
@@ -208,5 +211,23 @@ describe("OpenCodeReview compatibility helpers", () => {
 
     expect(app?.willReview).toBe(false);
     expect(app?.excludeReason).toBe("user_exclude");
+  });
+
+  test("loadDiffs exposes full workspace diff records, including review-excluded files", async () => {
+    const repo = tempRepo();
+    write(join(repo, "src/app.ts"), "export const value = 1;\nexport const next = 2;\n");
+    write(join(repo, "src/app.test.ts"), "test('x', () => {});\n");
+
+    const diffs = await loadDiffs(repo, input(repo));
+    const byPath = new Map(diffs.map((diff) => [effectivePath(diff), diff]));
+
+    const app = byPath.get("src/app.ts")!;
+    expect(diffStatus(app)).toBe("modified");
+    expect(app.insertions).toBe(1);
+    expect(app.diff).toContain("+export const next = 2;");
+
+    const test = byPath.get("src/app.test.ts")!;
+    expect(diffStatus(test)).toBe("added");
+    expect(test.diff).toContain("+test('x', () => {});");
   });
 });
