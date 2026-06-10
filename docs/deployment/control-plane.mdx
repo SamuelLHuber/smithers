@@ -30,6 +30,30 @@ The store creates SQLite tables for:
 - secret manager references, not secret values
 - audit events and org audit export
 
+Constructing `new ControlPlaneStore(sqlite)` calls `ensureControlPlaneTables(sqlite)`. You can call `ensureControlPlaneTables(sqlite)` directly when you only need to bootstrap the schema.
+
+## Store Methods
+
+| Method | Purpose |
+| --- | --- |
+| `createOrg()` | Create an organization. |
+| `getOrg()` | Load an organization by ID. |
+| `createTeam()` | Create a team in an organization. |
+| `addTeamMember()` | Add or update a user's team role. |
+| `createProject()` | Create a project in an organization. |
+| `addProjectTeam()` | Grant or update a team's project role. |
+| `upsertBillingAccount()` | Create or update the org billing record. |
+| `upsertIdentityProvider()` | Create or update a SAML/OIDC identity provider record. |
+| `listIdentityProviders()` | List org identity providers, optionally filtered by status. |
+| `recordUsage()` | Append a usage event. |
+| `summarizeUsage()` | Aggregate usage by metric and unit for an org. |
+| `setUsageLimit()` | Create or update an org/project usage limit. |
+| `checkUsageLimit()` | Return the matching limit plus `usedQuantity`, `remainingQuantity`, and `exceeded`, or `null` when no limit is configured. |
+| `putSecretRef()` | Store an external secret reference, not the secret value. |
+| `listSecretRefs()` | List org or project secret references. |
+| `recordAuditEvent()` | Append an audit event. |
+| `exportOrgAudit()` | Export org data, usage summaries, secret refs, and audit events. |
+
 ```ts
 const store = new ControlPlaneStore(sqlite);
 
@@ -85,7 +109,7 @@ store.putSecretRef({
   ref: "arn:aws:secretsmanager:us-east-1:123:secret:deploy",
 });
 
-// Check whether the project is within its quota. Returns { ok: boolean, used: number, limit: number }.
+// Check whether the project is within its quota.
 const quota = store.checkUsageLimit({
   orgId: org.orgId,
   projectId: project.projectId,
@@ -93,6 +117,8 @@ const quota = store.checkUsageLimit({
   unit: "ms",
   period: "monthly",
 });
+// quota is null when no matching limit exists; otherwise it includes
+// { usedQuantity, remainingQuantity, exceeded, limitQuantity, ...limitMetadata }.
 
 const audit = store.exportOrgAudit({ orgId: org.orgId });
 ```

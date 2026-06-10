@@ -37,6 +37,7 @@ const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
 const CUSTOM_UI_INTEGRATION = join(DOCS, "integrations/custom-ui.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
 const ALERTING_GUIDE = join(DOCS, "guides/alerting.mdx");
+const CONTROL_PLANE_GUIDE = join(DOCS, "deployment/control-plane.mdx");
 const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
 const MEMORY_CONCEPTS = join(DOCS, "concepts/memory.mdx");
 const RUNTIME_EVENTS_REFERENCE = join(DOCS, "runtime/events.mdx");
@@ -113,6 +114,8 @@ const DRIVER_DECLARATIONS = join(root, "packages/driver/src/index.d.ts");
 const HOT_WORKFLOW_CONTROLLER_SOURCE = join(root, "packages/engine/src/hot/HotWorkflowController.js");
 const ALERT_RUNTIME_SOURCE = join(root, "packages/engine/src/alert-runtime.js");
 const SCHEDULER_WORKFLOW_OPTIONS_SOURCE = join(root, "packages/scheduler/src/SmithersWorkflowOptions.ts");
+const CONTROL_PLANE_DECLARATIONS = join(root, "packages/control-plane/src/index.d.ts");
+const SMITHERS_CONTROL_PLANE_SOURCE = join(root, "packages/smithers/src/control-plane.js");
 const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json");
 const STUDIO_APP_README = join(root, "apps/smithers-studio-2/README.md");
 const STUDIO_RUNS_PARSE_SOURCE = join(root, "apps/smithers-studio-2/src/runs/parseRunPayloads.ts");
@@ -1265,6 +1268,62 @@ function checkAlertingDocsMatchRuntimeSurface() {
     }
   } else {
     console.log("✓ Alerting docs match current alert policy types, runtime, and CLI surface");
+  }
+}
+
+function checkControlPlaneDocsMatchStoreApi() {
+  const docs = readFileSync(CONTROL_PLANE_GUIDE, "utf8");
+  const declarations = readFileSync(CONTROL_PLANE_DECLARATIONS, "utf8");
+  const facade = readFileSync(SMITHERS_CONTROL_PLANE_SOURCE, "utf8");
+  const classMatch = declarations.match(/declare class ControlPlaneStore \{([\s\S]*?)\n\}/);
+  const methods = classMatch
+    ? [...classMatch[1].matchAll(/^\s{2}([A-Za-z_$][\w$]*)\(/gm)]
+      .map((match) => match[1])
+      .filter((name) => name !== "constructor")
+    : [];
+  const missingMethods = methods.filter((name) => !docs.includes(`\`${name}()\``));
+  const required = [
+    [SMITHERS_CONTROL_PLANE_SOURCE, 'export * from "@smithers-orchestrator/control-plane";'],
+    [CONTROL_PLANE_DECLARATIONS, "declare function ensureControlPlaneTables(sqlite: ControlPlaneSqlite): void;"],
+    [CONTROL_PLANE_GUIDE, 'import { ControlPlaneStore } from "smithers-orchestrator/control-plane";'],
+    [CONTROL_PLANE_GUIDE, 'import { ControlPlaneStore } from "@smithers-orchestrator/control-plane";'],
+    [CONTROL_PLANE_GUIDE, "Constructing `new ControlPlaneStore(sqlite)` calls `ensureControlPlaneTables(sqlite)`."],
+    [CONTROL_PLANE_GUIDE, "`checkUsageLimit()` | Return the matching limit plus `usedQuantity`, `remainingQuantity`, and `exceeded`, or `null` when no limit is configured."],
+    [CONTROL_PLANE_GUIDE, "{ usedQuantity, remainingQuantity, exceeded, limitQuantity, ...limitMetadata }"],
+  ];
+  const forbidden = [
+    [CONTROL_PLANE_GUIDE, "{ ok: boolean, used: number, limit: number }"],
+    [CONTROL_PLANE_GUIDE, "`checkUsageLimit()` | Check whether the project is within its quota."],
+  ];
+  const fileText = (file) => {
+    if (file === CONTROL_PLANE_GUIDE) return docs;
+    if (file === CONTROL_PLANE_DECLARATIONS) return declarations;
+    if (file === SMITHERS_CONTROL_PLANE_SOURCE) return facade;
+    return "";
+  };
+  const missing = required.filter(([file, needle]) => !fileText(file).includes(needle));
+  const stale = forbidden.filter(([file, needle]) => fileText(file).includes(needle));
+  if (!classMatch) {
+    missing.push([CONTROL_PLANE_DECLARATIONS, "declare class ControlPlaneStore {"]);
+  }
+  if (missingMethods.length) {
+    missing.push([CONTROL_PLANE_GUIDE, `documented ControlPlaneStore methods: ${missingMethods.join(", ")}`]);
+  }
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Control-plane docs must match ControlPlaneStore declarations:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Control-plane docs match ControlPlaneStore declarations");
   }
 }
 
@@ -2879,6 +2938,7 @@ checkGatewaySubmitApprovalDocsMatchRuntimeErrors();
 checkHotReloadDocsMatchRuntimeDefaults();
 checkRunOptionsDocsMatchSourceType();
 checkAlertingDocsMatchRuntimeSurface();
+checkControlPlaneDocsMatchStoreApi();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkHttpServerDocsMatchRuntimeSurface();
