@@ -764,6 +764,58 @@ function checkGatewayRpcErrorTableMatchesRegistry() {
   }
 }
 
+function checkGatewayLegacyErrorAliasDocsMatchStatusMap() {
+  const serverSource = join(root, "packages/server/src/gateway.js");
+  const files = new Map([
+    [serverSource, readFileSync(serverSource, "utf8")],
+    [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
+  ]);
+  const required = [
+    [serverSource, 'case "INVALID_REQUEST":'],
+    [serverSource, 'case "INVALID_INPUT":'],
+    [serverSource, 'case "UNAUTHORIZED":'],
+    [serverSource, 'case "FORBIDDEN":'],
+    [serverSource, 'case "NOT_FOUND":'],
+    [serverSource, 'case "METHOD_NOT_FOUND":'],
+    [serverSource, 'case "PAYLOAD_TOO_LARGE":'],
+    [serverSource, 'case "InvalidRunId":'],
+    [serverSource, 'case "InvalidFrameNo":'],
+    [serverSource, 'case "ConfirmationRequired":'],
+    [GATEWAY_INTEGRATION, "legacyErrors[12]{code,meaning,http}:"],
+    [GATEWAY_INTEGRATION, "INVALID_REQUEST,Invalid request,400"],
+    [GATEWAY_INTEGRATION, "INVALID_INPUT,Invalid input,400"],
+    [GATEWAY_INTEGRATION, "UNAUTHORIZED,Unauthorized,401"],
+    [GATEWAY_INTEGRATION, "FORBIDDEN,Forbidden,403"],
+    [GATEWAY_INTEGRATION, "NOT_FOUND,Not found,404"],
+    [GATEWAY_INTEGRATION, "METHOD_NOT_FOUND,Unknown method,404"],
+    [GATEWAY_INTEGRATION, "PAYLOAD_TOO_LARGE,Payload too large,413"],
+    [GATEWAY_INTEGRATION, "InvalidRunId,Invalid run id,400"],
+    [GATEWAY_INTEGRATION, "InvalidFrameNo,Invalid frame number,400"],
+    [GATEWAY_INTEGRATION, "ConfirmationRequired,Confirmation required,400"],
+  ];
+  const forbidden = [
+    [GATEWAY_INTEGRATION, "Some legacy DevTools aliases still surface older validation names"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Gateway legacy error alias docs must match server status mappings:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Gateway legacy error alias docs match server status mappings");
+  }
+}
+
 function checkGatewayGetRunDocsMatchResponseShape() {
   const files = new Map([
     [join(root, "packages/gateway/src/rpc/index.ts"), readFileSync(join(root, "packages/gateway/src/rpc/index.ts"), "utf8")],
@@ -2218,6 +2270,7 @@ checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
 checkGatewayRpcReferenceDocsMatchRegistry();
 checkGatewayRpcErrorTableMatchesRegistry();
+checkGatewayLegacyErrorAliasDocsMatchStatusMap();
 checkGatewayGetRunDocsMatchResponseShape();
 checkGatewayStreamDevToolsDocsMatchRuntimeShape();
 checkGatewayCancelRunDocsMatchRuntimeErrors();

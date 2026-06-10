@@ -236,9 +236,26 @@ errors[21]{code,http}:
   Internal,500
 ```
 
-Some legacy DevTools aliases still surface older validation names such as
-`InvalidRunId`, `InvalidFrameNo`, or `ConfirmationRequired`. Treat those as
-legacy aliases for the matching v1 validation failure.
+The table above is the canonical v1 registry used by the SDK and OpenAPI.
+Current server responses can also surface legacy aliases from older Gateway
+paths. Treat these aliases by their meaning and HTTP status; new clients should
+prefer canonical codes where returned and tolerate aliases on older paths:
+
+```toon
+legacyErrors[12]{code,meaning,http}:
+  INVALID_REQUEST,Invalid request,400
+  INVALID_INPUT,Invalid input,400
+  INVALID_FRAME,Invalid frame,400
+  PROTOCOL_UNSUPPORTED,Unsupported protocol,400
+  UNAUTHORIZED,Unauthorized,401
+  FORBIDDEN,Forbidden,403
+  NOT_FOUND,Not found,404
+  METHOD_NOT_FOUND,Unknown method,404
+  PAYLOAD_TOO_LARGE,Payload too large,413
+  InvalidRunId,Invalid run id,400
+  InvalidFrameNo,Invalid frame number,400
+  ConfirmationRequired,Confirmation required,400
+```
 
 ### Versioned wire shapes
 
