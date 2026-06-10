@@ -23,6 +23,7 @@ const RPC_DOCS = join(DOCS, "rpc");
 const HOW_IT_WORKS = join(DOCS, "how-it-works.mdx");
 const README = join(root, "README.md");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
+const SMITHERS_PACKAGE_JSON = join(root, "packages/smithers/package.json");
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
 const SMITHERS_CREATE_SOURCE = join(root, "packages/smithers/src/create.js");
@@ -1912,6 +1913,7 @@ function checkPackageConfigurationDocsMatchRootConfig() {
   const docs = readFileSync(PACKAGE_CONFIGURATION_REFERENCE, "utf8");
   const bunfig = readFileSync(ROOT_BUNFIG, "utf8");
   const packageJson = JSON.parse(readFileSync(ROOT_PACKAGE_JSON, "utf8"));
+  const publicPackageJson = JSON.parse(readFileSync(SMITHERS_PACKAGE_JSON, "utf8"));
   const workspacePackages = readWorkspacePackages();
   const workspacePackageNames = workspacePackages.map((pkg) => pkg.name);
   const documentedWorkspacePackageNames = [...docs.matchAll(/^\| `(@smithers-orchestrator\/[^`]+|smithers-orchestrator)` \|/gm)]
@@ -1937,32 +1939,57 @@ function checkPackageConfigurationDocsMatchRootConfig() {
   const runtimePreload = readTomlScalar(bunfig, "preload");
   const testRoot = readTomlScalar(bunfig, "root", "test");
   const testPreload = readTomlScalar(bunfig, "preload", "test");
-  const publicPackageName = "smithers-orchestrator";
-  const exportRows = Object.entries(packageJson.exports ?? {}).map(([subpath, target]) => {
+  const publicPackageName = publicPackageJson.name;
+  const exportRows = Object.entries(publicPackageJson.exports ?? {}).map(([subpath, target]) => {
     const importPath = subpath === "." ? publicPackageName : `${publicPackageName}/${subpath.slice(2)}`;
     const entry = typeof target === "string"
       ? target
-      : target.import ?? target.default;
+      : target.import ?? target.default ?? target.types;
     return `| \`${importPath}\` | \`${entry}\` |`;
   });
+  const facadeSubpathRows = [
+    ["smithers-orchestrator/gateway", "./src/gateway.js"],
+    ["smithers-orchestrator/gateway-client", "./src/gateway-client.js"],
+    ["smithers-orchestrator/gateway-react", "./src/gateway-react.js"],
+    ["smithers-orchestrator/sandbox", "./src/sandbox.js"],
+    ["smithers-orchestrator/jsx-runtime", "./src/jsx-runtime.js"],
+    ["smithers-orchestrator/server", "./src/server.js"],
+    ["smithers-orchestrator/observability", "./src/observability.js"],
+    ["smithers-orchestrator/mdx-plugin", "./src/mdx-plugin.js"],
+    ["smithers-orchestrator/dom/renderer", "./src/dom/renderer.js"],
+    ["smithers-orchestrator/serve", "./src/serve.js"],
+    ["smithers-orchestrator/scorers", "./src/scorers.js"],
+    ["smithers-orchestrator/memory", "./src/memory.js"],
+    ["smithers-orchestrator/openapi", "./src/openapi.js"],
+  ];
+  const missingFacadeWrapperFiles = facadeSubpathRows
+    .map(([importPath, entry]) => ({ importPath, entry, file: join(root, "packages/smithers", entry.replace(/^\.\//, "")) }))
+    .filter(({ file }) => !existsSync(file));
   const required = [
     runtimePreload ? `preload = ${runtimePreload}` : null,
     testRoot ? `root = ${testRoot}` : null,
     testPreload ? `preload = ${testPreload}` : null,
     testRoot ? `| \`root\` | \`${testRoot.replace(/^"|"$/g, "")}\` |` : null,
     testPreload ? `| \`preload\` | \`${testPreload}\` |` : null,
+    "Entry files in this table are relative to the published `smithers-orchestrator` package; in the repository they live under `packages/smithers/`.",
     "Most applications should import from `smithers-orchestrator`. The workspace packages below are listed for advanced integrations, custom clients, framework development, and monorepo orientation. Some app workspaces are private and are not published packages.",
     ...exportRows,
+    ...facadeSubpathRows.map(([importPath, entry]) => `| \`${importPath}\` | \`${entry}\` |`),
     ...Object.entries(packageJson.scripts ?? {}).map(([script, command]) => `| \`${script}\` | \`${command}\` |`),
   ].filter(Boolean);
   const forbidden = [
     "preload.ts",
     'root = "./tests"',
     "| `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && pnpm -r test` |",
-    "| `smithers-orchestrator` | `./src/index.js` |",
-    "| `smithers-orchestrator/server` | `./src/server.js` |",
-    "| `smithers-orchestrator/scorers` | `./src/scorers.js` |",
-    "| `smithers-orchestrator/sandbox` | `./src/sandbox.js` |",
+    "| `smithers-orchestrator` | `./packages/smithers/src/index.js` |",
+    "| `smithers-orchestrator/gateway` | `./packages/server/src/gateway.js` |",
+    "| `smithers-orchestrator/sandbox` | `./packages/sandbox/src/index.js` |",
+    "| `smithers-orchestrator/server` | `./packages/server/src/index.js` |",
+    "| `smithers-orchestrator/observability` | `./apps/observability/src/index.js` |",
+    "| `smithers-orchestrator/dom/renderer` | `./packages/react-reconciler/src/dom/renderer.js` |",
+    "| `smithers-orchestrator/scorers` | `./packages/scorers/src/index.js` |",
+    "| `smithers-orchestrator/memory` | `./packages/memory/src/index.js` |",
+    "| `smithers-orchestrator/openapi` | `./packages/openapi/src/index.js` |",
     "The scoped workspace packages below are published for advanced integrations",
   ];
   const missing = required.filter((needle) => !docs.includes(needle));
@@ -1973,6 +2000,7 @@ function checkPackageConfigurationDocsMatchRootConfig() {
     missingWorkspacePackageRows.length ||
     extraWorkspacePackageRows.length ||
     missingRootWorkspaceDeps.length ||
+    missingFacadeWrapperFiles.length ||
     !runtimePreload ||
     !testRoot ||
     !testPreload
@@ -1987,6 +2015,11 @@ function checkPackageConfigurationDocsMatchRootConfig() {
     if (missingWorkspacePackageRows.length) console.error(`    missing workspace package rows: ${missingWorkspacePackageRows.join(", ")}`);
     if (extraWorkspacePackageRows.length) console.error(`    extra workspace package rows: ${extraWorkspacePackageRows.join(", ")}`);
     if (missingRootWorkspaceDeps.length) console.error(`    root missing public workspace deps: ${missingRootWorkspaceDeps.join(", ")}`);
+    if (missingFacadeWrapperFiles.length) {
+      console.error(
+        `    missing public facade wrapper files: ${missingFacadeWrapperFiles.map(({ importPath, entry }) => `${importPath} -> ${entry}`).join(", ")}`,
+      );
+    }
   } else {
     console.log("✓ package configuration docs match root package.json and bunfig.toml");
   }
