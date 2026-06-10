@@ -37,6 +37,7 @@ const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
 const CUSTOM_UI_INTEGRATION = join(DOCS, "integrations/custom-ui.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
 const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
+const MEMORY_CONCEPTS = join(DOCS, "concepts/memory.mdx");
 const RUNTIME_EVENTS_REFERENCE = join(DOCS, "runtime/events.mdx");
 const EVENT_TYPES_REFERENCE = join(DOCS, "reference/event-types.mdx");
 const ENGINE_SOURCE = join(root, "packages/engine/src/engine.js");
@@ -2075,27 +2076,45 @@ function checkToolDocsMatchRuntimeLimitsAndNetwork() {
 
 function checkMemoryDocsMatchSourceTypes() {
   const docs = readFileSync(TYPES_REFERENCE, "utf8");
+  const concepts = readFileSync(MEMORY_CONCEPTS, "utf8");
   const source = readFileSync(MEMORY_TASK_CONFIG_SOURCE, "utf8");
+  const storeSource = readFileSync(join(root, "packages/memory/src/store/createMemoryStore.js"), "utf8");
   const required = [
     [MEMORY_TASK_CONFIG_SOURCE, "namespace?: string | MemoryNamespace;"],
     [TYPES_REFERENCE, "namespace?: string | MemoryNamespace;"],
     [TYPES_REFERENCE, "recall?: { namespace?: MemoryNamespace; query?: string; topK?: number };"],
     [TYPES_REFERENCE, "remember?: { namespace?: MemoryNamespace; key?: string };"],
+    [join(root, "packages/memory/src/store/createMemoryStore.js"), "BunSQLiteDatabase"],
+    [MEMORY_CONCEPTS, 'import { drizzle } from "drizzle-orm/bun-sqlite";'],
+    [MEMORY_CONCEPTS, 'const sqlite = new Database("smithers.db");'],
+    [MEMORY_CONCEPTS, "const db = drizzle(sqlite);"],
+    [MEMORY_CONCEPTS, "const store = createMemoryStore(db);"],
   ];
   const forbidden = [
     [TYPES_REFERENCE, "type TaskMemoryConfig = {\n  recall?: { namespace?: MemoryNamespace; query?: string; topK?: number };"],
+    [MEMORY_CONCEPTS, 'createMemoryStore(new Database("smithers.db"))'],
   ];
   const missing = required.filter(([file, needle]) => {
-    const haystack = file === MEMORY_TASK_CONFIG_SOURCE ? source : docs;
+    const haystack = file === MEMORY_TASK_CONFIG_SOURCE
+      ? source
+      : file === MEMORY_CONCEPTS
+        ? concepts
+        : file.endsWith("createMemoryStore.js")
+          ? storeSource
+          : docs;
     return !haystack.includes(needle);
   });
   const stale = forbidden.filter(([file, needle]) => {
-    const haystack = file === MEMORY_TASK_CONFIG_SOURCE ? source : docs;
+    const haystack = file === MEMORY_TASK_CONFIG_SOURCE
+      ? source
+      : file === MEMORY_CONCEPTS
+        ? concepts
+        : docs;
     return haystack.includes(needle);
   });
   if (missing.length || stale.length) {
     failed = true;
-    console.error("\n✗ Memory type docs must match exported TaskMemoryConfig:");
+    console.error("\n✗ Memory docs must match exported TaskMemoryConfig and store factory types:");
     if (missing.length) {
       console.error(
         `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
@@ -2107,7 +2126,7 @@ function checkMemoryDocsMatchSourceTypes() {
       );
     }
   } else {
-    console.log("✓ Memory type docs match exported TaskMemoryConfig");
+    console.log("✓ Memory docs match exported TaskMemoryConfig and store factory types");
   }
 }
 

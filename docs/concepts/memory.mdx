@@ -21,8 +21,11 @@ flowchart LR
 ```ts
 import { createMemoryStore } from "smithers-orchestrator/memory";
 import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 
-const store = createMemoryStore(new Database("smithers.db"));
+const sqlite = new Database("smithers.db");
+const db = drizzle(sqlite);
+const store = createMemoryStore(db);
 const ns = { kind: "workflow" as const, id: "code-review" };
 ```
 
