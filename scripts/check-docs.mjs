@@ -29,6 +29,7 @@ const SMITHERS_PACKAGE_JSON = join(root, "packages/smithers/package.json");
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
 const SMITHERS_CREATE_SOURCE = join(root, "packages/smithers/src/create.js");
+const SMITHERS_CREATE_API_SOURCE = join(root, "packages/smithers/src/CreateSmithersApi.ts");
 const EXTERNAL_SMITHERS_CONFIG_SOURCE = join(root, "packages/smithers/src/external/ExternalSmithersConfig.ts");
 const SERIALIZED_CTX_SOURCE = join(root, "packages/smithers/src/external/SerializedCtx.ts");
 const HOST_NODE_JSON_SOURCE = join(root, "packages/smithers/src/external/HostNodeJson.ts");
@@ -1482,6 +1483,63 @@ function checkCreateSmithersPostgresDocsMatchFactory() {
     }
   } else {
     console.log("✓ createSmithersPostgres docs match the factory and declaration");
+  }
+}
+
+function checkCreateSmithersApiDocsMatchSourceType() {
+  const files = new Map([
+    [SMITHERS_CREATE_API_SOURCE, readFileSync(SMITHERS_CREATE_API_SOURCE, "utf8")],
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+  ]);
+  const docsBlock = readDocsTypeBlock(files.get(TYPES_REFERENCE), "CreateSmithersApi") ?? "";
+  const required = [
+    [SMITHERS_CREATE_API_SOURCE, "type SchemaOutput<Schema> = Extract<Schema[keyof Schema], z.ZodObject<z.ZodRawShape>>;"],
+    [SMITHERS_CREATE_API_SOURCE, "type RuntimeSchema<Schema> = Schema extends { input: infer Input }"],
+    [SMITHERS_CREATE_API_SOURCE, "Approval: <Row>(props: ApprovalProps<Row, SchemaOutput<Schema>>) => React.ReactElement;"],
+    [SMITHERS_CREATE_API_SOURCE, "props: TaskProps<Row, SchemaOutput<Schema>, D>,"],
+    [SMITHERS_CREATE_API_SOURCE, "Worktree: typeof BaseWorktree;"],
+    [SMITHERS_CREATE_API_SOURCE, "Timer: typeof BaseTimer;"],
+    [SMITHERS_CREATE_API_SOURCE, "useCtx: () => SmithersCtx<RuntimeSchema<Schema>>;"],
+    [SMITHERS_CREATE_API_SOURCE, "db: BunSQLiteDatabase<Record<string, unknown>>;"],
+    [SMITHERS_CREATE_API_SOURCE, "outputs: { [K in keyof Schema]: Schema[K] };"],
+    [TYPES_REFERENCE, "type SchemaOutput<Schema> = Extract<"],
+    [TYPES_REFERENCE, "type RuntimeSchema<Schema> ="],
+    [TYPES_REFERENCE, "Approval: <Row>(props: ApprovalProps<Row, SchemaOutput<Schema>>) => React.ReactElement;"],
+    [TYPES_REFERENCE, "Task: <Row, D extends DepsSpec = {}>(props: TaskProps<Row, SchemaOutput<Schema>, D>) => React.ReactElement;"],
+    [TYPES_REFERENCE, "Worktree: typeof Worktree;"],
+    [TYPES_REFERENCE, "Timer: typeof Timer;"],
+    [TYPES_REFERENCE, "useCtx: () => SmithersCtx<RuntimeSchema<Schema>>;"],
+    [TYPES_REFERENCE, "db: import(\"drizzle-orm/bun-sqlite\").BunSQLiteDatabase<Record<string, unknown>>;"],
+    [TYPES_REFERENCE, "outputs: { [K in keyof Schema]: Schema[K] };"],
+  ];
+  const forbidden = [
+    [TYPES_REFERENCE, "type CreateSmithersApi<Schema = any>"],
+    [TYPES_REFERENCE, "Approval: <Row>(props: ApprovalProps<Row>)"],
+    [TYPES_REFERENCE, "Task: <Row, D extends DepsSpec = {}>(props: TaskProps<Row, any, D>)"],
+    [TYPES_REFERENCE, "Worktree: any;"],
+    [TYPES_REFERENCE, "Timer: (props: TimerProps) => React.ReactElement;"],
+    [TYPES_REFERENCE, "useCtx: () => SmithersCtx<Schema>;"],
+    [TYPES_REFERENCE, "db: any;"],
+    [TYPES_REFERENCE, "tables: Record<string, any>;"],
+    [TYPES_REFERENCE, "outputs: Record<string, any>;"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([, needle]) => docsBlock.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ CreateSmithersApi docs must match the source type:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ CreateSmithersApi docs match the source type");
   }
 }
 
@@ -3656,6 +3714,7 @@ checkHotReloadDocsMatchRuntimeDefaults();
 checkRunOptionsDocsMatchSourceType();
 checkSmithersCtxDocsMatchDriverDeclaration();
 checkCreateSmithersPostgresDocsMatchFactory();
+checkCreateSmithersApiDocsMatchSourceType();
 checkCreateExternalSmithersDocsMatchSourceTypes();
 checkAgentAndCacheDocsMatchSourceTypes();
 checkAlertingDocsMatchRuntimeSurface();
