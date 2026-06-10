@@ -45,6 +45,7 @@ const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
 const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const GATEWAY_REACT_ASYNC_STATE = join(root, "packages/gateway-react/src/GatewayAsyncState.ts");
+const GATEWAY_REACT_USE_GATEWAY_RUN = join(root, "packages/gateway-react/src/useGatewayRun.ts");
 const GATEWAY_REACT_USE_GATEWAY_RPC = join(root, "packages/gateway-react/src/useGatewayRpc.ts");
 const GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT = join(root, "packages/gateway-react/src/useGatewayNodeOutput.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
@@ -93,6 +94,10 @@ const ROOT_BUNFIG = join(root, "bunfig.toml");
 const PI_PLUGIN_PACKAGE_JSON = join(root, "packages/pi-plugin/package.json");
 const RUNTIME_REVERT_REFERENCE = join(DOCS, "runtime/revert.mdx");
 const WATCH_AND_STEER_GUIDE = join(DOCS, "guide/watch-and-steer.mdx");
+const HOT_RELOAD_GUIDE = join(DOCS, "guides/hot-reload.mdx");
+const DRIVER_RUN_OPTIONS_SOURCE = join(root, "packages/driver/src/RunOptions.ts");
+const DRIVER_DECLARATIONS = join(root, "packages/driver/src/index.d.ts");
+const HOT_WORKFLOW_CONTROLLER_SOURCE = join(root, "packages/engine/src/hot/HotWorkflowController.js");
 const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json");
 const STUDIO_APP_README = join(root, "apps/smithers-studio-2/README.md");
 const STUDIO_RUNS_PARSE_SOURCE = join(root, "apps/smithers-studio-2/src/runs/parseRunPayloads.ts");
@@ -648,6 +653,53 @@ function checkGatewayGetRunDocsMatchResponseShape() {
     }
   } else {
     console.log("✓ Gateway getRun docs describe a run record with optional runState");
+  }
+}
+
+function checkHotReloadDocsMatchRuntimeDefaults() {
+  const files = new Map([
+    [DRIVER_RUN_OPTIONS_SOURCE, readFileSync(DRIVER_RUN_OPTIONS_SOURCE, "utf8")],
+    [DRIVER_DECLARATIONS, readFileSync(DRIVER_DECLARATIONS, "utf8")],
+    [HOT_WORKFLOW_CONTROLLER_SOURCE, readFileSync(HOT_WORKFLOW_CONTROLLER_SOURCE, "utf8")],
+    [HOT_RELOAD_GUIDE, readFileSync(HOT_RELOAD_GUIDE, "utf8")],
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+  ]);
+  const required = [
+    [
+      HOT_WORKFLOW_CONTROLLER_SOURCE,
+      'this.outDir = opts?.outDir\n            ? resolve(opts.outDir)\n            : resolve(this.hotRoot, ".smithers", "hmr");',
+    ],
+    [DRIVER_RUN_OPTIONS_SOURCE, "Directory for generation overlays (default: rootDir/.smithers/hmr)"],
+    [DRIVER_DECLARATIONS, "Directory for generation overlays (default: rootDir/.smithers/hmr)"],
+    [TYPES_REFERENCE, "outDir?: string;                  // default .smithers/hmr under rootDir"],
+    [
+      HOT_RELOAD_GUIDE,
+      "`outDir` (default `.smithers/hmr` under `rootDir` or the workflow entry directory)",
+    ],
+  ];
+  const forbidden = [
+    [DRIVER_RUN_OPTIONS_SOURCE, ".smithers/hmr/<runId>"],
+    [DRIVER_DECLARATIONS, ".smithers/hmr/<runId>"],
+    [TYPES_REFERENCE, ".smithers/hmr/<runId>"],
+    [HOT_RELOAD_GUIDE, "`outDir` (default `.smithers/hmr`)"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ hot reload docs must match runtime default output directory:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ hot reload docs match runtime default output directory");
   }
 }
 
@@ -1798,6 +1850,7 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
     [GATEWAY_REACT_INDEX, readFileSync(GATEWAY_REACT_INDEX, "utf8")],
     [GATEWAY_REACT_ASYNC_STATE, readFileSync(GATEWAY_REACT_ASYNC_STATE, "utf8")],
+    [GATEWAY_REACT_USE_GATEWAY_RUN, readFileSync(GATEWAY_REACT_USE_GATEWAY_RUN, "utf8")],
     [GATEWAY_REACT_USE_GATEWAY_RPC, readFileSync(GATEWAY_REACT_USE_GATEWAY_RPC, "utf8")],
     [GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT, readFileSync(GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT, "utf8")],
   ]);
@@ -1820,6 +1873,7 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_REACT_ASYNC_STATE, "error: Error | undefined;"],
     [GATEWAY_REACT_ASYNC_STATE, "loading: boolean;"],
     [GATEWAY_REACT_ASYNC_STATE, "refetch: () => Promise<void>;"],
+    [GATEWAY_REACT_USE_GATEWAY_RUN, "deps: [runId]"],
     [GATEWAY_REACT_USE_GATEWAY_RPC, "): GatewayAsyncState<GatewayRpcPayload<Method>>"],
     [GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT, 'return useGatewayRpc(\n    "getNodeOutput",'],
     [GATEWAY_INTEGRATION, "SyncCache"],
@@ -1837,6 +1891,10 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionResource(namespace, key, params?, opts?)"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionAction(namespace, key)"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionStream(namespace, key, params?, opts?)"],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "const run = useGatewayRun(runId);                   // run record + optional runState, refetches when runId changes",
+    ],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
@@ -1850,6 +1908,7 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `{ data: WorkflowSummary[] }`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `{ data: NodeOutputResponse }`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `{ data: GatewayApprovalSummary[] }`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "refetches as the seq advances"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
@@ -1883,6 +1942,7 @@ checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
 checkGatewayGetRunDocsMatchResponseShape();
+checkHotReloadDocsMatchRuntimeDefaults();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkComponentPropsDocsMatchSourceTypes();

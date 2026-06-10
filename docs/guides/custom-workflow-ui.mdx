@@ -78,7 +78,7 @@ import {
 const runId = new URLSearchParams(location.search).get("runId") ?? undefined;
 
 function App() {
-  const run = useGatewayRun(runId);                   // run record + optional runState, refetches as the seq advances
+  const run = useGatewayRun(runId);                   // run record + optional runState, refetches when runId changes
   const events = useGatewayRunEvents(runId);          // live stream, resilient reconnect, gap resync
   const output = useGatewayNodeOutput({               // last task output, refetches when the input key changes
     runId,

@@ -4972,7 +4972,7 @@ type RunOptions = {
 
 type HotReloadOptions = {
   rootDir?: string;
-  outDir?: string;                  // default .smithers/hmr/<runId>
+  outDir?: string;                  // default .smithers/hmr under rootDir
   maxGenerations?: number;          // default 3
   cancelUnmounted?: boolean;        // default false
   debounceMs?: number;              // default 100

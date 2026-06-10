@@ -4,7 +4,7 @@ import type { SmithersEvent } from "@smithers-orchestrator/observability/Smither
 export type HotReloadOptions = {
   /** Root directory to watch for changes (default: auto-detect from workflow entry) */
   rootDir?: string;
-  /** Directory for generation overlays (default: .smithers/hmr/<runId>) */
+  /** Directory for generation overlays (default: rootDir/.smithers/hmr) */
   outDir?: string;
   /** Max overlay generations to keep (default: 3) */
   maxGenerations?: number;
