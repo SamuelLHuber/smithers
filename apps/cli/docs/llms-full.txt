@@ -5089,20 +5089,71 @@ type RetryPolicy = {
   initialDelayMs?: number;                         // default 0
 };
 
-type CachePolicy<Ctx = any> = {
+type CachePolicy<Ctx = unknown> = {
   by?: (ctx: Ctx) => unknown;
   version?: string;
   key?: string;
   ttlMs?: number;
   scope?: "run" | "workflow" | "global";
+  [key: string]: unknown;
+};
+
+type AgentToolDescriptor = {
+  description?: string;
+  source?: "builtin" | "mcp" | "extension" | "skill" | "runtime";
+};
+
+type AgentCapabilityRegistry = {
+  version: 1;
+  engine: "claude-code" | "codex" | "antigravity" | "gemini" | "kimi" | "pi" | "amp" | "forge" | "opencode" | "vibe";
+  runtimeTools: Record<string, AgentToolDescriptor>;
+  mcp: {
+    bootstrap: "inline-config" | "project-config" | "allow-list" | "unsupported";
+    supportsProjectScope: boolean;
+    supportsUserScope: boolean;
+  };
+  skills: {
+    supportsSkills: boolean;
+    installMode?: "files" | "dir" | "plugin";
+    smithersSkillIds: string[];
+  };
+  humanInteraction: {
+    supportsUiRequests: boolean;
+    methods: string[];
+  };
+  builtIns: string[];
+};
+
+type AgentGenerateOptions = {
+  prompt?: unknown;
+  messages?: unknown;
+  timeout?: unknown;
+  abortSignal?: AbortSignal;
+  rootDir?: string;
+  resumeSession?: string;
+  maxOutputBytes?: number;
+  onStdout?: (text: string) => void;
+  onStderr?: (text: string) => void;
+  onEvent?: (event: unknown) => unknown;
+  retry?: unknown;
+  isRetry?: unknown;
+  retryAttempt?: unknown;
+  schemaRetry?: unknown;
+  taskContext?: {
+    runId?: string;
+    nodeId?: string;
+    iteration?: number;
+    attempt?: number;
+  };
+  [key: string]: unknown;
 };
 
 type AgentLike = {
   id?: string;
-  tools?: Record<string, any>;
+  tools?: Record<string, unknown>;
   supportsNativeStructuredOutput?: boolean;
-  capabilities?: any;
-  generate: (args: any) => Promise<any>;
+  capabilities?: AgentCapabilityRegistry;
+  generate: (args?: AgentGenerateOptions) => Promise<unknown>;
 };
 
 type SdkAgentOptions<CALL_OPTIONS = never, TOOLS extends import("ai").ToolSet = {}, MODEL = any> =

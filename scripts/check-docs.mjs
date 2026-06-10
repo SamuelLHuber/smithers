@@ -77,7 +77,12 @@ const CLI_AGENT_AVAILABILITY_TYPE = join(root, "apps/cli/src/AgentAvailability.t
 const CLI_AGENT_DETECTION_SOURCE = join(root, "apps/cli/src/agent-detection.js");
 const CLI_HIJACK_SOURCE = join(root, "apps/cli/src/hijack.js");
 const NATIVE_HIJACK_ENGINE_SOURCE = join(root, "apps/cli/src/NativeHijackEngine.ts");
+const AGENT_LIKE_SOURCE = join(root, "packages/agents/src/AgentLike.ts");
+const AGENT_GENERATE_OPTIONS_SOURCE = join(root, "packages/agents/src/BaseCliAgent/AgentGenerateOptions.ts");
+const AGENT_CAPABILITY_REGISTRY_SOURCE = join(root, "packages/agents/src/capability-registry/AgentCapabilityRegistry.ts");
+const AGENT_TOOL_DESCRIPTOR_SOURCE = join(root, "packages/agents/src/capability-registry/AgentToolDescriptor.ts");
 const BASE_CLI_AGENT_SOURCE = join(root, "packages/agents/src/BaseCliAgent/BaseCliAgent.js");
+const CACHE_POLICY_SOURCE = join(root, "packages/scheduler/src/CachePolicy.ts");
 const SDK_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/SdkAgentOptions.ts");
 const ANTHROPIC_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AnthropicAgentOptions.ts");
 const OPENAI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/OpenAIAgentOptions.ts");
@@ -1415,6 +1420,65 @@ function checkCreateExternalSmithersDocsMatchSourceTypes() {
     );
   } else {
     console.log("✓ createExternalSmithers docs match source types");
+  }
+}
+
+function checkAgentAndCacheDocsMatchSourceTypes() {
+  const files = new Map([
+    [AGENT_LIKE_SOURCE, readFileSync(AGENT_LIKE_SOURCE, "utf8")],
+    [AGENT_GENERATE_OPTIONS_SOURCE, readFileSync(AGENT_GENERATE_OPTIONS_SOURCE, "utf8")],
+    [AGENT_CAPABILITY_REGISTRY_SOURCE, readFileSync(AGENT_CAPABILITY_REGISTRY_SOURCE, "utf8")],
+    [AGENT_TOOL_DESCRIPTOR_SOURCE, readFileSync(AGENT_TOOL_DESCRIPTOR_SOURCE, "utf8")],
+    [CACHE_POLICY_SOURCE, readFileSync(CACHE_POLICY_SOURCE, "utf8")],
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+  ]);
+  const required = [
+    [CACHE_POLICY_SOURCE, "export type CachePolicy<Ctx = unknown> = {"],
+    [CACHE_POLICY_SOURCE, "[key: string]: unknown;"],
+    [AGENT_LIKE_SOURCE, "tools?: Record<string, unknown>;"],
+    [AGENT_LIKE_SOURCE, "capabilities?: AgentCapabilityRegistry;"],
+    [AGENT_LIKE_SOURCE, "generate: (args?: AgentGenerateOptions) => Promise<unknown>;"],
+    [AGENT_GENERATE_OPTIONS_SOURCE, "taskContext?: {"],
+    [AGENT_GENERATE_OPTIONS_SOURCE, "[key: string]: unknown;"],
+    [AGENT_CAPABILITY_REGISTRY_SOURCE, 'engine: "claude-code" | "codex" | "antigravity" | "gemini" | "kimi" | "pi" | "amp" | "forge" | "opencode" | "vibe";'],
+    [AGENT_CAPABILITY_REGISTRY_SOURCE, "runtimeTools: Record<string, AgentToolDescriptor>;"],
+    [AGENT_TOOL_DESCRIPTOR_SOURCE, 'source?: "builtin" | "mcp" | "extension" | "skill" | "runtime";'],
+    [TYPES_REFERENCE, "type CachePolicy<Ctx = unknown> = {"],
+    [TYPES_REFERENCE, "[key: string]: unknown;"],
+    [TYPES_REFERENCE, "type AgentToolDescriptor = {"],
+    [TYPES_REFERENCE, 'source?: "builtin" | "mcp" | "extension" | "skill" | "runtime";'],
+    [TYPES_REFERENCE, "type AgentCapabilityRegistry = {"],
+    [TYPES_REFERENCE, 'engine: "claude-code" | "codex" | "antigravity" | "gemini" | "kimi" | "pi" | "amp" | "forge" | "opencode" | "vibe";'],
+    [TYPES_REFERENCE, "runtimeTools: Record<string, AgentToolDescriptor>;"],
+    [TYPES_REFERENCE, "type AgentGenerateOptions = {"],
+    [TYPES_REFERENCE, "taskContext?: {"],
+    [TYPES_REFERENCE, "tools?: Record<string, unknown>;"],
+    [TYPES_REFERENCE, "capabilities?: AgentCapabilityRegistry;"],
+    [TYPES_REFERENCE, "generate: (args?: AgentGenerateOptions) => Promise<unknown>;"],
+  ];
+  const forbidden = [
+    [TYPES_REFERENCE, "type CachePolicy<Ctx = any>"],
+    [TYPES_REFERENCE, "tools?: Record<string, any>;"],
+    [TYPES_REFERENCE, "capabilities?: any;"],
+    [TYPES_REFERENCE, "generate: (args: any) => Promise<any>;"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ AgentLike and CachePolicy docs must match source types:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ AgentLike and CachePolicy docs match source types");
   }
 }
 
@@ -3206,6 +3270,7 @@ checkRunOptionsDocsMatchSourceType();
 checkSmithersCtxDocsMatchDriverDeclaration();
 checkCreateSmithersPostgresDocsMatchFactory();
 checkCreateExternalSmithersDocsMatchSourceTypes();
+checkAgentAndCacheDocsMatchSourceTypes();
 checkAlertingDocsMatchRuntimeSurface();
 checkControlPlaneDocsMatchStoreApi();
 checkReferenceDeploymentDocsMatchFiles();
