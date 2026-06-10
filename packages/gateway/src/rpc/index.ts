@@ -30,6 +30,7 @@ export type GatewayRpcErrorCode =
   | "Unauthorized"
   | "Forbidden"
   | "RunNotFound"
+  | "RUN_NOT_ACTIVE"
   | "CronNotFound"
   | "NodeNotFound"
   | "IterationNotFound"
@@ -357,6 +358,7 @@ export const GATEWAY_RPC_ERRORS: Record<GatewayRpcErrorCode, GatewayRpcErrorDefi
   Unauthorized: { version: SMITHERS_API_VERSION, code: "Unauthorized", httpStatus: 401, description: "Authentication failed or the token expired." },
   Forbidden: { version: SMITHERS_API_VERSION, code: "Forbidden", httpStatus: 403, description: "The token is missing the required scope." },
   RunNotFound: { version: SMITHERS_API_VERSION, code: "RunNotFound", httpStatus: 404, description: "The run does not exist." },
+  RUN_NOT_ACTIVE: { version: SMITHERS_API_VERSION, code: "RUN_NOT_ACTIVE", httpStatus: 409, description: "The run is not currently active and cannot be cancelled." },
   CronNotFound: { version: SMITHERS_API_VERSION, code: "CronNotFound", httpStatus: 404, description: "The cron schedule does not exist." },
   NodeNotFound: { version: SMITHERS_API_VERSION, code: "NodeNotFound", httpStatus: 404, description: "The node does not exist on the run." },
   IterationNotFound: { version: SMITHERS_API_VERSION, code: "IterationNotFound", httpStatus: 404, description: "The requested node iteration does not exist." },
@@ -436,7 +438,7 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
     requiredScope: "run:write",
     requestSchema: objectSchema({ runId }, ["runId"]),
     responseSchema: objectSchema({ runId, status: { type: "string", enum: ["cancelling"] } }, ["runId", "status"]),
-    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "Busy", "Internal"],
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RUN_NOT_ACTIVE", "Internal"],
     exampleRequest: { runId: "run_01" },
     exampleResponse: { runId: "run_01", status: "cancelling" },
   },

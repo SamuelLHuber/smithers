@@ -814,6 +814,7 @@ export function statusForRpcError(code) {
         case "AttemptNotFinished":
         case "Busy":
         case "AlreadyDecided":
+        case "RUN_NOT_ACTIVE":
             return 409;
         case "DiffTooLarge":
         case "PayloadTooLarge":

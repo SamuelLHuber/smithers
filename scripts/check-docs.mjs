@@ -734,6 +734,50 @@ function checkGatewayStreamDevToolsDocsMatchRuntimeShape() {
   }
 }
 
+function checkGatewayCancelRunDocsMatchRuntimeErrors() {
+  const serverSource = join(root, "packages/server/src/gateway.js");
+  const cancelRunDoc = join(root, "docs/rpc/cancel-run.mdx");
+  const files = new Map([
+    [GATEWAY_RPC_INDEX, readFileSync(GATEWAY_RPC_INDEX, "utf8")],
+    [serverSource, readFileSync(serverSource, "utf8")],
+    [cancelRunDoc, readFileSync(cancelRunDoc, "utf8")],
+    [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
+  ]);
+  const required = [
+    [serverSource, 'return responseError(frame.id, "RUN_NOT_ACTIVE", "Run is not currently active");'],
+    [GATEWAY_RPC_INDEX, '| "RUN_NOT_ACTIVE"'],
+    [GATEWAY_RPC_INDEX, 'RUN_NOT_ACTIVE: { version: SMITHERS_API_VERSION, code: "RUN_NOT_ACTIVE", httpStatus: 409'],
+    [GATEWAY_RPC_INDEX, 'errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RUN_NOT_ACTIVE", "Internal"],'],
+    [cancelRunDoc, "include `InvalidRequest`, `Unauthorized`, `Forbidden`, `RUN_NOT_ACTIVE`, and `Internal`"],
+    [cancelRunDoc, "`RUN_NOT_ACTIVE` means the run is not currently active"],
+    [GATEWAY_INTEGRATION, "errors[20]{code,http}:"],
+    [GATEWAY_INTEGRATION, "RUN_NOT_ACTIVE,409"],
+  ];
+  const forbidden = [
+    [GATEWAY_RPC_INDEX, 'errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "Busy", "Internal"],'],
+    [cancelRunDoc, "`RunNotFound`, `Busy`"],
+    [GATEWAY_INTEGRATION, "errors[19]{code,http}:"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ cancelRun docs must match runtime RUN_NOT_ACTIVE behavior:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ cancelRun docs match runtime RUN_NOT_ACTIVE behavior");
+  }
+}
+
 function checkHotReloadDocsMatchRuntimeDefaults() {
   const files = new Map([
     [DRIVER_RUN_OPTIONS_SOURCE, readFileSync(DRIVER_RUN_OPTIONS_SOURCE, "utf8")],
@@ -2021,6 +2065,7 @@ checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
 checkGatewayGetRunDocsMatchResponseShape();
 checkGatewayStreamDevToolsDocsMatchRuntimeShape();
+checkGatewayCancelRunDocsMatchRuntimeErrors();
 checkHotReloadDocsMatchRuntimeDefaults();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
