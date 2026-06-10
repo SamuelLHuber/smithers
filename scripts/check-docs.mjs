@@ -801,29 +801,50 @@ function readTomlScalar(source, key, section) {
   return sectionSource?.match(new RegExp(`^${key}\\s*=\\s*(.+)$`, "m"))?.[1]?.trim();
 }
 
-function readWorkspacePackageNames() {
-  const names = [];
+function readWorkspacePackages() {
+  const packages = [];
   for (const dir of ["packages", "apps"]) {
     const fullDir = join(root, dir);
     for (const name of readdirSync(fullDir)) {
       const packageJsonPath = join(fullDir, name, "package.json");
       if (!existsSync(packageJsonPath)) continue;
-      names.push(JSON.parse(readFileSync(packageJsonPath, "utf8")).name);
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+      packages.push({ name: packageJson.name, private: Boolean(packageJson.private) });
     }
   }
-  return names.sort();
+  return packages.sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function readWorkspacePackageNames() {
+  return readWorkspacePackages().map((pkg) => pkg.name);
 }
 
 function checkPackageConfigurationDocsMatchRootConfig() {
   const docs = readFileSync(PACKAGE_CONFIGURATION_REFERENCE, "utf8");
   const bunfig = readFileSync(ROOT_BUNFIG, "utf8");
   const packageJson = JSON.parse(readFileSync(ROOT_PACKAGE_JSON, "utf8"));
-  const workspacePackageNames = readWorkspacePackageNames();
+  const workspacePackages = readWorkspacePackages();
+  const workspacePackageNames = workspacePackages.map((pkg) => pkg.name);
   const documentedWorkspacePackageNames = [...docs.matchAll(/^\| `(@smithers-orchestrator\/[^`]+|smithers-orchestrator)` \|/gm)]
     .map((match) => match[1])
     .sort();
   const missingWorkspacePackageRows = workspacePackageNames.filter((name) => !documentedWorkspacePackageNames.includes(name));
   const extraWorkspacePackageRows = documentedWorkspacePackageNames.filter((name) => !workspacePackageNames.includes(name));
+  const rootWorkspaceDeps = new Set(
+    Object.entries({
+      ...(packageJson.dependencies ?? {}),
+      ...(packageJson.devDependencies ?? {}),
+      ...(packageJson.optionalDependencies ?? {}),
+    })
+      .filter(([, version]) => version === "workspace:*")
+      .map(([name]) => name),
+  );
+  const missingRootWorkspaceDeps = workspacePackages
+    .filter((pkg) => !pkg.private)
+    .filter((pkg) => pkg.name === "smithers-orchestrator" || pkg.name.startsWith("@smithers-orchestrator/"))
+    .filter((pkg) => !/^@smithers-orchestrator\/jj-/.test(pkg.name))
+    .filter((pkg) => !rootWorkspaceDeps.has(pkg.name))
+    .map((pkg) => pkg.name);
   const runtimePreload = readTomlScalar(bunfig, "preload");
   const testRoot = readTomlScalar(bunfig, "root", "test");
   const testPreload = readTomlScalar(bunfig, "preload", "test");
@@ -857,7 +878,16 @@ function checkPackageConfigurationDocsMatchRootConfig() {
   ];
   const missing = required.filter((needle) => !docs.includes(needle));
   const stale = forbidden.filter((needle) => docs.includes(needle));
-  if (missing.length || stale.length || missingWorkspacePackageRows.length || extraWorkspacePackageRows.length || !runtimePreload || !testRoot || !testPreload) {
+  if (
+    missing.length ||
+    stale.length ||
+    missingWorkspacePackageRows.length ||
+    extraWorkspacePackageRows.length ||
+    missingRootWorkspaceDeps.length ||
+    !runtimePreload ||
+    !testRoot ||
+    !testPreload
+  ) {
     failed = true;
     console.error("\n✗ Package configuration docs must match root package.json and bunfig.toml:");
     if (!runtimePreload) console.error("    could not read root bunfig.toml preload");
@@ -867,6 +897,7 @@ function checkPackageConfigurationDocsMatchRootConfig() {
     if (stale.length) console.error(`    stale: ${stale.join(", ")}`);
     if (missingWorkspacePackageRows.length) console.error(`    missing workspace package rows: ${missingWorkspacePackageRows.join(", ")}`);
     if (extraWorkspacePackageRows.length) console.error(`    extra workspace package rows: ${extraWorkspacePackageRows.join(", ")}`);
+    if (missingRootWorkspaceDeps.length) console.error(`    root missing public workspace deps: ${missingRootWorkspaceDeps.join(", ")}`);
   } else {
     console.log("✓ package configuration docs match root package.json and bunfig.toml");
   }

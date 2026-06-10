@@ -32,6 +32,9 @@ importers:
       '@mdx-js/esbuild':
         specifier: ^3.1.1
         version: 3.1.1(esbuild@0.27.7)
+      '@smithers-orchestrator/accounts':
+        specifier: workspace:*
+        version: link:packages/accounts
       '@smithers-orchestrator/agents':
         specifier: workspace:*
         version: link:packages/agents
@@ -104,6 +107,12 @@ importers:
       '@smithers-orchestrator/time-travel':
         specifier: workspace:*
         version: link:packages/time-travel
+      '@smithers-orchestrator/tool-context':
+        specifier: workspace:*
+        version: link:packages/tool-context
+      '@smithers-orchestrator/usage':
+        specifier: workspace:*
+        version: link:packages/usage
       '@smithers-orchestrator/vcs':
         specifier: workspace:*
         version: link:packages/vcs
