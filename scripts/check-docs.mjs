@@ -45,6 +45,8 @@ const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
 const SDK_AGENTS_INTEGRATION = join(DOCS, "integrations/sdk-agents.mdx");
 const CLI_AGENTS_INTEGRATION = join(DOCS, "integrations/cli-agents.mdx");
+const CLI_AGENT_AVAILABILITY_TYPE = join(root, "apps/cli/src/AgentAvailability.ts");
+const CLI_AGENT_DETECTION_SOURCE = join(root, "apps/cli/src/agent-detection.js");
 const CLI_HIJACK_SOURCE = join(root, "apps/cli/src/hijack.js");
 const NATIVE_HIJACK_ENGINE_SOURCE = join(root, "apps/cli/src/NativeHijackEngine.ts");
 const BASE_CLI_AGENT_SOURCE = join(root, "packages/agents/src/BaseCliAgent/BaseCliAgent.js");
@@ -1441,6 +1443,8 @@ function checkSdkAgentDocsMatchSourceTypes() {
 function checkCliAgentDocsMatchCurrentModelDefaults() {
   const files = new Map([
     [CLI_AGENTS_INTEGRATION, readFileSync(CLI_AGENTS_INTEGRATION, "utf8")],
+    [CLI_AGENT_AVAILABILITY_TYPE, readFileSync(CLI_AGENT_AVAILABILITY_TYPE, "utf8")],
+    [CLI_AGENT_DETECTION_SOURCE, readFileSync(CLI_AGENT_DETECTION_SOURCE, "utf8")],
     [BASE_CLI_AGENT_SOURCE, readFileSync(BASE_CLI_AGENT_SOURCE, "utf8")],
   ]);
   const required = [
@@ -1454,6 +1458,8 @@ function checkCliAgentDocsMatchCurrentModelDefaults() {
     [CLI_AGENTS_INTEGRATION, "AmpAgent,amp,CLI default,thread id"],
     [CLI_AGENTS_INTEGRATION, "VibeAgent,vibe,CLI default,headless session id"],
     [CLI_AGENTS_INTEGRATION, "OpenCodeAgent,opencode,CLI default,not yet"],
+    [CLI_AGENT_DETECTION_SOURCE, 'id: "vibe"'],
+    [CLI_AGENT_AVAILABILITY_TYPE, '"vibe"'],
   ];
   const forbidden = [
     [CLI_AGENTS_INTEGRATION, "agents[10]{class,cli,defaultModel,hijack,notes}:"],
