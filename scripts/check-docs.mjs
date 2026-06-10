@@ -262,17 +262,21 @@ function checkRunStateDocsMatchCurrentEmission() {
     [join(root, "docs/runtime/run-state.mdx"), readFileSync(join(root, "docs/runtime/run-state.mdx"), "utf8")],
     [join(root, "docs/runtime/events.mdx"), readFileSync(join(root, "docs/runtime/events.mdx"), "utf8")],
     [join(root, "docs/reference/event-types.mdx"), readFileSync(join(root, "docs/reference/event-types.mdx"), "utf8")],
+    [join(root, "docs/reference/types.mdx"), readFileSync(join(root, "docs/reference/types.mdx"), "utf8")],
   ]);
   const required = [
     [join(root, "docs/runtime/run-state.mdx"), "RunStateChanged` is a typed/reserved event variant, but the current runtime"],
     [join(root, "docs/runtime/events.mdx"), "the current runtime does not emit it"],
     [join(root, "docs/reference/event-types.mdx"), "typed and categorized for forward compatibility, but the current runtime does not emit it"],
+    [join(root, "docs/reference/types.mdx"), "`SmithersEvent` is the discriminated union understood by the runtime and"],
+    [join(root, "docs/reference/types.mdx"), "Most variants are emitted by the runtime; reserved"],
   ];
   const forbidden = [
     [join(root, "docs/runtime/run-state.mdx"), "emitted by the recovery state machine"],
     [join(root, "docs/runtime/run-state.mdx"), "Event stream: `RunStateChanged` event"],
     [join(root, "docs/runtime/events.mdx"), "every lifecycle event the runtime emits"],
     [join(root, "docs/reference/event-types.mdx"), "discriminated union emitted by the runtime"],
+    [join(root, "docs/reference/types.mdx"), "every lifecycle event the runtime"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));

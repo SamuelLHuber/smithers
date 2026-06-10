@@ -280,9 +280,10 @@ type XmlText = { readonly kind: "text"; readonly text: string };
 // Events
 // =============================================================================
 //
-// `SmithersEvent` is a discriminated union of every lifecycle event the runtime
-// emits. The full union is documented separately to keep this
-// file usable as the everyday type reference.
+// `SmithersEvent` is the discriminated union understood by the runtime and
+// observability layer. Most variants are emitted by the runtime; reserved
+// variants are called out in Event Types. The full union is documented
+// separately to keep this file usable as the everyday type reference.
 //
 // See: /reference/event-types (rendered) or /llms-full.txt (LLM bundle).
 
