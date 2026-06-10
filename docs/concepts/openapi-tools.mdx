@@ -6,6 +6,8 @@ description: Generate AI SDK tools from an OpenAPI spec. Auth, filtering, observ
 `createOpenApiTools` parses an OpenAPI 3.x spec and returns AI SDK tools, one per operation, with Zod schemas converted from the spec's JSON schemas.
 
 ```ts
+import { ToolLoopAgent } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
 import { createOpenApiTools } from "smithers-orchestrator/openapi";
 
 const tools = await createOpenApiTools("./petstore.json", {

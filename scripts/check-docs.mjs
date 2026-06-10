@@ -2175,6 +2175,8 @@ function checkOpenApiDocsMatchCurrentPackage() {
     [OPENAPI_DECLARATIONS, readFileSync(OPENAPI_DECLARATIONS, "utf8")],
   ]);
   const required = [
+    [OPENAPI_CONCEPTS, 'import { ToolLoopAgent } from "ai";'],
+    [OPENAPI_CONCEPTS, 'import { anthropic } from "@ai-sdk/anthropic";'],
     [OPENAPI_CONCEPTS, "`loadSpecEffect(input)` | Load and parse a spec from object, path, URL, or raw text."],
     [OPENAPI_CONCEPTS, "`loadSpecSync(input)` | Load and parse a spec from object, local file path, or raw text. It does not fetch URLs."],
     [OPENAPI_CONCEPTS, "`jsonSchemaToZod(schema, spec, visited?)` / `buildOperationSchema(parameters, requestBody, spec)`"],
