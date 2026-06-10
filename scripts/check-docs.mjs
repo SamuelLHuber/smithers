@@ -36,6 +36,7 @@ const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
 const MCP_SEMANTIC_TOOLS_SOURCE = join(root, "apps/cli/src/mcp/semantic-tools.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
 const COMMON_TOOLS_INTEGRATION = join(DOCS, "integrations/common-tools.mdx");
+const INTEGRATIONS_OVERVIEW = join(DOCS, "integrations/integrations.mdx");
 const SERVER_INTEGRATION = join(DOCS, "integrations/server.mdx");
 const SERVER_SOURCE = join(root, "packages/server/src/index.js");
 const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
@@ -69,7 +70,16 @@ const GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT = join(root, "packages/gateway-react
 const GATEWAY_OPTIONS_SOURCE = join(root, "packages/server/src/GatewayOptions.ts");
 const GATEWAY_AUTH_CONFIG_SOURCE = join(root, "packages/server/src/GatewayAuthConfig.ts");
 const GATEWAY_TOKEN_GRANT_SOURCE = join(root, "packages/server/src/GatewayTokenGrant.ts");
+const DOCS_CONFIG = join(DOCS, "docs.json");
+const GENERATE_LLMS_SCRIPT = join(root, "scripts/generate-llms.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
+const MCP_TOOLSET_INTEGRATION = join(DOCS, "integrations/mcp-toolset.mdx");
+const AGENTS_PACKAGE_JSON = join(root, "packages/agents/package.json");
+const MCP_CREATE_TOOLSET_SOURCE = join(root, "packages/agents/src/mcp/createMcpToolset.js");
+const MCP_CREATE_TOOLSET_DECLARATION = join(root, "packages/agents/src/mcp/createMcpToolset.d.ts");
+const MCP_SERVER_CONFIG_SOURCE = join(root, "packages/agents/src/mcp/McpServerConfig.ts");
+const MCP_TOOLSET_SOURCE = join(root, "packages/agents/src/mcp/McpToolset.ts");
+const MCP_TOOLSET_OPTIONS_SOURCE = join(root, "packages/agents/src/mcp/McpToolsetOptions.ts");
 const SDK_AGENTS_INTEGRATION = join(DOCS, "integrations/sdk-agents.mdx");
 const CLI_AGENTS_INTEGRATION = join(DOCS, "integrations/cli-agents.mdx");
 const PI_INTEGRATION = join(DOCS, "integrations/pi-integration.mdx");
@@ -2740,6 +2750,138 @@ function checkMcpIntegrationDocsMatchAgentOptions() {
   }
 }
 
+function checkMcpToolsetDocsMatchPackageSurface() {
+  const files = new Map([
+    [MCP_TOOLSET_INTEGRATION, readFileSync(MCP_TOOLSET_INTEGRATION, "utf8")],
+    [INTEGRATIONS_OVERVIEW, readFileSync(INTEGRATIONS_OVERVIEW, "utf8")],
+    [DOCS_CONFIG, readFileSync(DOCS_CONFIG, "utf8")],
+    [GENERATE_LLMS_SCRIPT, readFileSync(GENERATE_LLMS_SCRIPT, "utf8")],
+    [AGENTS_PACKAGE_JSON, readFileSync(AGENTS_PACKAGE_JSON, "utf8")],
+    [MCP_CREATE_TOOLSET_SOURCE, readFileSync(MCP_CREATE_TOOLSET_SOURCE, "utf8")],
+    [MCP_CREATE_TOOLSET_DECLARATION, readFileSync(MCP_CREATE_TOOLSET_DECLARATION, "utf8")],
+    [MCP_SERVER_CONFIG_SOURCE, readFileSync(MCP_SERVER_CONFIG_SOURCE, "utf8")],
+    [MCP_TOOLSET_SOURCE, readFileSync(MCP_TOOLSET_SOURCE, "utf8")],
+    [MCP_TOOLSET_OPTIONS_SOURCE, readFileSync(MCP_TOOLSET_OPTIONS_SOURCE, "utf8")],
+  ]);
+  const required = [
+    [MCP_CREATE_TOOLSET_SOURCE, 'import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";'],
+    [MCP_CREATE_TOOLSET_SOURCE, 'import { dynamicTool, jsonSchema } from "ai";'],
+    [MCP_CREATE_TOOLSET_SOURCE, 'import("./McpToolsetOptions.ts").McpToolsetOptions'],
+    [MCP_CREATE_TOOLSET_SOURCE, "export async function createMcpToolset(config, options = {})"],
+    [MCP_CREATE_TOOLSET_SOURCE, "command: config.command"],
+    [MCP_CREATE_TOOLSET_SOURCE, "args: config.args ?? []"],
+    [MCP_CREATE_TOOLSET_SOURCE, "...(config.env ? { env: config.env } : {})"],
+    [MCP_CREATE_TOOLSET_SOURCE, "...(config.cwd ? { cwd: config.cwd } : {})"],
+    [MCP_CREATE_TOOLSET_SOURCE, 'options.clientName ?? "smithers-mcp-toolset"'],
+    [MCP_CREATE_TOOLSET_SOURCE, 'options.clientVersion ?? "0.0.0"'],
+    [MCP_CREATE_TOOLSET_SOURCE, "const listed = await client.listTools();"],
+    [MCP_CREATE_TOOLSET_SOURCE, "if (options.include && !options.include.includes(mcpTool.name)) continue;"],
+    [MCP_CREATE_TOOLSET_SOURCE, "if (options.exclude && options.exclude.includes(mcpTool.name)) continue;"],
+    [MCP_CREATE_TOOLSET_SOURCE, "tools[`${prefix}${mcpTool.name}`]"],
+    [MCP_CREATE_TOOLSET_SOURCE, "dynamicTool({"],
+    [MCP_CREATE_TOOLSET_SOURCE, "jsonSchema("],
+    [MCP_CREATE_TOOLSET_SOURCE, "const result = await client.callTool({"],
+    [MCP_CREATE_TOOLSET_SOURCE, "return { error: true, message: text ||"],
+    [MCP_CREATE_TOOLSET_SOURCE, "return result.structuredContent ?? text;"],
+    [MCP_SERVER_CONFIG_SOURCE, "export type McpServerConfig ="],
+    [MCP_SERVER_CONFIG_SOURCE, "command: string;"],
+    [MCP_SERVER_CONFIG_SOURCE, "args?: string[];"],
+    [MCP_SERVER_CONFIG_SOURCE, "env?: Record<string, string>;"],
+    [MCP_SERVER_CONFIG_SOURCE, "cwd?: string;"],
+    [MCP_TOOLSET_OPTIONS_SOURCE, "export type McpToolsetOptions ="],
+    [MCP_TOOLSET_OPTIONS_SOURCE, "include?: string[];"],
+    [MCP_TOOLSET_OPTIONS_SOURCE, "exclude?: string[];"],
+    [MCP_TOOLSET_OPTIONS_SOURCE, "namePrefix?: string;"],
+    [MCP_TOOLSET_OPTIONS_SOURCE, "clientName?: string;"],
+    [MCP_TOOLSET_OPTIONS_SOURCE, "clientVersion?: string;"],
+    [MCP_TOOLSET_SOURCE, "tools: Record<string, Tool>;"],
+    [MCP_TOOLSET_SOURCE, "toolNames: string[];"],
+    [MCP_TOOLSET_SOURCE, "close: () => Promise<void>;"],
+    [MCP_CREATE_TOOLSET_DECLARATION, "export type { McpServerConfig }"],
+    [MCP_CREATE_TOOLSET_DECLARATION, "export type { McpToolset }"],
+    [MCP_CREATE_TOOLSET_DECLARATION, "export type { McpToolsetOptions }"],
+    [MCP_CREATE_TOOLSET_DECLARATION, "export declare function createMcpToolset("],
+    [MCP_CREATE_TOOLSET_DECLARATION, "options?: McpToolsetOptions"],
+    [MCP_CREATE_TOOLSET_DECLARATION, "): Promise<McpToolset>;"],
+    [MCP_TOOLSET_INTEGRATION, 'from "@smithers-orchestrator/agents/mcp/createMcpToolset";'],
+    [MCP_TOOLSET_INTEGRATION, "it is not re-exported from the top-level `smithers-orchestrator` facade"],
+    [MCP_TOOLSET_INTEGRATION, "Call `close()` in a `finally` block"],
+    [MCP_TOOLSET_INTEGRATION, "type McpServerConfig = {"],
+    [MCP_TOOLSET_INTEGRATION, "command: string;"],
+    [MCP_TOOLSET_INTEGRATION, "env?: Record<string, string>;"],
+    [MCP_TOOLSET_INTEGRATION, "type McpToolsetOptions = {"],
+    [MCP_TOOLSET_INTEGRATION, "include?: string[];"],
+    [MCP_TOOLSET_INTEGRATION, "exclude?: string[];"],
+    [MCP_TOOLSET_INTEGRATION, "namePrefix?: string;"],
+    [MCP_TOOLSET_INTEGRATION, "clientName?: string;"],
+    [MCP_TOOLSET_INTEGRATION, "clientVersion?: string;"],
+    [MCP_TOOLSET_INTEGRATION, "type McpToolset = {"],
+    [MCP_TOOLSET_INTEGRATION, "tools: Record<string, import(\"ai\").Tool>;"],
+    [MCP_TOOLSET_INTEGRATION, "toolNames: string[];"],
+    [MCP_TOOLSET_INTEGRATION, "close: () => Promise<void>;"],
+    [MCP_TOOLSET_INTEGRATION, 'clientName: "smithers-mcp-toolset"'],
+    [MCP_TOOLSET_INTEGRATION, 'clientVersion: "0.0.0"'],
+    [MCP_TOOLSET_INTEGRATION, "`include` and `exclude` match the original MCP server tool names before `namePrefix` is applied"],
+    [MCP_TOOLSET_INTEGRATION, "If both match a tool, `exclude` wins."],
+    [MCP_TOOLSET_INTEGRATION, "`toolNames` contains the final names after filtering and prefixing"],
+    [MCP_TOOLSET_INTEGRATION, "calls `tools/list` once"],
+    [MCP_TOOLSET_INTEGRATION, "calls MCP `tools/call`"],
+    [MCP_TOOLSET_INTEGRATION, "return `structuredContent`"],
+    [MCP_TOOLSET_INTEGRATION, '{ error: true, message, status: "failed" }'],
+    [MCP_TOOLSET_INTEGRATION, "empty object JSON schema"],
+    [MCP_TOOLSET_INTEGRATION, "CLI agents consume MCP through their native configuration surfaces, not through `createMcpToolset`."],
+    [INTEGRATIONS_OVERVIEW, "[MCP Toolset](/integrations/mcp-toolset) turns that server into AI SDK tools"],
+    [DOCS_CONFIG, '"integrations/mcp-toolset"'],
+    [GENERATE_LLMS_SCRIPT, '"integrations/mcp-toolset.mdx"'],
+  ];
+  const forbidden = [
+    [MCP_TOOLSET_INTEGRATION, 'import { createMcpToolset } from "smithers-orchestrator";'],
+    [MCP_TOOLSET_INTEGRATION, "does not need `close()`"],
+    [MCP_TOOLSET_INTEGRATION, "CLI agents consume MCP through `createMcpToolset`"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  const problems = [];
+
+  try {
+    const agentsPackage = JSON.parse(files.get(AGENTS_PACKAGE_JSON));
+    const exportEntry = agentsPackage.exports?.["./mcp/createMcpToolset"];
+    if (!exportEntry) {
+      problems.push("packages/agents/package.json missing ./mcp/createMcpToolset export");
+    } else {
+      if (exportEntry.types !== "./src/mcp/createMcpToolset.d.ts") {
+        problems.push("./mcp/createMcpToolset export must point types at ./src/mcp/createMcpToolset.d.ts");
+      }
+      if (exportEntry.import !== "./src/mcp/createMcpToolset.js") {
+        problems.push("./mcp/createMcpToolset export must point import at ./src/mcp/createMcpToolset.js");
+      }
+      if (exportEntry.default !== "./src/mcp/createMcpToolset.js") {
+        problems.push("./mcp/createMcpToolset export must point default at ./src/mcp/createMcpToolset.js");
+      }
+    }
+  } catch (error) {
+    problems.push(`could not parse packages/agents/package.json: ${error.message}`);
+  }
+
+  if (missing.length || stale.length || problems.length) {
+    failed = true;
+    console.error("\n✗ MCP toolset docs must match the package export, source types, and runtime behavior:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (problems.length) console.error(`    ${problems.join("\n    ")}`);
+  } else {
+    console.log("✓ MCP toolset docs match the package export, source types, and runtime behavior");
+  }
+}
+
 function checkMcpSemanticDocsMatchSchemas() {
   const docs = readFileSync(join(root, "docs/integrations/mcp-server.mdx"), "utf8");
   const semanticTools = readFileSync(MCP_SEMANTIC_TOOLS_SOURCE, "utf8");
@@ -3291,6 +3433,7 @@ checkMemoryDocsMatchSourceTypes();
 checkScorerDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
+checkMcpToolsetDocsMatchPackageSurface();
 checkMcpSemanticDocsMatchSchemas();
 checkSdkAgentDocsMatchSourceTypes();
 checkCliAgentDocsMatchCurrentModelDefaults();

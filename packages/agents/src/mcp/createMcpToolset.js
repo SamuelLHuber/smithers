@@ -4,18 +4,7 @@ import { dynamicTool, jsonSchema } from "ai";
 
 /** @typedef {import("./McpServerConfig.ts").McpServerConfig} McpServerConfig */
 /** @typedef {import("./McpToolset.ts").McpToolset} McpToolset */
-
-/**
- * Options for shaping the generated toolset. Mirrors the curation knobs on
- * `createOpenApiTools` so MCP and OpenAPI integrations feel the same.
- *
- * @typedef {object} McpToolsetOptions
- * @property {string[]} [include] Only expose these MCP tool names.
- * @property {string[]} [exclude] Drop these MCP tool names.
- * @property {string} [namePrefix] Prefix applied to every tool name (e.g. `"github_"`).
- * @property {string} [clientName] Identifies this client to the server.
- * @property {string} [clientVersion] Client version reported to the server.
- */
+/** @typedef {import("./McpToolsetOptions.ts").McpToolsetOptions} McpToolsetOptions */
 
 /**
  * Connect to an MCP server and expose its tools as AI SDK tools an agent can call.

@@ -134,6 +134,7 @@ const INTEGRATIONS_PAGES = [
   "integrations/integrations.mdx",
   "integrations/cli-agents.mdx",
   "integrations/sdk-agents.mdx",
+  "integrations/mcp-toolset.mdx",
   "integrations/tools.mdx",
   "integrations/common-tools.mdx",
   "integrations/ecosystem.mdx",

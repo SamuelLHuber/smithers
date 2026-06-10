@@ -35,6 +35,11 @@
       "import": "./src/cli-capabilities/index.js",
       "default": "./src/cli-capabilities/index.js"
     },
+    "./mcp/createMcpToolset": {
+      "types": "./src/mcp/createMcpToolset.d.ts",
+      "import": "./src/mcp/createMcpToolset.js",
+      "default": "./src/mcp/createMcpToolset.js"
+    },
     "./*": {
       "types": "./src/index.d.ts",
       "import": "./src/*.js",
