@@ -5149,9 +5149,9 @@ type ApprovalMode      = "approve" | "select" | "rank";
 type ApprovalOption    = { key: string; label: string; summary?: string; metadata?: Record<string, unknown> };
 type ApprovalAutoApprove = {
   after?: number;
-  condition?: ((ctx: any) => boolean) | (() => boolean);
+  condition?: ((ctx: SmithersCtx<unknown> | null) => boolean) | (() => boolean);
   audit?: boolean;
-  revertOn?: ((ctx: any) => boolean) | (() => boolean);
+  revertOn?: ((ctx: SmithersCtx<unknown> | null) => boolean) | (() => boolean);
 };
 
 type ApprovalProps<Row = ApprovalDecision, Output extends OutputTarget = OutputTarget> = {
@@ -5244,7 +5244,7 @@ type TryCatchFinallyProps = {
 // Higher-level composites
 type PollerProps = {
   id?: string;
-  check: AgentLike | ((...args: any[]) => any);
+  check: AgentLike | (() => unknown | Promise<unknown>);
   checkOutput: OutputTarget;
   maxAttempts?: number;
   backoff?: "fixed" | "linear" | "exponential";
@@ -5254,12 +5254,14 @@ type PollerProps = {
   children?: React.ReactNode;
 };
 
+type ColumnTaskProps = Omit<Partial<TaskProps<unknown>>, "agent" | "children" | "id" | "key" | "output" | "smithersContext">;
+
 type ColumnDef = {
   name: string;
   agent: AgentLike;
   output: OutputTarget;
   prompt?: (ctx: { item: unknown; column: string }) => string;
-  task?: Partial<TaskProps<unknown>>;
+  task?: ColumnTaskProps;
 };
 
 type KanbanProps = {

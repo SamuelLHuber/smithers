@@ -435,6 +435,51 @@ function checkServeDocsMatchServerTypes() {
   }
 }
 
+function checkComponentPropsDocsMatchSourceTypes() {
+  const files = new Map([
+    [join(root, "packages/components/src/components/ApprovalAutoApprove.ts"), readFileSync(join(root, "packages/components/src/components/ApprovalAutoApprove.ts"), "utf8")],
+    [join(root, "packages/components/src/components/PollerProps.ts"), readFileSync(join(root, "packages/components/src/components/PollerProps.ts"), "utf8")],
+    [join(root, "packages/components/src/components/ColumnDef.ts"), readFileSync(join(root, "packages/components/src/components/ColumnDef.ts"), "utf8")],
+    [join(root, "docs/reference/types.mdx"), readFileSync(join(root, "docs/reference/types.mdx"), "utf8")],
+    [join(root, "docs/components/poller.mdx"), readFileSync(join(root, "docs/components/poller.mdx"), "utf8")],
+  ]);
+  const required = [
+    [join(root, "packages/components/src/components/ApprovalAutoApprove.ts"), "SmithersCtx<unknown> | null"],
+    [join(root, "packages/components/src/components/PollerProps.ts"), "check: AgentLike | (() => unknown | Promise<unknown>);"],
+    [join(root, "packages/components/src/components/ColumnDef.ts"), 'type ColumnTaskProps = Omit<Partial<TaskProps<unknown>>, "agent" | "children" | "id" | "key" | "output" | "smithersContext">;'],
+    [join(root, "docs/reference/types.mdx"), "condition?: ((ctx: SmithersCtx<unknown> | null) => boolean) | (() => boolean);"],
+    [join(root, "docs/reference/types.mdx"), "revertOn?: ((ctx: SmithersCtx<unknown> | null) => boolean) | (() => boolean);"],
+    [join(root, "docs/reference/types.mdx"), "check: AgentLike | (() => unknown | Promise<unknown>);"],
+    [join(root, "docs/reference/types.mdx"), 'type ColumnTaskProps = Omit<Partial<TaskProps<unknown>>, "agent" | "children" | "id" | "key" | "output" | "smithersContext">;'],
+    [join(root, "docs/reference/types.mdx"), "task?: ColumnTaskProps;"],
+    [join(root, "docs/components/poller.mdx"), "check: AgentLike | (() => Promise<unknown> | unknown);"],
+  ];
+  const forbidden = [
+    [join(root, "docs/reference/types.mdx"), "condition?: ((ctx: any) => boolean) | (() => boolean);"],
+    [join(root, "docs/reference/types.mdx"), "revertOn?: ((ctx: any) => boolean) | (() => boolean);"],
+    [join(root, "docs/reference/types.mdx"), "check: AgentLike | ((...args: any[]) => any);"],
+    [join(root, "docs/reference/types.mdx"), "task?: Partial<TaskProps<unknown>>;"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Component prop docs must match source prop declarations:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Component prop docs match source prop declarations");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -447,5 +492,6 @@ checkRunStateDocsMatchCurrentEmission();
 checkGatewayGetRunDocsMatchResponseShape();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
+checkComponentPropsDocsMatchSourceTypes();
 
 process.exit(failed ? 1 : 0);
