@@ -697,6 +697,64 @@ function checkRunStateDocsMatchCurrentEmission() {
   }
 }
 
+function checkRunStateDocsMatchDerivationContract() {
+  const runStateDoc = join(root, "docs/runtime/run-state.mdx");
+  const deriveSource = join(root, "packages/db/src/runState/deriveRunState.js");
+  const computeFromRowSource = join(root, "packages/db/src/runState/computeRunStateFromRow.js");
+  const runStateViewType = join(root, "packages/db/src/runState/RunStateView.ts");
+  const deriveTest = join(root, "packages/db/tests/runState-deriveRunState.test.js");
+  const files = new Map([
+    [runStateDoc, readFileSync(runStateDoc, "utf8")],
+    [deriveSource, readFileSync(deriveSource, "utf8")],
+    [computeFromRowSource, readFileSync(computeFromRowSource, "utf8")],
+    [runStateViewType, readFileSync(runStateViewType, "utf8")],
+    [deriveTest, readFileSync(deriveTest, "utf8")],
+  ]);
+  const required = [
+    [runStateDoc, "`ReasonBlocked` and `ReasonUnhealthy` are optional reason payloads"],
+    [runStateDoc, "A `waiting-*` state can be returned without"],
+    [runStateDoc, "Current `computeRunState` / `deriveRunState`"],
+    [runStateDoc, "emits `approval`, `event`, and `timer` blocked reasons"],
+    [runStateDoc, "view.blocked;     // present for waiting-* only when backing context is found"],
+    [runStateDoc, "view.unhealthy;   // present for stale/orphaned heartbeat expiry"],
+    [deriveSource, ': { ...base, state: "waiting-approval" };'],
+    [deriveSource, ': { ...base, state: "waiting-timer" };'],
+    [deriveSource, ': { ...base, state: "waiting-event" };'],
+    [computeFromRowSource, "pendingApproval = await loadPendingApproval(adapter, run.runId);"],
+    [computeFromRowSource, "pendingTimer = await loadPendingTimer(adapter, run.runId);"],
+    [computeFromRowSource, "pendingEvent = await loadPendingEvent(adapter, run.runId);"],
+    [runStateViewType, "blocked?: ReasonBlocked;"],
+    [runStateViewType, "unhealthy?: ReasonUnhealthy;"],
+    [deriveTest, "waiting-approval without context"],
+    [deriveTest, "expect(view.blocked).toBeUndefined();"],
+  ];
+  const forbidden = [
+    [runStateDoc, "Every non-terminal, non-`running` state carries a typed reason."],
+    [runStateDoc, "`blocked` is set when `state` is one of the `waiting-*` values."],
+    [runStateDoc, "`unhealthy` is set when `state` is `stale`, `orphaned`, or `recovering`."],
+    [runStateDoc, 'view.blocked;     // present iff state is "waiting-*"'],
+    [runStateDoc, 'view.unhealthy;   // present iff state is "stale" | "orphaned" | "recovering"'],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ RunState docs must describe optional reason payloads:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ RunState docs describe optional reason payloads");
+  }
+}
+
 function checkGatewayRpcReferenceDocsMatchRegistry() {
   const definitions = readGatewayRpcDefinitionsFromSource();
   const expectedDocs = definitions.map((definition) => kebabRpcDocName(definition.method)).sort();
@@ -2487,6 +2545,7 @@ checkImplementedApisNotMarkedComingSoon();
 checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
+checkRunStateDocsMatchDerivationContract();
 checkGatewayRpcReferenceDocsMatchRegistry();
 checkGatewayRpcErrorTableMatchesRegistry();
 checkGatewayLegacyErrorAliasDocsMatchStatusMap();
