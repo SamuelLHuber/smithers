@@ -12,7 +12,7 @@
  *   bun scripts/normalize-placeholders.ts
  */
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -536,10 +536,29 @@ function readTomlScalar(source, key, section) {
   return sectionSource?.match(new RegExp(`^${key}\\s*=\\s*(.+)$`, "m"))?.[1]?.trim();
 }
 
+function readWorkspacePackageNames() {
+  const names = [];
+  for (const dir of ["packages", "apps"]) {
+    const fullDir = join(root, dir);
+    for (const name of readdirSync(fullDir)) {
+      const packageJsonPath = join(fullDir, name, "package.json");
+      if (!existsSync(packageJsonPath)) continue;
+      names.push(JSON.parse(readFileSync(packageJsonPath, "utf8")).name);
+    }
+  }
+  return names.sort();
+}
+
 function checkPackageConfigurationDocsMatchRootConfig() {
   const docs = readFileSync(PACKAGE_CONFIGURATION_REFERENCE, "utf8");
   const bunfig = readFileSync(ROOT_BUNFIG, "utf8");
   const packageJson = JSON.parse(readFileSync(ROOT_PACKAGE_JSON, "utf8"));
+  const workspacePackageNames = readWorkspacePackageNames();
+  const documentedWorkspacePackageNames = [...docs.matchAll(/^\| `(@smithers-orchestrator\/[^`]+|smithers-orchestrator)` \|/gm)]
+    .map((match) => match[1])
+    .sort();
+  const missingWorkspacePackageRows = workspacePackageNames.filter((name) => !documentedWorkspacePackageNames.includes(name));
+  const extraWorkspacePackageRows = documentedWorkspacePackageNames.filter((name) => !workspacePackageNames.includes(name));
   const runtimePreload = readTomlScalar(bunfig, "preload");
   const testRoot = readTomlScalar(bunfig, "root", "test");
   const testPreload = readTomlScalar(bunfig, "preload", "test");
@@ -557,6 +576,7 @@ function checkPackageConfigurationDocsMatchRootConfig() {
     testPreload ? `preload = ${testPreload}` : null,
     testRoot ? `| \`root\` | \`${testRoot.replace(/^"|"$/g, "")}\` |` : null,
     testPreload ? `| \`preload\` | \`${testPreload}\` |` : null,
+    "Most applications should import from `smithers-orchestrator`. The workspace packages below are listed for advanced integrations, custom clients, framework development, and monorepo orientation. Some app workspaces are private and are not published packages.",
     ...exportRows,
     ...Object.entries(packageJson.scripts ?? {}).map(([script, command]) => `| \`${script}\` | \`${command}\` |`),
   ].filter(Boolean);
@@ -568,10 +588,11 @@ function checkPackageConfigurationDocsMatchRootConfig() {
     "| `smithers-orchestrator/server` | `./src/server.js` |",
     "| `smithers-orchestrator/scorers` | `./src/scorers.js` |",
     "| `smithers-orchestrator/sandbox` | `./src/sandbox.js` |",
+    "The scoped workspace packages below are published for advanced integrations",
   ];
   const missing = required.filter((needle) => !docs.includes(needle));
   const stale = forbidden.filter((needle) => docs.includes(needle));
-  if (missing.length || stale.length || !runtimePreload || !testRoot || !testPreload) {
+  if (missing.length || stale.length || missingWorkspacePackageRows.length || extraWorkspacePackageRows.length || !runtimePreload || !testRoot || !testPreload) {
     failed = true;
     console.error("\n✗ Package configuration docs must match root package.json and bunfig.toml:");
     if (!runtimePreload) console.error("    could not read root bunfig.toml preload");
@@ -579,6 +600,8 @@ function checkPackageConfigurationDocsMatchRootConfig() {
     if (!testPreload) console.error("    could not read bunfig.toml [test].preload");
     if (missing.length) console.error(`    missing: ${missing.join(", ")}`);
     if (stale.length) console.error(`    stale: ${stale.join(", ")}`);
+    if (missingWorkspacePackageRows.length) console.error(`    missing workspace package rows: ${missingWorkspacePackageRows.join(", ")}`);
+    if (extraWorkspacePackageRows.length) console.error(`    extra workspace package rows: ${extraWorkspacePackageRows.join(", ")}`);
   } else {
     console.log("✓ package configuration docs match root package.json and bunfig.toml");
   }

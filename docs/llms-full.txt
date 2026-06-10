@@ -6112,7 +6112,7 @@ The PI plugin is published as the separate `@smithers-orchestrator/pi-plugin` pa
 
 ## Workspace Packages
 
-Most applications should import from `smithers-orchestrator`. The scoped workspace packages below are published for advanced integrations, custom clients, and framework development.
+Most applications should import from `smithers-orchestrator`. The workspace packages below are listed for advanced integrations, custom clients, framework development, and monorepo orientation. Some app workspaces are private and are not published packages.
 
 | Package | Primary surface | Related docs |
 |---|---|---|
