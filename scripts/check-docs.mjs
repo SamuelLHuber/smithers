@@ -22,6 +22,8 @@ const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitio
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
 const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
+const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
+const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
 const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
 const ROOT_BUNFIG = join(root, "bunfig.toml");
@@ -530,6 +532,89 @@ function checkPackageConfigurationDocsMatchRootConfig() {
   }
 }
 
+function normalizeCliManifestCommand(command) {
+  return command
+    .trim()
+    .replace(/\s+(?:<[^>]+>|\[[^\]]+\])/g, "")
+    .trim()
+    .replace(/\s+/g, ".");
+}
+
+function runCli(args) {
+  return spawnSync("bun", [CLI_ENTRYPOINT, ...args], { cwd: root, encoding: "utf8" });
+}
+
+function checkCliOverviewCommandCatalogMatchesCli() {
+  const docs = readFileSync(CLI_OVERVIEW, "utf8");
+  const block = docs.match(/```toon\ncommands\[(\d+)\]:\n([\s\S]*?)\n```/);
+  const declaredCount = block ? Number(block[1]) : NaN;
+  const documented = block
+    ? [...block[2].matchAll(/^  - name: ([^\n]+)/gm)].map((match) => match[1].trim().replace(/^"|"$/g, ""))
+    : [];
+  const llms = runCli(["--llms"]);
+  const topLevelHelp = runCli(["--help"]);
+  const mcpHelp = runCli(["mcp", "--help"]);
+  const skillsHelp = runCli(["skills", "--help"]);
+  const completionsHelp = runCli(["completions", "--help"]);
+  const cliCommands =
+    llms.status === 0
+      ? [...llms.stdout.matchAll(/\| `smithers ([^`]+)` \|/g)].map((match) =>
+          normalizeCliManifestCommand(match[1]),
+        )
+      : [];
+  const documentedSet = new Set(documented);
+  const missingCliCommands = cliCommands.filter((command) => !documentedSet.has(command));
+  const integrationEvidence = [
+    ["completions", topLevelHelp.stdout.includes("completions") && completionsHelp.stdout.includes("Usage: smithers completions")],
+    ["mcp.add", topLevelHelp.stdout.includes("mcp add") && mcpHelp.stdout.includes("add  Register as MCP server")],
+    ["skills.add", topLevelHelp.stdout.includes("skills") && skillsHelp.stdout.includes("add   Sync skill files to agents")],
+    ["skills.list", topLevelHelp.stdout.includes("skills") && skillsHelp.stdout.includes("list  List skills")],
+  ];
+  const missingIntegrationDocs = integrationEvidence
+    .filter(([command, backedByCli]) => backedByCli && !documentedSet.has(command))
+    .map(([command]) => command);
+  const missingIntegrationHelp = integrationEvidence
+    .filter(([, backedByCli]) => !backedByCli)
+    .map(([command]) => command);
+  if (
+    !block ||
+    declaredCount !== documented.length ||
+    llms.status !== 0 ||
+    topLevelHelp.status !== 0 ||
+    mcpHelp.status !== 0 ||
+    skillsHelp.status !== 0 ||
+    completionsHelp.status !== 0 ||
+    missingCliCommands.length ||
+    missingIntegrationDocs.length ||
+    missingIntegrationHelp.length
+  ) {
+    failed = true;
+    console.error("\n✗ docs/cli/overview.mdx command catalog must match the live CLI:");
+    if (!block) console.error("    TOON command catalog block not found");
+    if (block && declaredCount !== documented.length) {
+      console.error(`    commands[${declaredCount}] declares ${declaredCount}, but documents ${documented.length}`);
+    }
+    if (llms.status !== 0) console.error(`    bun apps/cli/src/index.js --llms failed with status ${llms.status}`);
+    if (topLevelHelp.status !== 0) console.error(`    bun apps/cli/src/index.js --help failed with status ${topLevelHelp.status}`);
+    if (mcpHelp.status !== 0) console.error(`    bun apps/cli/src/index.js mcp --help failed with status ${mcpHelp.status}`);
+    if (skillsHelp.status !== 0) {
+      console.error(`    bun apps/cli/src/index.js skills --help failed with status ${skillsHelp.status}`);
+    }
+    if (completionsHelp.status !== 0) {
+      console.error(`    bun apps/cli/src/index.js completions --help failed with status ${completionsHelp.status}`);
+    }
+    if (missingCliCommands.length) console.error(`    missing CLI manifest commands: ${missingCliCommands.join(", ")}`);
+    if (missingIntegrationDocs.length) {
+      console.error(`    missing integration commands: ${missingIntegrationDocs.join(", ")}`);
+    }
+    if (missingIntegrationHelp.length) {
+      console.error(`    documented integration commands are not backed by CLI help: ${missingIntegrationHelp.join(", ")}`);
+    }
+  } else {
+    console.log("✓ CLI overview command catalog matches live CLI command names");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -544,5 +629,6 @@ checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkComponentPropsDocsMatchSourceTypes();
 checkPackageConfigurationDocsMatchRootConfig();
+checkCliOverviewCommandCatalogMatchesCli();
 
 process.exit(failed ? 1 : 0);
