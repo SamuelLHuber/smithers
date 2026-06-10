@@ -175,7 +175,7 @@ export async function bashTool(cmd, args = [], opts = undefined) {
 
 export const bash = defineTool({
   name: "bash",
-  description: "Execute a shell command",
+  description: "Run an executable with arguments",
   schema: z.object({
     cmd: z.string(),
     args: z.array(z.string()).optional(),

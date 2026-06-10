@@ -2020,15 +2020,20 @@ function checkToolDocsMatchRuntimeLimitsAndNetwork() {
   const required = [
     [TOOLS_INTEGRATION, "Process output is truncated to `maxOutputBytes`"],
     [TOOLS_INTEGRATION, "`read`, `write`, and `edit` reject files, content, or patches that exceed it."],
+    [TOOLS_INTEGRATION, "Run an executable directly with arguments."],
+    [TOOLS_INTEGRATION, "cmd: string                     // executable path/name; no shell parsing"],
+    [TOOLS_INTEGRATION, "Use `args` for arguments. If you need shell syntax"],
     [TOOLS_INTEGRATION, "Smithers tokenizes `cmd` plus `args`."],
     [TOOLS_INTEGRATION, "matched for known network tools"],
     [TOOLS_INTEGRATION, "URL tokens are blocked by prefix"],
     [TOOLS_INTEGRATION, "`git` plus a `push`, `pull`, `fetch`, `clone`, or `remote` token"],
     [join(root, "packages/smithers/src/tools/bash.js"), "tokenExecutableName(token)"],
+    [join(root, "packages/smithers/src/tools/bash.js"), 'description: "Run an executable with arguments"'],
     [join(root, "packages/smithers/src/tools/bash.js"), "String(part).split(/\\s+/).filter(Boolean)"],
     [join(root, "packages/smithers/src/tools/bash.js"), "executables.has(name)"],
     [join(root, "packages/smithers/src/tools/bash.js"), "token.startsWith(scheme)"],
     [join(root, "packages/smithers/src/tools/bash.js"), 'new Set(["push", "pull", "fetch", "clone", "remote"])'],
+    [join(root, "packages/smithers/src/tools/utils.js"), "spawn(command, args"],
     [join(root, "packages/smithers/src/tools/utils.js"), "truncateToBytes(text, maxBytes)"],
     [join(root, "packages/smithers/src/tools/utils.js"), "assertReadableFileWithinLimit(path, maxBytes)"],
     [join(root, "packages/smithers/src/tools/write.js"), "Content too large"],
@@ -2046,6 +2051,7 @@ function checkToolDocsMatchRuntimeLimitsAndNetwork() {
     [TOOLS_INTEGRATION, "checked against these fragments"],
     [TOOLS_INTEGRATION, "| Category | Blocked strings |"],
     [TOOLS_INTEGRATION, "command string (executable + args) is checked"],
+    [TOOLS_INTEGRATION, "cmd: string                     // executable or command"],
   ];
   const missing = required.filter(([file, needle]) => !sourceByFile.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => sourceByFile.get(file)?.includes(needle));

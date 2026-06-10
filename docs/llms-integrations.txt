@@ -827,15 +827,17 @@ tests/auth.test.ts:8:  const token = createTestToken();
 
 ## bash
 
-Execute a shell command.
+Run an executable directly with arguments.
 
 ```ts
 {
-  cmd: string                     // executable or command
+  cmd: string                     // executable path/name; no shell parsing
   args?: string[]                 // arguments
   opts?: { cwd?: string }        // working directory (sandboxed)
 }
 ```
+
+Use `args` for arguments. If you need shell syntax such as pipes or redirects, invoke a shell explicitly, for example `cmd: "sh", args: ["-lc", "..."]`.
 
 Returns combined stdout and stderr. Working directory defaults to `rootDir`. Timeout: 60s (killed with `SIGKILL` via process group). Non-zero exit codes throw.
 
