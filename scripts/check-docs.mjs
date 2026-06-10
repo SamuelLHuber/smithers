@@ -33,6 +33,11 @@ const OPENAPI_HELPERS_SOURCE = join(root, "packages/openapi/src/tool-factory/_he
 const OPENAPI_LOAD_SPEC_EFFECT_SOURCE = join(root, "packages/openapi/src/loadSpecEffect.js");
 const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecSync.js");
 const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
+const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
+const CLAUDE_CODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/ClaudeCodeAgentOptions.ts");
+const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOptions.ts");
+const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptions.ts");
+const AMP_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AmpAgentOptions.ts");
 const MEMORY_TASK_CONFIG_SOURCE = join(root, "packages/memory/src/TaskMemoryConfig.ts");
 const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
@@ -826,6 +831,51 @@ function checkOpenApiDocsMatchCurrentPackage() {
   }
 }
 
+function checkMcpIntegrationDocsMatchAgentOptions() {
+  const files = new Map([
+    [MCP_INTEGRATION_EXAMPLE_README, readFileSync(MCP_INTEGRATION_EXAMPLE_README, "utf8")],
+    [CLAUDE_CODE_AGENT_OPTIONS_SOURCE, readFileSync(CLAUDE_CODE_AGENT_OPTIONS_SOURCE, "utf8")],
+    [CODEX_AGENT_OPTIONS_SOURCE, readFileSync(CODEX_AGENT_OPTIONS_SOURCE, "utf8")],
+    [KIMI_AGENT_OPTIONS_SOURCE, readFileSync(KIMI_AGENT_OPTIONS_SOURCE, "utf8")],
+    [AMP_AGENT_OPTIONS_SOURCE, readFileSync(AMP_AGENT_OPTIONS_SOURCE, "utf8")],
+    [join(root, "docs/agents/codex.mdx"), readFileSync(join(root, "docs/agents/codex.mdx"), "utf8")],
+  ]);
+  const required = [
+    [MCP_INTEGRATION_EXAMPLE_README, "**CLI agents** consume MCP"],
+    [MCP_INTEGRATION_EXAMPLE_README, "Claude Code, Kimi,\nand Amp expose MCP config flags"],
+    [MCP_INTEGRATION_EXAMPLE_README, "Codex reads MCP servers from\n`~/.codex/config.toml` or `codex mcp add`"],
+    [CLAUDE_CODE_AGENT_OPTIONS_SOURCE, "mcpConfig?: string[];"],
+    [KIMI_AGENT_OPTIONS_SOURCE, "mcpConfig?: string[];"],
+    [AMP_AGENT_OPTIONS_SOURCE, "mcpConfig?: string;"],
+    [join(root, "docs/agents/codex.mdx"), "[mcp_servers.smithers]"],
+    [join(root, "docs/agents/codex.mdx"), "codex mcp add smithers -- bunx smithers-orchestrator --mcp"],
+  ];
+  const forbidden = [
+    [MCP_INTEGRATION_EXAMPLE_README, "Claude Code,\nCodex, Kimi) consume MCP differently"],
+    [MCP_INTEGRATION_EXAMPLE_README, "Codex, Kimi) consume MCP differently"],
+    [MCP_INTEGRATION_EXAMPLE_README, "they take an `.mcp.json` config file via\nflags like `--mcp-config`"],
+    [CODEX_AGENT_OPTIONS_SOURCE, "mcpConfig"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ MCP integration docs must match current CLI-agent MCP option surfaces:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ MCP integration docs match current CLI-agent MCP option surfaces");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -845,5 +895,6 @@ checkCliOverviewWorkflowRunFlagsMatchSchema();
 checkToolDocsMatchCurrentRuntimeLogging();
 checkMemoryDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
+checkMcpIntegrationDocsMatchAgentOptions();
 
 process.exit(failed ? 1 : 0);

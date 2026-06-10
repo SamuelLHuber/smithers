@@ -60,8 +60,9 @@ createMcpToolset({
 ## Two consumption paths
 
 This prototype wires MCP tools into **SDK agents** (`AnthropicAgent`,
-`OpenAIAgent`) as an in-process `tools` record. **CLI agents** (Claude Code,
-Codex, Kimi) consume MCP differently: they take an `.mcp.json` config file via
-flags like `--mcp-config`. A `writeClaudeMcpConfig`-style helper that emits that
-file from the same `McpServerConfig` is the natural follow-up so one declaration
-targets both agent kinds. See issue #222.
+`OpenAIAgent`) as an in-process `tools` record. **CLI agents** consume MCP
+through their native surfaces instead of `createMcpToolset`: Claude Code, Kimi,
+and Amp expose MCP config flags, while Codex reads MCP servers from
+`~/.codex/config.toml` or `codex mcp add`. A config writer that emits those
+per-agent declarations from the same `McpServerConfig` is the natural follow-up
+so one declaration targets both agent kinds. See issue #222.
