@@ -43,6 +43,7 @@ const OPENAPI_LOAD_SPEC_EFFECT_SOURCE = join(root, "packages/openapi/src/loadSpe
 const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecSync.js");
 const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
+const GATEWAY_RPC_INDEX = join(root, "packages/gateway/src/rpc/index.ts");
 const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const GATEWAY_REACT_ASYNC_STATE = join(root, "packages/gateway-react/src/GatewayAsyncState.ts");
 const GATEWAY_REACT_USE_GATEWAY_RUN = join(root, "packages/gateway-react/src/useGatewayRun.ts");
@@ -688,6 +689,48 @@ function checkGatewayGetRunDocsMatchResponseShape() {
     }
   } else {
     console.log("✓ Gateway getRun docs describe a run record with optional runState");
+  }
+}
+
+function checkGatewayStreamDevToolsDocsMatchRuntimeShape() {
+  const files = new Map([
+    [GATEWAY_RPC_INDEX, readFileSync(GATEWAY_RPC_INDEX, "utf8")],
+    [join(root, "packages/server/src/gateway.js"), readFileSync(join(root, "packages/server/src/gateway.js"), "utf8")],
+    [join(root, "docs/rpc/stream-dev-tools.mdx"), readFileSync(join(root, "docs/rpc/stream-dev-tools.mdx"), "utf8")],
+    [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
+  ]);
+  const required = [
+    [GATEWAY_RPC_INDEX, "export type StreamDevToolsRequest = {\n  runId: string;\n  afterSeq?: number;\n  fromSeq?: number;\n};"],
+    [GATEWAY_RPC_INDEX, "requestSchema: objectSchema({ runId, afterSeq, fromSeq }, [\"runId\"]),"],
+    [GATEWAY_RPC_INDEX, "exampleResponse: { streamId: \"stream_01\", runId: \"run_01\", fromSeq: 10, afterSeq: 10 },"],
+    [join(root, "packages/server/src/gateway.js"), "fromSeq: typeof fromSeq === \"number\" ? fromSeq : null,\n                        afterSeq: typeof fromSeq === \"number\" ? fromSeq : null,"],
+    [join(root, "docs/rpc/stream-dev-tools.mdx"), "- Request: `{ runId, afterSeq?, fromSeq? }`"],
+    [join(root, "docs/rpc/stream-dev-tools.mdx"), "- Response: `{ streamId, runId, fromSeq, afterSeq }`"],
+    [join(root, "docs/rpc/stream-dev-tools.mdx"), "If both are provided, they must match."],
+    [GATEWAY_INTEGRATION, "streamDevTools,runId/afterSeq?/fromSeq?,{streamId/runId/fromSeq/afterSeq} + devtools.event frames,observability:read,websocket"],
+  ];
+  const forbidden = [
+    [join(root, "docs/rpc/stream-dev-tools.mdx"), "- Request: `{ runId, afterSeq? }`"],
+    [join(root, "docs/rpc/stream-dev-tools.mdx"), "- Response: `{ streamId, runId, afterSeq }`"],
+    [GATEWAY_INTEGRATION, "streamDevTools,runId/afterSeq?,{streamId/runId/afterSeq} + devtools.event frames,observability:read,websocket"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ streamDevTools docs must match the runtime fromSeq/afterSeq wire shape:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ streamDevTools docs match runtime fromSeq/afterSeq wire shape");
   }
 }
 
@@ -1977,6 +2020,7 @@ checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
 checkGatewayGetRunDocsMatchResponseShape();
+checkGatewayStreamDevToolsDocsMatchRuntimeShape();
 checkHotReloadDocsMatchRuntimeDefaults();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();

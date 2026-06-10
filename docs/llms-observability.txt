@@ -418,7 +418,7 @@ rpc[19]{method,params,returns,scope,transport}:
   listWorkflows,filter.hasUi?,Workflow summaries,run:read,http+websocket
   listApprovals,filter.runId?/filter.workflow?/filter.limit?,Pending approvals,run:read,http+websocket
   streamRunEvents,runId/afterSeq?,{streamId/runId/afterSeq/currentSeq},run:read,websocket
-  streamDevTools,runId/afterSeq?,{streamId/runId/afterSeq} + devtools.event frames,observability:read,websocket
+  streamDevTools,runId/afterSeq?/fromSeq?,{streamId/runId/fromSeq/afterSeq} + devtools.event frames,observability:read,websocket
   getNodeOutput,runId/nodeId/iteration?,NodeOutputResponse,run:read,http+websocket
   getNodeDiff,runId/nodeId/iteration?,Node diff response,run:read,http+websocket
   cronList,filter.workflow?,Cron rows,cron:read,http+websocket

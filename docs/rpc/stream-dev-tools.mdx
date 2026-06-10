@@ -8,7 +8,7 @@ apiVersion: v1
 - Method: `streamDevTools`
 - Scope: `observability:read`
 - Transport: WebSocket RPC (streaming only)
-- Request: `{ runId, afterSeq? }`
-- Response: `{ streamId, runId, afterSeq }`
+- Request: `{ runId, afterSeq?, fromSeq? }`
+- Response: `{ streamId, runId, fromSeq, afterSeq }`
 
-The legacy `fromSeq` field is accepted; `afterSeq` is the stable v1 name.
+The legacy `fromSeq` field is accepted; `afterSeq` is the stable v1 name. If both are provided, they must match.

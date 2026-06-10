@@ -232,6 +232,7 @@ export type StreamRunEventsResponse = {
 export type StreamDevToolsRequest = {
   runId: string;
   afterSeq?: number;
+  fromSeq?: number;
 };
 
 export type NodeRequest = {
@@ -310,6 +311,7 @@ const workflow = stringSchema("Registered Gateway workflow key.");
 const nodeId = stringSchema("Workflow node id.");
 const iteration = integerSchema("Node iteration.", 0);
 const afterSeq = integerSchema("Replay events with sequence numbers greater than this value.", 0);
+const fromSeq = integerSchema("Legacy alias for afterSeq on DevTools streams.", 0);
 const runSummary = objectSchema(
   {
     runId,
@@ -603,11 +605,16 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
     maturity: "stable",
     transport: "websocket",
     requiredScope: "observability:read",
-    requestSchema: objectSchema({ runId, afterSeq }, ["runId"]),
-    responseSchema: objectSchema({ streamId: stringSchema("Stream id."), runId, afterSeq: { type: ["integer", "null"] } }, ["streamId", "runId"]),
+    requestSchema: objectSchema({ runId, afterSeq, fromSeq }, ["runId"]),
+    responseSchema: objectSchema({
+      streamId: stringSchema("Stream id."),
+      runId,
+      fromSeq: { type: ["integer", "null"] },
+      afterSeq: { type: ["integer", "null"] },
+    }, ["streamId", "runId", "fromSeq", "afterSeq"]),
     errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "SeqOutOfRange", "BackpressureDisconnect", "Internal"],
     exampleRequest: { runId: "run_01", afterSeq: 10 },
-    exampleResponse: { streamId: "stream_01", runId: "run_01", afterSeq: 10 },
+    exampleResponse: { streamId: "stream_01", runId: "run_01", fromSeq: 10, afterSeq: 10 },
   },
   {
     version: SMITHERS_API_VERSION,

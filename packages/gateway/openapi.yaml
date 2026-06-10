@@ -4821,6 +4821,10 @@ paths:
                       type: integer
                       minimum: 0
                       description: "Replay events with sequence numbers greater than this value."
+                    fromSeq:
+                      type: integer
+                      minimum: 0
+                      description: "Legacy alias for afterSeq on DevTools streams."
                   required:
                     - runId
                   additionalProperties: false
@@ -4869,6 +4873,10 @@ paths:
                       runId:
                         type: string
                         description: "Stable run identifier."
+                      fromSeq:
+                        type:
+                          - integer
+                          - "null"
                       afterSeq:
                         type:
                           - integer
@@ -4876,6 +4884,8 @@ paths:
                     required:
                       - streamId
                       - runId
+                      - fromSeq
+                      - afterSeq
                     additionalProperties: false
               example:
                 type: res
@@ -4885,6 +4895,7 @@ paths:
                 payload:
                   streamId: stream_01
                   runId: run_01
+                  fromSeq: 10
                   afterSeq: 10
         400:
           description: "The requested stream sequence is in the future."
