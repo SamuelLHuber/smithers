@@ -5532,6 +5532,8 @@ type KnownSmithersErrorCode =
 // Server
 // =============================================================================
 
+type SmithersDb = import("@smithers-orchestrator/db/adapter").SmithersDb;
+
 type ServerOptions = {
   port?: number;
   db?: unknown;
@@ -5544,8 +5546,8 @@ type ServerOptions = {
 };
 
 type ServeOptions = {
-  workflow: SmithersWorkflow<any>;
-  adapter: any;
+  workflow: SmithersWorkflow<unknown>;
+  adapter: SmithersDb;
   runId: string;
   abort: AbortController;
   authToken?: string;

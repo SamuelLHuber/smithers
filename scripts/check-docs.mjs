@@ -134,6 +134,7 @@ function checkFacadeDeclarations() {
     "type GatewayOperatorUiConfig",
     "type GatewayRegisterOptions",
     "type GatewayWebhookConfig",
+    "export { SmithersDb } from '@smithers-orchestrator/db/adapter';",
   ]);
 }
 
@@ -387,6 +388,49 @@ function checkSandboxDocsMatchProviderTypes() {
   }
 }
 
+function checkServeDocsMatchServerTypes() {
+  const files = new Map([
+    [join(root, "packages/server/src/ServeOptions.ts"), readFileSync(join(root, "packages/server/src/ServeOptions.ts"), "utf8")],
+    [join(root, "packages/smithers/src/index.js"), readFileSync(join(root, "packages/smithers/src/index.js"), "utf8")],
+    [join(root, "packages/smithers/src/index.d.ts"), readFileSync(join(root, "packages/smithers/src/index.d.ts"), "utf8")],
+    [join(root, "docs/reference/types.mdx"), readFileSync(join(root, "docs/reference/types.mdx"), "utf8")],
+    [join(root, "docs/integrations/serve.mdx"), readFileSync(join(root, "docs/integrations/serve.mdx"), "utf8")],
+  ]);
+  const required = [
+    [join(root, "packages/server/src/ServeOptions.ts"), "workflow: SmithersWorkflow<unknown>;"],
+    [join(root, "packages/server/src/ServeOptions.ts"), "adapter: SmithersDb;"],
+    [join(root, "packages/smithers/src/index.js"), 'export { SmithersDb } from "@smithers-orchestrator/db";'],
+    [join(root, "packages/smithers/src/index.d.ts"), "export { SmithersDb } from '@smithers-orchestrator/db/adapter';"],
+    [join(root, "docs/reference/types.mdx"), 'type SmithersDb = import("@smithers-orchestrator/db/adapter").SmithersDb;'],
+    [join(root, "docs/reference/types.mdx"), "workflow: SmithersWorkflow<unknown>;"],
+    [join(root, "docs/reference/types.mdx"), "adapter: SmithersDb;"],
+    [join(root, "docs/integrations/serve.mdx"), "workflow: SmithersWorkflow<unknown>;"],
+    [join(root, "docs/integrations/serve.mdx"), "adapter: SmithersDb;"],
+  ];
+  const forbidden = [
+    [join(root, "docs/reference/types.mdx"), "workflow: SmithersWorkflow<any>;"],
+    [join(root, "docs/reference/types.mdx"), "adapter: any;"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ ServeOptions docs and facade declarations must match server types:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ ServeOptions docs and SmithersDb facade declaration match server types");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -398,5 +442,6 @@ checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
 checkGatewayGetRunDocsMatchResponseShape();
 checkSandboxDocsMatchProviderTypes();
+checkServeDocsMatchServerTypes();
 
 process.exit(failed ? 1 : 0);

@@ -70,6 +70,8 @@ export { isSmithersError } from '@smithers-orchestrator/errors/isSmithersError';
 export { knownSmithersErrorCodes } from '@smithers-orchestrator/errors/knownSmithersErrorCodes';
 export { signalRun } from '@smithers-orchestrator/engine/signals';
 export { usePatched } from '@smithers-orchestrator/engine/effect/versioning';
+import { SmithersDb } from '@smithers-orchestrator/db/adapter';
+export { SmithersDb } from '@smithers-orchestrator/db/adapter';
 export { ensureSmithersTables } from '@smithers-orchestrator/db/ensure';
 export { markdownComponents } from '@smithers-orchestrator/components/markdownComponents';
 export { renderMdx } from '@smithers-orchestrator/components/renderMdx';
@@ -79,7 +81,6 @@ export { camelToSnake } from '@smithers-orchestrator/db/utils/camelToSnake';
 export { unwrapZodType } from '@smithers-orchestrator/db/unwrapZodType';
 export { zodSchemaToJsonExample } from '@smithers-orchestrator/components/zod-to-example';
 export { BuilderApi, BuiltSmithersWorkflow, Smithers, StepOptions, fragment, renderFrame, runWorkflow, workflow } from '@smithers-orchestrator/engine';
-import { SmithersDb } from '@smithers-orchestrator/db/adapter';
 
 type SerializedCtx$1 = {
     runId: string;
