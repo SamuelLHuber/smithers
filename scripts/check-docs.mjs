@@ -28,6 +28,7 @@ const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
 const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
+const MCP_SEMANTIC_TOOLS_SOURCE = join(root, "apps/cli/src/mcp/semantic-tools.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
 const COMMON_TOOLS_INTEGRATION = join(DOCS, "integrations/common-tools.mdx");
 const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
@@ -2190,6 +2191,48 @@ function checkMcpIntegrationDocsMatchAgentOptions() {
   }
 }
 
+function checkMcpSemanticDocsMatchWorkflowSummarySchema() {
+  const docs = readFileSync(join(root, "docs/integrations/mcp-server.mdx"), "utf8");
+  const semanticTools = readFileSync(MCP_SEMANTIC_TOOLS_SOURCE, "utf8");
+  const docsScopeOccurrences = docs.split('scope: "local" | "global";').length - 1;
+  const docsPathOccurrences = docs.split("path: string;").length - 1;
+  const required = [
+    [MCP_SEMANTIC_TOOLS_SOURCE, 'scope: z.enum(["local", "global"])'],
+    [MCP_SEMANTIC_TOOLS_SOURCE, "path: z.string()"],
+    [MCP_SEMANTIC_TOOLS_SOURCE, "scope: discovered.scope"],
+    [MCP_SEMANTIC_TOOLS_SOURCE, "path: discovered.path"],
+  ];
+  const forbidden = [
+    [MCP_SEMANTIC_TOOLS_SOURCE, "entryFile: discovered.entryFile,\n            sourceType: discovered.sourceType"],
+  ];
+  const missing = required.filter(([file, needle]) => !semanticTools.includes(needle));
+  const stale = forbidden.filter(([, needle]) => semanticTools.includes(needle));
+  const problems = [];
+  if (docsScopeOccurrences < 2) {
+    problems.push(`docs/integrations/mcp-server.mdx:scope documented ${docsScopeOccurrences} time(s), expected at least 2`);
+  }
+  if (docsPathOccurrences < 2) {
+    problems.push(`docs/integrations/mcp-server.mdx:path documented ${docsPathOccurrences} time(s), expected at least 2`);
+  }
+  if (missing.length || stale.length || problems.length) {
+    failed = true;
+    console.error("\n✗ MCP semantic workflow summary docs must match the Zod schema and runtime output:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (problems.length) console.error(`    ${problems.join("\n    ")}`);
+  } else {
+    console.log("✓ MCP semantic workflow summary docs match the source schema");
+  }
+}
+
 function checkSdkAgentDocsMatchSourceTypes() {
   const files = new Map([
     [SDK_AGENTS_INTEGRATION, readFileSync(SDK_AGENTS_INTEGRATION, "utf8")],
@@ -2682,6 +2725,7 @@ checkMemoryDocsMatchSourceTypes();
 checkScorerDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
+checkMcpSemanticDocsMatchWorkflowSummarySchema();
 checkSdkAgentDocsMatchSourceTypes();
 checkCliAgentDocsMatchCurrentModelDefaults();
 checkCliAgentHijackDocsMatchLauncher();

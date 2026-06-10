@@ -307,6 +307,14 @@ function makeHarness(adapterState = {}) {
     };
 }
 
+function expectWorkflowSummaryMatchesSchema(workflow) {
+    const declared = new Set(Object.keys(workflowSummarySchema.shape));
+    for (const key of Object.keys(workflow)) {
+        expect(declared.has(key)).toBe(true);
+    }
+    expect(workflow.path).toBe(workflow.entryFile);
+}
+
 describe("semantic tool definitions", () => {
     test("exposes the expected tools and validates run workflow resume input", async () => {
         const harness = makeHarness();
@@ -367,6 +375,7 @@ describe("semantic tool definitions", () => {
             prompt: "hello",
         });
         expect(typeof background.structuredContent.ok).toBe("boolean");
+        expectWorkflowSummaryMatchesSchema(background.structuredContent.data.workflow);
     });
 
     test("list_workflows payload carries only keys declared in the output schema (#223)", async () => {
@@ -385,13 +394,8 @@ describe("semantic tool definitions", () => {
         // The MCP server advertises the output schema with additionalProperties:false,
         // so any key the runtime returns that the schema does not declare makes the SDK
         // reject the call with -32602. Guard every key against the declared shape.
-        const declared = new Set(Object.keys(workflowSummarySchema.shape));
         for (const workflow of workflows) {
-            for (const key of Object.keys(workflow)) {
-                expect(declared.has(key)).toBe(true);
-            }
-            // path duplicates entryFile and must stay declared in the schema.
-            expect(workflow.path).toBe(workflow.entryFile);
+            expectWorkflowSummaryMatchesSchema(workflow);
         }
     });
 

@@ -8190,7 +8190,9 @@ List all Smithers workflows discovered in the working directory.
     id: string;
     metadataVersion: number;
     displayName: string;
+    scope: "local" | "global";
     entryFile: string;
+    path: string;
     sourceType: string;
     description: string;
     tags: string[];
@@ -8235,7 +8237,9 @@ Start or resume a discovered workflow.
     id: string;
     metadataVersion: number;
     displayName: string;
+    scope: "local" | "global";
     entryFile: string;
+    path: string;
     sourceType: string;
     description: string;
     tags: string[];

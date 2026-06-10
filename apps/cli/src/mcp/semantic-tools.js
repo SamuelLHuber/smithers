@@ -657,6 +657,7 @@ async function loadWorkflowById(workflowId, cwd) {
             displayName: discovered.displayName,
             scope: discovered.scope,
             entryFile: discovered.entryFile,
+            path: discovered.path,
             sourceType: discovered.sourceType,
             description: discovered.description,
             tags: discovered.tags,
