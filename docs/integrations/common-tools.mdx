@@ -5,7 +5,7 @@ description: Patterns for hitting GitHub, Linear, Notion, Slack, Obsidian as too
 
 For each external service, you have three choices:
 
-1. **OpenAPI tools**: point `createOpenApiTools()` at the service's OpenAPI spec. See [OpenAPI tools](/integrations/tools).
+1. **OpenAPI tools**: point `createOpenApiTools()` at the service's OpenAPI spec. See [OpenAPI tools](/concepts/openapi-tools).
 2. **CLI in a task**: if the service has a CLI (`gh`, `linear`, `notion`, `slack`), run it inside a `<Task>` via the `bash` tool. See [side-effect tools with idempotency](/recipes#side-effect-tools-with-idempotency).
 3. **Custom `defineTool`**: wrap the service's REST API in a Zod-validated tool. See [`defineTool`](/integrations/tools#definetool).
 

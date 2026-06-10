@@ -25,6 +25,7 @@ const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
 const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
+const COMMON_TOOLS_INTEGRATION = join(DOCS, "integrations/common-tools.mdx");
 const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
 const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
@@ -782,6 +783,8 @@ function checkMemoryDocsMatchSourceTypes() {
 function checkOpenApiDocsMatchCurrentPackage() {
   const files = new Map([
     [OPENAPI_CONCEPTS, readFileSync(OPENAPI_CONCEPTS, "utf8")],
+    [COMMON_TOOLS_INTEGRATION, readFileSync(COMMON_TOOLS_INTEGRATION, "utf8")],
+    [PACKAGE_CONFIGURATION_REFERENCE, readFileSync(PACKAGE_CONFIGURATION_REFERENCE, "utf8")],
     [RUNTIME_EVENTS_REFERENCE, readFileSync(RUNTIME_EVENTS_REFERENCE, "utf8")],
     [EVENT_TYPES_REFERENCE, readFileSync(EVENT_TYPES_REFERENCE, "utf8")],
     [OPENAPI_HELPERS_SOURCE, readFileSync(OPENAPI_HELPERS_SOURCE, "utf8")],
@@ -795,6 +798,8 @@ function checkOpenApiDocsMatchCurrentPackage() {
     [OPENAPI_CONCEPTS, "`jsonSchemaToZod(schema, spec, visited?)` / `buildOperationSchema(parameters, requestBody, spec)`"],
     [OPENAPI_CONCEPTS, "OpenAPI tool calls update the exported Effect metrics (`openApiToolCallsTotal`, `openApiToolCallErrorsTotal`, `openApiToolDuration`)"],
     [OPENAPI_CONCEPTS, "The current tool factory does not emit `OpenApiToolCalled` onto the Smithers run event bus"],
+    [COMMON_TOOLS_INTEGRATION, "See [OpenAPI tools](/concepts/openapi-tools)."],
+    [PACKAGE_CONFIGURATION_REFERENCE, "[OpenAPI Tools](/concepts/openapi-tools), [Tools](/integrations/tools)"],
     [RUNTIME_EVENTS_REFERENCE, "OpenApiToolCalled` is categorized as `openapi` for forward compatibility"],
     [EVENT_TYPES_REFERENCE, "OpenApiToolCalled` is typed and categorized for forward compatibility"],
     [OPENAPI_HELPERS_SOURCE, "Metric.increment(openApiToolCallsTotal)"],
@@ -811,6 +816,8 @@ function checkOpenApiDocsMatchCurrentPackage() {
     [OPENAPI_CONCEPTS, "Visible via `bunx smithers-orchestrator events RUN_ID --type openapi`"],
     [OPENAPI_CONCEPTS, "`loadSpecEffect(input)` / `loadSpecSync(input)` | Load and parse a spec from object, path, URL, or raw text."],
     [OPENAPI_CONCEPTS, "`jsonSchemaToZod(schema)` / `buildOperationSchema(...)`"],
+    [COMMON_TOOLS_INTEGRATION, "[OpenAPI tools](/integrations/tools)"],
+    [PACKAGE_CONFIGURATION_REFERENCE, "[OpenAPI Tools](/integrations/tools), [OpenAPI Quickstart](/guides/openapi-tools-quickstart)"],
     [OPENAPI_HELPERS_SOURCE, "OpenApiToolCalled"],
     [OPENAPI_LOAD_SPEC_SYNC_SOURCE, 'startsWith("http://")'],
     [OPENAPI_LOAD_SPEC_SYNC_SOURCE, 'startsWith("https://")'],

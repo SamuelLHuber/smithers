@@ -6101,7 +6101,7 @@ Most applications should import from `smithers-orchestrator`. The scoped workspa
 | `@smithers-orchestrator/jj-win32-x64` | Vendored jj (Jujutsu) binary for win32-x64; auto-installed as an optional dependency of `@smithers-orchestrator/vcs`, not depended on directly | VCS Guide |
 | `@smithers-orchestrator/memory` | Cross-run facts, message history, processors, namespaces, service layer, and metrics | Memory, Memory Quickstart |
 | `@smithers-orchestrator/observability` | Event types, logging, tracing, metrics, Prometheus rendering, and runtime observability layers | Events, Event Types |
-| `@smithers-orchestrator/openapi` | OpenAPI parsing, operation extraction, AI SDK tool generation, schema conversion, and metrics | OpenAPI Tools, OpenAPI Quickstart |
+| `@smithers-orchestrator/openapi` | OpenAPI parsing, operation extraction, AI SDK tool generation, schema conversion, and metrics | OpenAPI Tools, Tools |
 | `@smithers-orchestrator/pi-plugin` | PI extension runtime, views, API wrappers, and workflow inspection integration | PI Integration |
 | `@smithers-orchestrator/protocol` | Shared contracts, small value types, and protocol-level errors for cross-package use | Types, Errors |
 | `@smithers-orchestrator/react-reconciler` | Custom React reconciler, host context, DOM renderer, DevTools preload, driver, and JSX runtime internals | Why React, Render Frame |
