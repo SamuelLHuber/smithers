@@ -98,6 +98,7 @@ const AGENT_GENERATE_OPTIONS_SOURCE = join(root, "packages/agents/src/BaseCliAge
 const AGENT_CAPABILITY_REGISTRY_SOURCE = join(root, "packages/agents/src/capability-registry/AgentCapabilityRegistry.ts");
 const AGENT_TOOL_DESCRIPTOR_SOURCE = join(root, "packages/agents/src/capability-registry/AgentToolDescriptor.ts");
 const BASE_CLI_AGENT_SOURCE = join(root, "packages/agents/src/BaseCliAgent/BaseCliAgent.js");
+const BASE_CLI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/BaseCliAgent/BaseCliAgentOptions.ts");
 const CACHE_POLICY_SOURCE = join(root, "packages/scheduler/src/CachePolicy.ts");
 const SDK_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/SdkAgentOptions.ts");
 const ANTHROPIC_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AnthropicAgentOptions.ts");
@@ -106,7 +107,10 @@ const HERMES_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/HermesAgentO
 const OPENAI_AGENT_SOURCE = join(root, "packages/agents/src/OpenAIAgent.js");
 const HERMES_AGENT_SOURCE = join(root, "packages/agents/src/HermesAgent.js");
 const PI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/PiAgentOptions.ts");
+const PI_EXTENSION_UI_REQUEST_SOURCE = join(root, "packages/agents/src/BaseCliAgent/PiExtensionUiRequest.ts");
+const PI_EXTENSION_UI_RESPONSE_SOURCE = join(root, "packages/agents/src/BaseCliAgent/PiExtensionUiResponse.ts");
 const PI_AGENT_SOURCE = join(root, "packages/agents/src/PiAgent.js");
+const OPENCODE_AGENT_SOURCE = join(root, "packages/agents/src/OpenCodeAgent.ts");
 const CLAUDE_CODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/ClaudeCodeAgentOptions.ts");
 const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOptions.ts");
 const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptions.ts");
@@ -3473,25 +3477,63 @@ function checkCliAgentHijackDocsMatchLauncher() {
 
 function checkCliAgentOptionDocsMatchSourceTypes() {
   const files = new Map([
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
     [CLI_AGENTS_INTEGRATION, readFileSync(CLI_AGENTS_INTEGRATION, "utf8")],
+    [BASE_CLI_AGENT_OPTIONS_SOURCE, readFileSync(BASE_CLI_AGENT_OPTIONS_SOURCE, "utf8")],
     [PI_AGENT_OPTIONS_SOURCE, readFileSync(PI_AGENT_OPTIONS_SOURCE, "utf8")],
+    [PI_EXTENSION_UI_REQUEST_SOURCE, readFileSync(PI_EXTENSION_UI_REQUEST_SOURCE, "utf8")],
+    [PI_EXTENSION_UI_RESPONSE_SOURCE, readFileSync(PI_EXTENSION_UI_RESPONSE_SOURCE, "utf8")],
     [PI_AGENT_SOURCE, readFileSync(PI_AGENT_SOURCE, "utf8")],
     [VIBE_AGENT_OPTIONS_SOURCE, readFileSync(VIBE_AGENT_OPTIONS_SOURCE, "utf8")],
+    [OPENCODE_AGENT_SOURCE, readFileSync(OPENCODE_AGENT_SOURCE, "utf8")],
   ]);
   const required = [
+    [BASE_CLI_AGENT_OPTIONS_SOURCE, "export type BaseCliAgentOptions = {"],
+    [BASE_CLI_AGENT_OPTIONS_SOURCE, "extraArgs?: string[];"],
+    [TYPES_REFERENCE, "type BaseCliAgentOptions = {"],
+    [TYPES_REFERENCE, "extraArgs?: string[];"],
+    [PI_AGENT_OPTIONS_SOURCE, "export type PiAgentOptions = BaseCliAgentOptions & {"],
     [PI_AGENT_OPTIONS_SOURCE, "model?: string;"],
+    [PI_AGENT_OPTIONS_SOURCE, "systemPrompt?: string;"],
+    [PI_AGENT_OPTIONS_SOURCE, 'mode?: "text" | "json" | "rpc";'],
+    [PI_EXTENSION_UI_REQUEST_SOURCE, 'type: "extension_ui_request";'],
+    [PI_EXTENSION_UI_REQUEST_SOURCE, "[key: string]: unknown;"],
+    [PI_EXTENSION_UI_RESPONSE_SOURCE, 'type: "extension_ui_response";'],
+    [PI_EXTENSION_UI_RESPONSE_SOURCE, "cancelled?: boolean;"],
     [PI_AGENT_SOURCE, 'pushFlag(args, "--model", this.opts.model ?? this.model);'],
+    [TYPES_REFERENCE, "type PiAgentOptions = BaseCliAgentOptions & {"],
+    [TYPES_REFERENCE, "systemPrompt?: string;"],
+    [TYPES_REFERENCE, 'mode?: "text" | "json" | "rpc";'],
+    [TYPES_REFERENCE, "onExtensionUiRequest?: ("],
+    [TYPES_REFERENCE, "type PiExtensionUiRequest = {"],
+    [TYPES_REFERENCE, 'type: "extension_ui_request";'],
+    [TYPES_REFERENCE, "type PiExtensionUiResponse = {"],
+    [TYPES_REFERENCE, "cancelled?: boolean;"],
     [CLI_AGENTS_INTEGRATION, "Key additions: `provider`, `model`, `mode`, `onExtensionUiRequest`, `extension`, `thinking`."],
     [CLI_AGENTS_INTEGRATION, 'provider?: string; model?: string; apiKey?: string; appendSystemPrompt?: string; mode?: "text" | "json" | "rpc";'],
+    [VIBE_AGENT_OPTIONS_SOURCE, "export type VibeAgentOptions = BaseCliAgentOptions & {"],
     [VIBE_AGENT_OPTIONS_SOURCE, "enabledTools?: string[];"],
     [VIBE_AGENT_OPTIONS_SOURCE, "continueSession?: boolean;"],
+    [TYPES_REFERENCE, "type VibeAgentOptions = BaseCliAgentOptions & {"],
+    [TYPES_REFERENCE, "enabledTools?: string[];"],
+    [TYPES_REFERENCE, "sessionId?: string;"],
+    [TYPES_REFERENCE, "continueSession?: boolean;"],
     [CLI_AGENTS_INTEGRATION, "Key additions: `agent`, `maxTurns`, `maxPrice`, `maxTokens`, `enabledTools`, `sessionId`, `continueSession`."],
     [CLI_AGENTS_INTEGRATION, "enabledTools?: string[];"],
     [CLI_AGENTS_INTEGRATION, "sessionId?: string; continueSession?: boolean;"],
+    [OPENCODE_AGENT_SOURCE, "export type OpenCodeAgentOptions = BaseCliAgentOptions & {"],
+    [OPENCODE_AGENT_SOURCE, "attachFiles?: string[];"],
+    [OPENCODE_AGENT_SOURCE, "variant?: string;"],
+    [TYPES_REFERENCE, "type OpenCodeAgentOptions = BaseCliAgentOptions & {"],
+    [TYPES_REFERENCE, "attachFiles?: string[];"],
+    [TYPES_REFERENCE, "variant?: string;"],
   ];
   const forbidden = [
     [CLI_AGENTS_INTEGRATION, "Key additions: `mode`, `onExtensionUiRequest`, `extension`, `thinking`."],
     [CLI_AGENTS_INTEGRATION, 'provider?: string; apiKey?: string; appendSystemPrompt?: string; mode?: "text" | "json" | "rpc";'],
+    [TYPES_REFERENCE, "type PiAgentOptions = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type VibeAgentOptions = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type OpenCodeAgentOptions = Record<string, unknown>;"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));

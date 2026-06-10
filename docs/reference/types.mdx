@@ -336,6 +336,90 @@ type HermesAgentOptions<CALL_OPTIONS = never, TOOLS extends import("ai").ToolSet
     nativeStructuredOutput?: boolean; // default false
   };
 
+type BaseCliAgentOptions = {
+  id?: string;
+  model?: string;
+  systemPrompt?: string;
+  instructions?: string;
+  cwd?: string;
+  env?: Record<string, string>;
+  yolo?: boolean;
+  timeoutMs?: number;
+  idleTimeoutMs?: number;
+  maxOutputBytes?: number;
+  extraArgs?: string[];
+};
+
+type PiExtensionUiRequest = {
+  type: "extension_ui_request";
+  id: string;
+  method: string;
+  title?: string;
+  placeholder?: string;
+  [key: string]: unknown;
+};
+
+type PiExtensionUiResponse = {
+  type: "extension_ui_response";
+  id: string;
+  value?: string;
+  cancelled?: boolean;
+  [key: string]: unknown;
+};
+
+type PiAgentOptions = BaseCliAgentOptions & {
+  provider?: string;
+  model?: string;
+  apiKey?: string;
+  systemPrompt?: string;
+  appendSystemPrompt?: string;
+  mode?: "text" | "json" | "rpc";
+  print?: boolean;
+  continue?: boolean;
+  resume?: boolean;
+  session?: string;
+  sessionDir?: string;
+  noSession?: boolean;
+  models?: string | string[];
+  listModels?: boolean | string;
+  tools?: string[];
+  noTools?: boolean;
+  extension?: string[];
+  noExtensions?: boolean;
+  skill?: string[];
+  noSkills?: boolean;
+  promptTemplate?: string[];
+  noPromptTemplates?: boolean;
+  theme?: string[];
+  noThemes?: boolean;
+  thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+  export?: string;
+  files?: string[];
+  verbose?: boolean;
+  onExtensionUiRequest?: (
+    request: PiExtensionUiRequest,
+  ) => Promise<PiExtensionUiResponse | null> | PiExtensionUiResponse | null;
+};
+
+type VibeAgentOptions = BaseCliAgentOptions & {
+  agent?: string;
+  maxTurns?: number;
+  maxPrice?: number;
+  maxTokens?: number;
+  enabledTools?: string[];
+  sessionId?: string;
+  continueSession?: boolean;
+};
+
+type OpenCodeAgentOptions = BaseCliAgentOptions & {
+  model?: string;
+  agentName?: string;
+  attachFiles?: string[];
+  continueSession?: boolean;
+  sessionId?: string;
+  variant?: string;
+};
+
 type TaskMemoryConfig = {
   namespace?: string | MemoryNamespace;
   recall?: { namespace?: MemoryNamespace; query?: string; topK?: number };
