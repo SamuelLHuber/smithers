@@ -65,7 +65,7 @@ try {
 }
 ```
 
-Every request accepts an `AbortSignal` so a parent component or routing change can cancel a stalled call without leaking the promise:
+Generic HTTP RPC calls accept an `AbortSignal` through `gateway.rpc`, so a parent component or routing change can cancel a stalled call without leaking the promise:
 
 ```ts
 const controller = new AbortController();
@@ -77,7 +77,7 @@ const list = await gateway.rpc(
 controller.abort(); // cancels mid-flight
 ```
 
-`gateway.rpc(method, params)` is the generic escape hatch; use the typed wrappers (`gateway.listRuns`, `gateway.getRun`, `gateway.launchRun`, …) for autocomplete and stronger inference.
+`gateway.rpc(method, params, { signal })` is the generic escape hatch for caller-managed cancellation. Use the typed wrappers (`gateway.listRuns`, `gateway.getRun`, `gateway.launchRun`, …) when you do not need to pass per-call options and want autocomplete plus stronger inference.
 
 ### Pushed updates over WebSocket
 
@@ -204,7 +204,7 @@ function App({ token }: { token: string }) {
 }
 ```
 
-For the vanilla client, throw the old instance away and instantiate with the new token. Pending HTTP RPCs can be aborted by the caller's `AbortSignal`; an open WebSocket connection is closed when the iterator returns.
+For the vanilla client, throw the old instance away and instantiate with the new token. Pending HTTP RPCs made through `gateway.rpc` can be aborted by the caller's `AbortSignal`; an open WebSocket connection is closed when the iterator returns.
 
 ## The React hooks
 

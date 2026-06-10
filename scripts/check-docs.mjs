@@ -2255,6 +2255,8 @@ function checkGatewaySdkDocsMatchExports() {
     [gatewayServerSource, 'rpcPath: "/v1/rpc",'],
     [gatewayServerSource, 'wsPath: "/",'],
     [GATEWAY_CLIENT_SOURCE, "this.boot = globalThis.__SMITHERS_GATEWAY_UI__;"],
+    [GATEWAY_CLIENT_SOURCE, "options: { signal?: AbortSignal } = {},"],
+    [GATEWAY_CLIENT_SOURCE, 'listRuns(params: GatewayRpcParams<"listRuns"> = {}) {'],
     [GATEWAY_CLIENT_SOURCE, "const response = await this.fetchImpl(`${this.baseUrl}/v1/rpc/${method}`, {"],
     [GATEWAY_CLIENT_SOURCE, "new this.WebSocketImpl(toWebSocketUrl(this.baseUrl, this.boot?.wsPath));"],
     [GATEWAY_REACT_INDEX, "useGatewayExtensionResource"],
@@ -2310,6 +2312,18 @@ function checkGatewaySdkDocsMatchExports() {
       CUSTOM_UI_INTEGRATION,
       "For a page hosted elsewhere, there is normally no boot global; pass an explicit `baseUrl` and token.",
     ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "Generic HTTP RPC calls accept an `AbortSignal` through `gateway.rpc`",
+    ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "`gateway.rpc(method, params, { signal })` is the generic escape hatch for caller-managed cancellation.",
+    ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "Pending HTTP RPCs made through `gateway.rpc` can be aborted by the caller's `AbortSignal`",
+    ],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
@@ -2327,6 +2341,7 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_UI_INTEGRATION, "workflow-scoped path (typically"],
     [CUSTOM_UI_INTEGRATION, "/v1/ws/<workflow>"],
     [CUSTOM_UI_INTEGRATION, "the boot config is ignored"],
+    [CUSTOM_UI_INTEGRATION, "Every request accepts an `AbortSignal`"],
     [CUSTOM_UI_INTEGRATION, 'useGatewayRuns({ status: "running" })'],
     [CUSTOM_WORKFLOW_UI_GUIDE, "refetches as the seq advances"],
   ];
