@@ -2963,7 +2963,7 @@ paths:
     post:
       operationId: getRun
       summary: "Get Run"
-      description: "Fetch the current RunStateView for one run."
+      description: "Fetch one run record with node-state counts and optional derived runState."
       tags:
         - "Gateway RPC"
       security:
@@ -3036,9 +3036,69 @@ paths:
                     const: v1
                   payload:
                     type: object
-                    description: RunStateView.
-                    properties: {}
-                    required: []
+                    description: "Current run record, including node-state counts and optional derived runState."
+                    properties:
+                      runId:
+                        type: string
+                        description: "Stable run identifier."
+                      workflowKey:
+                        type: string
+                        description: "Registered Gateway workflow key."
+                      status:
+                        type: string
+                        description: "Persisted run status."
+                      createdAtMs:
+                        type: integer
+                        minimum: 0
+                        description: "Unix epoch milliseconds."
+                      startedAtMs:
+                        type: integer
+                        minimum: 0
+                        description: "Unix epoch milliseconds."
+                        nullable: true
+                      finishedAtMs:
+                        type: integer
+                        minimum: 0
+                        description: "Unix epoch milliseconds."
+                        nullable: true
+                      summary:
+                        type: object
+                        description: "Counts keyed by persisted node state."
+                        properties: {}
+                        required: []
+                        additionalProperties: true
+                      runState:
+                        type: object
+                        description: "Derived RunStateView for the run."
+                        properties:
+                          runId:
+                            type: string
+                            description: "Stable run identifier."
+                          state:
+                            type: string
+                            description: "Derived lifecycle state."
+                          computedAt:
+                            type: string
+                            description: "ISO timestamp for when the view was computed."
+                          blocked:
+                            type: object
+                            description: "Optional blocked-run reason."
+                            properties: {}
+                            required: []
+                            additionalProperties: true
+                          unhealthy:
+                            type: object
+                            description: "Optional unhealthy-run reason."
+                            properties: {}
+                            required: []
+                            additionalProperties: true
+                        required:
+                          - runId
+                          - state
+                          - computedAt
+                        additionalProperties: true
+                    required:
+                      - runId
                     additionalProperties: true
               example:
                 type: res
@@ -3049,6 +3109,12 @@ paths:
                   runId: run_01
                   status: finished
                   workflowKey: deploy
+                  summary:
+                    finished: 3
+                  runState:
+                    runId: run_01
+                    state: succeeded
+                    computedAt: 2026-01-01T00:00:00.000Z
         400:
           description: "The request shape is invalid."
           content:

@@ -321,6 +321,33 @@ const runSummary = objectSchema(
   "Run summary view.",
   true,
 );
+const runStateView = objectSchema(
+  {
+    runId,
+    state: stringSchema("Derived lifecycle state."),
+    computedAt: stringSchema("ISO timestamp for when the view was computed."),
+    blocked: objectSchema({}, [], "Optional blocked-run reason.", true),
+    unhealthy: objectSchema({}, [], "Optional unhealthy-run reason.", true),
+  },
+  ["runId", "state", "computedAt"],
+  "Derived RunStateView for the run.",
+  true,
+);
+const runRecord = objectSchema(
+  {
+    runId,
+    workflowKey: workflow,
+    status: stringSchema("Persisted run status."),
+    createdAtMs: integerSchema("Unix epoch milliseconds.", 0),
+    startedAtMs: { ...integerSchema("Unix epoch milliseconds.", 0), nullable: true },
+    finishedAtMs: { ...integerSchema("Unix epoch milliseconds.", 0), nullable: true },
+    summary: objectSchema({}, [], "Counts keyed by persisted node state.", true),
+    runState: runStateView,
+  },
+  ["runId"],
+  "Current run record, including node-state counts and optional derived runState.",
+  true,
+);
 
 export const GATEWAY_RPC_ERRORS: Record<GatewayRpcErrorCode, GatewayRpcErrorDefinition> = {
   InvalidRequest: { version: SMITHERS_API_VERSION, code: "InvalidRequest", httpStatus: 400, description: "The request shape is invalid." },
@@ -480,15 +507,21 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
     version: SMITHERS_API_VERSION,
     method: "getRun",
     title: "Get Run",
-    description: "Fetch the current RunStateView for one run.",
+    description: "Fetch one run record with node-state counts and optional derived runState.",
     maturity: "stable",
     transport: "http+websocket",
     requiredScope: "run:read",
     requestSchema: objectSchema({ runId }, ["runId"]),
-    responseSchema: objectSchema({}, [], "RunStateView.", true),
+    responseSchema: runRecord,
     errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "Internal"],
     exampleRequest: { runId: "run_01" },
-    exampleResponse: { runId: "run_01", status: "finished", workflowKey: "deploy" },
+    exampleResponse: {
+      runId: "run_01",
+      status: "finished",
+      workflowKey: "deploy",
+      summary: { finished: 3 },
+      runState: { runId: "run_01", state: "succeeded", computedAt: "2026-01-01T00:00:00.000Z" },
+    },
   },
   {
     version: SMITHERS_API_VERSION,

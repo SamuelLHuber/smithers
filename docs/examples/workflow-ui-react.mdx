@@ -29,9 +29,9 @@ function runIdFromUrl(): string | undefined {
 
 function statusClass(status: string | undefined): string {
   if (status === "running" || status === "continued") return "running";
-  if (status === "finished") return "finished";
+  if (status === "finished" || status === "succeeded") return "finished";
   if (status === "failed" || status === "cancelled") return "failed";
-  if (status === "waiting" || status === "paused") return "waiting";
+  if (status === "waiting" || status === "paused" || status?.startsWith("waiting-")) return "waiting";
   return "";
 }
 
@@ -39,7 +39,8 @@ function statusClass(status: string | undefined): string {
 // the wire stays cheap to extend; narrow at the consumer with the structural
 // shapes you actually rely on. `.smithers/ui/grill-me.tsx` uses the same pattern.
 type RunSummary = { runId: string; status?: string; workflowKey?: string };
-type RunStateView = { status?: string };
+type RunStateView = { state?: string };
+type RunRecord = { status?: string; workflowKey?: string; runState?: RunStateView };
 type NodeOutputView =
   | { status: "produced"; row: Record<string, unknown> }
   | { status: "pending" | "failed" };
@@ -56,7 +57,8 @@ function App() {
   // Live run + event stream. Both clear automatically when `runId` changes,
   // so no previous run's data ever leaks into the new one.
   const run = useGatewayRun(runId);
-  const runState = run.data as RunStateView | undefined;
+  const runRecord = run.data as RunRecord | undefined;
+  const status = runRecord?.runState?.state ?? runRecord?.status;
   const events = useGatewayRunEvents(runId, { maxEvents: 200 });
   const approvals = useGatewayApprovals(runId ? { filter: { runId, limit: 20 } } : {});
 
@@ -70,8 +72,8 @@ function App() {
     <main className="shell">
       <header className="topbar">
         <h1>Demo React Workflow UI</h1>
-        <span className={`status ${statusClass(runState?.status)}`}>
-          {runState?.status ?? "-"}
+        <span className={`status ${statusClass(status)}`}>
+          {status ?? "-"}
         </span>
         <code data-testid="demo-run-id">{runId ?? "(no run)"}</code>
         <button onClick={() => runId && cancelRun({ runId })} disabled={!runId}>

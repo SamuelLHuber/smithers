@@ -85,7 +85,7 @@ rpc[19]{method,params,returns,scope,transport}:
   rewindRun,runId/frameNo/confirm:true,JumpResult,run:admin,http+websocket
   submitApproval,runId/nodeId/iteration?/decision,{runId/nodeId/iteration/approved},approval:submit,http+websocket
   submitSignal,runId/correlationKey/payload?/signalName?,Delivery metadata,signal:submit,http+websocket
-  getRun,runId,RunStateView,run:read,http+websocket
+  getRun,runId,Run record + optional runState,run:read,http+websocket
   listRuns,filter.status?/filter.limit?,Run summaries,run:read,http+websocket
   listWorkflows,filter.hasUi?,Workflow summaries,run:read,http+websocket
   listApprovals,filter.runId?/filter.workflow?/filter.limit?,Pending approvals,run:read,http+websocket

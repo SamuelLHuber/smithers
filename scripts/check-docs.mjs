@@ -293,6 +293,52 @@ function checkRunStateDocsMatchCurrentEmission() {
   }
 }
 
+function checkGatewayGetRunDocsMatchResponseShape() {
+  const files = new Map([
+    [join(root, "packages/gateway/src/rpc/index.ts"), readFileSync(join(root, "packages/gateway/src/rpc/index.ts"), "utf8")],
+    [join(root, "docs/rpc/get-run.mdx"), readFileSync(join(root, "docs/rpc/get-run.mdx"), "utf8")],
+    [join(root, "docs/integrations/gateway.mdx"), readFileSync(join(root, "docs/integrations/gateway.mdx"), "utf8")],
+    [join(root, "docs/guides/custom-workflow-ui.mdx"), readFileSync(join(root, "docs/guides/custom-workflow-ui.mdx"), "utf8")],
+    [join(root, "docs/examples/workflow-ui-react.mdx"), readFileSync(join(root, "docs/examples/workflow-ui-react.mdx"), "utf8")],
+  ]);
+  const required = [
+    [join(root, "packages/gateway/src/rpc/index.ts"), "Fetch one run record with node-state counts and optional derived runState."],
+    [join(root, "packages/gateway/src/rpc/index.ts"), "responseSchema: runRecord"],
+    [join(root, "docs/rpc/get-run.mdx"), "Response: run record with `summary` and optional `runState: RunStateView`"],
+    [join(root, "docs/integrations/gateway.mdx"), "getRun,runId,Run record + optional runState"],
+    [join(root, "docs/guides/custom-workflow-ui.mdx"), "{ data: Record<string, unknown>, loading, error, refetch }"],
+    [join(root, "docs/examples/workflow-ui-react.mdx"), "type RunRecord = { status?: string; workflowKey?: string; runState?: RunStateView };"],
+    [join(root, "docs/examples/workflow-ui-react.mdx"), "runRecord?.runState?.state ?? runRecord?.status"],
+  ];
+  const forbidden = [
+    [join(root, "packages/gateway/src/rpc/index.ts"), "Fetch the current RunStateView for one run."],
+    [join(root, "packages/gateway/src/rpc/index.ts"), 'responseSchema: objectSchema({}, [], "RunStateView.", true)'],
+    [join(root, "docs/rpc/get-run.mdx"), "Response: `RunStateView`"],
+    [join(root, "docs/integrations/gateway.mdx"), "getRun,runId,RunStateView,"],
+    [join(root, "docs/guides/custom-workflow-ui.mdx"), "RunStateView, refetches as the seq advances"],
+    [join(root, "docs/guides/custom-workflow-ui.mdx"), "{ data: RunStateView, loading, error, refetch }"],
+    [join(root, "docs/examples/workflow-ui-react.mdx"), "const runState = run.data as RunStateView | undefined;"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Gateway getRun docs must describe the run record payload, not a bare RunStateView:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Gateway getRun docs describe a run record with optional runState");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -302,5 +348,6 @@ checkImplementedApisNotMarkedComingSoon();
 checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
+checkGatewayGetRunDocsMatchResponseShape();
 
 process.exit(failed ? 1 : 0);

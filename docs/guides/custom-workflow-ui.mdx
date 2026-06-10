@@ -78,7 +78,7 @@ import {
 const runId = new URLSearchParams(location.search).get("runId") ?? undefined;
 
 function App() {
-  const run = useGatewayRun(runId);                   // RunStateView, refetches as the seq advances
+  const run = useGatewayRun(runId);                   // run record + optional runState, refetches as the seq advances
   const events = useGatewayRunEvents(runId);          // live stream, resilient reconnect, gap resync
   const output = useGatewayNodeOutput({               // last task output, refetches when the input key changes
     runId,
@@ -104,7 +104,7 @@ The React hooks all live in `packages/gateway-react/src` and follow one rule: **
 | Hook | Returns | Notes |
 |---|---|---|
 | `useSmithersGateway()` | `SmithersGatewayClient` | Bare client; fall back to it for one-off RPC. |
-| `useGatewayRun(runId)` | `{ data: RunStateView, loading, error, refetch }` | Refetches when `runId` changes. Disabled when `runId` is `undefined`. |
+| `useGatewayRun(runId)` | `{ data: Record<string, unknown>, loading, error, refetch }` | Reads the `getRun` payload: a run record with `summary` and optional `runState: RunStateView`. Refetches when `runId` changes. Disabled when `runId` is `undefined`. |
 | `useGatewayRuns({ filter? })` | `{ data: RunSummary[] }` | List recent runs; `filter` accepts `status`, `limit`. |
 | `useGatewayWorkflows()` | `{ data: WorkflowSummary[] }` | Powers picker UIs. |
 | `useGatewayRunEvents(runId, opts?)` | `{ events, lastHeartbeat, streaming, error }` | Live WebSocket subscription. Drops the oldest events past `maxEvents` (default 1000). |
