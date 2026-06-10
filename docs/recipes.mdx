@@ -274,8 +274,16 @@ import { schemaAdherenceScorer, latencyScorer, llmJudge } from "smithers-orchest
     schema:  { scorer: schemaAdherenceScorer() },
     latency: { scorer: latencyScorer({ targetMs: 5000 }) },
     quality: {
-      scorer: llmJudge({ model: claude, prompt: "Rate the analysis quality 0-1" }),
-      sampling: { kind: "ratio", ratio: 0.1 },
+      scorer: llmJudge({
+        id: "analysis-quality",
+        name: "Analysis Quality",
+        description: "Rates whether the analysis is useful and well supported.",
+        judge: analyst,
+        instructions: "Return JSON with score from 0 to 1 and a short reason.",
+        promptTemplate: ({ input, output }) =>
+          `Rate the analysis quality.\nInput: ${JSON.stringify(input)}\nOutput: ${JSON.stringify(output)}`,
+      }),
+      sampling: { type: "ratio", rate: 0.1 },
     },
   }}
 >

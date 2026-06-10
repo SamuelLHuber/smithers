@@ -842,14 +842,19 @@ type SamplingConfig =
 type ScorerBinding = { scorer: Scorer; sampling?: SamplingConfig };
 type ScorersMap    = Record<string, ScorerBinding>;
 
-type LlmJudgeConfig    = { model: string; systemPrompt?: string; temperature?: number; maxTokens?: number };
+type LlmJudgeConfig = {
+  id: string;
+  name: string;
+  description: string;
+  judge: AgentLike;
+  instructions: string;
+  promptTemplate: (input: ScorerInput) => string;
+};
 type CreateScorerConfig = {
   id: string;
   name: string;
   description: string;
-  model: string;
-  criteria: string;
-  examples?: Array<{ input: unknown; output: unknown; score: number; explanation: string }>;
+  score: ScorerFn;
 };
 
 // =============================================================================

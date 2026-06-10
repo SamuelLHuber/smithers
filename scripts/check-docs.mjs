@@ -44,6 +44,10 @@ const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOpt
 const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptions.ts");
 const AMP_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AmpAgentOptions.ts");
 const MEMORY_TASK_CONFIG_SOURCE = join(root, "packages/memory/src/TaskMemoryConfig.ts");
+const SCORER_TYPES_SOURCE = join(root, "packages/scorers/src/types.ts");
+const LLM_JUDGE_CONFIG_SOURCE = join(root, "packages/scorers/src/LlmJudgeConfig.ts");
+const CREATE_SCORER_CONFIG_SOURCE = join(root, "packages/scorers/src/CreateScorerConfig.ts");
+const RECIPES_DOC = join(DOCS, "recipes.mdx");
 const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
 const ROOT_BUNFIG = join(root, "bunfig.toml");
@@ -780,6 +784,57 @@ function checkMemoryDocsMatchSourceTypes() {
   }
 }
 
+function checkScorerDocsMatchSourceTypes() {
+  const files = new Map([
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+    [RECIPES_DOC, readFileSync(RECIPES_DOC, "utf8")],
+    [SCORER_TYPES_SOURCE, readFileSync(SCORER_TYPES_SOURCE, "utf8")],
+    [LLM_JUDGE_CONFIG_SOURCE, readFileSync(LLM_JUDGE_CONFIG_SOURCE, "utf8")],
+    [CREATE_SCORER_CONFIG_SOURCE, readFileSync(CREATE_SCORER_CONFIG_SOURCE, "utf8")],
+  ]);
+  const required = [
+    [SCORER_TYPES_SOURCE, '| { type: "ratio"; rate: number }'],
+    [LLM_JUDGE_CONFIG_SOURCE, "judge: AgentLike;"],
+    [LLM_JUDGE_CONFIG_SOURCE, "instructions: string;"],
+    [LLM_JUDGE_CONFIG_SOURCE, "promptTemplate: (input: ScorerInput) => string;"],
+    [CREATE_SCORER_CONFIG_SOURCE, "score: ScorerFn;"],
+    [TYPES_REFERENCE, "judge: AgentLike;"],
+    [TYPES_REFERENCE, "instructions: string;"],
+    [TYPES_REFERENCE, "promptTemplate: (input: ScorerInput) => string;"],
+    [TYPES_REFERENCE, "score: ScorerFn;"],
+    [RECIPES_DOC, 'sampling: { type: "ratio", rate: 0.1 },'],
+    [RECIPES_DOC, 'id: "analysis-quality",'],
+    [RECIPES_DOC, "judge: analyst,"],
+    [RECIPES_DOC, "promptTemplate: ({ input, output }) =>"],
+  ];
+  const forbidden = [
+    [TYPES_REFERENCE, "type LlmJudgeConfig    = { model: string; systemPrompt?: string; temperature?: number; maxTokens?: number };"],
+    [TYPES_REFERENCE, "model: string;\n  criteria: string;"],
+    [TYPES_REFERENCE, "examples?: Array<{ input: unknown; output: unknown; score: number; explanation: string }>;"],
+    [RECIPES_DOC, "llmJudge({ model:"],
+    [RECIPES_DOC, "prompt: \"Rate the analysis quality 0-1\""],
+    [RECIPES_DOC, 'sampling: { kind: "ratio", ratio: 0.1 },'],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Scorer docs must match current scorer package types:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Scorer docs match current scorer package types");
+  }
+}
+
 function checkOpenApiDocsMatchCurrentPackage() {
   const files = new Map([
     [OPENAPI_CONCEPTS, readFileSync(OPENAPI_CONCEPTS, "utf8")],
@@ -968,6 +1023,7 @@ checkCliOverviewCommandCatalogMatchesCli();
 checkCliOverviewWorkflowRunFlagsMatchSchema();
 checkToolDocsMatchCurrentRuntimeLogging();
 checkMemoryDocsMatchSourceTypes();
+checkScorerDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
 checkGatewaySdkDocsMatchExports();
