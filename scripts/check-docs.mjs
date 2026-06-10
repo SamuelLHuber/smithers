@@ -63,6 +63,7 @@ const DB_RUN_STATE_TYPES = join(root, "packages/db/src/runState.d.ts");
 const OPENAPI_HELPERS_SOURCE = join(root, "packages/openapi/src/tool-factory/_helpers.js");
 const OPENAPI_LOAD_SPEC_EFFECT_SOURCE = join(root, "packages/openapi/src/loadSpecEffect.js");
 const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecSync.js");
+const OPENAPI_SPEC_SOURCE = join(root, "packages/openapi/src/OpenApiSpec.ts");
 const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
 const GATEWAY_CLIENT_SOURCE = join(root, "packages/gateway-client/src/SmithersGatewayClient.ts");
@@ -3014,6 +3015,7 @@ function checkScorerDocsMatchSourceTypes() {
 
 function checkOpenApiDocsMatchCurrentPackage() {
   const files = new Map([
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
     [OPENAPI_CONCEPTS, readFileSync(OPENAPI_CONCEPTS, "utf8")],
     [COMMON_TOOLS_INTEGRATION, readFileSync(COMMON_TOOLS_INTEGRATION, "utf8")],
     [PACKAGE_CONFIGURATION_REFERENCE, readFileSync(PACKAGE_CONFIGURATION_REFERENCE, "utf8")],
@@ -3022,9 +3024,14 @@ function checkOpenApiDocsMatchCurrentPackage() {
     [OPENAPI_HELPERS_SOURCE, readFileSync(OPENAPI_HELPERS_SOURCE, "utf8")],
     [OPENAPI_LOAD_SPEC_EFFECT_SOURCE, readFileSync(OPENAPI_LOAD_SPEC_EFFECT_SOURCE, "utf8")],
     [OPENAPI_LOAD_SPEC_SYNC_SOURCE, readFileSync(OPENAPI_LOAD_SPEC_SYNC_SOURCE, "utf8")],
+    [OPENAPI_SPEC_SOURCE, readFileSync(OPENAPI_SPEC_SOURCE, "utf8")],
     [OPENAPI_DECLARATIONS, readFileSync(OPENAPI_DECLARATIONS, "utf8")],
   ]);
   const required = [
+    [TYPES_REFERENCE, "type OpenApiSpec = {"],
+    [TYPES_REFERENCE, "paths: Record<string, OpenApiPathItem>;"],
+    [TYPES_REFERENCE, "schemas?: Record<string, OpenApiSchemaObject>;"],
+    [TYPES_REFERENCE, "requestBodies?: Record<string, OpenApiRequestBodyObject>;"],
     [OPENAPI_CONCEPTS, 'import { ToolLoopAgent } from "ai";'],
     [OPENAPI_CONCEPTS, 'import { anthropic } from "@ai-sdk/anthropic";'],
     [OPENAPI_CONCEPTS, "`loadSpecEffect(input)` | Load and parse a spec from object, path, URL, or raw text."],
@@ -3041,6 +3048,9 @@ function checkOpenApiDocsMatchCurrentPackage() {
     [OPENAPI_HELPERS_SOURCE, "Effect.annotateLogs"],
     [OPENAPI_HELPERS_SOURCE, "Effect.withLogSpan"],
     [OPENAPI_LOAD_SPEC_EFFECT_SOURCE, 'str.startsWith("http://") || str.startsWith("https://")'],
+    [OPENAPI_SPEC_SOURCE, "export type OpenApiSpec = {"],
+    [OPENAPI_SPEC_SOURCE, "paths: Record<string, PathItem>;"],
+    [OPENAPI_SPEC_SOURCE, "requestBodies?: Record<string, RequestBodyObject>;"],
     [OPENAPI_DECLARATIONS, "declare function jsonSchemaToZod(schema: SchemaObject | RefObject | undefined, spec:"],
     [OPENAPI_DECLARATIONS, "visited?: Set<string>): z.ZodType;"],
     [OPENAPI_DECLARATIONS, "declare function buildOperationSchema(parameters: ParameterObject[], requestBody: RequestBodyObject | undefined, spec:"],
@@ -3055,6 +3065,7 @@ function checkOpenApiDocsMatchCurrentPackage() {
     [OPENAPI_HELPERS_SOURCE, "OpenApiToolCalled"],
     [OPENAPI_LOAD_SPEC_SYNC_SOURCE, 'startsWith("http://")'],
     [OPENAPI_LOAD_SPEC_SYNC_SOURCE, 'startsWith("https://")'],
+    [TYPES_REFERENCE, "type OpenApiSpec = Record<string, unknown>;"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));

@@ -1433,6 +1433,86 @@ type OpenApiAuth =
   | { type: "bearer"; token: string }
   | { type: "basic"; username: string; password: string };
 
+type OpenApiRefObject = {
+  $ref: string;
+};
+
+type OpenApiSchemaObject = {
+  type?: string;
+  format?: string;
+  description?: string;
+  properties?: Record<string, OpenApiSchemaObject | OpenApiRefObject>;
+  required?: string[];
+  items?: OpenApiSchemaObject | OpenApiRefObject;
+  enum?: unknown[];
+  default?: unknown;
+  nullable?: boolean;
+  oneOf?: Array<OpenApiSchemaObject | OpenApiRefObject>;
+  anyOf?: Array<OpenApiSchemaObject | OpenApiRefObject>;
+  allOf?: Array<OpenApiSchemaObject | OpenApiRefObject>;
+  additionalProperties?: boolean | OpenApiSchemaObject | OpenApiRefObject;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  $ref?: string;
+};
+
+type OpenApiParameterObject = {
+  name: string;
+  in: "query" | "header" | "path" | "cookie";
+  description?: string;
+  required?: boolean;
+  schema?: OpenApiSchemaObject | OpenApiRefObject;
+  deprecated?: boolean;
+};
+
+type OpenApiRequestBodyObject = {
+  description?: string;
+  required?: boolean;
+  content: Record<string, { schema?: OpenApiSchemaObject | OpenApiRefObject }>;
+};
+
+type OpenApiOperationObject = {
+  operationId?: string;
+  summary?: string;
+  description?: string;
+  parameters?: Array<OpenApiParameterObject | OpenApiRefObject>;
+  requestBody?: OpenApiRequestBodyObject | OpenApiRefObject;
+  responses?: Record<string, unknown>;
+  tags?: string[];
+  deprecated?: boolean;
+};
+
+type OpenApiPathItem = {
+  get?: OpenApiOperationObject;
+  post?: OpenApiOperationObject;
+  put?: OpenApiOperationObject;
+  delete?: OpenApiOperationObject;
+  patch?: OpenApiOperationObject;
+  parameters?: Array<OpenApiParameterObject | OpenApiRefObject>;
+};
+
+type OpenApiSpec = {
+  openapi: string;
+  info: {
+    title: string;
+    version: string;
+    description?: string;
+  };
+  servers?: Array<{
+    url: string;
+    description?: string;
+  }>;
+  paths: Record<string, OpenApiPathItem>;
+  components?: {
+    schemas?: Record<string, OpenApiSchemaObject>;
+    parameters?: Record<string, OpenApiParameterObject>;
+    requestBodies?: Record<string, OpenApiRequestBodyObject>;
+  };
+};
+
 type OpenApiToolsOptions = {
   baseUrl?: string;
   headers?: Record<string, string>;
