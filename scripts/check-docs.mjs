@@ -19,6 +19,7 @@ import ts from "typescript";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = join(root, "docs");
+const RPC_DOCS = join(DOCS, "rpc");
 const README = join(root, "README.md");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
@@ -530,6 +531,40 @@ function displayPath(file) {
   return file.replace(root + "/", "");
 }
 
+function kebabRpcDocName(method) {
+  return `${method.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}.mdx`;
+}
+
+function inlineCodeList(items) {
+  const quoted = items.map((item) => `\`${item}\``);
+  if (quoted.length <= 1) return quoted.join("");
+  if (quoted.length === 2) return `${quoted[0]} and ${quoted[1]}`;
+  return `${quoted.slice(0, -1).join(", ")}, and ${quoted.at(-1)}`;
+}
+
+function readGatewayRpcDefinitionsFromSource() {
+  const source = readFileSync(GATEWAY_RPC_INDEX, "utf8");
+  const entries = [];
+  let current;
+  for (const line of source.split(/\r?\n/)) {
+    const method = line.match(/method: "([^"]+)"/);
+    if (method) current = { method: method[1] };
+    if (!current) continue;
+
+    const scope = line.match(/requiredScope: "([^"]+)"/);
+    if (scope) current.scope = scope[1];
+
+    const errors = line.match(/errors: \[([^\]]+)\]/);
+    if (errors) current.errors = [...errors[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+
+    if (current.method && current.scope && current.errors) {
+      entries.push(current);
+      current = undefined;
+    }
+  }
+  return entries;
+}
+
 function checkFreestyleDocsMatchProviderSeam() {
   const files = new Map([
     [CLOUD_EXECUTION_SPEC, readFileSync(CLOUD_EXECUTION_SPEC, "utf8")],
@@ -643,6 +678,47 @@ function checkRunStateDocsMatchCurrentEmission() {
     }
   } else {
     console.log("✓ RunState docs mark RunStateChanged as typed/reserved, not emitted");
+  }
+}
+
+function checkGatewayRpcReferenceDocsMatchRegistry() {
+  const definitions = readGatewayRpcDefinitionsFromSource();
+  const expectedDocs = definitions.map((definition) => kebabRpcDocName(definition.method)).sort();
+  const actualDocs = readdirSync(RPC_DOCS).filter((name) => name.endsWith(".mdx")).sort();
+  const missingDocs = expectedDocs.filter((name) => !actualDocs.includes(name));
+  const extraDocs = actualDocs.filter((name) => !expectedDocs.includes(name));
+  const problems = [];
+
+  if (definitions.length !== 19) {
+    problems.push(`expected 19 Gateway RPC definitions, found ${definitions.length}`);
+  }
+  for (const name of missingDocs) problems.push(`missing docs/rpc/${name}`);
+  for (const name of extraDocs) problems.push(`unexpected docs/rpc/${name}`);
+
+  for (const definition of definitions) {
+    const docPath = join(RPC_DOCS, kebabRpcDocName(definition.method));
+    if (!existsSync(docPath)) continue;
+    const source = readFileSync(docPath, "utf8");
+    const expectedErrorSentence = `Errors are versioned as \`v1\` and include ${inlineCodeList(definition.errors)}.`;
+    const required = [
+      `title: ${definition.method}`,
+      `- Method: \`${definition.method}\``,
+      `- Scope: \`${definition.scope}\``,
+      expectedErrorSentence,
+    ];
+    for (const needle of required) {
+      if (!source.includes(needle)) {
+        problems.push(`${displayPath(docPath)} missing ${needle}`);
+      }
+    }
+  }
+
+  if (problems.length) {
+    failed = true;
+    console.error("\n✗ Gateway RPC reference docs must match the registry method, scope, and error lists:");
+    console.error(`    ${problems.join("\n    ")}`);
+  } else {
+    console.log("✓ Gateway RPC reference docs match registry methods, scopes, and errors");
   }
 }
 
@@ -2063,6 +2139,7 @@ checkImplementedApisNotMarkedComingSoon();
 checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
+checkGatewayRpcReferenceDocsMatchRegistry();
 checkGatewayGetRunDocsMatchResponseShape();
 checkGatewayStreamDevToolsDocsMatchRuntimeShape();
 checkGatewayCancelRunDocsMatchRuntimeErrors();
