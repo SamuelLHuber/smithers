@@ -1,7 +1,40 @@
-import * as _smithers_db_adapter from '@smithers-orchestrator/db/adapter';
-import { SmithersDb as SmithersDb$b } from '@smithers-orchestrator/db/adapter';
 import { SmithersEvent } from '@smithers-orchestrator/observability/SmithersEvent';
+import * as _smithers_orchestrator_db_adapter from '@smithers-orchestrator/db/adapter';
+import { SmithersDb as SmithersDb$d } from '@smithers-orchestrator/db/adapter';
+export { replaysStarted, runForksCreated, snapshotDuration, snapshotsCaptured } from '@smithers-orchestrator/observability/metrics';
 import * as drizzle_orm_sqlite_core from 'drizzle-orm/sqlite-core';
+
+type TimeTravelResult$2 = {
+    success: boolean;
+    jjPointer?: string;
+    vcsRestored: boolean;
+    resetNodes: string[];
+    error?: string;
+};
+
+type TimeTravelOptions$2 = {
+    runId: string;
+    nodeId: string;
+    iteration?: number;
+    attempt?: number;
+    resetDependents?: boolean;
+    restoreVcs?: boolean;
+    onProgress?: (event: SmithersEvent) => void;
+};
+
+type RevertResult$2 = {
+    success: boolean;
+    error?: string;
+    jjPointer?: string;
+};
+
+type RevertOptions$2 = {
+    runId: string;
+    nodeId: string;
+    iteration: number;
+    attempt: number;
+    onProgress?: (event: SmithersEvent) => void;
+};
 
 type RewindAuditResult$4 = "success" | "failed" | "partial" | "in_progress";
 
@@ -13,7 +46,7 @@ type RewindLockHandle$2 = {
 type JumpStepName$1 = "snapshot-pre-jump" | "pause-event-loop" | "revert-sandboxes" | "truncate-frames" | "truncate-attempts" | "truncate-outputs" | "invalidate-diffs" | "rebuild-reconciler" | "resume-event-loop";
 
 type JumpToFrameInput$2 = {
-    adapter: SmithersDb$b;
+    adapter: SmithersDb$d;
     runId: unknown;
     frameNo: unknown;
     confirm?: unknown;
@@ -143,6 +176,8 @@ type SnapshotDiff$2 = {
     outputsAdded: string[];
     outputsRemoved: string[];
     outputsChanged: OutputChange$1[];
+    ralphAdded: string[];
+    ralphRemoved: string[];
     ralphChanged: RalphChange$1[];
     inputChanged: boolean;
     vcsPointerChanged: boolean;
@@ -234,6 +269,29 @@ type ForkParams$2 = {
     forkDescription?: string;
 };
 
+/** @typedef {import("./RevertOptions.ts").RevertOptions} RevertOptions */
+/** @typedef {import("./RevertResult.ts").RevertResult} RevertResult */
+/** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
+/**
+ * @param {SmithersDb} adapter
+ * @param {RevertOptions} opts
+ * @returns {Promise<RevertResult>}
+ */
+declare function revertToAttempt(adapter: SmithersDb$c, opts: RevertOptions$1): Promise<RevertResult$1>;
+type RevertOptions$1 = RevertOptions$2;
+type RevertResult$1 = RevertResult$2;
+type SmithersDb$c = _smithers_orchestrator_db_adapter.SmithersDb;
+
+/**
+ * @param {SmithersDb} adapter
+ * @param {TimeTravelOptions} opts
+ * @returns {Promise<TimeTravelResult>}
+ */
+declare function timeTravel(adapter: SmithersDb$b, opts: TimeTravelOptions$1): Promise<TimeTravelResult$1>;
+type SmithersDb$b = _smithers_orchestrator_db_adapter.SmithersDb;
+type TimeTravelOptions$1 = TimeTravelOptions$2;
+type TimeTravelResult$1 = TimeTravelResult$2;
+
 /** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
 /** @typedef {import("./ReplayParams.ts").ReplayParams} ReplayParams */
 /**
@@ -245,17 +303,9 @@ type ForkParams$2 = {
  */
 declare function replayFromCheckpoint(adapter: SmithersDb$a, params: ReplayParams$1): Promise<ReplayResult$1>;
 
-type SmithersDb$a = _smithers_db_adapter.SmithersDb;
+type SmithersDb$a = _smithers_orchestrator_db_adapter.SmithersDb;
 type ReplayParams$1 = ReplayParams$2;
 type ReplayResult$1 = ReplayResult$2;
-
-declare const snapshotsCaptured: any;
-
-declare const runForksCreated: any;
-
-declare const replaysStarted: any;
-
-declare const snapshotDuration: any;
 
 /** @typedef {import("../ParsedSnapshot.ts").ParsedSnapshot} ParsedSnapshot */
 /** @typedef {import("./Snapshot.ts").Snapshot} Snapshot */
@@ -304,7 +354,7 @@ declare function loadLatestSnapshot(adapter: SmithersDb$9, runId: string): Promi
  */
 declare function listSnapshots(adapter: SmithersDb$9, runId: string): Promise<Array<Pick<Snapshot$3, "runId" | "frameNo" | "contentHash" | "createdAtMs" | "vcsPointer">>>;
 
-type SmithersDb$9 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$9 = _smithers_orchestrator_db_adapter.SmithersDb;
 type Snapshot$3 = Snapshot$5;
 type SnapshotData$1 = SnapshotData$2;
 
@@ -377,7 +427,7 @@ declare function listBranches(adapter: SmithersDb$8, parentRunId: string): Promi
  * @returns {Promise<BranchInfo | undefined>}
  */
 declare function getBranchInfo(adapter: SmithersDb$8, runId: string): Promise<BranchInfo$1 | undefined>;
-type SmithersDb$8 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$8 = _smithers_orchestrator_db_adapter.SmithersDb;
 type BranchInfo$1 = BranchInfo$2;
 type ForkParams$1 = ForkParams$2;
 type Snapshot$1 = Snapshot$5;
@@ -433,7 +483,7 @@ declare function rerunAtRevision(adapter: SmithersDb$7, runId: string, frameNo: 
     vcsPointer: string | null;
     error?: string;
 }>;
-type SmithersDb$7 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$7 = _smithers_orchestrator_db_adapter.SmithersDb;
 type VcsTag$1 = VcsTag$2;
 
 /** @typedef {import("../TimelineTree.ts").TimelineTree} TimelineTree */
@@ -472,7 +522,7 @@ declare function buildTimeline(adapter: SmithersDb$6, runId: string): Promise<Ru
  */
 declare function buildTimelineTree(adapter: SmithersDb$6, runId: string): Promise<TimelineTree$1>;
 
-type SmithersDb$6 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$6 = _smithers_orchestrator_db_adapter.SmithersDb;
 type RunTimeline$1 = RunTimeline$2;
 type TimelineTree$1 = TimelineTree$4;
 
@@ -1035,7 +1085,7 @@ declare function evaluateRewindRateLimit(input: {
     windowMs: number;
     windowStartedAtMs: number;
 }>;
-type SmithersDb$5 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$5 = _smithers_orchestrator_db_adapter.SmithersDb;
 
 /** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
 /** @typedef {import("./RewindAuditResult.ts").RewindAuditResult} RewindAuditResult */
@@ -1063,7 +1113,7 @@ declare function writeRewindAuditRow(adapter: SmithersDb$4, row: {
     result: RewindAuditResult$3;
     durationMs?: number | null;
 }): Promise<number | null>;
-type SmithersDb$4 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$4 = _smithers_orchestrator_db_adapter.SmithersDb;
 type RewindAuditResult$3 = RewindAuditResult$4;
 
 /** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
@@ -1081,7 +1131,7 @@ declare function updateRewindAuditRow(adapter: SmithersDb$3, row: {
     durationMs?: number | null;
     fromFrameNo?: number;
 }): Promise<void>;
-type SmithersDb$3 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$3 = _smithers_orchestrator_db_adapter.SmithersDb;
 type RewindAuditResult$2 = RewindAuditResult$4;
 
 /** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
@@ -1099,7 +1149,7 @@ declare function countRecentRewindAuditRows(adapter: SmithersDb$2, input: {
     caller: string;
     sinceMs: number;
 }): Promise<number>;
-type SmithersDb$2 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$2 = _smithers_orchestrator_db_adapter.SmithersDb;
 
 /**
  * Fetch audit rows for tests and diagnostics.
@@ -1112,7 +1162,7 @@ declare function listRewindAuditRows(adapter: SmithersDb$1, input?: {
     runId?: string;
     limit?: number;
 }): Promise<Array<RewindAuditRow>>;
-type SmithersDb$1 = _smithers_db_adapter.SmithersDb;
+type SmithersDb$1 = _smithers_orchestrator_db_adapter.SmithersDb;
 type RewindAuditResult$1 = RewindAuditResult$4;
 type RewindAuditRow = {
     id: number;
@@ -1142,7 +1192,7 @@ declare function recoverInProgressRewindAudits(adapter: SmithersDb, options?: {
         runId: string;
     }>;
 }>;
-type SmithersDb = _smithers_db_adapter.SmithersDb;
+type SmithersDb = _smithers_orchestrator_db_adapter.SmithersDb;
 
 type BranchInfo = BranchInfo$2;
 type ForkParams = ForkParams$2;
@@ -1166,5 +1216,9 @@ type JumpToFrameInput = JumpToFrameInput$2;
 type JumpStepName = JumpStepName$1;
 type RewindLockHandle = RewindLockHandle$2;
 type RewindAuditResult = RewindAuditResult$4;
+type RevertOptions = RevertOptions$2;
+type RevertResult = RevertResult$2;
+type TimeTravelOptions = TimeTravelOptions$2;
+type TimeTravelResult = TimeTravelResult$2;
 
-export { type BranchInfo, type ForkParams, type JumpResult, type JumpStepName, JumpToFrameError, type JumpToFrameInput, type NodeChange, type NodeSnapshot, type OutputChange, type ParsedSnapshot, REWIND_RATE_LIMIT_MAX, REWIND_RATE_LIMIT_WINDOW_MS, type RalphChange, type RalphSnapshot, type ReplayParams, type ReplayResult, type RewindAuditResult, type RewindLockHandle, type RunTimeline, type Snapshot, type SnapshotData, type SnapshotDiff, type TimelineFrame, type TimelineTree, type VcsTag, acquireRewindLock, buildTimeline, buildTimelineTree, captureSnapshot, countRecentRewindAuditRows, diffRawSnapshots, diffSnapshots, evaluateRewindRateLimit, forkRun, formatDiffAsJson, formatDiffForTui, formatTimelineAsJson, formatTimelineForTui, getBranchInfo, hasRewindLock, jumpToFrame, listBranches, listRewindAuditRows, listSnapshots, loadLatestSnapshot, loadSnapshot, loadVcsTag, parseSnapshot, recoverInProgressRewindAudits, replayFromCheckpoint, replaysStarted, rerunAtRevision, resetRewindLocksForTests, resolveWorkflowAtRevision, runForksCreated, smithersBranches, smithersSnapshots, smithersVcsTags, snapshotDuration, snapshotsCaptured, tagSnapshotVcs, updateRewindAuditRow, validateJumpFrameNo, validateJumpRunId, writeRewindAuditRow };
+export { type BranchInfo, type ForkParams, type JumpResult, type JumpStepName, JumpToFrameError, type JumpToFrameInput, type NodeChange, type NodeSnapshot, type OutputChange, type ParsedSnapshot, REWIND_RATE_LIMIT_MAX, REWIND_RATE_LIMIT_WINDOW_MS, type RalphChange, type RalphSnapshot, type ReplayParams, type ReplayResult, type RevertOptions, type RevertResult, type RewindAuditResult, type RewindLockHandle, type RunTimeline, type Snapshot, type SnapshotData, type SnapshotDiff, type TimeTravelOptions, type TimeTravelResult, type TimelineFrame, type TimelineTree, type VcsTag, acquireRewindLock, buildTimeline, buildTimelineTree, captureSnapshot, countRecentRewindAuditRows, diffRawSnapshots, diffSnapshots, evaluateRewindRateLimit, forkRun, formatDiffAsJson, formatDiffForTui, formatTimelineAsJson, formatTimelineForTui, getBranchInfo, hasRewindLock, jumpToFrame, listBranches, listRewindAuditRows, listSnapshots, loadLatestSnapshot, loadSnapshot, loadVcsTag, parseSnapshot, recoverInProgressRewindAudits, replayFromCheckpoint, rerunAtRevision, resetRewindLocksForTests, resolveWorkflowAtRevision, revertToAttempt, smithersBranches, smithersSnapshots, smithersVcsTags, tagSnapshotVcs, timeTravel, updateRewindAuditRow, validateJumpFrameNo, validateJumpRunId, writeRewindAuditRow };

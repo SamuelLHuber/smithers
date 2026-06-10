@@ -70,6 +70,8 @@ export { isSmithersError } from '@smithers-orchestrator/errors/isSmithersError';
 export { knownSmithersErrorCodes } from '@smithers-orchestrator/errors/knownSmithersErrorCodes';
 export { signalRun } from '@smithers-orchestrator/engine/signals';
 export { usePatched } from '@smithers-orchestrator/engine/effect/versioning';
+export { revertToAttempt } from '@smithers-orchestrator/time-travel/revert';
+export { timeTravel } from '@smithers-orchestrator/time-travel/timetravel';
 import { SmithersDb } from '@smithers-orchestrator/db/adapter';
 export { SmithersDb } from '@smithers-orchestrator/db/adapter';
 export { ensureSmithersTables } from '@smithers-orchestrator/db/ensure';

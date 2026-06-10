@@ -21,11 +21,17 @@
 /** @typedef {import("./JumpStepName.ts").JumpStepName} JumpStepName */
 /** @typedef {import("./RewindLockHandle.ts").RewindLockHandle} RewindLockHandle */
 /** @typedef {import("./RewindAuditResult.ts").RewindAuditResult} RewindAuditResult */
+/** @typedef {import("./RevertOptions.ts").RevertOptions} RevertOptions */
+/** @typedef {import("./RevertResult.ts").RevertResult} RevertResult */
+/** @typedef {import("./TimeTravelOptions.ts").TimeTravelOptions} TimeTravelOptions */
+/** @typedef {import("./TimeTravelResult.ts").TimeTravelResult} TimeTravelResult */
 // @smithers-type-exports-end
 
 // ---------------------------------------------------------------------------
 // Time Travel — barrel exports
 // ---------------------------------------------------------------------------
+export { revertToAttempt } from "./revert.js";
+export { timeTravel } from "./timetravel.js";
 export { captureSnapshot, loadSnapshot, loadLatestSnapshot, listSnapshots, parseSnapshot, } from "./snapshot/index.js";
 export { diffSnapshots, diffRawSnapshots, formatDiffForTui, formatDiffAsJson, } from "./diff.js";
 export { forkRun, listBranches, getBranchInfo, } from "./fork/index.js";
