@@ -35,9 +35,9 @@ All tools are sandboxed to `rootDir` (defaults to the workflow directory). Paths
 | Timeouts | `bash` and `grep` default to 60s; exceeded processes killed with `SIGKILL`. |
 | Network | `bash` blocks network commands by default. See [bash](#bash). |
 
-## Tool Call Logging
+## Tool call state
 
-Every invocation is logged to `_smithers_tool_calls`:
+Smithers creates the `_smithers_tool_calls` table and exposes adapter methods to insert and list rows. The current engine reads that table on retry to build warnings for previously recorded non-idempotent side-effect tool calls. The `defineTool()` wrapper itself does not insert a durable row for every call; it attaches metadata, provides `ctx.idempotencyKey`, and runs the side-effect snapshot hook when a task supplies one.
 
 | Field | Description |
 |---|---|
@@ -81,8 +81,8 @@ const placeOrder = defineTool({
 
 - `ctx.idempotencyKey` is stable across retries and resumes for the same task iteration.
 - `sideEffect: true` opts the tool into Smithers side-effect tracking.
-- `idempotent: false` warns resumed/retried agent loops when the tool was called in a previous attempt.
-- Every `defineTool()` call is logged to `_smithers_tool_calls`.
+- `idempotent: false` marks the tool for retry warnings when a previous attempt has a recorded `_smithers_tool_calls` row.
+- `defineTool()` does not persist `_smithers_tool_calls` rows directly; durable rows come from runtime paths that call the Smithers DB adapter.
 
 ### Side Effects and Idempotency
 

@@ -24,6 +24,8 @@ const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
 const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
+const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
+const ENGINE_SOURCE = join(root, "packages/engine/src/engine.js");
 const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
 const ROOT_BUNFIG = join(root, "bunfig.toml");
@@ -690,6 +692,36 @@ function checkCliOverviewWorkflowRunFlagsMatchSchema() {
   }
 }
 
+function checkToolDocsMatchCurrentRuntimeLogging() {
+  const docs = readFileSync(TOOLS_INTEGRATION, "utf8");
+  const engine = readFileSync(ENGINE_SOURCE, "utf8");
+  const required = [
+    "Smithers creates the `_smithers_tool_calls` table and exposes adapter methods to insert and list rows.",
+    "The current engine reads that table on retry to build warnings for previously recorded non-idempotent side-effect tool calls.",
+    "The `defineTool()` wrapper itself does not insert a durable row for every call",
+    "`idempotent: false` marks the tool for retry warnings when a previous attempt has a recorded `_smithers_tool_calls` row.",
+    "`defineTool()` does not persist `_smithers_tool_calls` rows directly",
+  ];
+  const forbidden = [
+    "Every invocation is logged to `_smithers_tool_calls`:",
+    "Every `defineTool()` call is logged to `_smithers_tool_calls`.",
+  ];
+  const missing = required.filter((needle) => !docs.includes(needle));
+  const stale = forbidden.filter((needle) => docs.includes(needle));
+  const engineReadsToolCalls = engine.includes(".listToolCalls(");
+  const engineInsertsToolCalls = engine.includes(".insertToolCall(");
+  if (missing.length || stale.length || !engineReadsToolCalls || engineInsertsToolCalls) {
+    failed = true;
+    console.error("\n✗ docs/integrations/tools.mdx must match current _smithers_tool_calls runtime behavior:");
+    if (!engineReadsToolCalls) console.error("    engine no longer reads tool-call rows for retry warnings");
+    if (engineInsertsToolCalls) console.error("    engine now inserts tool-call rows; update docs to document full logging");
+    if (missing.length) console.error(`    missing: ${missing.join(", ")}`);
+    if (stale.length) console.error(`    stale: ${stale.join(", ")}`);
+  } else {
+    console.log("✓ tool docs describe current _smithers_tool_calls behavior");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -706,5 +738,6 @@ checkComponentPropsDocsMatchSourceTypes();
 checkPackageConfigurationDocsMatchRootConfig();
 checkCliOverviewCommandCatalogMatchesCli();
 checkCliOverviewWorkflowRunFlagsMatchSchema();
+checkToolDocsMatchCurrentRuntimeLogging();
 
 process.exit(failed ? 1 : 0);
