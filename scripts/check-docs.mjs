@@ -1153,6 +1153,60 @@ function checkHotReloadDocsMatchRuntimeDefaults() {
   }
 }
 
+function extractTypeProperties(source, typePattern) {
+  const match = source.match(typePattern);
+  if (!match?.[1]) return null;
+  const properties = [];
+  let depth = 0;
+  for (const line of match[1].split("\n")) {
+    if (depth === 0) {
+      const property = line.match(/^\s*([A-Za-z_$][\w$]*)\??:/);
+      if (property?.[1]) properties.push(property[1]);
+    }
+    for (const char of line) {
+      if (char === "{") depth += 1;
+      else if (char === "}") depth = Math.max(0, depth - 1);
+    }
+  }
+  return properties;
+}
+
+function checkRunOptionsDocsMatchSourceType() {
+  const source = readFileSync(DRIVER_RUN_OPTIONS_SOURCE, "utf8");
+  const declarations = readFileSync(DRIVER_DECLARATIONS, "utf8");
+  const docs = readFileSync(TYPES_REFERENCE, "utf8");
+
+  const sourceProps = extractTypeProperties(source, /export type RunOptions = \{([\s\S]*?)\n\};/);
+  const declarationProps = extractTypeProperties(declarations, /type RunOptions\$2 = \{([\s\S]*?)\n\};/);
+  const docProps = extractTypeProperties(docs, /type RunOptions = \{([\s\S]*?)\n\};/);
+
+  const problems = [];
+  if (!sourceProps) problems.push("could not parse packages/driver/src/RunOptions.ts RunOptions");
+  if (!declarationProps) problems.push("could not parse packages/driver/src/index.d.ts RunOptions");
+  if (!docProps) problems.push("could not parse docs/reference/types.mdx RunOptions");
+
+  if (sourceProps && declarationProps) {
+    const missing = sourceProps.filter((prop) => !declarationProps.includes(prop));
+    const extra = declarationProps.filter((prop) => !sourceProps.includes(prop));
+    if (missing.length) problems.push(`driver declaration missing: ${missing.join(", ")}`);
+    if (extra.length) problems.push(`driver declaration extra: ${extra.join(", ")}`);
+  }
+  if (sourceProps && docProps) {
+    const missing = sourceProps.filter((prop) => !docProps.includes(prop));
+    const extra = docProps.filter((prop) => !sourceProps.includes(prop));
+    if (missing.length) problems.push(`types docs missing: ${missing.join(", ")}`);
+    if (extra.length) problems.push(`types docs extra: ${extra.join(", ")}`);
+  }
+
+  if (problems.length) {
+    failed = true;
+    console.error("\n✗ RunOptions docs and declarations must match the source type:");
+    console.error(problems.map((problem) => `    ${problem}`).join("\n"));
+  } else {
+    console.log("✓ RunOptions docs and declarations match the source type");
+  }
+}
+
 function checkSandboxDocsMatchProviderTypes() {
   const files = new Map([
     [join(root, "packages/components/src/components/SandboxProps.ts"), readFileSync(join(root, "packages/components/src/components/SandboxProps.ts"), "utf8")],
@@ -2555,6 +2609,7 @@ checkGatewayStreamDevToolsDocsMatchRuntimeShape();
 checkGatewayCancelRunDocsMatchRuntimeErrors();
 checkGatewaySubmitApprovalDocsMatchRuntimeErrors();
 checkHotReloadDocsMatchRuntimeDefaults();
+checkRunOptionsDocsMatchSourceType();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkComponentPropsDocsMatchSourceTypes();

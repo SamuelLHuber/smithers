@@ -68,6 +68,7 @@ type RunOptions$2 = {
     maxOutputBytes?: number;
     toolTimeoutMs?: number;
     hot?: boolean | HotReloadOptions$1;
+    annotations?: Record<string, string | number | boolean>;
     auth?: RunAuthContext$2 | null;
     config?: Record<string, unknown>;
     cliAgentToolsDefault?: "all" | "explicit-only";
