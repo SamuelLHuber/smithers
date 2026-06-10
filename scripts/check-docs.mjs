@@ -25,7 +25,14 @@ const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
 const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
+const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
+const RUNTIME_EVENTS_REFERENCE = join(DOCS, "runtime/events.mdx");
+const EVENT_TYPES_REFERENCE = join(DOCS, "reference/event-types.mdx");
 const ENGINE_SOURCE = join(root, "packages/engine/src/engine.js");
+const OPENAPI_HELPERS_SOURCE = join(root, "packages/openapi/src/tool-factory/_helpers.js");
+const OPENAPI_LOAD_SPEC_EFFECT_SOURCE = join(root, "packages/openapi/src/loadSpecEffect.js");
+const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecSync.js");
+const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const MEMORY_TASK_CONFIG_SOURCE = join(root, "packages/memory/src/TaskMemoryConfig.ts");
 const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
@@ -763,6 +770,62 @@ function checkMemoryDocsMatchSourceTypes() {
   }
 }
 
+function checkOpenApiDocsMatchCurrentPackage() {
+  const files = new Map([
+    [OPENAPI_CONCEPTS, readFileSync(OPENAPI_CONCEPTS, "utf8")],
+    [RUNTIME_EVENTS_REFERENCE, readFileSync(RUNTIME_EVENTS_REFERENCE, "utf8")],
+    [EVENT_TYPES_REFERENCE, readFileSync(EVENT_TYPES_REFERENCE, "utf8")],
+    [OPENAPI_HELPERS_SOURCE, readFileSync(OPENAPI_HELPERS_SOURCE, "utf8")],
+    [OPENAPI_LOAD_SPEC_EFFECT_SOURCE, readFileSync(OPENAPI_LOAD_SPEC_EFFECT_SOURCE, "utf8")],
+    [OPENAPI_LOAD_SPEC_SYNC_SOURCE, readFileSync(OPENAPI_LOAD_SPEC_SYNC_SOURCE, "utf8")],
+    [OPENAPI_DECLARATIONS, readFileSync(OPENAPI_DECLARATIONS, "utf8")],
+  ]);
+  const required = [
+    [OPENAPI_CONCEPTS, "`loadSpecEffect(input)` | Load and parse a spec from object, path, URL, or raw text."],
+    [OPENAPI_CONCEPTS, "`loadSpecSync(input)` | Load and parse a spec from object, local file path, or raw text. It does not fetch URLs."],
+    [OPENAPI_CONCEPTS, "`jsonSchemaToZod(schema, spec, visited?)` / `buildOperationSchema(parameters, requestBody, spec)`"],
+    [OPENAPI_CONCEPTS, "OpenAPI tool calls update the exported Effect metrics (`openApiToolCallsTotal`, `openApiToolCallErrorsTotal`, `openApiToolDuration`)"],
+    [OPENAPI_CONCEPTS, "The current tool factory does not emit `OpenApiToolCalled` onto the Smithers run event bus"],
+    [RUNTIME_EVENTS_REFERENCE, "OpenApiToolCalled` is categorized as `openapi` for forward compatibility"],
+    [EVENT_TYPES_REFERENCE, "OpenApiToolCalled` is typed and categorized for forward compatibility"],
+    [OPENAPI_HELPERS_SOURCE, "Metric.increment(openApiToolCallsTotal)"],
+    [OPENAPI_HELPERS_SOURCE, "Metric.update(openApiToolDuration, durationMs)"],
+    [OPENAPI_HELPERS_SOURCE, "Effect.annotateLogs"],
+    [OPENAPI_HELPERS_SOURCE, "Effect.withLogSpan"],
+    [OPENAPI_LOAD_SPEC_EFFECT_SOURCE, 'str.startsWith("http://") || str.startsWith("https://")'],
+    [OPENAPI_DECLARATIONS, "declare function jsonSchemaToZod(schema: SchemaObject | RefObject | undefined, spec:"],
+    [OPENAPI_DECLARATIONS, "visited?: Set<string>): z.ZodType;"],
+    [OPENAPI_DECLARATIONS, "declare function buildOperationSchema(parameters: ParameterObject[], requestBody: RequestBodyObject | undefined, spec:"],
+  ];
+  const forbidden = [
+    [OPENAPI_CONCEPTS, "Each tool call emits an `OpenApiToolCalled` event"],
+    [OPENAPI_CONCEPTS, "Visible via `bunx smithers-orchestrator events RUN_ID --type openapi`"],
+    [OPENAPI_CONCEPTS, "`loadSpecEffect(input)` / `loadSpecSync(input)` | Load and parse a spec from object, path, URL, or raw text."],
+    [OPENAPI_CONCEPTS, "`jsonSchemaToZod(schema)` / `buildOperationSchema(...)`"],
+    [OPENAPI_HELPERS_SOURCE, "OpenApiToolCalled"],
+    [OPENAPI_LOAD_SPEC_SYNC_SOURCE, 'startsWith("http://")'],
+    [OPENAPI_LOAD_SPEC_SYNC_SOURCE, 'startsWith("https://")'],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ OpenAPI docs must match current package behavior and declarations:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ OpenAPI docs match current package behavior and declarations");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -781,5 +844,6 @@ checkCliOverviewCommandCatalogMatchesCli();
 checkCliOverviewWorkflowRunFlagsMatchSchema();
 checkToolDocsMatchCurrentRuntimeLogging();
 checkMemoryDocsMatchSourceTypes();
+checkOpenApiDocsMatchCurrentPackage();
 
 process.exit(failed ? 1 : 0);

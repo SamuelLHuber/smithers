@@ -115,6 +115,8 @@ Discriminate on the `type` field, e.g. `event.type === "NodeFailed"`, to handle 
 
 `RunStateChanged` is typed and categorized for forward compatibility, but the current runtime does not emit it. Read derived run state with `getRun` or `computeRunState`, and watch `RunStatusChanged` for persisted status transitions.
 
+`OpenApiToolCalled` is typed and categorized for forward compatibility, but the current OpenAPI tool factory records Effect metrics and log spans rather than emitting that event onto the run event bus.
+
 ## Agent Event Payload
 
 This type describes the `.event` field of the `AgentEvent` variant above. For structured traces, prefer `AgentTraceEvent`, `AgentTraceSummary`, and `AgentSessionEvent`.

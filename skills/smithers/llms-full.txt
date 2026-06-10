@@ -7021,8 +7021,9 @@ Pass the spec itself as the first argument to `createOpenApiTools(input, options
 | `createOpenApiTool(input, operationId, options?)` / `createOpenApiToolSync(...)` | Build one operation as a tool. |
 | `listOperations(input)` | Return parsed operation metadata without creating tools. |
 | `extractOperations(spec)` | Extract operations from an already parsed spec. |
-| `loadSpecEffect(input)` / `loadSpecSync(input)` | Load and parse a spec from object, path, URL, or raw text. |
-| `jsonSchemaToZod(schema)` / `buildOperationSchema(...)` | Lower-level schema conversion helpers. |
+| `loadSpecEffect(input)` | Load and parse a spec from object, path, URL, or raw text. |
+| `loadSpecSync(input)` | Load and parse a spec from object, local file path, or raw text. It does not fetch URLs. |
+| `jsonSchemaToZod(schema, spec, visited?)` / `buildOperationSchema(parameters, requestBody, spec)` | Lower-level schema conversion helpers. |
 
 ## CLI preview
 
@@ -7053,7 +7054,7 @@ For each operation:
 
 ## Observability
 
-Each tool call emits an `OpenApiToolCalled` event with `operationId`, `method`, `path`, `durationMs`, `status`. Visible via `bunx smithers-orchestrator events RUN_ID --type openapi`.
+OpenAPI tool calls update the exported Effect metrics (`openApiToolCallsTotal`, `openApiToolCallErrorsTotal`, `openApiToolDuration`) and carry Effect log annotations/spans with the operation id, method, and path. The current tool factory does not emit `OpenApiToolCalled` onto the Smithers run event bus; that event variant is typed/categorized for future event-bus integration.
 
 ## Notes
 
@@ -10005,6 +10006,8 @@ Used by `bunx smithers-orchestrator events --type <category>` and the metrics la
 
 `RunStateChanged` is categorized as `run` because the type is part of the public event union, but the current runtime does not emit it. Use `RunStatusChanged` from the stream plus `getRun` / `computeRunState` for derived run state.
 
+`OpenApiToolCalled` is categorized as `openapi` for forward compatibility, but the current OpenAPI tool factory records Effect metrics and log spans rather than emitting that event onto the run event bus.
+
 ## Built-in metrics
 
 | Event | Metric |
@@ -10135,6 +10138,8 @@ Discriminate on the `type` field, e.g. `event.type === "NodeFailed"`, to handle 
 | `AgentSessionEvent` | `runId`, `nodeId`, `iteration`, `attempt`, `transcript`, `timestampMs` |
 
 `RunStateChanged` is typed and categorized for forward compatibility, but the current runtime does not emit it. Read derived run state with `getRun` or `computeRunState`, and watch `RunStatusChanged` for persisted status transitions.
+
+`OpenApiToolCalled` is typed and categorized for forward compatibility, but the current OpenAPI tool factory records Effect metrics and log spans rather than emitting that event onto the run event bus.
 
 ## Agent Event Payload
 
