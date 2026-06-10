@@ -95,7 +95,13 @@ for attempt in $(seq 1 60); do
   fi
 done
 
-cd "$(dirname "$0")/.."
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# The gateway entrypoint lives in the repo-root `.smithers/`, not under the app.
+# In this monorepo the app is at apps/smithers while `.smithers/` is at the
+# repo root, so resolve the toplevel rather than assuming `.smithers/` is here.
+REPO_ROOT="$(git -C "$APP_DIR" rev-parse --show-toplevel 2>/dev/null || (cd "$APP_DIR/../.." && pwd))"
+GATEWAY_ENTRY="$REPO_ROOT/.smithers/gateway.ts"
+cd "$APP_DIR"
 
 # Gateway boot — idempotent. Probe /health first; if the gateway is already
 # answering ok, reuse it. If the port is bound but /health is bad, refuse to
@@ -112,14 +118,14 @@ elif curl -sS --max-time 1 -o /dev/null "$GATEWAY_BASE_URL/health" 2>/dev/null; 
   echo "       override SMITHERS_GATEWAY_PORT/HOST and retry." >&2
   exit 7
 else
-  if [[ ! -f ".smithers/gateway.ts" ]]; then
-    echo "error: .smithers/gateway.ts not found from $(pwd)." >&2
+  if [[ ! -f "$GATEWAY_ENTRY" ]]; then
+    echo "error: $GATEWAY_ENTRY not found." >&2
     echo "       Run \`smithers init\` to install the workflow pack." >&2
     exit 6
   fi
   echo "[dev-with-plue] Starting gateway on $GATEWAY_BASE_URL (log: $GATEWAY_LOG) …"
   PORT="$SMITHERS_GATEWAY_PORT" HOST="$SMITHERS_GATEWAY_HOST" \
-    bun .smithers/gateway.ts >"$GATEWAY_LOG" 2>&1 &
+    bun "$GATEWAY_ENTRY" >"$GATEWAY_LOG" 2>&1 &
   GATEWAY_PID=$!
 fi
 
@@ -196,14 +202,27 @@ SMITHERS_CHAT_PROXY_TARGET="$CHAT_PROXY_TARGET" \
 VITE_PID=$!
 
 # End-to-end probes — vite → proxy → backend, for each leg the user actually
-# depends on at sign-in.
-VITE_PLUE_HEALTH_URL="http://${SMITHERS_DEV_HOST}:${SMITHERS_DEV_PORT}/api/health"
-VITE_GATEWAY_HEALTH_URL="http://${SMITHERS_DEV_HOST}:${SMITHERS_DEV_PORT}/health"
+# depends on at sign-in. A proxied request reaches a real backend and comes back
+# as application/json; an unproxied path (wrong env var, dev-server with no
+# proxy, stale `pnpm dev` squatting the port) falls through to the SPA and
+# returns 200 text/html. Asserting the content-type is JSON — not merely a 2xx —
+# is what defeats that "looks-running" false positive.
+proxy_reaches_backend() {
+  local ct
+  ct="$(curl -s -o /dev/null --max-time 2 -w '%{content_type}' "$1" 2>/dev/null || true)"
+  [[ "$ct" == application/json* ]]
+}
 
-echo "[dev-with-plue] Waiting for vite + Plue proxy at $VITE_PLUE_HEALTH_URL …"
+# Plue leg: /api/user is proxied to Plue and answers JSON (401 without a token).
+# /api/health is deliberately NOT probed through vite — vite does not proxy it,
+# so it would fall through to the SPA and pass a naive 2xx check.
+VITE_PLUE_PROBE_URL="http://${SMITHERS_DEV_HOST}:${SMITHERS_DEV_PORT}/api/user"
+VITE_GATEWAY_PROBE_URL="http://${SMITHERS_DEV_HOST}:${SMITHERS_DEV_PORT}/health"
+
+echo "[dev-with-plue] Waiting for vite + Plue proxy at $VITE_PLUE_PROBE_URL …"
 plue_proxy_ready=false
 for attempt in $(seq 1 60); do
-  if curl -fsS --max-time 2 "$VITE_PLUE_HEALTH_URL" >/dev/null 2>&1; then
+  if proxy_reaches_backend "$VITE_PLUE_PROBE_URL"; then
     plue_proxy_ready=true
     break
   fi
@@ -214,14 +233,15 @@ for attempt in $(seq 1 60); do
   sleep 1
 done
 if [[ "$plue_proxy_ready" != "true" ]]; then
-  echo "error: vite → Plue proxy did not return success at $VITE_PLUE_HEALTH_URL within 60s." >&2
+  echo "error: vite → Plue proxy did not reach Plue (got SPA/HTML, not JSON) at $VITE_PLUE_PROBE_URL within 60s." >&2
+  echo "       Another process may be squatting port $SMITHERS_DEV_PORT (e.g. a bare \`pnpm dev\`)." >&2
   exit 5
 fi
 
-echo "[dev-with-plue] Waiting for vite + gateway proxy at $VITE_GATEWAY_HEALTH_URL …"
+echo "[dev-with-plue] Waiting for vite + gateway proxy at $VITE_GATEWAY_PROBE_URL …"
 gateway_proxy_ready=false
 for attempt in $(seq 1 60); do
-  if curl -fsS --max-time 2 "$VITE_GATEWAY_HEALTH_URL" >/dev/null 2>&1; then
+  if proxy_reaches_backend "$VITE_GATEWAY_PROBE_URL"; then
     gateway_proxy_ready=true
     break
   fi
@@ -232,7 +252,7 @@ for attempt in $(seq 1 60); do
   sleep 1
 done
 if [[ "$gateway_proxy_ready" != "true" ]]; then
-  echo "error: vite → gateway proxy did not return success at $VITE_GATEWAY_HEALTH_URL within 60s." >&2
+  echo "error: vite → gateway proxy did not reach the gateway (got SPA/HTML, not JSON) at $VITE_GATEWAY_PROBE_URL within 60s." >&2
   exit 8
 fi
 
