@@ -15,7 +15,7 @@ From the repo root:
 docker compose -f deploy/reference/docker-compose.yml up
 ```
 
-The Gateway listens on `7331` inside the compose network and Caddy exposes HTTP/TLS. The compose file mounts a SQLite volume at `/data` and reads short-lived bearer grants from `/data/tokens.json`. If `/data/tokens.json` does not exist, the Gateway creates an empty store on startup.
+The Gateway listens on `7331` inside the compose network and Caddy exposes HTTP/TLS. The compose file mounts a SQLite volume at `/data` and reads short-lived bearer grants from `/data/tokens.json`. If `/data/tokens.json` does not exist, the Gateway starts with an empty in-memory token set and denies token auth until you mount or write a token store.
 
 Issue a local token grant:
 
@@ -48,6 +48,7 @@ SMITHERS_GATEWAY_REQUEST_TIMEOUT_MS=60000
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
 | `PORT` | `7331` | Gateway listen port inside the container or host. |
+| `SMITHERS_DB_PATH` | `/data/smithers.db` | SQLite database path made available to the gateway module for workflow storage. |
 | `SMITHERS_TOKEN_STORE` | `/data/tokens.json` | JSON token grant store used by token auth. |
 | `SMITHERS_GATEWAY_MODULE` | `/workspace/gateway.mjs` | Module that registers workflows on startup. |
 | `SMITHERS_GATEWAY_HEARTBEAT_MS` | `15000` | WebSocket heartbeat interval. |

@@ -38,6 +38,7 @@ const CUSTOM_UI_INTEGRATION = join(DOCS, "integrations/custom-ui.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
 const ALERTING_GUIDE = join(DOCS, "guides/alerting.mdx");
 const CONTROL_PLANE_GUIDE = join(DOCS, "deployment/control-plane.mdx");
+const REFERENCE_DEPLOYMENT_GUIDE = join(DOCS, "deployment/reference.mdx");
 const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
 const MEMORY_CONCEPTS = join(DOCS, "concepts/memory.mdx");
 const RUNTIME_EVENTS_REFERENCE = join(DOCS, "runtime/events.mdx");
@@ -116,6 +117,11 @@ const ALERT_RUNTIME_SOURCE = join(root, "packages/engine/src/alert-runtime.js");
 const SCHEDULER_WORKFLOW_OPTIONS_SOURCE = join(root, "packages/scheduler/src/SmithersWorkflowOptions.ts");
 const CONTROL_PLANE_DECLARATIONS = join(root, "packages/control-plane/src/index.d.ts");
 const SMITHERS_CONTROL_PLANE_SOURCE = join(root, "packages/smithers/src/control-plane.js");
+const REFERENCE_GATEWAY_SOURCE = join(root, "deploy/reference/reference-gateway.mjs");
+const REFERENCE_DOCKER_COMPOSE = join(root, "deploy/reference/docker-compose.yml");
+const REFERENCE_SYSTEMD_ENV = join(root, "deploy/reference/systemd/smithers-gateway.env.example");
+const REFERENCE_K8S_DEPLOYMENT = join(root, "deploy/reference/k8s/deployment.yaml");
+const REFERENCE_K8S_CONFIGMAP = join(root, "deploy/reference/k8s/configmap.yaml");
 const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json");
 const STUDIO_APP_README = join(root, "apps/smithers-studio-2/README.md");
 const STUDIO_RUNS_PARSE_SOURCE = join(root, "apps/smithers-studio-2/src/runs/parseRunPayloads.ts");
@@ -1324,6 +1330,67 @@ function checkControlPlaneDocsMatchStoreApi() {
     }
   } else {
     console.log("✓ Control-plane docs match ControlPlaneStore declarations");
+  }
+}
+
+function checkReferenceDeploymentDocsMatchFiles() {
+  const files = new Map([
+    [REFERENCE_DEPLOYMENT_GUIDE, readFileSync(REFERENCE_DEPLOYMENT_GUIDE, "utf8")],
+    [REFERENCE_GATEWAY_SOURCE, readFileSync(REFERENCE_GATEWAY_SOURCE, "utf8")],
+    [REFERENCE_DOCKER_COMPOSE, readFileSync(REFERENCE_DOCKER_COMPOSE, "utf8")],
+    [REFERENCE_SYSTEMD_ENV, readFileSync(REFERENCE_SYSTEMD_ENV, "utf8")],
+    [REFERENCE_K8S_DEPLOYMENT, readFileSync(REFERENCE_K8S_DEPLOYMENT, "utf8")],
+    [REFERENCE_K8S_CONFIGMAP, readFileSync(REFERENCE_K8S_CONFIGMAP, "utf8")],
+  ]);
+  const docs = files.get(REFERENCE_DEPLOYMENT_GUIDE) ?? "";
+  const envNames = [
+    "PORT",
+    "SMITHERS_DB_PATH",
+    "SMITHERS_TOKEN_STORE",
+    "SMITHERS_GATEWAY_MODULE",
+    "SMITHERS_GATEWAY_HEARTBEAT_MS",
+    "SMITHERS_GATEWAY_EVENT_WINDOW",
+    "SMITHERS_GATEWAY_HEADERS_TIMEOUT_MS",
+    "SMITHERS_GATEWAY_REQUEST_TIMEOUT_MS",
+  ];
+  const missingEnvRows = envNames.filter((name) => !docs.includes(`| \`${name}\` |`));
+  const required = [
+    [REFERENCE_GATEWAY_SOURCE, 'const tokenStore = process.env.SMITHERS_TOKEN_STORE ?? "/data/tokens.json";'],
+    [REFERENCE_GATEWAY_SOURCE, "if (!existsSync(tokenStore)) {\n    return {};\n  }"],
+    [REFERENCE_GATEWAY_SOURCE, "heartbeatMs: Number(process.env.SMITHERS_GATEWAY_HEARTBEAT_MS ?? 15_000),"],
+    [REFERENCE_GATEWAY_SOURCE, "eventWindowSize: Number(process.env.SMITHERS_GATEWAY_EVENT_WINDOW ?? 10_000),"],
+    [REFERENCE_GATEWAY_SOURCE, "headersTimeout: Number(process.env.SMITHERS_GATEWAY_HEADERS_TIMEOUT_MS ?? 30_000),"],
+    [REFERENCE_GATEWAY_SOURCE, "requestTimeout: Number(process.env.SMITHERS_GATEWAY_REQUEST_TIMEOUT_MS ?? 60_000),"],
+    [REFERENCE_DOCKER_COMPOSE, "SMITHERS_DB_PATH: /data/smithers.db"],
+    [REFERENCE_SYSTEMD_ENV, "SMITHERS_DB_PATH=/var/lib/smithers/smithers.db"],
+    [REFERENCE_K8S_DEPLOYMENT, "name: SMITHERS_DB_PATH"],
+    [REFERENCE_K8S_CONFIGMAP, 'SMITHERS_GATEWAY_MODULE: "/workspace/gateway.mjs"'],
+    [REFERENCE_DEPLOYMENT_GUIDE, "the Gateway starts with an empty in-memory token set and denies token auth until you mount or write a token store."],
+    [REFERENCE_DEPLOYMENT_GUIDE, "| `SMITHERS_DB_PATH` | `/data/smithers.db` | SQLite database path made available to the gateway module for workflow storage. |"],
+  ];
+  const forbidden = [
+    [REFERENCE_DEPLOYMENT_GUIDE, "the Gateway creates an empty store on startup"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  for (const envName of missingEnvRows) {
+    missing.push([REFERENCE_DEPLOYMENT_GUIDE, `Gateway Environment row for ${envName}`]);
+  }
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Reference deployment docs must match deploy/reference files:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Reference deployment docs match deploy/reference files");
   }
 }
 
@@ -2939,6 +3006,7 @@ checkHotReloadDocsMatchRuntimeDefaults();
 checkRunOptionsDocsMatchSourceType();
 checkAlertingDocsMatchRuntimeSurface();
 checkControlPlaneDocsMatchStoreApi();
+checkReferenceDeploymentDocsMatchFiles();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkHttpServerDocsMatchRuntimeSurface();
