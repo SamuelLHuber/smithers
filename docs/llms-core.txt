@@ -6720,7 +6720,7 @@ Revert restores files only; it doesn't alter JJ history. The restoration creates
 ## Programmatic
 
 ```ts
-import { revertToAttempt } from "smithers-orchestrator";
+import { revertToAttempt, timeTravel } from "smithers-orchestrator";
 
 const result = await revertToAttempt(adapter, {
   runId: "abc123",
@@ -6733,6 +6733,59 @@ const result = await revertToAttempt(adapter, {
 where `adapter` is the `SmithersDb` instance for the run's database.
 
 `revertToAttempt` returns `{ success: false, error: string }` if the attempt is not found or has no recorded JJ pointer (it does not throw for these cases). Inspect the returned `result.success` boolean to detect failures. On success it returns `{ success: true, jjPointer: string }`.
+
+```ts
+type RevertOptions = {
+  runId: string;
+  nodeId: string;
+  iteration: number;
+  attempt: number;
+  onProgress?: (event: SmithersEvent) => void;
+};
+
+type RevertResult = {
+  success: boolean;
+  error?: string;
+  jjPointer?: string;
+};
+
+function revertToAttempt(adapter: SmithersDb, opts: RevertOptions): Promise<RevertResult>;
+```
+
+Use `timeTravel` when you want the higher-level reset flow: it can restore VCS, reset the target node, and reset dependent nodes after the selected attempt.
+
+```ts
+const reset = await timeTravel(adapter, {
+  runId: "abc123",
+  nodeId: "implement",
+  attempt: 2,
+  iteration: 0,
+  resetDependents: true,
+  restoreVcs: true,
+});
+```
+
+```ts
+type TimeTravelOptions = {
+  runId: string;
+  nodeId: string;
+  iteration?: number;
+  attempt?: number;
+  resetDependents?: boolean;
+  restoreVcs?: boolean;
+  onProgress?: (event: SmithersEvent) => void;
+};
+
+type TimeTravelResult = {
+  success: boolean;
+  jjPointer?: string;
+  vcsRestored: boolean;
+  resetNodes: string[];
+  error?: string;
+};
+
+function timeTravel(adapter: SmithersDb, opts: TimeTravelOptions): Promise<TimeTravelResult>;
+```
 
 ---
 

@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = join(root, "docs");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
+const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
 const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
@@ -65,8 +66,14 @@ const VCS_PACKAGE_JSON = join(root, "packages/vcs/package.json");
 const VCS_INDEX_SOURCE = join(root, "packages/vcs/src/index.js");
 const VCS_JJ_SOURCE = join(root, "packages/vcs/src/jj.js");
 const VCS_DECLARATIONS = join(root, "packages/vcs/src/index.d.ts");
+const TIME_TRAVEL_PACKAGE_JSON = join(root, "packages/time-travel/package.json");
+const TIME_TRAVEL_INDEX_SOURCE = join(root, "packages/time-travel/src/index.js");
+const TIME_TRAVEL_DECLARATIONS = join(root, "packages/time-travel/src/index.d.ts");
+const OBSERVABILITY_INDEX_SOURCE = join(root, "apps/observability/src/index.js");
+const OBSERVABILITY_DECLARATIONS = join(root, "apps/observability/src/index.d.ts");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
 const ROOT_BUNFIG = join(root, "bunfig.toml");
+const RUNTIME_REVERT_REFERENCE = join(DOCS, "runtime/revert.mdx");
 const WATCH_AND_STEER_GUIDE = join(DOCS, "guide/watch-and-steer.mdx");
 const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json");
 const STUDIO_APP_README = join(root, "apps/smithers-studio-2/README.md");
@@ -184,6 +191,8 @@ function checkFacadeDeclarations() {
     "type GatewayRegisterOptions",
     "type GatewayWebhookConfig",
     "export { SmithersDb } from '@smithers-orchestrator/db/adapter';",
+    "export { revertToAttempt } from '@smithers-orchestrator/time-travel/revert';",
+    "export { timeTravel } from '@smithers-orchestrator/time-travel/timetravel';",
   ]);
 }
 
@@ -727,6 +736,85 @@ function checkVcsHelperDocsMatchCurrentExports() {
     }
   } else {
     console.log("✓ VCS helper docs match runtime exports and Effect declarations");
+  }
+}
+
+function checkTimeTravelDocsMatchCurrentExports() {
+  const files = new Map([
+    [RUNTIME_REVERT_REFERENCE, readFileSync(RUNTIME_REVERT_REFERENCE, "utf8")],
+    [SMITHERS_FACADE_SOURCE, readFileSync(SMITHERS_FACADE_SOURCE, "utf8")],
+    [SMITHERS_FACADE_DECLARATIONS, readFileSync(SMITHERS_FACADE_DECLARATIONS, "utf8")],
+    [TIME_TRAVEL_PACKAGE_JSON, readFileSync(TIME_TRAVEL_PACKAGE_JSON, "utf8")],
+    [TIME_TRAVEL_INDEX_SOURCE, readFileSync(TIME_TRAVEL_INDEX_SOURCE, "utf8")],
+    [TIME_TRAVEL_DECLARATIONS, readFileSync(TIME_TRAVEL_DECLARATIONS, "utf8")],
+    [OBSERVABILITY_INDEX_SOURCE, readFileSync(OBSERVABILITY_INDEX_SOURCE, "utf8")],
+    [OBSERVABILITY_DECLARATIONS, readFileSync(OBSERVABILITY_DECLARATIONS, "utf8")],
+  ]);
+  const expectedTimeTravelExports = [
+    "revertToAttempt",
+    "timeTravel",
+    "snapshotsCaptured",
+    "runForksCreated",
+    "replaysStarted",
+    "snapshotDuration",
+  ];
+  const runtimeImport = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      "import('./packages/time-travel/src/index.js').then((m)=>console.log(Object.keys(m).sort().join('\\n'))).catch((e)=>{console.error(e.message);process.exit(1);})",
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+  const runtimeExports = runtimeImport.status === 0
+    ? runtimeImport.stdout.trim().split(/\n/).filter(Boolean)
+    : [];
+  const missingRuntimeExports = expectedTimeTravelExports.filter((name) => !runtimeExports.includes(name));
+  const required = [
+    [RUNTIME_REVERT_REFERENCE, 'import { revertToAttempt, timeTravel } from "smithers-orchestrator";'],
+    [RUNTIME_REVERT_REFERENCE, "const result = await revertToAttempt(adapter, {"],
+    [RUNTIME_REVERT_REFERENCE, "function revertToAttempt(adapter: SmithersDb, opts: RevertOptions): Promise<RevertResult>;"],
+    [RUNTIME_REVERT_REFERENCE, "const reset = await timeTravel(adapter, {"],
+    [RUNTIME_REVERT_REFERENCE, "function timeTravel(adapter: SmithersDb, opts: TimeTravelOptions): Promise<TimeTravelResult>;"],
+    [SMITHERS_FACADE_SOURCE, 'export { revertToAttempt } from "@smithers-orchestrator/time-travel/revert";'],
+    [SMITHERS_FACADE_SOURCE, 'export { timeTravel } from "@smithers-orchestrator/time-travel/timetravel";'],
+    [SMITHERS_FACADE_DECLARATIONS, "export { revertToAttempt } from '@smithers-orchestrator/time-travel/revert';"],
+    [SMITHERS_FACADE_DECLARATIONS, "export { timeTravel } from '@smithers-orchestrator/time-travel/timetravel';"],
+    [TIME_TRAVEL_PACKAGE_JSON, '"build": "rm -f src/index.d.ts && tsup --dts-only"'],
+    [TIME_TRAVEL_INDEX_SOURCE, 'export { revertToAttempt } from "./revert.js";'],
+    [TIME_TRAVEL_INDEX_SOURCE, 'export { timeTravel } from "./timetravel.js";'],
+    [TIME_TRAVEL_DECLARATIONS, "declare function revertToAttempt("],
+    [TIME_TRAVEL_DECLARATIONS, "declare function timeTravel("],
+    [TIME_TRAVEL_DECLARATIONS, "type RevertOptions"],
+    [TIME_TRAVEL_DECLARATIONS, "type TimeTravelOptions"],
+    [TIME_TRAVEL_DECLARATIONS, "revertToAttempt,"],
+    [TIME_TRAVEL_DECLARATIONS, "timeTravel,"],
+    [OBSERVABILITY_INDEX_SOURCE, "snapshotsCaptured, runForksCreated, replaysStarted, snapshotDuration"],
+    [OBSERVABILITY_DECLARATIONS, "snapshotsCaptured"],
+    [OBSERVABILITY_DECLARATIONS, "runForksCreated"],
+    [OBSERVABILITY_DECLARATIONS, "replaysStarted"],
+    [OBSERVABILITY_DECLARATIONS, "snapshotDuration"],
+  ];
+  const forbidden = [];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (runtimeImport.status !== 0 || missingRuntimeExports.length || missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Revert/time-travel docs and declarations must match public exports:");
+    if (runtimeImport.status !== 0) console.error(`    runtime import failed: ${runtimeImport.stderr.trim()}`);
+    if (missingRuntimeExports.length) console.error(`    missing runtime exports: ${missingRuntimeExports.join(", ")}`);
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Revert/time-travel docs and declarations match public exports");
   }
 }
 
@@ -1403,6 +1491,7 @@ checkServeDocsMatchServerTypes();
 checkComponentPropsDocsMatchSourceTypes();
 checkPackageConfigurationDocsMatchRootConfig();
 checkVcsHelperDocsMatchCurrentExports();
+checkTimeTravelDocsMatchCurrentExports();
 checkStudioDocsMatchCurrentAppSurface();
 checkCliOverviewCommandCatalogMatchesCli();
 checkCliOverviewWorkflowRunFlagsMatchSchema();
