@@ -30,7 +30,7 @@ Three pieces collaborate:
 | **Writes** | `client.submitApproval(...)` | `useGatewayActions().submitApproval(...)` |
 | **Use when** | You want one tiny bundle, or you already own your render layer (Solid, Lit, vanilla DOM) | You are writing a React UI and want the stale-data-free model baked in |
 
-Both SDKs talk to the same Gateway and produce the same wire frames. Pick by appetite, not by capability. The vanilla SDK is published as `@smithers-orchestrator/gateway-client`; the React layer is `@smithers-orchestrator/gateway-react` and re-exports nothing the client does not.
+Both SDKs talk to the same Gateway and produce the same wire frames. Pick by appetite, not by capability. The vanilla SDK is published as `@smithers-orchestrator/gateway-client`; the React layer is `@smithers-orchestrator/gateway-react` and adds context/hooks on top of the same client instead of a separate wire protocol.
 
 ## The boot config
 
@@ -112,6 +112,11 @@ The React hooks all live in `packages/gateway-react/src` and follow one rule: **
 | `useGatewayApprovals({ filter? })` | `{ data: GatewayApprovalSummary[] }` | All gates waiting; `filter` accepts `runId`, `workflow`, `limit`. |
 | `useGatewayActions()` | Bound `submitApproval`, `submitSignal`, `cancelRun`, `resumeRun`, `rewindRun`, `cronCreate`, … | Memoized so dependent effects do not retrigger. |
 | `useGatewayRpc(method, params, opts?)` | `GatewayAsyncState<Payload>` | Escape hatch for any v1 RPC. |
+| `useGatewayExtensionResource(namespace, key, params?, opts?)` | `GatewayAsyncState<T>` | Declarative extension read/action call over `SmithersGatewayClient.extensionRpc` with the same stale-response fence as `useGatewayRpc`. |
+| `useGatewayExtensionAction(namespace, key)` | `{ call, pending, error, data }` | Imperative extension action helper backed by `extensionRpc`; generation-fenced so rapid calls cannot leave stale state. |
+| `useGatewayExtensionStream(namespace, key, params?, opts?)` | `{ frames, latest, error, streaming }` | Extension stream subscription with bounded frames, stale-frame fencing, and backoff reconnect. |
+| `SyncProvider` + `useSyncQuery` / `useSyncMutation` / `useSyncSubscription` | Sync cache hooks | Wrap a `SyncClient` for stale-while-revalidate reads, optimistic mutations, and shared stream subscriptions. |
+| `useGatewayQuery` / `useGatewayMutation` / `useGatewayRunStream` | Gateway sync shortcuts | Typed helpers over `gatewayKeys`, Gateway RPC methods, and the shared subscription hub. |
 
 ## Vanilla SDK
 

@@ -25,6 +25,8 @@ const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
 const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
+const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
+const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
 const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
 const RUNTIME_EVENTS_REFERENCE = join(DOCS, "runtime/events.mdx");
 const EVENT_TYPES_REFERENCE = join(DOCS, "reference/event-types.mdx");
@@ -33,6 +35,8 @@ const OPENAPI_HELPERS_SOURCE = join(root, "packages/openapi/src/tool-factory/_he
 const OPENAPI_LOAD_SPEC_EFFECT_SOURCE = join(root, "packages/openapi/src/loadSpecEffect.js");
 const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecSync.js");
 const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
+const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
+const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
 const CLAUDE_CODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/ClaudeCodeAgentOptions.ts");
 const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOptions.ts");
@@ -876,6 +880,69 @@ function checkMcpIntegrationDocsMatchAgentOptions() {
   }
 }
 
+function checkGatewaySdkDocsMatchExports() {
+  const files = new Map([
+    [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
+    [CUSTOM_WORKFLOW_UI_GUIDE, readFileSync(CUSTOM_WORKFLOW_UI_GUIDE, "utf8")],
+    [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
+    [GATEWAY_REACT_INDEX, readFileSync(GATEWAY_REACT_INDEX, "utf8")],
+  ]);
+  const required = [
+    [GATEWAY_CLIENT_INDEX, 'export { SyncClient } from "./sync/SyncClient.ts";'],
+    [GATEWAY_CLIENT_INDEX, 'export { gatewayKeys } from "./sync/gatewayKeys.ts";'],
+    [GATEWAY_CLIENT_INDEX, "createSmithersGatewayTransport"],
+    [GATEWAY_CLIENT_INDEX, "GatewayExtensionStreamFrame"],
+    [GATEWAY_REACT_INDEX, "useGatewayExtensionResource"],
+    [GATEWAY_REACT_INDEX, "useGatewayExtensionAction"],
+    [GATEWAY_REACT_INDEX, "useGatewayExtensionStream"],
+    [GATEWAY_REACT_INDEX, "SyncProvider"],
+    [GATEWAY_REACT_INDEX, "useSyncQuery"],
+    [GATEWAY_REACT_INDEX, "useSyncMutation"],
+    [GATEWAY_REACT_INDEX, "useSyncSubscription"],
+    [GATEWAY_REACT_INDEX, "useGatewayQuery"],
+    [GATEWAY_REACT_INDEX, "useGatewayMutation"],
+    [GATEWAY_REACT_INDEX, "useGatewayRunStream"],
+    [GATEWAY_INTEGRATION, "SyncCache"],
+    [GATEWAY_INTEGRATION, "SyncClient"],
+    [GATEWAY_INTEGRATION, "SyncSubscriptionHub"],
+    [GATEWAY_INTEGRATION, "gatewayKeys"],
+    [GATEWAY_INTEGRATION, "createSmithersGatewayTransport"],
+    [GATEWAY_INTEGRATION, "useGatewayExtensionResource"],
+    [GATEWAY_INTEGRATION, "useGatewayExtensionAction"],
+    [GATEWAY_INTEGRATION, "useGatewayExtensionStream"],
+    [GATEWAY_INTEGRATION, "SyncProvider"],
+    [GATEWAY_INTEGRATION, "useSyncQuery"],
+    [GATEWAY_INTEGRATION, "useGatewayRunStream"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "adds context/hooks on top of the same client"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionResource(namespace, key, params?, opts?)"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionAction(namespace, key)"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionStream(namespace, key, params?, opts?)"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "SyncProvider` + `useSyncQuery` / `useSyncMutation` / `useSyncSubscription"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayQuery` / `useGatewayMutation` / `useGatewayRunStream"],
+  ];
+  const forbidden = [
+    [CUSTOM_WORKFLOW_UI_GUIDE, "re-exports nothing the client does not"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Gateway SDK docs must cover current gateway-client and gateway-react exports:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Gateway SDK docs cover current gateway-client and gateway-react exports");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -896,5 +963,6 @@ checkToolDocsMatchCurrentRuntimeLogging();
 checkMemoryDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
+checkGatewaySdkDocsMatchExports();
 
 process.exit(failed ? 1 : 0);
