@@ -1880,6 +1880,7 @@ function checkVcsHelperDocsMatchCurrentExports() {
 function checkTimeTravelDocsMatchCurrentExports() {
   const files = new Map([
     [RUNTIME_REVERT_REFERENCE, readFileSync(RUNTIME_REVERT_REFERENCE, "utf8")],
+    [RECIPES_DOC, readFileSync(RECIPES_DOC, "utf8")],
     [SMITHERS_FACADE_SOURCE, readFileSync(SMITHERS_FACADE_SOURCE, "utf8")],
     [SMITHERS_FACADE_DECLARATIONS, readFileSync(SMITHERS_FACADE_DECLARATIONS, "utf8")],
     [TIME_TRAVEL_PACKAGE_JSON, readFileSync(TIME_TRAVEL_PACKAGE_JSON, "utf8")],
@@ -1914,6 +1915,7 @@ function checkTimeTravelDocsMatchCurrentExports() {
     [RUNTIME_REVERT_REFERENCE, "function revertToAttempt(adapter: SmithersDb, opts: RevertOptions): Promise<RevertResult>;"],
     [RUNTIME_REVERT_REFERENCE, "const reset = await timeTravel(adapter, {"],
     [RUNTIME_REVERT_REFERENCE, "function timeTravel(adapter: SmithersDb, opts: TimeTravelOptions): Promise<TimeTravelResult>;"],
+    [RECIPES_DOC, "Smithers records the current JJ change ID in `_smithers_attempts.jj_pointer` per attempt."],
     [SMITHERS_FACADE_SOURCE, 'export { revertToAttempt } from "@smithers-orchestrator/time-travel/revert";'],
     [SMITHERS_FACADE_SOURCE, 'export { timeTravel } from "@smithers-orchestrator/time-travel/timetravel";'],
     [SMITHERS_FACADE_DECLARATIONS, "export { revertToAttempt } from '@smithers-orchestrator/time-travel/revert';"],
@@ -1933,7 +1935,9 @@ function checkTimeTravelDocsMatchCurrentExports() {
     [OBSERVABILITY_DECLARATIONS, "replaysStarted"],
     [OBSERVABILITY_DECLARATIONS, "snapshotDuration"],
   ];
-  const forbidden = [];
+  const forbidden = [
+    [RECIPES_DOC, "jj change ID (or git SHA)"],
+  ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
   if (runtimeImport.status !== 0 || missingRuntimeExports.length || missing.length || stale.length) {

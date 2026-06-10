@@ -242,7 +242,7 @@ Workflow logic factors out into hooks the same way React UI logic does.
 
 ## VCS revert & per-attempt snapshots
 
-Smithers records a jj change ID (or git SHA) per attempt. Revert any attempt to its exact workspace state:
+Smithers records the current JJ change ID in `_smithers_attempts.jj_pointer` per attempt. Revert any attempt with a recorded JJ pointer to its exact workspace state:
 
 ```bash
 bunx smithers-orchestrator revert workflow.tsx --run-id RUN_ID --node-id implement --attempt 1
