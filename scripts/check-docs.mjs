@@ -110,6 +110,7 @@ const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json"
 const STUDIO_APP_README = join(root, "apps/smithers-studio-2/README.md");
 const STUDIO_RUNS_PARSE_SOURCE = join(root, "apps/smithers-studio-2/src/runs/parseRunPayloads.ts");
 const SMITHERS_WORKER_SOURCE = join(root, "apps/smithers/src/worker.ts");
+const SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE = join(root, "apps/smithers/src/gateway/gatewayClient.ts");
 const IRON_PROXY_EGRESS_SPEC = join(root, ".smithers/specs/iron-proxy-egress-seam.html");
 const CLOUD_EXECUTION_SPEC = join(root, ".smithers/specs/cloud-execution-engineering.md");
 const CLOUD_PRODUCT_SPEC = join(root, ".smithers/specs/cloud-execution-product.md");
@@ -2241,6 +2242,7 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_UI_INTEGRATION, readFileSync(CUSTOM_UI_INTEGRATION, "utf8")],
     [CUSTOM_WORKFLOW_UI_GUIDE, readFileSync(CUSTOM_WORKFLOW_UI_GUIDE, "utf8")],
     [SMITHERS_WORKER_SOURCE, readFileSync(SMITHERS_WORKER_SOURCE, "utf8")],
+    [SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE, readFileSync(SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE, "utf8")],
     [gatewayServerSource, readFileSync(gatewayServerSource, "utf8")],
     [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
     [GATEWAY_CLIENT_SOURCE, readFileSync(GATEWAY_CLIENT_SOURCE, "utf8")],
@@ -2266,6 +2268,8 @@ function checkGatewaySdkDocsMatchExports() {
     [SMITHERS_WORKER_SOURCE, "addGatewayCredential(headers, token);"],
     [SMITHERS_WORKER_SOURCE, "return proxyWithHeaders(request, base, headers);"],
     [SMITHERS_WORKER_SOURCE, "addTrustedProxyHeaders(headers, validation.user, env);"],
+    [SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE, 'const RPC_WS_PATH = "/v1/rpc";'],
+    [SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE, "WebSocket: RpcPathWebSocket,"],
     [gatewayServerSource, 'if (this.auth.mode === "token") {'],
     [gatewayServerSource, 'if (this.auth.mode === "trusted-proxy") {'],
     [gatewayServerSource, 'rpcPath: "/v1/rpc",'],
@@ -2383,6 +2387,10 @@ function checkGatewaySdkDocsMatchExports() {
     ],
     [
       CUSTOM_WORKFLOW_UI_GUIDE,
+      "DevTools observability streams, sample tests, and the same-origin proxy patterns",
+    ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
       "re-subscribe with the last `afterSeq` or use the sync subscription layer on top of `gatewayKeys.devtools(runId)`",
     ],
     [
@@ -2401,6 +2409,18 @@ function checkGatewaySdkDocsMatchExports() {
       CUSTOM_WORKFLOW_UI_GUIDE,
       "gatewayAuthToken` selects the service-token branch",
     ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "The outer `apps/smithers` Gateway client wrapper rewrites WebSocket URLs to `/v1/rpc`, which is why the Vite proxy enables `ws: true` there.",
+    ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "Gateway-hosted iframe bundles that call `new SmithersGatewayClient()` directly use the boot `wsPath` (`/` by default)",
+    ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "Stream sockets depend on the client used: the outer app wrapper upgrades via `/v1/rpc`, while plain hosted bundles use the boot `wsPath`.",
+    ],
     [CUSTOM_WORKFLOW_UI_GUIDE, "SyncProvider` + `useSyncQuery` / `useSyncMutation` / `useSyncSubscription"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayQuery` / `useGatewayMutation` / `useGatewayRunStream"],
   ];
@@ -2417,6 +2437,9 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "dedicated metric streams via DevTools observability channels"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "memory utilization, token counts, and step durations"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "follow the same resilient reconnection mechanics as `streamRunEventsResilient`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "metrics streaming, sample tests"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "the path the Gateway upgrades for the run-event WebSocket"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "the WebSocket upgrades against `/v1/rpc`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "trusted-proxy headers override the role/scopes"],
     [CUSTOM_WORKFLOW_UI_GUIDE, 'mode: "token"` with the Worker presenting the shared service token) and reads identity from the headers'],
     [CUSTOM_WORKFLOW_UI_GUIDE, "step 2 + 4"],

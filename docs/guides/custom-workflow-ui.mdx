@@ -5,7 +5,7 @@ description: Build a first-class browser UI for your workflow (vanilla SDK or Re
 
 A custom workflow UI is a small browser bundle that *lives next to your workflow* and talks to the Smithers Gateway over the same RPC and WebSocket protocol the Gateway already serves. You write it once, the Gateway builds and serves it at `/workflows/<key>`, and every Smithers surface that knows about Gateway runs (the [Smithers PWA](https://smithers.sh), Studio 2's Runs surface, the `bunx smithers-orchestrator ui` CLI, or your own embed) can render it for a run with a stable `?runId=` deep link.
 
-This guide covers the whole shape: vanilla SDK boot, React hooks, the boot config the iframe receives, live event subscriptions (with automatic pushed updates and resilient reconnection), node-output and diff reads, approvals and signals, the crucial stale-data-free update model to avoid data bleeding across runs, metrics streaming, sample tests, and the same-origin proxy patterns you reach for when custom UIs run with Smithers UI and the Gateway (such as in Smithers Cloud or behind Plue).
+This guide covers the whole shape: vanilla SDK boot, React hooks, the boot config the iframe receives, live event subscriptions (with automatic pushed updates and resilient reconnection), node-output and diff reads, approvals and signals, the crucial stale-data-free update model to avoid data bleeding across runs, DevTools observability streams, sample tests, and the same-origin proxy patterns you reach for when custom UIs run with Smithers UI and the Gateway (such as in Smithers Cloud or behind Plue).
 
 For the underlying RPC and event protocol, see [Gateway](/integrations/gateway). For two compact end-to-end examples, see [Workflow UI (React)](/examples/workflow-ui-react) and [Workflow UI (Vanilla)](/examples/workflow-ui-vanilla).
 
@@ -238,7 +238,7 @@ if (gatewayTarget) {
 }
 ```
 
-The `ws: true` flag goes on `/v1/rpc`, the path the Gateway upgrades for the run-event WebSocket (`StreamRunEvents`, `StreamDevTools`). `/workflows` only serves the HTML shell and the bundled JS, so it stays HTTP-only. Then:
+The outer `apps/smithers` Gateway client wrapper rewrites WebSocket URLs to `/v1/rpc`, which is why the Vite proxy enables `ws: true` there. Gateway-hosted iframe bundles that call `new SmithersGatewayClient()` directly use the boot `wsPath` (`/` by default); proxy that path too or pass a `WebSocket` override if the iframe needs streams in local dev. `/workflows` only serves the HTML shell and the bundled JS, so it stays HTTP-only. Then:
 
 ```bash
 export SMITHERS_GATEWAY_PROXY_TARGET=http://127.0.0.1:7331
@@ -246,7 +246,7 @@ bunx smithers-orchestrator up <workflow> -d            # or `bun .smithers/scrip
 (cd apps/smithers && bun dev)
 ```
 
-The browser sees a single origin. The iframe at `/workflows/<key>` is served by the Vite-proxied Gateway; its `SmithersGatewayClient` calls `fetch("/v1/rpc/getRun", ...)` on the same origin; the WebSocket upgrades against `/v1/rpc` on the same host. No CORS, no token in the browser.
+The browser sees a single origin. The iframe at `/workflows/<key>` is served by the Vite-proxied Gateway; its `SmithersGatewayClient` calls `fetch("/v1/rpc/getRun", ...)` on the same origin. Stream sockets depend on the client used: the outer app wrapper upgrades via `/v1/rpc`, while plain hosted bundles use the boot `wsPath`. No CORS, no token in the browser.
 
 ### Smithers Cloud / Plue same-origin proxy
 
