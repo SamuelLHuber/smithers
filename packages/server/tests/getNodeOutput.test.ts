@@ -485,6 +485,7 @@ describe("statusForRpcError HTTP status mapping", () => {
     expect(statusForRpcError("InvalidFrameNo")).toBe(400);
     expect(statusForRpcError("ConfirmationRequired")).toBe(400);
     expect(statusForRpcError("Busy")).toBe(409);
+    expect(statusForRpcError("AlreadyDecided")).toBe(409);
     expect(statusForRpcError("RUN_NOT_ACTIVE")).toBe(409);
     expect(statusForRpcError("RateLimited")).toBe(429);
     expect(statusForRpcError("UnsupportedSandbox")).toBe(501);

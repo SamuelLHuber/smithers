@@ -565,6 +565,16 @@ function readGatewayRpcDefinitionsFromSource() {
   return entries;
 }
 
+function readGatewayRpcErrorDefinitionsFromSource() {
+  const source = readFileSync(GATEWAY_RPC_INDEX, "utf8");
+  return [...source.matchAll(/^\s+([A-Za-z_]+): \{ version: SMITHERS_API_VERSION, code: "([^"]+)", httpStatus: (\d+),/gm)]
+    .map((match) => ({
+      key: match[1],
+      code: match[2],
+      httpStatus: Number(match[3]),
+    }));
+}
+
 function checkFreestyleDocsMatchProviderSeam() {
   const files = new Map([
     [CLOUD_EXECUTION_SPEC, readFileSync(CLOUD_EXECUTION_SPEC, "utf8")],
@@ -722,6 +732,38 @@ function checkGatewayRpcReferenceDocsMatchRegistry() {
   }
 }
 
+function checkGatewayRpcErrorTableMatchesRegistry() {
+  const definitions = readGatewayRpcErrorDefinitionsFromSource();
+  const source = readFileSync(GATEWAY_INTEGRATION, "utf8");
+  const problems = [];
+
+  if (definitions.length === 0) {
+    problems.push("no Gateway RPC errors parsed from registry");
+  }
+  for (const definition of definitions) {
+    if (definition.key !== definition.code) {
+      problems.push(`registry key ${definition.key} does not match code ${definition.code}`);
+    }
+  }
+  const required = [
+    `errors[${definitions.length}]{code,http}:`,
+    ...definitions.map((definition) => `${definition.code},${definition.httpStatus}`),
+  ];
+  for (const needle of required) {
+    if (!source.includes(needle)) {
+      problems.push(`${displayPath(GATEWAY_INTEGRATION)} missing ${needle}`);
+    }
+  }
+
+  if (problems.length) {
+    failed = true;
+    console.error("\n✗ Gateway RPC error table must match the registry error codes and HTTP statuses:");
+    console.error(`    ${problems.join("\n    ")}`);
+  } else {
+    console.log("✓ Gateway RPC error table matches registry error codes and HTTP statuses");
+  }
+}
+
 function checkGatewayGetRunDocsMatchResponseShape() {
   const files = new Map([
     [join(root, "packages/gateway/src/rpc/index.ts"), readFileSync(join(root, "packages/gateway/src/rpc/index.ts"), "utf8")],
@@ -826,13 +868,11 @@ function checkGatewayCancelRunDocsMatchRuntimeErrors() {
     [GATEWAY_RPC_INDEX, 'errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RUN_NOT_ACTIVE", "Internal"],'],
     [cancelRunDoc, "include `InvalidRequest`, `Unauthorized`, `Forbidden`, `RUN_NOT_ACTIVE`, and `Internal`"],
     [cancelRunDoc, "`RUN_NOT_ACTIVE` means the run is not currently active"],
-    [GATEWAY_INTEGRATION, "errors[20]{code,http}:"],
     [GATEWAY_INTEGRATION, "RUN_NOT_ACTIVE,409"],
   ];
   const forbidden = [
     [GATEWAY_RPC_INDEX, 'errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "Busy", "Internal"],'],
     [cancelRunDoc, "`RunNotFound`, `Busy`"],
-    [GATEWAY_INTEGRATION, "errors[19]{code,http}:"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
@@ -2140,6 +2180,7 @@ checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
 checkGatewayRpcReferenceDocsMatchRegistry();
+checkGatewayRpcErrorTableMatchesRegistry();
 checkGatewayGetRunDocsMatchResponseShape();
 checkGatewayStreamDevToolsDocsMatchRuntimeShape();
 checkGatewayCancelRunDocsMatchRuntimeErrors();

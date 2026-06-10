@@ -2262,6 +2262,7 @@ paths:
                           - Forbidden
                           - RunNotFound
                           - NodeNotFound
+                          - AlreadyDecided
                           - Internal
                       message:
                         type: string
@@ -2318,6 +2319,7 @@ paths:
                           - Forbidden
                           - RunNotFound
                           - NodeNotFound
+                          - AlreadyDecided
                           - Internal
                       message:
                         type: string
@@ -2374,6 +2376,7 @@ paths:
                           - Forbidden
                           - RunNotFound
                           - NodeNotFound
+                          - AlreadyDecided
                           - Internal
                       message:
                         type: string
@@ -2430,6 +2433,64 @@ paths:
                           - Forbidden
                           - RunNotFound
                           - NodeNotFound
+                          - AlreadyDecided
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - observability:read
+                      refresh:
+                        type: string
+        409:
+          description: "The approval decision has already been submitted."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - RunNotFound
+                          - NodeNotFound
+                          - AlreadyDecided
                           - Internal
                       message:
                         type: string
@@ -2486,6 +2547,7 @@ paths:
                           - Forbidden
                           - RunNotFound
                           - NodeNotFound
+                          - AlreadyDecided
                           - Internal
                       message:
                         type: string
@@ -7513,6 +7575,7 @@ components:
         - FrameOutOfRange
         - SeqOutOfRange
         - Busy
+        - AlreadyDecided
         - RateLimited
         - PayloadTooLarge
         - BackpressureDisconnect

@@ -38,6 +38,7 @@ export type GatewayRpcErrorCode =
   | "FrameOutOfRange"
   | "SeqOutOfRange"
   | "Busy"
+  | "AlreadyDecided"
   | "RateLimited"
   | "PayloadTooLarge"
   | "BackpressureDisconnect"
@@ -366,6 +367,7 @@ export const GATEWAY_RPC_ERRORS: Record<GatewayRpcErrorCode, GatewayRpcErrorDefi
   FrameOutOfRange: { version: SMITHERS_API_VERSION, code: "FrameOutOfRange", httpStatus: 400, description: "The requested frame is outside the available range." },
   SeqOutOfRange: { version: SMITHERS_API_VERSION, code: "SeqOutOfRange", httpStatus: 400, description: "The requested stream sequence is in the future." },
   Busy: { version: SMITHERS_API_VERSION, code: "Busy", httpStatus: 409, description: "Another conflicting mutation is in progress." },
+  AlreadyDecided: { version: SMITHERS_API_VERSION, code: "AlreadyDecided", httpStatus: 409, description: "The approval decision has already been submitted." },
   RateLimited: { version: SMITHERS_API_VERSION, code: "RateLimited", httpStatus: 429, description: "The caller exceeded a configured quota." },
   PayloadTooLarge: { version: SMITHERS_API_VERSION, code: "PayloadTooLarge", httpStatus: 413, description: "The response exceeds the configured payload limit." },
   BackpressureDisconnect: { version: SMITHERS_API_VERSION, code: "BackpressureDisconnect", httpStatus: 429, description: "A stream subscriber exceeded the bounded outbound queue." },
@@ -489,7 +491,7 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
       }, ["approved"]),
     }, ["runId", "nodeId", "decision"]),
     responseSchema: objectSchema({ runId, nodeId, iteration, approved: booleanSchema("Whether the approval was granted.") }, ["runId", "nodeId", "iteration", "approved"]),
-    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "NodeNotFound", "Internal"],
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "NodeNotFound", "AlreadyDecided", "Internal"],
     exampleRequest: { runId: "run_01", nodeId: "approve", decision: { approved: true, note: "ship it" } },
     exampleResponse: { runId: "run_01", nodeId: "approve", iteration: 0, approved: true },
   },

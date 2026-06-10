@@ -540,7 +540,7 @@ type OutputSchemaDescriptor = {
 Gateway v1 RPC errors use stable code strings and HTTP status mappings:
 
 ```toon
-errors[20]{code,http}:
+errors[21]{code,http}:
   InvalidRequest,400
   InvalidInput,400
   Unauthorized,401
@@ -554,6 +554,7 @@ errors[20]{code,http}:
   FrameOutOfRange,400
   SeqOutOfRange,400
   Busy,409
+  AlreadyDecided,409
   RateLimited,429
   PayloadTooLarge,413
   BackpressureDisconnect,429
