@@ -2,8 +2,6 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
-/** @typedef {import("./ResolvedBinary.js").ResolvedBinary} ResolvedBinary */
-
 const require = createRequire(import.meta.url);
 
 /**
@@ -58,7 +56,7 @@ function bundledJjPath() {
  * `"jj"` simply fails to spawn, which `runJj` already normalizes to exit code
  * 127, so callers keep their soft-failure behavior.
  *
- * @returns {ResolvedBinary}
+ * @returns {import("./ResolvedBinary.js").ResolvedBinary}
  */
 export function resolveJjBinary() {
 	const override = process.env.SMITHERS_JJ_PATH;

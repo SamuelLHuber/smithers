@@ -2,15 +2,13 @@ import { spawnSync } from "node:child_process";
 import { resolveJjBinary } from "./resolveJjBinary.js";
 import { resolveGitBinary } from "./resolveGitBinary.js";
 
-/** @typedef {import("./ResolvedBinary.js").ResolvedBinary} ResolvedBinary */
-
 /**
  * Whether a usable `jj` and/or `git` exists for the current host. Each field is
  * the resolved binary when `<bin> --version` runs, or null when it does not.
  *
  * @typedef {object} VcsToolingStatus
- * @property {ResolvedBinary | null} jj a usable jj (override, bundled, or PATH), else null
- * @property {ResolvedBinary | null} git a usable git (override or PATH), else null
+ * @property {import("./ResolvedBinary.js").ResolvedBinary | null} jj a usable jj (override, bundled, or PATH), else null
+ * @property {import("./ResolvedBinary.js").ResolvedBinary | null} git a usable git (override or PATH), else null
  * @property {boolean} ok true when at least one of jj or git is usable
  */
 
@@ -20,7 +18,7 @@ const VERSION_PROBE_TIMEOUT_MS = 2_000;
  * Whether `<bin> --version` exits 0. Best-effort: a missing binary, a non-zero
  * exit, or a spawn error all read as "not usable".
  *
- * @param {ResolvedBinary} bin
+ * @param {import("./ResolvedBinary.js").ResolvedBinary} bin
  * @returns {boolean}
  */
 function runsVersion(bin) {

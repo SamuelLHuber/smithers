@@ -1,7 +1,5 @@
 import { existsSync } from "node:fs";
 
-/** @typedef {import("./ResolvedBinary.js").ResolvedBinary} ResolvedBinary */
-
 /**
  * Resolve the `git` executable Smithers should spawn.
  *
@@ -12,7 +10,7 @@ import { existsSync } from "node:fs";
  * Git is never bundled (only jj is); this mirrors {@link resolveJjBinary} so the
  * override and the tooling preflight share one source of truth for where git is.
  *
- * @returns {ResolvedBinary}
+ * @returns {import("./ResolvedBinary.js").ResolvedBinary}
  */
 export function resolveGitBinary() {
 	const override = process.env.SMITHERS_GIT_PATH;

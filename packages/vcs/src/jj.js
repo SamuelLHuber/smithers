@@ -5,7 +5,12 @@
 /** @typedef {import("./WorkspaceAddOptions.js").WorkspaceAddOptions} WorkspaceAddOptions */
 /** @typedef {import("./WorkspaceInfo.js").WorkspaceInfo} WorkspaceInfo */
 /** @typedef {import("./WorkspaceResult.js").WorkspaceResult} WorkspaceResult */
-/** @typedef {import("./WorkspaceSnapshot.js").WorkspaceSnapshot} WorkspaceSnapshot */
+/**
+ * @typedef {object} WorkspaceSnapshot
+ * @property {string} commitId Working-copy commit id for this snapshot.
+ * @property {string} changeId Stable JJ change id for the working copy.
+ * @property {string} operationId JJ operation id for the snapshot.
+ */
 // @smithers-type-exports-end
 
 import * as Command from "@effect/platform/Command";

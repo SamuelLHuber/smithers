@@ -66,6 +66,19 @@ declare function runJj(args: string[], opts?: RunJjOptions): Effect.Effect<RunJj
  */
 declare function getJjPointer(cwd?: string): Effect.Effect<string | null, never, _effect_platform_CommandExecutor.CommandExecutor>;
 /**
+ * Capture the current working-copy state as a restorable handle.
+ *
+ * Step 1 (`jj log -r @`) forces exactly one working-copy snapshot and returns the
+ * resulting `commit_id` and `change_id`. Step 2 reads the latest operation id
+ * WITHOUT taking a second snapshot (`--ignore-working-copy`), so both ids describe
+ * the same snapshot from step 1. Returns null on any failure or timeout (a
+ * durability gap the caller records); it never throws into the agent path.
+ *
+ * @param {string} [cwd]
+ * @returns {Effect.Effect<WorkspaceSnapshot | null, never, import("@effect/platform/CommandExecutor").CommandExecutor>}
+ */
+declare function captureWorkspaceSnapshot(cwd?: string): Effect.Effect<WorkspaceSnapshot | null, never, _effect_platform_CommandExecutor.CommandExecutor>;
+/**
  * Restore the working copy to a previously recorded jujutsu `change_id`.
  * Used by the engine to revert attempts within the correct repo/worktree (via `cwd`).
  *
@@ -115,6 +128,20 @@ type RunJjResult = RunJjResult$1;
 type WorkspaceAddOptions = WorkspaceAddOptions$1;
 type WorkspaceInfo = WorkspaceInfo$1;
 type WorkspaceResult = WorkspaceResult$1;
+type WorkspaceSnapshot = {
+    /**
+     * Working-copy commit id for this snapshot.
+     */
+    commitId: string;
+    /**
+     * Stable JJ change id for the working copy.
+     */
+    changeId: string;
+    /**
+     * JJ operation id for the snapshot.
+     */
+    operationId: string;
+};
 
 /**
  * A resolved VCS executable plus where Smithers found it.
@@ -123,12 +150,11 @@ type WorkspaceResult = WorkspaceResult$1;
  * - `bundled`: a binary shipped inside a `@smithers-orchestrator/jj-<platform>` package
  * - `path`: the bare command name, left for the OS to resolve against `PATH`
  */
-type ResolvedBinary$3 = {
+type ResolvedBinary = {
     path: string;
     source: "env" | "bundled" | "path";
 };
 
-/** @typedef {import("./ResolvedBinary.js").ResolvedBinary} ResolvedBinary */
 /**
  * Resolve the `git` executable Smithers should spawn.
  *
@@ -139,10 +165,9 @@ type ResolvedBinary$3 = {
  * Git is never bundled (only jj is); this mirrors {@link resolveJjBinary} so the
  * override and the tooling preflight share one source of truth for where git is.
  *
- * @returns {ResolvedBinary}
+ * @returns {import("./ResolvedBinary.js").ResolvedBinary}
  */
-declare function resolveGitBinary(): ResolvedBinary$2;
-type ResolvedBinary$2 = ResolvedBinary$3;
+declare function resolveGitBinary(): ResolvedBinary;
 
 /**
  * Resolve the `jj` executable Smithers should spawn.
@@ -156,10 +181,9 @@ type ResolvedBinary$2 = ResolvedBinary$3;
  * `"jj"` simply fails to spawn, which `runJj` already normalizes to exit code
  * 127, so callers keep their soft-failure behavior.
  *
- * @returns {ResolvedBinary}
+ * @returns {import("./ResolvedBinary.js").ResolvedBinary}
  */
-declare function resolveJjBinary(): ResolvedBinary$1;
-type ResolvedBinary$1 = ResolvedBinary$3;
+declare function resolveJjBinary(): ResolvedBinary;
 
 /**
  * Probe whether a usable `jj` and/or `git` exists for the current host, using
@@ -173,7 +197,6 @@ type ResolvedBinary$1 = ResolvedBinary$3;
  * @returns {VcsToolingStatus}
  */
 declare function vcsToolingStatus(): VcsToolingStatus;
-type ResolvedBinary = ResolvedBinary$3;
 /**
  * Whether a usable `jj` and/or `git` exists for the current host. Each field is
  * the resolved binary when `<bin> --version` runs, or null when it does not.
@@ -193,4 +216,4 @@ type VcsToolingStatus = {
     ok: boolean;
 };
 
-export { type VcsToolingStatus, findVcsRoot, getJjPointer, isJjRepo, resolveGitBinary, resolveJjBinary, revertToJjPointer, runJj, vcsToolingStatus, workspaceAdd, workspaceClose, workspaceList };
+export { type JjRevertResult, type RunJjOptions, type RunJjResult, type VcsToolingStatus, type WorkspaceAddOptions, type WorkspaceInfo, type WorkspaceResult, type WorkspaceSnapshot, captureWorkspaceSnapshot, findVcsRoot, getJjPointer, isJjRepo, resolveGitBinary, resolveJjBinary, revertToJjPointer, runJj, vcsToolingStatus, workspaceAdd, workspaceClose, workspaceList };
