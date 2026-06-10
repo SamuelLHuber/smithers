@@ -5,9 +5,9 @@ description: Build a third-party Sandbox provider backed by Freestyle VMs.
 
 # Freestyle Sandbox Provider
 
-[Freestyle VMs](https://docs.freestyle.sh/v2/vms) are extremely powerful sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer, not a code runner.
+[Freestyle VMs](https://www.freestyle.sh/docs/vms) are extremely powerful sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer, not a code runner.
 
-The workflow sets no hardcoded runtime (no `runtime="docker"`). Instead it receives a `SandboxProvider` as a prop, so the same workflow code runs on any VM backend.
+The workflow sets no hardcoded runtime. Instead it passes a `SandboxProvider` object to `<Sandbox provider={freestyleProvider}>`, so the same workflow code runs on any VM backend.
 
 ## Provider shape
 
@@ -19,19 +19,17 @@ const freestyleProvider = createFreestyleSandboxProvider({
   freestyle,
   command: "node /workspace/run-smithers-sandbox.js",
   idleTimeoutSeconds: 60,
-  createOptions: {
-    additionalFiles: {
-      "/workspace/run-smithers-sandbox.js": {
-        content: `
-          const fs = require("node:fs");
-          const req = JSON.parse(fs.readFileSync("/workspace/smithers-request.json", "utf8"));
-          fs.writeFileSync("/workspace/smithers-result.json", JSON.stringify({
-            status: "finished",
-            output: { summary: "handled " + req.input.prompt },
-            runId: "freestyle:" + req.sandboxId
-          }));
-        `,
-      },
+  setupFiles: {
+    "/workspace/run-smithers-sandbox.js": {
+      content: `
+        const fs = require("node:fs");
+        const req = JSON.parse(fs.readFileSync("/workspace/smithers-request.json", "utf8"));
+        fs.writeFileSync("/workspace/smithers-result.json", JSON.stringify({
+          status: "finished",
+          output: { summary: "handled " + req.input.prompt },
+          runId: "freestyle:" + req.sandboxId
+        }));
+      `,
     },
   },
 });
@@ -55,6 +53,6 @@ const freestyleProvider = createFreestyleSandboxProvider({
 
 ## Why this shape
 
-Freestyle VM creation supports shipping files at create time with `additionalFiles`, setting a `workdir`, cloning repositories, and running commands with `vm.exec()`. That maps cleanly to the Smithers provider contract: Smithers creates the request bundle, the provider moves enough context into the VM, the VM command writes a result JSON file, and Smithers validates/applies the result bundle.
+Freestyle VM creation, file APIs, and command execution map cleanly to the Smithers provider contract: Smithers creates the request bundle, the provider writes any setup files and the request JSON with `vm.fs.writeTextFile()`, the VM command runs with `vm.exec()`, the provider reads `smithers-result.json` with `vm.fs.readTextFile()`, and Smithers validates/applies the result bundle.
 
 Return a `diffBundle` (a Smithers diff-bundle object) from the provider for file changes, and Smithers will surface them through the same review-and-apply path used by `<Sandbox reviewDiffs>`.

@@ -3375,16 +3375,14 @@ Unknown runtimes now fail closed. Docker is not silently replaced by bubblewrap 
 
 ## Freestyle provider example
 
-[Freestyle VMs](https://docs.freestyle.sh/v2/vms) are full sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer rather than a code runner.
+[Freestyle VMs](https://www.freestyle.sh/docs/vms) are full sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer rather than a code runner.
 
-See `examples/freestyle/` for a provider adapter that creates a Freestyle VM, ships a request with `additionalFiles`, executes a command with `vm.exec()`, reads `smithers-result.json`, and returns a Smithers sandbox result.
+See `examples/freestyle/` for a provider adapter that creates a Freestyle VM, writes setup and request files with `vm.fs.writeTextFile()`, executes a command with `vm.exec()`, reads `smithers-result.json` with `vm.fs.readTextFile()`, and returns a Smithers sandbox result.
 
-Freestyle's current VM docs show the stable package as `freestyle`, VM creation through `freestyle.vms.create()`, support for `additionalFiles`, `gitRepos`, `workdir`, `idleTimeoutSeconds`, and command execution with `vm.exec()`. Relevant Freestyle docs:
+Freestyle's current VM docs show the stable package as `freestyle`, VM creation through `freestyle.vms.create()`, file I/O through `vm.fs.writeTextFile()` / `vm.fs.readTextFile()`, command execution with `vm.exec()`, and lifecycle controls such as `start()`, `stop()`, `resize()`, `fork()`, `delete({ vmId })`, and `idleTimeoutSeconds`. Relevant Freestyle docs:
 
-- https://docs.freestyle.sh/v2/vms
-- https://docs.freestyle.sh/v2/vms/configuration
-- https://docs.freestyle.sh/v2/vms/configuration/files-and-repos
-- https://docs.freestyle.sh/v2/vms/lifecycle
+- https://www.freestyle.sh/docs/vms
+- https://www.freestyle.sh/docs/vms/lifecycle
 
 ---
 

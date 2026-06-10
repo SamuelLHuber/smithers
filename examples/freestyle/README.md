@@ -1,10 +1,10 @@
 # Freestyle sandbox provider example
 
-[Freestyle VMs](https://docs.freestyle.sh/v2/vms) are extremely powerful sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer, not a code runner.
+[Freestyle VMs](https://www.freestyle.sh/docs/vms) are extremely powerful sandboxes with nested virtualization, full networking, and the ability to scale to more resources than alternatives. Use Freestyle VMs when you want to give your agents a real computer, not a code runner.
 
 This example shows the sandbox-provider shape for a Freestyle VM integration.
 
-`provider.ts` exports `createFreestyleSandboxProvider()`, which implements the Smithers `SandboxProvider` contract. It creates a Freestyle VM, ships a request file with `additionalFiles`, runs a command with `vm.exec()`, reads a result JSON file, and returns a Smithers sandbox result bundle.
+`provider.ts` exports `createFreestyleSandboxProvider()`, which implements the Smithers `SandboxProvider` contract. It creates a Freestyle VM, writes setup and request files with `vm.fs.writeTextFile()`, runs a command with `vm.exec()`, reads a result JSON file with `vm.fs.readTextFile()`, and returns a Smithers sandbox result bundle.
 
 `workflow.tsx` uses a mock Freestyle client so the example typechecks and runs without credentials. To use real Freestyle VMs:
 
@@ -16,11 +16,9 @@ const freestyleProvider = createFreestyleSandboxProvider({
   freestyle,
   command: "node /workspace/run-smithers-sandbox.js",
   idleTimeoutSeconds: 60,
-  createOptions: {
-    additionalFiles: {
-      "/workspace/run-smithers-sandbox.js": {
-        content: "...write /workspace/smithers-result.json here...",
-      },
+  setupFiles: {
+    "/workspace/run-smithers-sandbox.js": {
+      content: "...write /workspace/smithers-result.json here...",
     },
   },
 });

@@ -29,19 +29,17 @@ const freestyleProvider = createFreestyleSandboxProvider({
 	freestyle: mockFreestyle,
 	command: "node /workspace/run-smithers-sandbox.js",
 	idleTimeoutSeconds: 60,
-	createOptions: {
-		additionalFiles: {
-			"/workspace/run-smithers-sandbox.js": {
-				content: [
-					"const fs = require('node:fs');",
-					"const req = JSON.parse(fs.readFileSync('/workspace/smithers-request.json', 'utf8'));",
-					"fs.writeFileSync('/workspace/smithers-result.json', JSON.stringify({",
-					"  status: 'finished',",
-					"  output: { summary: `Handled remotely: ${req.input?.prompt ?? 'no prompt'}`, remoteRunId: `vm:${req.sandboxId}` },",
-					"  runId: `vm:${req.sandboxId}`",
-					"}));",
-				].join("\n"),
-			},
+	setupFiles: {
+		"/workspace/run-smithers-sandbox.js": {
+			content: [
+				"const fs = require('node:fs');",
+				"const req = JSON.parse(fs.readFileSync('/workspace/smithers-request.json', 'utf8'));",
+				"fs.writeFileSync('/workspace/smithers-result.json', JSON.stringify({",
+				"  status: 'finished',",
+				"  output: { summary: `Handled remotely: ${req.input?.prompt ?? 'no prompt'}`, remoteRunId: `vm:${req.sandboxId}` },",
+				"  runId: `vm:${req.sandboxId}`",
+				"}));",
+			].join("\n"),
 		},
 	},
 });

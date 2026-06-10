@@ -6,12 +6,9 @@ import type {
 
 type FreestyleFile = {
 	content: string;
-	encoding?: "utf8" | "base64";
 };
 
 type FreestyleCreateOptions = Record<string, unknown> & {
-	additionalFiles?: Record<string, FreestyleFile>;
-	workdir?: string;
 	idleTimeoutSeconds?: number;
 };
 
@@ -28,7 +25,7 @@ type FreestyleVm = {
 	exec(command: string): Promise<FreestyleExecResult>;
 	fs: {
 		readTextFile(path: string): Promise<string>;
-		writeTextFile?(path: string, content: string): Promise<void>;
+		writeTextFile(path: string, content: string): Promise<void>;
 	};
 };
 
@@ -51,6 +48,7 @@ export type FreestyleSandboxProviderOptions = {
 	command?: string;
 	idleTimeoutSeconds?: number;
 	createOptions?: FreestyleCreateOptions;
+	setupFiles?: Record<string, FreestyleFile>;
 	cleanup?: "delete" | "keep";
 };
 
@@ -93,25 +91,24 @@ export function createFreestyleSandboxProvider(
 		id: "freestyle",
 		async run(request) {
 			const createOptions = options.createOptions ?? {};
-			const additionalFiles = {
-				...(createOptions.additionalFiles ?? {}),
-				[requestPath(workdir)]: {
-					content: JSON.stringify({
-						runId: request.runId,
-						sandboxId: request.sandboxId,
-						input: request.input,
-					}),
-				},
-			};
 			const { vm, vmId, consoleUrl } = await options.freestyle.vms.create({
 				...createOptions,
-				additionalFiles,
-				workdir,
 				idleTimeoutSeconds: options.idleTimeoutSeconds ?? createOptions.idleTimeoutSeconds,
 			});
 			if (vmId) {
 				activeVms.set(keyFor(request), vmId);
 			}
+			for (const [path, file] of Object.entries(options.setupFiles ?? {})) {
+				await vm.fs.writeTextFile(path, file.content);
+			}
+			await vm.fs.writeTextFile(
+				requestPath(workdir),
+				JSON.stringify({
+					runId: request.runId,
+					sandboxId: request.sandboxId,
+					input: request.input,
+				}),
+			);
 
 			request.heartbeat({
 				sandboxId: request.sandboxId,
@@ -167,10 +164,7 @@ export function createMockFreestyleClient(
 				nextId += 1;
 				const vmId = `mock-freestyle-${nextId}`;
 				const files = new Map<string, string>();
-				for (const [path, file] of Object.entries(options.additionalFiles ?? {})) {
-					files.set(path, file.content);
-				}
-				const workdir = options.workdir ?? "/workspace";
+				const workdir = "/workspace";
 				const vm: FreestyleVm = {
 					async exec(command) {
 						const request = JSON.parse(files.get(requestPath(workdir)) ?? "{}");

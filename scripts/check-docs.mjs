@@ -23,6 +23,8 @@ const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.t
 const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const IRON_PROXY_EGRESS_SPEC = join(root, ".smithers/specs/iron-proxy-egress-seam.html");
+const CLOUD_EXECUTION_SPEC = join(root, ".smithers/specs/cloud-execution-engineering.md");
+const CLOUD_PRODUCT_SPEC = join(root, ".smithers/specs/cloud-execution-product.md");
 
 let failed = false;
 
@@ -198,6 +200,62 @@ function checkIronProxySpecMatchesSandboxSeam() {
   }
 }
 
+function displayPath(file) {
+  return file.replace(root + "/", "");
+}
+
+function checkFreestyleDocsMatchProviderSeam() {
+  const files = new Map([
+    [CLOUD_EXECUTION_SPEC, readFileSync(CLOUD_EXECUTION_SPEC, "utf8")],
+    [CLOUD_PRODUCT_SPEC, readFileSync(CLOUD_PRODUCT_SPEC, "utf8")],
+    [join(root, "docs/components/sandbox.mdx"), readFileSync(join(root, "docs/components/sandbox.mdx"), "utf8")],
+    [
+      join(root, "docs/examples/freestyle-sandbox-provider.mdx"),
+      readFileSync(join(root, "docs/examples/freestyle-sandbox-provider.mdx"), "utf8"),
+    ],
+    [join(root, "examples/freestyle/README.md"), readFileSync(join(root, "examples/freestyle/README.md"), "utf8")],
+  ]);
+  const required = [
+    [CLOUD_EXECUTION_SPEC, 'Do not add `"freestyle"` to `SandboxRuntime`.'],
+    [CLOUD_EXECUTION_SPEC, "No public `--runtime freestyle` flag is added."],
+    [CLOUD_PRODUCT_SPEC, "<Sandbox provider={freestyleProvider}>"],
+    [join(root, "docs/components/sandbox.mdx"), "vm.fs.writeTextFile()"],
+    [join(root, "docs/components/sandbox.mdx"), "https://www.freestyle.sh/docs/vms"],
+    [join(root, "docs/examples/freestyle-sandbox-provider.mdx"), "vm.fs.writeTextFile()"],
+    [join(root, "examples/freestyle/README.md"), "vm.fs.writeTextFile()"],
+  ];
+  const forbidden = [
+    [CLOUD_EXECUTION_SPEC, "FreestyleSandboxExecutorLive"],
+    [CLOUD_EXECUTION_SPEC, "smithers env:setup --freestyle"],
+    [CLOUD_EXECUTION_SPEC, "smithers run workflow.tsx --runtime freestyle"],
+    [CLOUD_EXECUTION_SPEC, "smithers fork workflow.tsx --run-id run-001 --frame 5 --runtime freestyle"],
+    [CLOUD_PRODUCT_SPEC, "smithers env:setup --freestyle"],
+    [CLOUD_PRODUCT_SPEC, "--runtime freestyle"],
+    [join(root, "docs/components/sandbox.mdx"), "additionalFiles"],
+    [join(root, "docs/components/sandbox.mdx"), "https://docs.freestyle.sh/v2/vms"],
+    [join(root, "docs/examples/freestyle-sandbox-provider.mdx"), "additionalFiles"],
+    [join(root, "examples/freestyle/README.md"), "additionalFiles"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Freestyle sandbox docs do not match the provider-object implementation:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Freestyle sandbox docs describe provider objects, not core runtime strings");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -205,5 +263,6 @@ checkGatewayTypeDocs();
 checkFacadeDeclarations();
 checkImplementedApisNotMarkedComingSoon();
 checkIronProxySpecMatchesSandboxSeam();
+checkFreestyleDocsMatchProviderSeam();
 
 process.exit(failed ? 1 : 0);

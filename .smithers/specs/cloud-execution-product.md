@@ -290,16 +290,16 @@ a K3s-based Kubernetes layer for Smithers. Fabrik takes a different approach:
 ### Workflow
 
 ```
-1. smithers env:setup --freestyle
+1. Hosted Freestyle provider prepares a golden snapshot
    → Creates base VM, installs Bun + deps, snapshots golden image
 
 2. Workflow runs:
-   → Each task: fork golden VM (~200ms) → execute → pause ($0 CPU)
+   → Each <Sandbox provider={freestyleProvider}>: fork golden VM (~200ms) → execute → pause ($0 CPU)
    → Human approval gate: VM paused for hours/days at storage cost only
    → Resume: instant warm start from paused state
 
-3. smithers fork --run-id run-001 --frame 5
-   → DB fork + VM fork → exact filesystem state from frame 5
+3. smithers fork workflow.tsx --run-id run-001 --frame 5
+   → DB fork; provider decides whether to fork the VM snapshot for exact filesystem state
 ```
 
 ### JJHub Integration

@@ -626,90 +626,76 @@ stringData:
 
 ---
 
-## Part 5: Freestyle Implementation
+## Part 5: Freestyle Provider Implementation
 
-### New Sandbox Runtime
+### Sandbox Provider Adapter
 
-Add `"freestyle"` to `SandboxRuntime`:
+Do not add `"freestyle"` to `SandboxRuntime`. Freestyle is a third-party
+`SandboxProvider` implementation that a workflow passes as a provider object, or
+as a string only after explicit `registerSandboxProvider({ id, run })`
+registration. The core `runtime` field remains the legacy local transport enum:
+`"bubblewrap" | "docker" | "codeplane"`.
 
-```ts
-// src/sandbox/transport.ts
-export type SandboxRuntime = "bubblewrap" | "docker" | "codeplane" | "freestyle";
-```
+```tsx
+import { Sandbox, Workflow } from "smithers-orchestrator";
+import type { SandboxProvider } from "smithers-orchestrator/sandbox";
 
-### Freestyle Executor
+const activeVms = new Map<string, string>();
 
-```ts
-// src/effect/freestyle-runner.ts
-import { Effect, Layer } from "effect";
-import { SandboxEntityExecutor } from "./sandbox-entity";
-
-export const FreestyleSandboxExecutorLive = Layer.effect(
-  SandboxEntityExecutor,
-  Effect.gen(function* () {
-    const apiKey = process.env.FREESTYLE_API_KEY;
-    const apiUrl = process.env.FREESTYLE_API_URL ?? "https://api.freestyle.sh";
-
-    if (!apiKey) {
-      yield* Effect.fail(
-        new SmithersError(
-          "INVALID_INPUT",
-          "Freestyle runtime requires FREESTYLE_API_KEY.",
-        ),
-      );
+const freestyleProvider: SandboxProvider = {
+  id: "freestyle",
+  async run(request) {
+    const workspace = request.config.workspace as { snapshotId?: string } | undefined;
+    const { vm, vmId } = await freestyle.vms.create({
+      name: `smithers-${request.runId}-${request.sandboxId}`,
+      snapshotId: workspace?.snapshotId,
+      idleTimeoutSeconds: 600,
+    });
+    if (vmId) {
+      activeVms.set(`${request.runId}:${request.sandboxId}`, vmId);
     }
 
-    // HTTP client for Freestyle API
-    const freestyleClient = makeFreestyleClient({ apiKey, apiUrl });
+    await vm.fs.writeTextFile(
+      "/workspace/smithers-request.json",
+      JSON.stringify({
+        runId: request.runId,
+        sandboxId: request.sandboxId,
+        input: request.input,
+        egress: request.egress,
+      }),
+    );
 
-    return SandboxEntityExecutor.of({
-      create: (config) =>
-        Effect.gen(function* () {
-          const handle = baseHandle(config);
-          const snapshotId = config.workspace?.snapshotId;
+    const result = await vm.exec("node /workspace/run-smithers-sandbox.js");
+    const stdout = typeof result?.stdout === "string" ? result.stdout.trim() : "";
+    const raw = stdout.startsWith("{")
+      ? stdout
+      : await vm.fs.readTextFile("/workspace/smithers-result.json");
 
-          // Fork from snapshot (fast path) or create fresh
-          const vm = snapshotId
-            ? yield* fromPromise("fork freestyle VM", () =>
-                freestyleClient.fork(snapshotId))
-            : yield* fromPromise("create freestyle VM", () =>
-                freestyleClient.create(defaultVmSpec));
+    return {
+      ...JSON.parse(raw),
+      remoteRunId: vmId,
+      workspaceId: vmId,
+    };
+  },
+  async cleanup(request) {
+    const key = `${request.runId}:${request.sandboxId}`;
+    const vmId = activeVms.get(key);
+    if (typeof vmId === "string") {
+      await freestyle.vms.delete({ vmId });
+      activeVms.delete(key);
+    }
+  },
+};
 
-          return {
-            ...handle,
-            workspaceId: vm.id,
-          };
-        }),
-
-      ship: (bundlePath, handle) =>
-        fromPromise("upload bundle to freestyle VM", () =>
-          freestyleClient.upload(handle.workspaceId!, bundlePath, "/tmp/bundle")),
-
-      execute: (command, handle) =>
-        fromPromise("exec in freestyle VM", async () => {
-          const result = await freestyleClient.exec(handle.workspaceId!, command);
-          return { exitCode: result.exitCode };
-        }),
-
-      collect: (handle) =>
-        fromPromise("download result from freestyle VM", async () => {
-          const localPath = join(handle.resultPath, "output");
-          await freestyleClient.download(handle.workspaceId!, "/tmp/result", localPath);
-          return { bundlePath: localPath };
-        }),
-
-      cleanup: (handle) =>
-        fromPromise("cleanup freestyle VM", async () => {
-          const persistence = config.workspace?.persistence ?? "ephemeral";
-          if (persistence === "sticky") {
-            await freestyleClient.pause(handle.workspaceId!);
-          } else {
-            await freestyleClient.destroy(handle.workspaceId!);
-          }
-        }),
-    });
-  }),
-);
+<Workflow name="cloud-worker">
+  <Sandbox
+    id="worker"
+    provider={freestyleProvider}
+    workflow={childWorkflow}
+    output={outputs.result}
+    workspace={{ name: "worker", snapshotId: "snap_abc123" }}
+  />
+</Workflow>;
 ```
 
 ### Golden Image Creation
@@ -718,37 +704,33 @@ export const FreestyleSandboxExecutorLive = Layer.effect(
 // src/freestyle/golden-image.ts
 
 export async function createGoldenImage(opts: {
-  workflowDir: string;
-  freestyleClient: FreestyleClient;
-  vmSpec?: Partial<VmSpec>;
+  freestyle: typeof import("freestyle").freestyle;
+  snapshotId?: string;
 }): Promise<{ snapshotId: string }> {
   // 1. Create base VM
-  const vm = await opts.freestyleClient.create({
-    os: "ubuntu-24.04",
-    vcpus: opts.vmSpec?.vcpus ?? 4,
-    memory: opts.vmSpec?.memory ?? "8GiB",
-    disk: opts.vmSpec?.disk ?? "20GiB",
-    aptDeps: ["git", "jj", "curl", "unzip"],
-    ...opts.vmSpec,
+  const { vm } = await opts.freestyle.vms.create({
+    name: "smithers-golden-image",
+    snapshotId: opts.snapshotId,
+    idleTimeoutSeconds: null,
   });
 
   // 2. Install Bun
-  await opts.freestyleClient.exec(vm.id,
+  await vm.exec(
     "curl -fsSL https://bun.sh/install | bash");
 
-  // 3. Upload workflow code
-  await opts.freestyleClient.upload(vm.id,
-    opts.workflowDir, "/opt/smithers");
+  // 3. Write bootstrap metadata. Larger repos should come from Freestyle Git,
+  // a checked-out snapshot, or a provider-specific upload layer.
+  await vm.fs.writeTextFile("/opt/smithers/README.md", "Smithers worker image\n");
 
   // 4. Install dependencies
-  await opts.freestyleClient.exec(vm.id,
+  await vm.exec(
     "cd /opt/smithers && /root/.bun/bin/bun install --frozen-lockfile");
 
   // 5. Snapshot
-  const snapshot = await opts.freestyleClient.snapshot(vm.id);
+  const snapshot = await vm.snapshot();
 
-  // 6. Pause base VM (keep for updates)
-  await opts.freestyleClient.pause(vm.id);
+  // 6. Stop or delete the builder VM once the snapshot exists.
+  await vm.stop();
 
   return { snapshotId: snapshot.id };
 }
@@ -756,15 +738,15 @@ export async function createGoldenImage(opts: {
 
 ### CLI Command
 
+No public `--runtime freestyle` flag is added. The workflow TSX injects the
+provider object and can map workflow input into `<Sandbox workspace={...}>`.
+
 ```bash
-# Create golden image
-smithers env:setup --freestyle
+# Run a workflow whose TSX injects a Freestyle SandboxProvider
+smithers workflow run cloud-worker --input '{"snapshotId":"snap_abc123"}'
 
-# Run workflow on Freestyle workers
-smithers run workflow.tsx --runtime freestyle --snapshot-id snap_abc123
-
-# Fork a run (DB fork + VM fork)
-smithers fork workflow.tsx --run-id run-001 --frame 5 --runtime freestyle
+# Fork a run (DB fork; the provider decides whether to fork a VM snapshot)
+smithers fork workflow.tsx --run-id run-001 --frame 5
 ```
 
 ### Pause/Resume at Task Boundaries
@@ -902,12 +884,12 @@ deploy();
 
 ### Phase D: Freestyle Integration
 
-1. Add `"freestyle"` to `SandboxRuntime`
-2. Implement `FreestyleSandboxExecutorLive`
-3. Implement golden image creation (`smithers env:setup --freestyle`)
+1. Implement or package a Freestyle `SandboxProvider` adapter
+2. Pass the provider object into hosted workflows, or register an id explicitly
+3. Implement golden image or snapshot creation in the hosted provider layer
 4. Implement pause/resume at task boundaries
 5. Implement VM snapshot at frames
-6. Implement fork = DB fork + VM fork
+6. Implement fork = DB fork + provider-managed VM fork
 7. Test: E2E on Freestyle — create golden image, run workflow, fork
 
 ### Phase E: JJHub Integration
@@ -930,8 +912,9 @@ provides:
 - Workspace management
 - Authentication and multi-tenancy
 
-The `freestyle` sandbox runtime in Smithers is an implementation detail. Users
-interact with JJHub, which provisions Freestyle VMs on their behalf.
+The Freestyle sandbox provider in Smithers Cloud is an implementation detail.
+Users interact with JJHub or a workflow-supplied `SandboxProvider`; Smithers core
+does not expose a built-in `freestyle` runtime.
 
 JJHub may need updates to support the worker model described here. Specifically:
 - Worker VM lifecycle management (fork, pause, resume, destroy)
