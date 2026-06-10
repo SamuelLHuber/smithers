@@ -8529,6 +8529,7 @@ Get enriched detail for a single node, including all attempts, tool calls, token
       source: "cache" | "output-table" | "none";
       cacheKey: string | null;
     };
+    approval: PendingApproval | null;
     limits: {
       toolPayloadBytesHuman: number;
       validatedOutputBytesHuman: number;

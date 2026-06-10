@@ -2191,9 +2191,10 @@ function checkMcpIntegrationDocsMatchAgentOptions() {
   }
 }
 
-function checkMcpSemanticDocsMatchWorkflowSummarySchema() {
+function checkMcpSemanticDocsMatchSchemas() {
   const docs = readFileSync(join(root, "docs/integrations/mcp-server.mdx"), "utf8");
   const semanticTools = readFileSync(MCP_SEMANTIC_TOOLS_SOURCE, "utf8");
+  const nodeDetailSource = readFileSync(join(root, "apps/cli/src/node-detail.js"), "utf8");
   const docsScopeOccurrences = docs.split('scope: "local" | "global";').length - 1;
   const docsPathOccurrences = docs.split("path: string;").length - 1;
   const required = [
@@ -2201,11 +2202,12 @@ function checkMcpSemanticDocsMatchWorkflowSummarySchema() {
     [MCP_SEMANTIC_TOOLS_SOURCE, "path: z.string()"],
     [MCP_SEMANTIC_TOOLS_SOURCE, "scope: discovered.scope"],
     [MCP_SEMANTIC_TOOLS_SOURCE, "path: discovered.path"],
+    [MCP_SEMANTIC_TOOLS_SOURCE, "approval: pendingApprovalSchema.nullable().optional()"],
+    [join(root, "apps/cli/src/node-detail.js"), "approval: approvalRow"],
   ];
   const forbidden = [
     [MCP_SEMANTIC_TOOLS_SOURCE, "entryFile: discovered.entryFile,\n            sourceType: discovered.sourceType"],
   ];
-  const missing = required.filter(([file, needle]) => !semanticTools.includes(needle));
   const stale = forbidden.filter(([, needle]) => semanticTools.includes(needle));
   const problems = [];
   if (docsScopeOccurrences < 2) {
@@ -2214,12 +2216,19 @@ function checkMcpSemanticDocsMatchWorkflowSummarySchema() {
   if (docsPathOccurrences < 2) {
     problems.push(`docs/integrations/mcp-server.mdx:path documented ${docsPathOccurrences} time(s), expected at least 2`);
   }
-  if (missing.length || stale.length || problems.length) {
+  if (!docs.includes("approval: PendingApproval | null;")) {
+    problems.push("docs/integrations/mcp-server.mdx:get_node_detail output must document detail.approval");
+  }
+  const missingFromSource = required.filter(([file, needle]) => {
+    const source = file === MCP_SEMANTIC_TOOLS_SOURCE ? semanticTools : nodeDetailSource;
+    return !source.includes(needle);
+  });
+  if (missingFromSource.length || stale.length || problems.length) {
     failed = true;
-    console.error("\n✗ MCP semantic workflow summary docs must match the Zod schema and runtime output:");
-    if (missing.length) {
+    console.error("\n✗ MCP semantic docs must match the Zod schemas and runtime output:");
+    if (missingFromSource.length) {
       console.error(
-        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+        `    missing: ${missingFromSource.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
       );
     }
     if (stale.length) {
@@ -2229,7 +2238,7 @@ function checkMcpSemanticDocsMatchWorkflowSummarySchema() {
     }
     if (problems.length) console.error(`    ${problems.join("\n    ")}`);
   } else {
-    console.log("✓ MCP semantic workflow summary docs match the source schema");
+    console.log("✓ MCP semantic docs match the source schemas");
   }
 }
 
@@ -2725,7 +2734,7 @@ checkMemoryDocsMatchSourceTypes();
 checkScorerDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
-checkMcpSemanticDocsMatchWorkflowSummarySchema();
+checkMcpSemanticDocsMatchSchemas();
 checkSdkAgentDocsMatchSourceTypes();
 checkCliAgentDocsMatchCurrentModelDefaults();
 checkCliAgentHijackDocsMatchLauncher();
