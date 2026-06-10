@@ -36,6 +36,7 @@ const SERVER_SOURCE = join(root, "packages/server/src/index.js");
 const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
 const CUSTOM_UI_INTEGRATION = join(DOCS, "integrations/custom-ui.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
+const ALERTING_GUIDE = join(DOCS, "guides/alerting.mdx");
 const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
 const MEMORY_CONCEPTS = join(DOCS, "concepts/memory.mdx");
 const RUNTIME_EVENTS_REFERENCE = join(DOCS, "runtime/events.mdx");
@@ -110,6 +111,8 @@ const HOT_RELOAD_GUIDE = join(DOCS, "guides/hot-reload.mdx");
 const DRIVER_RUN_OPTIONS_SOURCE = join(root, "packages/driver/src/RunOptions.ts");
 const DRIVER_DECLARATIONS = join(root, "packages/driver/src/index.d.ts");
 const HOT_WORKFLOW_CONTROLLER_SOURCE = join(root, "packages/engine/src/hot/HotWorkflowController.js");
+const ALERT_RUNTIME_SOURCE = join(root, "packages/engine/src/alert-runtime.js");
+const SCHEDULER_WORKFLOW_OPTIONS_SOURCE = join(root, "packages/scheduler/src/SmithersWorkflowOptions.ts");
 const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json");
 const STUDIO_APP_README = join(root, "apps/smithers-studio-2/README.md");
 const STUDIO_RUNS_PARSE_SOURCE = join(root, "apps/smithers-studio-2/src/runs/parseRunPayloads.ts");
@@ -1208,6 +1211,60 @@ function checkRunOptionsDocsMatchSourceType() {
     console.error(problems.map((problem) => `    ${problem}`).join("\n"));
   } else {
     console.log("✓ RunOptions docs and declarations match the source type");
+  }
+}
+
+function checkAlertingDocsMatchRuntimeSurface() {
+  const files = new Map([
+    [ALERTING_GUIDE, readFileSync(ALERTING_GUIDE, "utf8")],
+    [ALERT_RUNTIME_SOURCE, readFileSync(ALERT_RUNTIME_SOURCE, "utf8")],
+    [SCHEDULER_WORKFLOW_OPTIONS_SOURCE, readFileSync(SCHEDULER_WORKFLOW_OPTIONS_SOURCE, "utf8")],
+    [CLI_ENTRYPOINT, readFileSync(CLI_ENTRYPOINT, "utf8")],
+  ]);
+  const required = [
+    [SCHEDULER_WORKFLOW_OPTIONS_SOURCE, 'export type SmithersAlertSeverity = "info" | "warning" | "critical";'],
+    [SCHEDULER_WORKFLOW_OPTIONS_SOURCE, '| "emit-only"'],
+    [SCHEDULER_WORKFLOW_OPTIONS_SOURCE, '| "pause"'],
+    [SCHEDULER_WORKFLOW_OPTIONS_SOURCE, '| "cancel"'],
+    [SCHEDULER_WORKFLOW_OPTIONS_SOURCE, '| "open-approval"'],
+    [SCHEDULER_WORKFLOW_OPTIONS_SOURCE, '| "deliver"'],
+    [ALERT_RUNTIME_SOURCE, "start() { }"],
+    [ALERT_RUNTIME_SOURCE, "stop() { }"],
+    [CLI_ENTRYPOINT, "const alertsOptions = z.object({});"],
+    [CLI_ENTRYPOINT, "await adapter.listAlerts(200, ["],
+    [CLI_ENTRYPOINT, '"firing",'],
+    [CLI_ENTRYPOINT, '"acknowledged",'],
+    [CLI_ENTRYPOINT, '"silenced",'],
+    [ALERTING_GUIDE, "`alertPolicy` is currently workflow metadata plus a durable alert storage model."],
+    [ALERTING_GUIDE, "The core engine starts an `AlertRuntime` wrapper for configured policies"],
+    [
+      ALERTING_GUIDE,
+      "it does not run built-in alert evaluators, poll approval age, execute delivery clients, or create pause/cancel/approval reactions automatically.",
+    ],
+    [ALERTING_GUIDE, "`list` returns active `firing`, `acknowledged`, and `silenced` alerts."],
+    [ALERTING_GUIDE, "Use `--format json` when another process needs to consume the rows."],
+  ];
+  const forbidden = [
+    [ALERTING_GUIDE, "In 0.16"],
+    [ALERTING_GUIDE, "core engine does not run built-in alert evaluators"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Alerting docs must match current alert policy types, runtime, and CLI surface:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Alerting docs match current alert policy types, runtime, and CLI surface");
   }
 }
 
@@ -2821,6 +2878,7 @@ checkGatewayCancelRunDocsMatchRuntimeErrors();
 checkGatewaySubmitApprovalDocsMatchRuntimeErrors();
 checkHotReloadDocsMatchRuntimeDefaults();
 checkRunOptionsDocsMatchSourceType();
+checkAlertingDocsMatchRuntimeSurface();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkHttpServerDocsMatchRuntimeSurface();

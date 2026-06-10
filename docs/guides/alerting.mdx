@@ -105,7 +105,7 @@ You can reference a named reaction from `rules` or inline a reaction object dire
 
 ## Runtime Surface
 
-In 0.16, `alertPolicy` is workflow metadata plus a durable alert storage model. The core engine does not run built-in alert evaluators, poll approval age, execute delivery clients, or create pause/cancel/approval reactions automatically.
+`alertPolicy` is currently workflow metadata plus a durable alert storage model. The core engine starts an `AlertRuntime` wrapper for configured policies, but it does not run built-in alert evaluators, poll approval age, execute delivery clients, or create pause/cancel/approval reactions automatically.
 
 Runtime integrations can:
 
