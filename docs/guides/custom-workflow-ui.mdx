@@ -254,22 +254,20 @@ In Cloud (or any deployment behind Plue, our hosted code-platform that fronts cu
 
 ```
 /api/auth/*    →  WorkOS / Auth0 / GitHub (user session terminator)
-/v1/rpc/*      →  Smithers Gateway   (RPC, trusted-proxy headers attached)
-/workflows/*   →  Smithers Gateway   (HTML shell + bundle + WebSocket upgrade)
+/v1/rpc/*      →  Smithers Gateway   (RPC, trusted-proxy headers or service token attached)
+/workflows/*   →  Smithers Gateway   (HTML shell + bundle)
 /health        →  Smithers Gateway   (liveness)
 /api/repos/*   →  Plue jjhub         (code hosting REST)
 ```
 
-The Worker:
+The Worker has two Gateway-auth branches:
 
-1. **Validates the user session** on the cookies it set during `/api/auth/*`.
-2. **Strips client-supplied trusted-proxy headers** (`x-user-id`, `x-user-scopes`, `x-user-role`, `x-smithers-token-id`) so a malicious browser cannot spoof identity.
-3. **Re-injects them from the validated session** plus a small allowlist of scopes (`run:read`, `run:write`, `approval:submit`, `signal:submit`, `cron:read`, `cron:write`, `observability:read`).
-4. **Adds a Gateway service credential** (`Authorization: Bearer <service-token>`) so the Gateway accepts the request even in token mode and the trusted-proxy headers override the role/scopes.
+1. **Service-token branch.** If `GATEWAY_AUTH_TOKEN` is set, the Worker strips browser-supplied Gateway credentials and trusted-proxy headers, adds `Authorization: Bearer <service-token>`, and forwards the request without minting user identity headers.
+2. **Trusted-proxy branch.** If no service token is configured, the Worker validates the user's session, strips client-supplied trusted-proxy headers (`x-user-id`, `x-user-scopes`, `x-user-role`, `x-smithers-token-id`), and re-injects them from the validated session plus a small allowlist of scopes (`run:read`, `run:write`, `approval:submit`, `signal:submit`, `cron:read`, `cron:write`, `observability:read`).
 
-The Gateway is configured `mode: "trusted-proxy"` (or `mode: "token"` with the Worker presenting the shared service token) and reads identity from the headers the Worker set. The browser never sees a token; the iframe's RPC calls all flow through the Worker; the WebSocket upgrade goes through the same Worker route (`/workflows/*` is upgrade-aware).
+The Gateway auth mode determines which branch preserves per-user identity. In `mode: "trusted-proxy"`, the Gateway reads role, scopes, user id, and token id from the trusted headers the Worker set. In `mode: "token"` or `mode: "jwt"`, the Gateway reads the bearer credential and ignores trusted-proxy identity headers; use the service-token branch only when service identity is acceptable. The browser never sees a Gateway credential; the iframe's RPC calls and WebSocket upgrades flow through the Worker.
 
-The exact Worker is in `apps/smithers/src/worker.ts`; its `isGatewayProxyRoute`, `isAuthProxyRoute`, and `isPlatformProxyRoute` predicates split the three families. `stripTrustedProxyHeaders` + `stripGatewayCredentialHeaders` enforce step 2 + 4; `gatewayAuthToken` reads the service credential from a Worker secret. Use it as the reference implementation when you stand up your own same-origin proxy.
+The exact Worker is in `apps/smithers/src/worker.ts`; its `isGatewayProxyRoute`, `isAuthProxyRoute`, and `isPlatformProxyRoute` predicates split the route families. `stripTrustedProxyHeaders` and `stripGatewayCredentialHeaders` remove browser-supplied identity and Gateway credentials before either branch runs; `gatewayAuthToken` selects the service-token branch. Use it as the reference implementation when you stand up your own same-origin proxy.
 
 The same shape works behind any reverse proxy (Cloudflare, Cloudflare Access, Caddy, nginx, an internal API gateway): terminate session, strip identity headers off the request, set them from the validated session, forward to the Gateway. Trusted-proxy mode is **only safe behind something you control** that strips and rewrites identity headers; the Gateway docs call this out explicitly.
 

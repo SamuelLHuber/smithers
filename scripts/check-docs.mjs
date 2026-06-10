@@ -109,6 +109,7 @@ const HOT_WORKFLOW_CONTROLLER_SOURCE = join(root, "packages/engine/src/hot/HotWo
 const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json");
 const STUDIO_APP_README = join(root, "apps/smithers-studio-2/README.md");
 const STUDIO_RUNS_PARSE_SOURCE = join(root, "apps/smithers-studio-2/src/runs/parseRunPayloads.ts");
+const SMITHERS_WORKER_SOURCE = join(root, "apps/smithers/src/worker.ts");
 const IRON_PROXY_EGRESS_SPEC = join(root, ".smithers/specs/iron-proxy-egress-seam.html");
 const CLOUD_EXECUTION_SPEC = join(root, ".smithers/specs/cloud-execution-engineering.md");
 const CLOUD_PRODUCT_SPEC = join(root, ".smithers/specs/cloud-execution-product.md");
@@ -2239,6 +2240,7 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
     [CUSTOM_UI_INTEGRATION, readFileSync(CUSTOM_UI_INTEGRATION, "utf8")],
     [CUSTOM_WORKFLOW_UI_GUIDE, readFileSync(CUSTOM_WORKFLOW_UI_GUIDE, "utf8")],
+    [SMITHERS_WORKER_SOURCE, readFileSync(SMITHERS_WORKER_SOURCE, "utf8")],
     [gatewayServerSource, readFileSync(gatewayServerSource, "utf8")],
     [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
     [GATEWAY_CLIENT_SOURCE, readFileSync(GATEWAY_CLIENT_SOURCE, "utf8")],
@@ -2260,6 +2262,12 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_CLIENT_RPC_TYPE_MAP, "getNodeOutput: Record<string, unknown>;"],
     [GATEWAY_CLIENT_SOURCE, "async *streamDevTools("],
     [GATEWAY_CLIENT_SOURCE, 'const subscribed = await connection.request("streamDevTools", params);'],
+    [SMITHERS_WORKER_SOURCE, "const token = gatewayAuthToken(env);"],
+    [SMITHERS_WORKER_SOURCE, "addGatewayCredential(headers, token);"],
+    [SMITHERS_WORKER_SOURCE, "return proxyWithHeaders(request, base, headers);"],
+    [SMITHERS_WORKER_SOURCE, "addTrustedProxyHeaders(headers, validation.user, env);"],
+    [gatewayServerSource, 'if (this.auth.mode === "token") {'],
+    [gatewayServerSource, 'if (this.auth.mode === "trusted-proxy") {'],
     [gatewayServerSource, 'rpcPath: "/v1/rpc",'],
     [gatewayServerSource, 'wsPath: "/",'],
     [GATEWAY_CLIENT_SOURCE, "this.boot = globalThis.__SMITHERS_GATEWAY_UI__;"],
@@ -2377,6 +2385,22 @@ function checkGatewaySdkDocsMatchExports() {
       CUSTOM_WORKFLOW_UI_GUIDE,
       "re-subscribe with the last `afterSeq` or use the sync subscription layer on top of `gatewayKeys.devtools(runId)`",
     ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "The Worker has two Gateway-auth branches:",
+    ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "If `GATEWAY_AUTH_TOKEN` is set, the Worker strips browser-supplied Gateway credentials and trusted-proxy headers, adds `Authorization: Bearer <service-token>`, and forwards the request without minting user identity headers.",
+    ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      'In `mode: "token"` or `mode: "jwt"`, the Gateway reads the bearer credential and ignores trusted-proxy identity headers',
+    ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "gatewayAuthToken` selects the service-token branch",
+    ],
     [CUSTOM_WORKFLOW_UI_GUIDE, "SyncProvider` + `useSyncQuery` / `useSyncMutation` / `useSyncSubscription"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayQuery` / `useGatewayMutation` / `useGatewayRunStream"],
   ];
@@ -2393,6 +2417,9 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "dedicated metric streams via DevTools observability channels"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "memory utilization, token counts, and step durations"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "follow the same resilient reconnection mechanics as `streamRunEventsResilient`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "trusted-proxy headers override the role/scopes"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, 'mode: "token"` with the Worker presenting the shared service token) and reads identity from the headers'],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "step 2 + 4"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "uses the matching `wsPath` and `rpcPath`"],
     [CUSTOM_UI_INTEGRATION, "workflow-scoped path (typically"],
     [CUSTOM_UI_INTEGRATION, "/v1/ws/<workflow>"],
