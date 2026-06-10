@@ -6102,7 +6102,7 @@ import { defineTool, bash, read, write } from "smithers-orchestrator/tools";
 // Scorers
 import { createScorer, llmJudge } from "smithers-orchestrator/scorers";
 
-// MDX plugin (in preload.ts)
+// MDX plugin (in preload.js)
 import { mdxPlugin } from "smithers-orchestrator/mdx-plugin";
 
 // Control-plane primitives
@@ -6172,7 +6172,7 @@ End users should add `@types/react-dom` to `devDependencies` instead of relying 
 
 ```toml
 # bunfig.toml
-preload = ["./preload.ts"]
+preload = ["./preload.js"]
 ```
 
 The preload script registers the MDX esbuild plugin with Bun's bundler so `.mdx` files can be imported as JSX components at runtime. See MDX Prompts for details.
@@ -6181,14 +6181,14 @@ The preload script registers the MDX esbuild plugin with Bun's bundler so `.mdx`
 
 ```toml
 [test]
-root = "./tests"
-preload = ["./preload.ts"]
+root = "."
+preload = ["./preload.js"]
 ```
 
 | Key | Value | Purpose |
 |---|---|---|
-| `root` | `./tests` | Bun discovers test files from this directory instead of scanning the entire project |
-| `preload` | `["./preload.ts"]` | Registers the MDX plugin for test files so `.mdx` imports work in tests |
+| `root` | `.` | Bun discovers test files from the repository root |
+| `preload` | `["./preload.js"]` | Registers the MDX plugin for test files so `.mdx` imports work in tests |
 
 The test preload is separate from the runtime preload. Both point to the same file, but Bun's `[test]` section only applies when running `bun test`. Without it, tests that import `.mdx` files fail with a module resolution error.
 
@@ -6198,14 +6198,23 @@ Defined in the root `package.json` for development:
 
 | Script | Command | Purpose |
 |---|---|---|
+| `dev` | `pnpm --filter @smithers-orchestrator/smithers dev` | Start the Smithers app workspace in development mode |
+| `dev:studio` | `bun apps/smithers-studio-2/scripts/dev.ts` | Start the Smithers Studio 2 development script |
 | `typecheck` | `tsc --noEmit` | Type-check the `src/` and `tests/` trees against `tsconfig.json` |
 | `typecheck:examples` | `tsc -p examples/tsconfig.json --noEmit` | Type-check example files against a separate config that maps `smithers-orchestrator` to `examples-entry.js` |
-| `lint` | `oxlint ... packages/*/src packages/*/tests` | Lint package source and tests with oxlint |
-| `lint:fix` | `oxlint ... --fix --fix-suggestions packages/*/src packages/*/tests` | Apply supported oxlint fixes |
+| `lint` | `oxlint --react-plugin --node-plugin --import-plugin --ignore-path .gitignore -A react/no-children-prop -A unicorn/no-thenable --ignore-pattern 'packages/*/src/**/*.d.ts' packages/*/src packages/*/tests` | Lint package source and tests with oxlint |
+| `lint:fix` | `oxlint --react-plugin --node-plugin --import-plugin --ignore-path .gitignore -A react/no-children-prop -A unicorn/no-thenable --ignore-pattern 'packages/*/src/**/*.d.ts' --fix --fix-suggestions packages/*/src packages/*/tests` | Apply supported oxlint fixes |
 | `cli` | `bun run apps/cli/src/index.js` | Run the local development CLI entrypoint |
-| `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && pnpm -r test` | Run the dependency guard checks and each package test script |
+| `generate:init-pack` | `bun scripts/generate-workflow-pack.ts` | Regenerate the local workflow pack used by `bunx smithers-orchestrator init` |
+| `demo:smithers` | `pnpm --filter @smithers-orchestrator/smithers-demo dev` | Start the React Flow Smithers demo app |
+| `demo:smithers:tui` | `pnpm --filter @smithers-orchestrator/smithers-tui-demo tui` | Start the terminal UI demo app |
+| `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && node scripts/check-docs.mjs && node scripts/check-llms.mjs && pnpm -r test` | Run docs/config guards, dependency guards, llms guards, and each package test script |
 | `check:effect` | `node scripts/check-single-effect-version.mjs` | Verify the workspace resolves a single Effect version |
 | `check:deps` | `node scripts/check-dependency-boundaries.mjs` | Verify package dependency boundaries |
+| `check:docs` | `node scripts/check-docs.mjs` | Verify documentation style and API drift guards |
+| `check:llms` | `node scripts/check-llms.mjs` | Verify generated llms docs are current |
+| `fetch:jj` | `node scripts/fetch-jj-binaries.mjs` | Fetch vendored jj binaries for supported platforms |
+| `docs:llms` | `bun scripts/generate-llms.ts && bun scripts/optimize-llms-full.ts` | Regenerate `llms-core.txt` and `llms-full.txt` |
 | `docs` | `cd docs && bunx mintlify dev` | Start the Mintlify docs dev server for local preview |
 | `version` | `node scripts/bump.mjs` | Bump package versions using the release helper |
 | `release` | `node scripts/publish.mjs` | Publish packages using the release helper |

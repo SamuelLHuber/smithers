@@ -22,6 +22,9 @@ const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitio
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
 const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
+const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
+const ROOT_PACKAGE_JSON = join(root, "package.json");
+const ROOT_BUNFIG = join(root, "bunfig.toml");
 const IRON_PROXY_EGRESS_SPEC = join(root, ".smithers/specs/iron-proxy-egress-seam.html");
 const CLOUD_EXECUTION_SPEC = join(root, ".smithers/specs/cloud-execution-engineering.md");
 const CLOUD_PRODUCT_SPEC = join(root, ".smithers/specs/cloud-execution-product.md");
@@ -480,6 +483,53 @@ function checkComponentPropsDocsMatchSourceTypes() {
   }
 }
 
+function readTomlScalar(source, key, section) {
+  let sectionSource = source.split("\n[").at(0);
+  if (section) {
+    const sectionStart = source.indexOf(`[${section}]`);
+    if (sectionStart === -1) return undefined;
+    const afterSectionHeader = source.indexOf("\n", sectionStart) + 1;
+    const nextSection = source.indexOf("\n[", afterSectionHeader);
+    sectionSource = source.slice(afterSectionHeader, nextSection === -1 ? undefined : nextSection);
+  }
+  return sectionSource?.match(new RegExp(`^${key}\\s*=\\s*(.+)$`, "m"))?.[1]?.trim();
+}
+
+function checkPackageConfigurationDocsMatchRootConfig() {
+  const docs = readFileSync(PACKAGE_CONFIGURATION_REFERENCE, "utf8");
+  const bunfig = readFileSync(ROOT_BUNFIG, "utf8");
+  const packageJson = JSON.parse(readFileSync(ROOT_PACKAGE_JSON, "utf8"));
+  const runtimePreload = readTomlScalar(bunfig, "preload");
+  const testRoot = readTomlScalar(bunfig, "root", "test");
+  const testPreload = readTomlScalar(bunfig, "preload", "test");
+  const required = [
+    runtimePreload ? `preload = ${runtimePreload}` : null,
+    testRoot ? `root = ${testRoot}` : null,
+    testPreload ? `preload = ${testPreload}` : null,
+    testRoot ? `| \`root\` | \`${testRoot.replace(/^"|"$/g, "")}\` |` : null,
+    testPreload ? `| \`preload\` | \`${testPreload}\` |` : null,
+    ...Object.entries(packageJson.scripts ?? {}).map(([script, command]) => `| \`${script}\` | \`${command}\` |`),
+  ].filter(Boolean);
+  const forbidden = [
+    "preload.ts",
+    'root = "./tests"',
+    "| `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && pnpm -r test` |",
+  ];
+  const missing = required.filter((needle) => !docs.includes(needle));
+  const stale = forbidden.filter((needle) => docs.includes(needle));
+  if (missing.length || stale.length || !runtimePreload || !testRoot || !testPreload) {
+    failed = true;
+    console.error("\n✗ Package configuration docs must match root package.json and bunfig.toml:");
+    if (!runtimePreload) console.error("    could not read root bunfig.toml preload");
+    if (!testRoot) console.error("    could not read bunfig.toml [test].root");
+    if (!testPreload) console.error("    could not read bunfig.toml [test].preload");
+    if (missing.length) console.error(`    missing: ${missing.join(", ")}`);
+    if (stale.length) console.error(`    stale: ${stale.join(", ")}`);
+  } else {
+    console.log("✓ package configuration docs match root package.json and bunfig.toml");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -493,5 +543,6 @@ checkGatewayGetRunDocsMatchResponseShape();
 checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkComponentPropsDocsMatchSourceTypes();
+checkPackageConfigurationDocsMatchRootConfig();
 
 process.exit(failed ? 1 : 0);
