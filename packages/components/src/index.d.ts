@@ -671,7 +671,7 @@ type DriftDetectorProps$2 = {
     /** If set, wraps the detector in a Loop for periodic polling. */
     poll?: {
         /** Reserved for future delayed polling; maxPolls currently controls Loop iterations. */
-        intervalMs: number;
+        intervalMs?: number;
         maxPolls?: number;
     };
     /** Skip the entire component. */

@@ -3813,7 +3813,7 @@ type DriftDetectorProps = {
   baseline: unknown;
   alertIf?: (comparison: any) => boolean; // default: comparison.drifted === true
   alert?: ReactElement;
-  poll?: { intervalMs: number; maxPolls?: number }; // default maxPolls = 100; intervalMs is reserved, not yet passed to the Loop
+  poll?: { intervalMs?: number; maxPolls?: number }; // default maxPolls = 100; intervalMs is reserved, not yet passed to the Loop
   skipIf?: boolean;
 };
 ```
