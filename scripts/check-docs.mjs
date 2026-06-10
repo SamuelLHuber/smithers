@@ -39,8 +39,15 @@ const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
 const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
+const SDK_AGENTS_INTEGRATION = join(DOCS, "integrations/sdk-agents.mdx");
 const CLI_AGENTS_INTEGRATION = join(DOCS, "integrations/cli-agents.mdx");
 const BASE_CLI_AGENT_SOURCE = join(root, "packages/agents/src/BaseCliAgent/BaseCliAgent.js");
+const SDK_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/SdkAgentOptions.ts");
+const ANTHROPIC_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AnthropicAgentOptions.ts");
+const OPENAI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/OpenAIAgentOptions.ts");
+const HERMES_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/HermesAgentOptions.ts");
+const OPENAI_AGENT_SOURCE = join(root, "packages/agents/src/OpenAIAgent.js");
+const HERMES_AGENT_SOURCE = join(root, "packages/agents/src/HermesAgent.js");
 const CLAUDE_CODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/ClaudeCodeAgentOptions.ts");
 const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOptions.ts");
 const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptions.ts");
@@ -944,6 +951,73 @@ function checkMcpIntegrationDocsMatchAgentOptions() {
   }
 }
 
+function checkSdkAgentDocsMatchSourceTypes() {
+  const files = new Map([
+    [SDK_AGENTS_INTEGRATION, readFileSync(SDK_AGENTS_INTEGRATION, "utf8")],
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+    [SDK_AGENT_OPTIONS_SOURCE, readFileSync(SDK_AGENT_OPTIONS_SOURCE, "utf8")],
+    [ANTHROPIC_AGENT_OPTIONS_SOURCE, readFileSync(ANTHROPIC_AGENT_OPTIONS_SOURCE, "utf8")],
+    [OPENAI_AGENT_OPTIONS_SOURCE, readFileSync(OPENAI_AGENT_OPTIONS_SOURCE, "utf8")],
+    [HERMES_AGENT_OPTIONS_SOURCE, readFileSync(HERMES_AGENT_OPTIONS_SOURCE, "utf8")],
+    [OPENAI_AGENT_SOURCE, readFileSync(OPENAI_AGENT_SOURCE, "utf8")],
+    [HERMES_AGENT_SOURCE, readFileSync(HERMES_AGENT_SOURCE, "utf8")],
+  ]);
+  const required = [
+    [SDK_AGENT_OPTIONS_SOURCE, "model: string | MODEL;"],
+    [ANTHROPIC_AGENT_OPTIONS_SOURCE, "SdkAgentOptions<CALL_OPTIONS, TOOLS, ReturnType<typeof anthropic>>"],
+    [OPENAI_AGENT_OPTIONS_SOURCE, "nativeStructuredOutput?: boolean;"],
+    [OPENAI_AGENT_OPTIONS_SOURCE, "baseURL?: never;"],
+    [OPENAI_AGENT_OPTIONS_SOURCE, "apiKey?: never;"],
+    [OPENAI_AGENT_SOURCE, "OpenAIAgent baseURL/apiKey can only be used when model is a string"],
+    [HERMES_AGENT_OPTIONS_SOURCE, "model?: string;"],
+    [HERMES_AGENT_OPTIONS_SOURCE, "baseURL?: string;"],
+    [HERMES_AGENT_OPTIONS_SOURCE, "apiKey?: string;"],
+    [HERMES_AGENT_OPTIONS_SOURCE, "nativeStructuredOutput?: boolean;"],
+    [HERMES_AGENT_SOURCE, 'model = "hermes"'],
+    [HERMES_AGENT_SOURCE, "baseURL = process.env.HERMES_BASE_URL"],
+    [HERMES_AGENT_SOURCE, 'apiKey = process.env.HERMES_API_KEY ?? "hermes"'],
+    [HERMES_AGENT_SOURCE, "nativeStructuredOutput = false"],
+    [SDK_AGENTS_INTEGRATION, "Provider-backed AI SDK agent wrappers for Anthropic, OpenAI, and Hermes"],
+    [SDK_AGENTS_INTEGRATION, "`AnthropicAgent`, `OpenAIAgent`, and `HermesAgent` are provider-backed"],
+    [SDK_AGENTS_INTEGRATION, "`OpenAIAgentOptions` adds `nativeStructuredOutput?: boolean`"],
+    [SDK_AGENTS_INTEGRATION, "a prebuilt OpenAI provider model must not include `baseURL` or `apiKey`"],
+    [SDK_AGENTS_INTEGRATION, "`HermesAgentOptions` makes `model` optional"],
+    [SDK_AGENTS_INTEGRATION, "A runtime `baseURL` or `HERMES_BASE_URL` is required"],
+    [SDK_AGENTS_INTEGRATION, "`baseURL` falls back to the `HERMES_BASE_URL` env var and must be set in either place"],
+    [TYPES_REFERENCE, "type SdkAgentOptions<CALL_OPTIONS = never, TOOLS extends import(\"ai\").ToolSet = {}, MODEL = any> ="],
+    [TYPES_REFERENCE, "type AnthropicAgentOptions<CALL_OPTIONS = never, TOOLS extends import(\"ai\").ToolSet = {}> ="],
+    [TYPES_REFERENCE, "type OpenAIAgentOptions<CALL_OPTIONS = never, TOOLS extends import(\"ai\").ToolSet = {}> ="],
+    [TYPES_REFERENCE, "| { model: ReturnType<typeof import(\"@ai-sdk/openai\").openai>; baseURL?: never; apiKey?: never }"],
+    [TYPES_REFERENCE, "type HermesAgentOptions<CALL_OPTIONS = never, TOOLS extends import(\"ai\").ToolSet = {}> ="],
+    [TYPES_REFERENCE, "baseURL?: string;               // falls back to HERMES_BASE_URL; required at runtime"],
+    [TYPES_REFERENCE, "nativeStructuredOutput?: boolean; // default false"],
+  ];
+  const forbidden = [
+    [SDK_AGENTS_INTEGRATION, "Provider-backed AI SDK agent wrappers for Anthropic and OpenAI"],
+    [SDK_AGENTS_INTEGRATION, "`AnthropicAgent` and `OpenAIAgent` are thin wrappers"],
+    [SDK_AGENTS_INTEGRATION, "Both classes accept a model ID string"],
+    [SDK_AGENTS_INTEGRATION, "in that form, `apiKey: \"none\"` belongs in the `createOpenAI` config"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ SDK agent docs must match current public option types and constructor behavior:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ SDK agent docs match current option types and constructor behavior");
+  }
+}
+
 function checkCliAgentDocsMatchCurrentModelDefaults() {
   const files = new Map([
     [CLI_AGENTS_INTEGRATION, readFileSync(CLI_AGENTS_INTEGRATION, "utf8")],
@@ -1074,6 +1148,7 @@ checkMemoryDocsMatchSourceTypes();
 checkScorerDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
+checkSdkAgentDocsMatchSourceTypes();
 checkCliAgentDocsMatchCurrentModelDefaults();
 checkGatewaySdkDocsMatchExports();
 

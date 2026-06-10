@@ -406,9 +406,9 @@ On clean exit the workflow resumes in detached mode. Vibe and OpenCode stream ca
 
 ## SDK Agents
 
-> Provider-backed AI SDK agent wrappers for Anthropic and OpenAI that work like first-class Smithers agents.
+> Provider-backed AI SDK agent wrappers for Anthropic, OpenAI, and Hermes that work like first-class Smithers agents.
 
-`AnthropicAgent` and `OpenAIAgent` are thin wrappers around the [AI SDK](https://ai-sdk.dev) `ToolLoopAgent` with class-style ergonomics matching the [CLI agents](/integrations/cli-agents).
+`AnthropicAgent`, `OpenAIAgent`, and `HermesAgent` are provider-backed [AI SDK](https://ai-sdk.dev) agents with class-style ergonomics matching the [CLI agents](/integrations/cli-agents). `AnthropicAgent` and `OpenAIAgent` wrap `ToolLoopAgent` directly; `HermesAgent` extends the OpenAI-compatible path with Hermes defaults.
 
 ## Import
 
@@ -448,13 +448,17 @@ const codex = new OpenAIAgent({
 
 ## Model Input
 
-Both classes accept a model ID string (`"claude-opus-4-7"`, `"gpt-5.3-codex"`) or a prebuilt AI SDK language model instance.
+`AnthropicAgent` and `OpenAIAgent` accept a model ID string (`"claude-opus-4-7"`, `"gpt-5.3-codex"`) or a prebuilt provider model instance. `HermesAgent` accepts an optional model ID string and defaults it to `"hermes"`.
 
 ## Options
 
-Constructors forward standard AI SDK `ToolLoopAgent` settings: `instructions`, `tools`, `stopWhen`, `maxOutputTokens`, `temperature`, `providerOptions`, `prepareCall`. The wrapper adds `model`, which resolves model-ID strings automatically.
+Constructors forward standard AI SDK `ToolLoopAgent` settings: `instructions`, `tools`, `stopWhen`, `maxOutputTokens`, `temperature`, `providerOptions`, `prepareCall`. The wrappers add provider model resolution on top.
 
-For `OpenAIAgent`, pass `baseURL` and `apiKey` directly when targeting an OpenAI-compatible endpoint instead of the default OpenAI API. This is the simplest path for local servers such as llama.cpp:
+- `AnthropicAgentOptions` is `ToolLoopAgentSettings` without `model`, plus required `model: string | anthropic(...)`.
+- `OpenAIAgentOptions` adds `nativeStructuredOutput?: boolean` and has two model forms: a string model may include `baseURL` and `apiKey`; a prebuilt OpenAI provider model must not include `baseURL` or `apiKey`.
+- `HermesAgentOptions` makes `model` optional, allows `baseURL` and `apiKey`, and defaults `nativeStructuredOutput` to `false`. A runtime `baseURL` or `HERMES_BASE_URL` is required.
+
+For the string model form of `OpenAIAgent`, pass `baseURL` and `apiKey` directly when targeting an OpenAI-compatible endpoint instead of the default OpenAI API. This is the simplest path for local servers such as llama.cpp:
 
 ```ts
 const local = new OpenAIAgent({
@@ -501,7 +505,7 @@ const local = new OpenAIAgent({
 });
 ```
 
-Use the `createOpenAI` path when you need provider-level configuration beyond `baseURL` and `apiKey`; in that form, `apiKey: "none"` belongs in the `createOpenAI` config.
+Use the `createOpenAI` path when you need provider-level configuration beyond `baseURL` and `apiKey`; in that form, `baseURL` and `apiKey` belong in the `createOpenAI` config, not in the `OpenAIAgent` constructor.
 
 ## Hermes
 
@@ -519,7 +523,7 @@ const hermes = new HermesAgent({
 });
 ```
 
-`baseURL` falls back to the `HERMES_BASE_URL` env var and `apiKey` to `HERMES_API_KEY` (then `"hermes"`). Pass `nativeStructuredOutput: true` if your server does honor JSON-schema output. To use Smithers *from* Hermes instead of running Hermes as a worker, see [Agent Support → Hermes](/agents/hermes).
+`baseURL` falls back to the `HERMES_BASE_URL` env var and must be set in either place. `apiKey` falls back to `HERMES_API_KEY` (then `"hermes"`). Pass `nativeStructuredOutput: true` if your server does honor JSON-schema output. To use Smithers *from* Hermes instead of running Hermes as a worker, see [Agent Support → Hermes](/agents/hermes).
 
 ## Hijack Support
 
