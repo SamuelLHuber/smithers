@@ -55,6 +55,7 @@ const CLAUDE_CODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/ClaudeC
 const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOptions.ts");
 const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptions.ts");
 const AMP_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AmpAgentOptions.ts");
+const VIBE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/VibeAgentOptions.ts");
 const MEMORY_TASK_CONFIG_SOURCE = join(root, "packages/memory/src/TaskMemoryConfig.ts");
 const SCORER_TYPES_SOURCE = join(root, "packages/scorers/src/types.ts");
 const LLM_JUDGE_CONFIG_SOURCE = join(root, "packages/scorers/src/LlmJudgeConfig.ts");
@@ -193,7 +194,91 @@ function checkFacadeDeclarations() {
     "export { SmithersDb } from '@smithers-orchestrator/db/adapter';",
     "export { revertToAttempt } from '@smithers-orchestrator/time-travel/revert';",
     "export { timeTravel } from '@smithers-orchestrator/time-travel/timetravel';",
+    "VibeAgent",
+    "type VibeAgentOptions",
   ]);
+}
+
+function parseNamedExportList(list) {
+  const names = [];
+  for (const raw of list.split(",")) {
+    let part = raw.trim().replace(/^type\s+/, "").trim();
+    if (!part) continue;
+    const aliasMatch = part.match(/\bas\s+([A-Za-z_$][\w$]*)$/);
+    const name = aliasMatch ? aliasMatch[1] : part.split(/\s+/)[0];
+    if (/^[A-Za-z_$][\w$]*$/.test(name)) names.push(name);
+  }
+  return names;
+}
+
+function collectExportedNames(source) {
+  const names = new Set();
+  const cleaned = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+  for (const match of cleaned.matchAll(/export\s*\{([^{}]*?)\}(?:\s*from\s*["'][^"']+["'])?/g)) {
+    for (const name of parseNamedExportList(match[1])) names.add(name);
+  }
+  for (const match of cleaned.matchAll(/export\s+(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)/g)) {
+    names.add(match[1]);
+  }
+  for (const match of cleaned.matchAll(/export\s+(?:type|interface)\s+([A-Za-z_$][\w$]*)/g)) {
+    names.add(match[1]);
+  }
+  return names;
+}
+
+function collectDocumentedSmithersImports() {
+  const imports = new Map();
+  const importPattern = /import\s*\{([^{}]*?)\}\s*from\s*["']smithers-orchestrator["']/g;
+  for (const file of walk(DOCS)) {
+    const source = readFileSync(file, "utf8");
+    for (const match of source.matchAll(importPattern)) {
+      for (const raw of match[1].split(",")) {
+        let part = raw.trim();
+        if (!part) continue;
+        const isType = part.startsWith("type ");
+        part = part.replace(/^type\s+/, "").trim();
+        const name = part.split(/\s+as\s+/)[0].trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name)) continue;
+        const entry = imports.get(name) ?? { type: false, value: false, files: new Set() };
+        if (isType) entry.type = true;
+        else entry.value = true;
+        entry.files.add(file);
+        imports.set(name, entry);
+      }
+    }
+  }
+  return imports;
+}
+
+function checkDocumentedSmithersImportsMatchFacade() {
+  const documented = collectDocumentedSmithersImports();
+  const runtimeExports = collectExportedNames(readFileSync(SMITHERS_FACADE_SOURCE, "utf8"));
+  const declarationExports = collectExportedNames(readFileSync(SMITHERS_FACADE_DECLARATIONS, "utf8"));
+  const missingRuntime = [];
+  const missingDeclarations = [];
+  for (const [name, entry] of [...documented].sort()) {
+    const files = [...entry.files].map(displayPath);
+    if (entry.value && !runtimeExports.has(name)) missingRuntime.push([name, files]);
+    if (!declarationExports.has(name)) missingDeclarations.push([name, files]);
+  }
+  if (missingRuntime.length || missingDeclarations.length) {
+    failed = true;
+    console.error("\n✗ documented smithers-orchestrator imports must match facade exports:");
+    if (missingRuntime.length) {
+      console.error(
+        `    missing runtime exports: ${missingRuntime.map(([name, files]) => `${name} (${files.join(", ")})`).join("; ")}`,
+      );
+    }
+    if (missingDeclarations.length) {
+      console.error(
+        `    missing declarations: ${missingDeclarations.map(([name, files]) => `${name} (${files.join(", ")})`).join("; ")}`,
+      );
+    }
+  } else {
+    console.log("✓ documented smithers-orchestrator imports match facade exports");
+  }
 }
 
 function checkImplementedApisNotMarkedComingSoon() {
@@ -1345,6 +1430,7 @@ function checkCliAgentDocsMatchCurrentModelDefaults() {
     [CLI_AGENTS_INTEGRATION, "KimiAgent,kimi,CLI default,native session id"],
     [CLI_AGENTS_INTEGRATION, "ForgeAgent,forge,CLI default,conversation id"],
     [CLI_AGENTS_INTEGRATION, "AmpAgent,amp,CLI default,thread id"],
+    [CLI_AGENTS_INTEGRATION, "VibeAgent,vibe,CLI default,headless session id"],
     [CLI_AGENTS_INTEGRATION, "OpenCodeAgent,opencode,CLI default,not yet"],
   ];
   const forbidden = [
@@ -1355,6 +1441,7 @@ function checkCliAgentDocsMatchCurrentModelDefaults() {
     [CLI_AGENTS_INTEGRATION, "KimiAgent,kimi,kimi-latest,"],
     [CLI_AGENTS_INTEGRATION, "ForgeAgent,forge,anthropic/claude-sonnet-4-20250514,"],
     [CLI_AGENTS_INTEGRATION, "AmpAgent,amp,claude-sonnet-4-20250514,"],
+    [CLI_AGENTS_INTEGRATION, "VibeAgent,vibe,mistral-large-latest,"],
     [CLI_AGENTS_INTEGRATION, "OpenCodeAgent,opencode,provider/model string,"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
@@ -1382,12 +1469,18 @@ function checkCliAgentOptionDocsMatchSourceTypes() {
     [CLI_AGENTS_INTEGRATION, readFileSync(CLI_AGENTS_INTEGRATION, "utf8")],
     [PI_AGENT_OPTIONS_SOURCE, readFileSync(PI_AGENT_OPTIONS_SOURCE, "utf8")],
     [PI_AGENT_SOURCE, readFileSync(PI_AGENT_SOURCE, "utf8")],
+    [VIBE_AGENT_OPTIONS_SOURCE, readFileSync(VIBE_AGENT_OPTIONS_SOURCE, "utf8")],
   ]);
   const required = [
     [PI_AGENT_OPTIONS_SOURCE, "model?: string;"],
     [PI_AGENT_SOURCE, 'pushFlag(args, "--model", this.opts.model ?? this.model);'],
     [CLI_AGENTS_INTEGRATION, "Key additions: `provider`, `model`, `mode`, `onExtensionUiRequest`, `extension`, `thinking`."],
     [CLI_AGENTS_INTEGRATION, 'provider?: string; model?: string; apiKey?: string; appendSystemPrompt?: string; mode?: "text" | "json" | "rpc";'],
+    [VIBE_AGENT_OPTIONS_SOURCE, "enabledTools?: string[];"],
+    [VIBE_AGENT_OPTIONS_SOURCE, "continueSession?: boolean;"],
+    [CLI_AGENTS_INTEGRATION, "Key additions: `agent`, `maxTurns`, `maxPrice`, `maxTokens`, `enabledTools`, `sessionId`, `continueSession`."],
+    [CLI_AGENTS_INTEGRATION, "enabledTools?: string[];"],
+    [CLI_AGENTS_INTEGRATION, "sessionId?: string; continueSession?: boolean;"],
   ];
   const forbidden = [
     [CLI_AGENTS_INTEGRATION, "Key additions: `mode`, `onExtensionUiRequest`, `extension`, `thinking`."],
@@ -1481,6 +1574,7 @@ checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
 checkGatewayTypeDocs();
 checkFacadeDeclarations();
+checkDocumentedSmithersImportsMatchFacade();
 checkImplementedApisNotMarkedComingSoon();
 checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
