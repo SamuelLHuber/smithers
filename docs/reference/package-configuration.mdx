@@ -15,23 +15,23 @@ Use the subpath form to import only the surface you need.
 
 | Import path | Entry file | Purpose |
 |---|---|---|
-| `smithers-orchestrator` | `./src/index.js` | Core API: `createSmithers`, components, `runWorkflow`, `renderMdx`, errors |
-| `smithers-orchestrator/gateway` | `./src/gateway.js` | Gateway server primitives from `@smithers-orchestrator/server/gateway` |
-| `smithers-orchestrator/gateway-client` | `./src/gateway-client.js` | Typed client helpers from `@smithers-orchestrator/gateway-client` |
-| `smithers-orchestrator/gateway-react` | `./src/gateway-react.js` | React hooks and providers for gateway-backed UIs |
-| `smithers-orchestrator/sandbox` | `./src/sandbox.js` | Sandbox provider contracts, bundles, and execution helpers |
-| `smithers-orchestrator/jsx-runtime` | `./src/jsx-runtime.js` | JSX runtime (auto-resolved by `jsxImportSource`) |
-| `smithers-orchestrator/jsx-dev-runtime` | `./src/jsx-runtime.js` | JSX dev runtime (auto-resolved in dev mode) |
-| `smithers-orchestrator/tools` | `./src/tools.js` | Tool sandbox: `defineTool`, `read`, `grep`, `bash`, `edit`, `write` |
-| `smithers-orchestrator/server` | `./src/server.js` | HTTP server for run management and event streaming |
-| `smithers-orchestrator/observability` | `./src/observability.js` | OpenTelemetry traces, metrics, and Prometheus integration |
-| `smithers-orchestrator/mdx-plugin` | `./src/mdx-plugin.js` | Bun preload plugin for `.mdx` imports |
-| `smithers-orchestrator/dom/renderer` | `./src/dom/renderer.js` | Internal renderer (advanced use) |
-| `smithers-orchestrator/serve` | `./src/serve.js` | Single-workflow HTTP server via `createServeApp` |
-| `smithers-orchestrator/scorers` | `./src/scorers.js` | Eval scorers: `createScorer`, `llmJudge`, `aggregateScores` |
-| `smithers-orchestrator/memory` | `./src/memory.js` | Cross-run facts, message history, processors, and metrics |
-| `smithers-orchestrator/openapi` | `./src/openapi.js` | Generate AI SDK tools from OpenAPI specs |
-| `smithers-orchestrator/control-plane` | `./src/control-plane.js` | Organization, project, billing, usage, secret-reference, and audit primitives |
+| `smithers-orchestrator` | `./packages/smithers/src/index.js` | Core API: `createSmithers`, components, `runWorkflow`, `renderMdx`, errors |
+| `smithers-orchestrator/gateway` | `./packages/server/src/gateway.js` | Gateway server primitives from `@smithers-orchestrator/server/gateway` |
+| `smithers-orchestrator/gateway-client` | `./packages/smithers/src/gateway-client.js` | Typed client helpers from `@smithers-orchestrator/gateway-client` |
+| `smithers-orchestrator/gateway-react` | `./packages/smithers/src/gateway-react.js` | React hooks and providers for gateway-backed UIs |
+| `smithers-orchestrator/sandbox` | `./packages/sandbox/src/index.js` | Sandbox provider contracts, bundles, and execution helpers |
+| `smithers-orchestrator/jsx-runtime` | `./packages/smithers/src/jsx-runtime.js` | JSX runtime (auto-resolved by `jsxImportSource`) |
+| `smithers-orchestrator/jsx-dev-runtime` | `./packages/smithers/src/jsx-runtime.js` | JSX dev runtime (auto-resolved in dev mode) |
+| `smithers-orchestrator/tools` | `./packages/smithers/src/tools.js` | Tool sandbox: `defineTool`, `read`, `grep`, `bash`, `edit`, `write` |
+| `smithers-orchestrator/server` | `./packages/server/src/index.js` | HTTP server for run management and event streaming |
+| `smithers-orchestrator/observability` | `./apps/observability/src/index.js` | OpenTelemetry traces, metrics, and Prometheus integration |
+| `smithers-orchestrator/mdx-plugin` | `./packages/smithers/src/mdx-plugin.js` | Bun preload plugin for `.mdx` imports |
+| `smithers-orchestrator/dom/renderer` | `./packages/react-reconciler/src/dom/renderer.js` | Internal renderer (advanced use) |
+| `smithers-orchestrator/serve` | `./packages/server/src/serve.js` | Single-workflow HTTP server via `createServeApp` |
+| `smithers-orchestrator/scorers` | `./packages/scorers/src/index.js` | Eval scorers: `createScorer`, `llmJudge`, `aggregateScores` |
+| `smithers-orchestrator/memory` | `./packages/memory/src/index.js` | Cross-run facts, message history, processors, and metrics |
+| `smithers-orchestrator/openapi` | `./packages/openapi/src/index.js` | Generate AI SDK tools from OpenAPI specs |
+| `smithers-orchestrator/control-plane` | `./packages/smithers/src/control-plane.js` | Organization, project, billing, usage, secret-reference, and audit primitives |
 
 The PI plugin is published as the separate `@smithers-orchestrator/pi-plugin` package. The old `smithers-orchestrator/pi-plugin` and `smithers-orchestrator/pi-extension` subpaths are no longer exported.
 

@@ -543,18 +543,31 @@ function checkPackageConfigurationDocsMatchRootConfig() {
   const runtimePreload = readTomlScalar(bunfig, "preload");
   const testRoot = readTomlScalar(bunfig, "root", "test");
   const testPreload = readTomlScalar(bunfig, "preload", "test");
+  const publicPackageName = "smithers-orchestrator";
+  const exportRows = Object.entries(packageJson.exports ?? {}).map(([subpath, target]) => {
+    const importPath = subpath === "." ? publicPackageName : `${publicPackageName}/${subpath.slice(2)}`;
+    const entry = typeof target === "string"
+      ? target
+      : target.import ?? target.default;
+    return `| \`${importPath}\` | \`${entry}\` |`;
+  });
   const required = [
     runtimePreload ? `preload = ${runtimePreload}` : null,
     testRoot ? `root = ${testRoot}` : null,
     testPreload ? `preload = ${testPreload}` : null,
     testRoot ? `| \`root\` | \`${testRoot.replace(/^"|"$/g, "")}\` |` : null,
     testPreload ? `| \`preload\` | \`${testPreload}\` |` : null,
+    ...exportRows,
     ...Object.entries(packageJson.scripts ?? {}).map(([script, command]) => `| \`${script}\` | \`${command}\` |`),
   ].filter(Boolean);
   const forbidden = [
     "preload.ts",
     'root = "./tests"',
     "| `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && pnpm -r test` |",
+    "| `smithers-orchestrator` | `./src/index.js` |",
+    "| `smithers-orchestrator/server` | `./src/server.js` |",
+    "| `smithers-orchestrator/scorers` | `./src/scorers.js` |",
+    "| `smithers-orchestrator/sandbox` | `./src/sandbox.js` |",
   ];
   const missing = required.filter((needle) => !docs.includes(needle));
   const stale = forbidden.filter((needle) => docs.includes(needle));
