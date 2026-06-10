@@ -51,6 +51,7 @@ const GATEWAY_REACT_USE_GATEWAY_RUN = join(root, "packages/gateway-react/src/use
 const GATEWAY_REACT_USE_GATEWAY_RPC = join(root, "packages/gateway-react/src/useGatewayRpc.ts");
 const GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT = join(root, "packages/gateway-react/src/useGatewayNodeOutput.ts");
 const GATEWAY_OPTIONS_SOURCE = join(root, "packages/server/src/GatewayOptions.ts");
+const GATEWAY_AUTH_CONFIG_SOURCE = join(root, "packages/server/src/GatewayAuthConfig.ts");
 const GATEWAY_TOKEN_GRANT_SOURCE = join(root, "packages/server/src/GatewayTokenGrant.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
 const SDK_AGENTS_INTEGRATION = join(DOCS, "integrations/sdk-agents.mdx");
@@ -813,6 +814,65 @@ function checkGatewayLegacyErrorAliasDocsMatchStatusMap() {
     }
   } else {
     console.log("✓ Gateway legacy error alias docs match server status mappings");
+  }
+}
+
+function checkGatewayAuthDocsMatchRuntimeDefaults() {
+  const serverSource = join(root, "packages/server/src/gateway.js");
+  const files = new Map([
+    [serverSource, readFileSync(serverSource, "utf8")],
+    [GATEWAY_AUTH_CONFIG_SOURCE, readFileSync(GATEWAY_AUTH_CONFIG_SOURCE, "utf8")],
+    [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+  ]);
+  const required = [
+    [GATEWAY_AUTH_CONFIG_SOURCE, "scopesClaim?: string;"],
+    [GATEWAY_AUTH_CONFIG_SOURCE, "roleClaim?: string;"],
+    [GATEWAY_AUTH_CONFIG_SOURCE, "userClaim?: string;"],
+    [GATEWAY_AUTH_CONFIG_SOURCE, "clockSkewSeconds?: number;"],
+    [serverSource, "const skew = Math.max(0, config.clockSkewSeconds ?? 60);"],
+    [serverSource, 'verified.payload[this.auth.scopesClaim ?? "scope"]'],
+    [serverSource, 'verified.payload[this.auth.roleClaim ?? "role"]'],
+    [serverSource, 'verified.payload[this.auth.userClaim ?? "sub"]'],
+    [serverSource, 'scopes: scopes.length > 0 ? scopes : [...(this.auth.defaultScopes ?? [])],'],
+    [serverSource, 'const [userHeader = "x-user-id", scopesHeader = "x-user-scopes", roleHeader = "x-user-role"]'],
+    [serverSource, 'const role = asString(req.headers[roleHeader]) ?? this.auth.defaultRole ?? "operator";'],
+    [serverSource, ': [...(this.auth.defaultScopes ?? ["*"])];'],
+    [serverSource, "const allowedOrigins = this.auth.allowedOrigins ?? [];"],
+    [GATEWAY_INTEGRATION, 'scopesClaim?: string;          // default "scope"'],
+    [GATEWAY_INTEGRATION, 'roleClaim?: string;            // default "role"'],
+    [GATEWAY_INTEGRATION, 'userClaim?: string;            // default "sub"'],
+    [GATEWAY_INTEGRATION, 'defaultRole?: string;          // default "operator"'],
+    [GATEWAY_INTEGRATION, "defaultScopes?: string[];      // default [] when scope claim is absent"],
+    [GATEWAY_INTEGRATION, "clockSkewSeconds?: number;     // default 60; negative values clamp to 0"],
+    [GATEWAY_INTEGRATION, "allowedOrigins?: string[];     // default [] (no Origin allowlist)"],
+    [GATEWAY_INTEGRATION, 'trustedHeaders?: string[];     // default ["x-user-id","x-user-scopes","x-user-role"]'],
+    [GATEWAY_INTEGRATION, 'defaultScopes?: string[];      // default ["*"] when scopes header is absent'],
+    [
+      GATEWAY_INTEGRATION,
+      'JWT auth reads scopes from `scope`, role from `role`, and user id from `sub` unless the `*Claim` options override those claim names.',
+    ],
+    [
+      GATEWAY_INTEGRATION,
+      'Trusted-proxy auth reads `trustedHeaders` as `[user, scopes, role]`; missing role falls back to `defaultRole` and then `operator`, and missing scopes fall back to `defaultScopes` and then `["*"]`.',
+    ],
+    [TYPES_REFERENCE, 'scopesClaim?: string;          // default "scope"'],
+    [TYPES_REFERENCE, 'roleClaim?: string;            // default "role"'],
+    [TYPES_REFERENCE, 'userClaim?: string;            // default "sub"'],
+    [TYPES_REFERENCE, 'defaultRole?: string;          // default "operator"'],
+    [TYPES_REFERENCE, "defaultScopes?: string[];      // default [] when scope claim is absent"],
+    [TYPES_REFERENCE, "clockSkewSeconds?: number;     // default 60; negative values clamp to 0"],
+    [TYPES_REFERENCE, 'trustedHeaders?: string[];     // default ["x-user-id","x-user-scopes","x-user-role"]'],
+    [TYPES_REFERENCE, "allowedOrigins?: string[];     // default [] (no Origin allowlist)"],
+    [TYPES_REFERENCE, 'defaultScopes?: string[];      // default ["*"] when scopes header is absent'],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  if (missing.length) {
+    failed = true;
+    console.error("\n✗ Gateway auth docs must match runtime default claim, header, role, scope, and skew behavior:");
+    console.error(`    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`);
+  } else {
+    console.log("✓ Gateway auth docs match runtime default claim, header, role, scope, and skew behavior");
   }
 }
 
@@ -2271,6 +2331,7 @@ checkRunStateDocsMatchCurrentEmission();
 checkGatewayRpcReferenceDocsMatchRegistry();
 checkGatewayRpcErrorTableMatchesRegistry();
 checkGatewayLegacyErrorAliasDocsMatchStatusMap();
+checkGatewayAuthDocsMatchRuntimeDefaults();
 checkGatewayGetRunDocsMatchResponseShape();
 checkGatewayStreamDevToolsDocsMatchRuntimeShape();
 checkGatewayCancelRunDocsMatchRuntimeErrors();

@@ -5607,12 +5607,29 @@ type GatewayTokenGrant = {
   revokedAtMs?: number;
 };
 type GatewayAuthConfig =
-  | { mode: "token"; tokens: Record<string, GatewayTokenGrant> }
-  | { mode: "jwt"; issuer: string; audience: string | string[]; secret: string;
-      scopesClaim?: string; roleClaim?: string; userClaim?: string;
-      defaultRole?: string; defaultScopes?: string[]; clockSkewSeconds?: number }
-  | { mode: "trusted-proxy"; trustedHeaders?: string[]; allowedOrigins?: string[];
-      defaultRole?: string; defaultScopes?: string[] };
+  | {
+      mode: "token";
+      tokens: Record<string, GatewayTokenGrant>;
+    }
+  | {
+      mode: "jwt";
+      issuer: string;
+      audience: string | string[];
+      secret: string;
+      scopesClaim?: string;          // default "scope"
+      roleClaim?: string;            // default "role"
+      userClaim?: string;            // default "sub"
+      defaultRole?: string;          // default "operator"
+      defaultScopes?: string[];      // default [] when scope claim is absent
+      clockSkewSeconds?: number;     // default 60; negative values clamp to 0
+    }
+  | {
+      mode: "trusted-proxy";
+      trustedHeaders?: string[];     // default ["x-user-id","x-user-scopes","x-user-role"]
+      allowedOrigins?: string[];     // default [] (no Origin allowlist)
+      defaultRole?: string;          // default "operator"
+      defaultScopes?: string[];      // default ["*"] when scopes header is absent
+    };
 type GatewayDefaults = { cliAgentTools?: "all" | "explicit-only" };
 
 type GatewayOperatorUiConfig = {
