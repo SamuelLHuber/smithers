@@ -26,6 +26,7 @@ const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
 const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
 const ENGINE_SOURCE = join(root, "packages/engine/src/engine.js");
+const MEMORY_TASK_CONFIG_SOURCE = join(root, "packages/memory/src/TaskMemoryConfig.ts");
 const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
 const ROOT_BUNFIG = join(root, "bunfig.toml");
@@ -724,6 +725,44 @@ function checkToolDocsMatchCurrentRuntimeLogging() {
   }
 }
 
+function checkMemoryDocsMatchSourceTypes() {
+  const docs = readFileSync(TYPES_REFERENCE, "utf8");
+  const source = readFileSync(MEMORY_TASK_CONFIG_SOURCE, "utf8");
+  const required = [
+    [MEMORY_TASK_CONFIG_SOURCE, "namespace?: string | MemoryNamespace;"],
+    [TYPES_REFERENCE, "namespace?: string | MemoryNamespace;"],
+    [TYPES_REFERENCE, "recall?: { namespace?: MemoryNamespace; query?: string; topK?: number };"],
+    [TYPES_REFERENCE, "remember?: { namespace?: MemoryNamespace; key?: string };"],
+  ];
+  const forbidden = [
+    [TYPES_REFERENCE, "type TaskMemoryConfig = {\n  recall?: { namespace?: MemoryNamespace; query?: string; topK?: number };"],
+  ];
+  const missing = required.filter(([file, needle]) => {
+    const haystack = file === MEMORY_TASK_CONFIG_SOURCE ? source : docs;
+    return !haystack.includes(needle);
+  });
+  const stale = forbidden.filter(([file, needle]) => {
+    const haystack = file === MEMORY_TASK_CONFIG_SOURCE ? source : docs;
+    return haystack.includes(needle);
+  });
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Memory type docs must match exported TaskMemoryConfig:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Memory type docs match exported TaskMemoryConfig");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -741,5 +780,6 @@ checkPackageConfigurationDocsMatchRootConfig();
 checkCliOverviewCommandCatalogMatchesCli();
 checkCliOverviewWorkflowRunFlagsMatchSchema();
 checkToolDocsMatchCurrentRuntimeLogging();
+checkMemoryDocsMatchSourceTypes();
 
 process.exit(failed ? 1 : 0);
