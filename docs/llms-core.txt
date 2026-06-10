@@ -3204,7 +3204,6 @@ type SandboxProps = {
 
   image?: string;
   env?: Record<string, string>;
-  // Added after 0.23.0; available on main and later releases.
   egress?: {
     env?: Record<string, string>; // HTTP_PROXY, HTTPS_PROXY, NO_PROXY, etc.
     httpProxy?: string;
@@ -3243,10 +3242,6 @@ type SandboxProps = {
 ```
 
 ## Egress controls
-
-<Note>
-Sandbox egress controls were added after `0.23.0`. Use a build from `main` or a release newer than `0.23.0` before relying on this API.
-</Note>
 
 Use `egress` when the sandbox itself should own outbound-network configuration. Smithers does not mutate the parent harness environment for this path. It serializes the egress contract into the sandbox request and passes it to the selected provider or local transport.
 
@@ -5405,7 +5400,6 @@ type KanbanProps = {
 
 // Sandbox
 type SandboxRuntime = "bubblewrap" | "docker" | "codeplane";
-// Added after 0.23.0; available on main and later releases.
 type SandboxEgressConfig = {
   env?: Record<string, string>;
   httpProxy?: string;

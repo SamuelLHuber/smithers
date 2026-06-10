@@ -23,6 +23,7 @@ const RPC_DOCS = join(DOCS, "rpc");
 const HOW_IT_WORKS = join(DOCS, "how-it-works.mdx");
 const README = join(root, "README.md");
 const TIMER_COMPONENT_DOC = join(DOCS, "components/timer.mdx");
+const SANDBOX_COMPONENT_DOC = join(DOCS, "components/sandbox.mdx");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
 const SMITHERS_PACKAGE_JSON = join(root, "packages/smithers/package.json");
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
@@ -114,6 +115,13 @@ const MEMORY_TASK_CONFIG_SOURCE = join(root, "packages/memory/src/TaskMemoryConf
 const SCORER_TYPES_SOURCE = join(root, "packages/scorers/src/types.ts");
 const LLM_JUDGE_CONFIG_SOURCE = join(root, "packages/scorers/src/LlmJudgeConfig.ts");
 const CREATE_SCORER_CONFIG_SOURCE = join(root, "packages/scorers/src/CreateScorerConfig.ts");
+const SANDBOX_PROPS_SOURCE = join(root, "packages/components/src/components/SandboxProps.ts");
+const SANDBOX_EGRESS_CONFIG_SOURCE = join(root, "packages/sandbox/src/SandboxEgressConfig.ts");
+const SANDBOX_EGRESS_SOURCE = join(root, "packages/sandbox/src/egress.js");
+const SANDBOX_EXECUTE_SOURCE = join(root, "packages/sandbox/src/execute.js");
+const SANDBOX_PROCESS_RUNNER_SOURCE = join(root, "packages/sandbox/src/effect/process-runner.js");
+const SANDBOX_EXECUTE_TEST = join(root, "packages/sandbox/tests/execute.test.js");
+const SANDBOX_TRANSPORT_RUNNERS_TEST = join(root, "packages/sandbox/tests/transport-runners.test.js");
 const RECIPES_DOC = join(DOCS, "recipes.mdx");
 const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
 const VCS_HELPERS_REFERENCE = join(DOCS, "reference/vcs-helpers.mdx");
@@ -1758,6 +1766,65 @@ function checkSandboxDocsMatchProviderTypes() {
     }
   } else {
     console.log("✓ Sandbox docs match JSX provider and executeSandbox provider types");
+  }
+}
+
+function checkSandboxEgressDocsMatchRuntime() {
+  const files = new Map([
+    [SANDBOX_COMPONENT_DOC, readFileSync(SANDBOX_COMPONENT_DOC, "utf8")],
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+    [SANDBOX_PROPS_SOURCE, readFileSync(SANDBOX_PROPS_SOURCE, "utf8")],
+    [SANDBOX_EGRESS_CONFIG_SOURCE, readFileSync(SANDBOX_EGRESS_CONFIG_SOURCE, "utf8")],
+    [SANDBOX_EGRESS_SOURCE, readFileSync(SANDBOX_EGRESS_SOURCE, "utf8")],
+    [SANDBOX_EXECUTE_SOURCE, readFileSync(SANDBOX_EXECUTE_SOURCE, "utf8")],
+    [SANDBOX_PROCESS_RUNNER_SOURCE, readFileSync(SANDBOX_PROCESS_RUNNER_SOURCE, "utf8")],
+    [SANDBOX_EXECUTE_TEST, readFileSync(SANDBOX_EXECUTE_TEST, "utf8")],
+    [SANDBOX_TRANSPORT_RUNNERS_TEST, readFileSync(SANDBOX_TRANSPORT_RUNNERS_TEST, "utf8")],
+  ]);
+  const required = [
+    [SANDBOX_COMPONENT_DOC, "egress?: {"],
+    [SANDBOX_COMPONENT_DOC, "Use `egress` when the sandbox itself should own outbound-network configuration."],
+    [SANDBOX_COMPONENT_DOC, "Provider-backed sandboxes receive the normalized contract as `request.egress`"],
+    [SANDBOX_COMPONENT_DOC, "Local transports merge the generated proxy environment into the sandbox handle environment"],
+    [TYPES_REFERENCE, "type SandboxEgressConfig = {"],
+    [TYPES_REFERENCE, "egress?: SandboxEgressConfig;"],
+    [SANDBOX_PROPS_SOURCE, "egress?: SandboxEgressConfig;"],
+    [SANDBOX_EGRESS_CONFIG_SOURCE, "export type SandboxEgressConfig = {"],
+    [SANDBOX_EGRESS_SOURCE, "export function normalizeSandboxEgressConfig(value)"],
+    [SANDBOX_EGRESS_SOURCE, "export function sandboxEgressEnv(value"],
+    [SANDBOX_EGRESS_SOURCE, "export async function writeSandboxEgressFiles(value, requestBundlePath)"],
+    [SANDBOX_EGRESS_SOURCE, "export function redactSandboxEgressConfig(value)"],
+    [SANDBOX_EXECUTE_SOURCE, "const egress = normalizeSandboxEgressConfig(rawConfig.egress);"],
+    [SANDBOX_EXECUTE_SOURCE, "await writeSandboxEgressFiles(egress, requestBundlePath);"],
+    [SANDBOX_EXECUTE_SOURCE, "egress,"],
+    [SANDBOX_PROCESS_RUNNER_SOURCE, "...sandboxEgressEnv(egress),"],
+    [SANDBOX_PROCESS_RUNNER_SOURCE, "...(egress ? { egress } : {}),"],
+    [SANDBOX_EXECUTE_TEST, "passes egress config into provider-backed sandboxes and redacts persisted values"],
+    [SANDBOX_TRANSPORT_RUNNERS_TEST, "local sandbox handles merge egress proxy config into sandbox env"],
+  ];
+  const forbidden = [
+    [SANDBOX_COMPONENT_DOC, "Added after 0.23.0"],
+    [SANDBOX_COMPONENT_DOC, "Sandbox egress controls were added after `0.23.0`"],
+    [SANDBOX_COMPONENT_DOC, "Use a build from `main` or a release newer than `0.23.0`"],
+    [TYPES_REFERENCE, "Added after 0.23.0"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Sandbox egress docs must match the current runtime contract:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Sandbox egress docs match the current runtime contract");
   }
 }
 
@@ -3500,6 +3567,7 @@ checkAlertingDocsMatchRuntimeSurface();
 checkControlPlaneDocsMatchStoreApi();
 checkReferenceDeploymentDocsMatchFiles();
 checkSandboxDocsMatchProviderTypes();
+checkSandboxEgressDocsMatchRuntime();
 checkServeDocsMatchServerTypes();
 checkHttpServerDocsMatchRuntimeSurface();
 checkComponentPropsDocsMatchSourceTypes();
