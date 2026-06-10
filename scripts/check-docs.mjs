@@ -1275,12 +1275,16 @@ function checkServeDocsMatchServerTypes() {
     [join(root, "docs/reference/types.mdx"), 'type SmithersDb = import("@smithers-orchestrator/db/adapter").SmithersDb;'],
     [join(root, "docs/reference/types.mdx"), "workflow: SmithersWorkflow<unknown>;"],
     [join(root, "docs/reference/types.mdx"), "adapter: SmithersDb;"],
+    [join(root, "docs/integrations/serve.mdx"), 'import { SmithersDb, createServeApp } from "smithers-orchestrator";'],
+    [join(root, "docs/integrations/serve.mdx"), "const adapter = new SmithersDb(workflow.db);"],
     [join(root, "docs/integrations/serve.mdx"), "workflow: SmithersWorkflow<unknown>;"],
     [join(root, "docs/integrations/serve.mdx"), "adapter: SmithersDb;"],
+    [join(root, "docs/integrations/serve.mdx"), "Smithers DB adapter; e.g. new SmithersDb(workflow.db)"],
   ];
   const forbidden = [
     [join(root, "docs/reference/types.mdx"), "workflow: SmithersWorkflow<any>;"],
     [join(root, "docs/reference/types.mdx"), "adapter: any;"],
+    [join(root, "docs/integrations/serve.mdx"), 'typically drizzle("./smithers.db")'],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));

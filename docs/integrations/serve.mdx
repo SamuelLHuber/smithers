@@ -30,13 +30,16 @@ bunx smithers-orchestrator up workflow.tsx --serve --port 8080 -d
 ## Programmatic
 
 ```ts
-import { createServeApp } from "smithers-orchestrator/serve";
+import { SmithersDb, createServeApp } from "smithers-orchestrator";
+
+const adapter = new SmithersDb(workflow.db);
+const abort = new AbortController();
 
 const app = createServeApp({
   workflow,
   adapter,
   runId,
-  abort: new AbortController(),
+  abort,
   authToken: "sk-secret",
 });
 
@@ -50,7 +53,7 @@ Bun.serve({ port: 3000, fetch: app.fetch });
 ```ts
 type ServeOptions = {
   workflow: SmithersWorkflow<unknown>;   // loaded workflow instance
-  adapter: SmithersDb;               // database adapter; typically drizzle("./smithers.db"); see HTTP Server for the equivalent db config
+  adapter: SmithersDb;               // Smithers DB adapter; e.g. new SmithersDb(workflow.db)
   runId: string;                     // active run ID
   abort: AbortController;            // shared cancellation controller
   authToken?: string;                // bearer token; falls back to SMITHERS_API_KEY; disabled if unset
