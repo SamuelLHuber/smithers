@@ -9132,12 +9132,12 @@ new GeminiAgent({
 });
 ```
 
-`PiAgent` wraps the Pi CLI and adds extension UI hook support. Key additions: `mode`, `onExtensionUiRequest`, `extension`, `thinking`.
+`PiAgent` wraps the Pi CLI and adds extension UI hook support. Key additions: `provider`, `model`, `mode`, `onExtensionUiRequest`, `extension`, `thinking`.
 
 ```ts
 import { PiAgent, type PiExtensionUiRequest, type PiExtensionUiResponse } from "smithers-orchestrator";
 new PiAgent({
-  provider?: string; apiKey?: string; appendSystemPrompt?: string; mode?: "text" | "json" | "rpc";
+  provider?: string; model?: string; apiKey?: string; appendSystemPrompt?: string; mode?: "text" | "json" | "rpc";
   print?: boolean; continue?: boolean; resume?: boolean; session?: string;
   sessionDir?: string; noSession?: boolean;
   models?: string | string[]; listModels?: boolean | string;

@@ -48,6 +48,8 @@ const OPENAI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/OpenAIAgentO
 const HERMES_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/HermesAgentOptions.ts");
 const OPENAI_AGENT_SOURCE = join(root, "packages/agents/src/OpenAIAgent.js");
 const HERMES_AGENT_SOURCE = join(root, "packages/agents/src/HermesAgent.js");
+const PI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/PiAgentOptions.ts");
+const PI_AGENT_SOURCE = join(root, "packages/agents/src/PiAgent.js");
 const CLAUDE_CODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/ClaudeCodeAgentOptions.ts");
 const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOptions.ts");
 const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptions.ts");
@@ -1071,6 +1073,42 @@ function checkCliAgentDocsMatchCurrentModelDefaults() {
   }
 }
 
+function checkCliAgentOptionDocsMatchSourceTypes() {
+  const files = new Map([
+    [CLI_AGENTS_INTEGRATION, readFileSync(CLI_AGENTS_INTEGRATION, "utf8")],
+    [PI_AGENT_OPTIONS_SOURCE, readFileSync(PI_AGENT_OPTIONS_SOURCE, "utf8")],
+    [PI_AGENT_SOURCE, readFileSync(PI_AGENT_SOURCE, "utf8")],
+  ]);
+  const required = [
+    [PI_AGENT_OPTIONS_SOURCE, "model?: string;"],
+    [PI_AGENT_SOURCE, 'pushFlag(args, "--model", this.opts.model ?? this.model);'],
+    [CLI_AGENTS_INTEGRATION, "Key additions: `provider`, `model`, `mode`, `onExtensionUiRequest`, `extension`, `thinking`."],
+    [CLI_AGENTS_INTEGRATION, 'provider?: string; model?: string; apiKey?: string; appendSystemPrompt?: string; mode?: "text" | "json" | "rpc";'],
+  ];
+  const forbidden = [
+    [CLI_AGENTS_INTEGRATION, "Key additions: `mode`, `onExtensionUiRequest`, `extension`, `thinking`."],
+    [CLI_AGENTS_INTEGRATION, 'provider?: string; apiKey?: string; appendSystemPrompt?: string; mode?: "text" | "json" | "rpc";'],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ CLI agent option docs must match source option types:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ CLI agent option docs match source option types");
+  }
+}
+
 function checkGatewaySdkDocsMatchExports() {
   const files = new Map([
     [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
@@ -1157,6 +1195,7 @@ checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
 checkSdkAgentDocsMatchSourceTypes();
 checkCliAgentDocsMatchCurrentModelDefaults();
+checkCliAgentOptionDocsMatchSourceTypes();
 checkGatewaySdkDocsMatchExports();
 
 process.exit(failed ? 1 : 0);
