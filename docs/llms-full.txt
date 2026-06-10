@@ -2078,9 +2078,36 @@ commands[70]:
     purpose: Run a discovered workflow by ID
     args[1]{name,type,required,desc}:
       name,string,true,Workflow ID
-    flags[2]{name,short,type,default,desc}:
+    flags[29]{name,short,type,default,desc}:
+      detach,d,boolean,false,Background mode; print runId/pid/logFile and exit
+      run-id,r,string,,Explicit run ID
+      max-concurrency,c,number,4,Maximum parallel tasks
+      root,,string,,Tool sandbox root directory
+      log,,boolean,true,Enable NDJSON event log file output
+      log-dir,,string,,NDJSON event logs directory
+      allow-network,,boolean,false,Allow bash tool network requests
+      max-output-bytes,,number,,Max bytes a single tool call can return
+      tool-timeout-ms,,number,,Max wall-clock time per tool call in ms
+      hot,,boolean,false,Hot reload for .tsx workflows
+      input,i,string,,Input data as JSON string or '-' to read JSON from stdin
+      annotations,,string,,Run annotations as flat JSON string/number/boolean object or '-' to read JSON from stdin
+      resume,,boolean|string,false,Resume an existing run; may be true or a run ID
+      force,,boolean,false,Resume even if still marked running
+      resume-claim-owner,,string,,Internal durable resume claim owner
+      resume-claim-heartbeat,,number,,Internal durable resume claim heartbeat
+      resume-restore-owner,,string,,Internal durable resume restore owner
+      resume-restore-heartbeat,,number,,Internal durable resume restore heartbeat
+      serve,,boolean,false,Start an HTTP server alongside the workflow
+      supervise,,boolean,false,Run stale-run supervisor loop with --serve
+      supervise-dry-run,,boolean,false,With --supervise; detect without resuming
+      supervise-interval,,string,10s,Supervisor poll interval
+      supervise-stale-threshold,,string,30s,Heartbeat staleness threshold
+      supervise-max-concurrent,,number,3,Max runs resumed per poll
+      port,,number,7331,HTTP server port when --serve
+      host,,string,127.0.0.1,HTTP bind address when --serve
+      auth-token,,string,,Bearer token for HTTP auth or SMITHERS_API_KEY env
+      metrics,,boolean,true,Expose /metrics Prometheus endpoint when --serve
       prompt,p,string,,Shorthand for input.prompt when --input is omitted
-      up-flags,,object,,Also accepts all smithers-orchestrator up flags
   - name: workflow.path
     purpose: Resolve a workflow ID to its entry file path
     args[1]{name,type,required,desc}:

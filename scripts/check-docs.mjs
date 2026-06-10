@@ -540,8 +540,42 @@ function normalizeCliManifestCommand(command) {
     .replace(/\s+/g, ".");
 }
 
+function camelToKebab(value) {
+  return value.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+}
+
 function runCli(args) {
   return spawnSync("bun", [CLI_ENTRYPOINT, ...args], { cwd: root, encoding: "utf8" });
+}
+
+function readCliOverviewToonCommandBlock(commandName) {
+  const docs = readFileSync(CLI_OVERVIEW, "utf8");
+  const toon = docs.match(/```toon\ncommands\[\d+\]:\n([\s\S]*?)\n```/)?.[1];
+  const marker = `  - name: ${commandName}\n`;
+  const start = toon?.indexOf(marker) ?? -1;
+  if (!toon || start === -1) return undefined;
+  const bodyStart = start + marker.length;
+  const next = toon.indexOf("\n  - name: ", bodyStart);
+  return toon.slice(bodyStart, next === -1 ? undefined : next);
+}
+
+function readCliOverviewToonFlags(commandName) {
+  const block = readCliOverviewToonCommandBlock(commandName);
+  if (!block) return undefined;
+  const lines = block.split("\n");
+  const headerIndex = lines.findIndex((line) => /^    flags\[(\d+)\]\{[^}]+\}:$/.test(line));
+  if (headerIndex === -1) return undefined;
+  const header = lines[headerIndex].match(/^    flags\[(\d+)\]\{[^}]+\}:$/);
+  const flags = [];
+  for (const line of lines.slice(headerIndex + 1)) {
+    const flag = line.match(/^      ([^,]+),/);
+    if (!flag) break;
+    flags.push(flag[1].trim());
+  }
+  return {
+    declaredCount: Number(header[1]),
+    flags,
+  };
 }
 
 function checkCliOverviewCommandCatalogMatchesCli() {
@@ -615,6 +649,47 @@ function checkCliOverviewCommandCatalogMatchesCli() {
   }
 }
 
+function checkCliOverviewWorkflowRunFlagsMatchSchema() {
+  const documented = readCliOverviewToonFlags("workflow.run");
+  const schemaResult = runCli(["workflow", "run", "--schema", "--format", "json"]);
+  let schema;
+  if (schemaResult.status === 0) {
+    try {
+      schema = JSON.parse(schemaResult.stdout);
+    } catch {
+      // handled below
+    }
+  }
+  const schemaFlags = Object.keys(schema?.options?.properties ?? {}).map(camelToKebab);
+  const missing = documented ? schemaFlags.filter((flag) => !documented.flags.includes(flag)) : [];
+  const extra = documented ? documented.flags.filter((flag) => !schemaFlags.includes(flag)) : [];
+  if (
+    !documented ||
+    documented.declaredCount !== documented.flags.length ||
+    schemaResult.status !== 0 ||
+    !schema ||
+    missing.length ||
+    extra.length
+  ) {
+    failed = true;
+    console.error("\n✗ docs/cli/overview.mdx workflow.run flags must match the live CLI schema:");
+    if (!documented) console.error("    workflow.run flags block not found");
+    if (documented && documented.declaredCount !== documented.flags.length) {
+      console.error(
+        `    flags[${documented.declaredCount}] declares ${documented.declaredCount}, but documents ${documented.flags.length}`,
+      );
+    }
+    if (schemaResult.status !== 0) {
+      console.error(`    bun apps/cli/src/index.js workflow run --schema --format json failed with status ${schemaResult.status}`);
+    }
+    if (schemaResult.status === 0 && !schema) console.error("    workflow.run schema output was not valid JSON");
+    if (missing.length) console.error(`    missing schema flags: ${missing.join(", ")}`);
+    if (extra.length) console.error(`    extra documented flags: ${extra.join(", ")}`);
+  } else {
+    console.log("✓ CLI overview workflow.run flags match live CLI schema");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -630,5 +705,6 @@ checkServeDocsMatchServerTypes();
 checkComponentPropsDocsMatchSourceTypes();
 checkPackageConfigurationDocsMatchRootConfig();
 checkCliOverviewCommandCatalogMatchesCli();
+checkCliOverviewWorkflowRunFlagsMatchSchema();
 
 process.exit(failed ? 1 : 0);
