@@ -26,6 +26,9 @@ const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitio
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
 const SMITHERS_CREATE_SOURCE = join(root, "packages/smithers/src/create.js");
+const EXTERNAL_SMITHERS_CONFIG_SOURCE = join(root, "packages/smithers/src/external/ExternalSmithersConfig.ts");
+const SERIALIZED_CTX_SOURCE = join(root, "packages/smithers/src/external/SerializedCtx.ts");
+const HOST_NODE_JSON_SOURCE = join(root, "packages/smithers/src/external/HostNodeJson.ts");
 const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
@@ -1370,6 +1373,48 @@ function checkCreateSmithersPostgresDocsMatchFactory() {
     }
   } else {
     console.log("✓ createSmithersPostgres docs match the factory and declaration");
+  }
+}
+
+function checkCreateExternalSmithersDocsMatchSourceTypes() {
+  const files = new Map([
+    [EXTERNAL_SMITHERS_CONFIG_SOURCE, readFileSync(EXTERNAL_SMITHERS_CONFIG_SOURCE, "utf8")],
+    [SERIALIZED_CTX_SOURCE, readFileSync(SERIALIZED_CTX_SOURCE, "utf8")],
+    [HOST_NODE_JSON_SOURCE, readFileSync(HOST_NODE_JSON_SOURCE, "utf8")],
+    [SMITHERS_FACADE_DECLARATIONS, readFileSync(SMITHERS_FACADE_DECLARATIONS, "utf8")],
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+  ]);
+  const required = [
+    [EXTERNAL_SMITHERS_CONFIG_SOURCE, "schemas: S;"],
+    [EXTERNAL_SMITHERS_CONFIG_SOURCE, "agents: Record<string, AgentLike>;"],
+    [EXTERNAL_SMITHERS_CONFIG_SOURCE, "buildFn: (ctx: SerializedCtx) => HostNodeJson;"],
+    [EXTERNAL_SMITHERS_CONFIG_SOURCE, "dbPath?: string;"],
+    [SERIALIZED_CTX_SOURCE, "iterations: Record<string, number>;"],
+    [SERIALIZED_CTX_SOURCE, "outputs: OutputSnapshot;"],
+    [HOST_NODE_JSON_SOURCE, 'kind: "element";'],
+    [HOST_NODE_JSON_SOURCE, "rawProps: Record<string, any>;"],
+    [SMITHERS_FACADE_DECLARATIONS, "declare function createExternalSmithers"],
+    [SMITHERS_FACADE_DECLARATIONS, "cleanup: () => void;"],
+    [TYPES_REFERENCE, "type SerializedCtx = {"],
+    [TYPES_REFERENCE, "type OutputSnapshot<TFallback = unknown> = {"],
+    [TYPES_REFERENCE, "type HostNodeJson ="],
+    [TYPES_REFERENCE, "rawProps: Record<string, any>;"],
+    [TYPES_REFERENCE, "type ExternalSmithersConfig<S extends Record<string, import(\"zod\").ZodObject<any>>> = {"],
+    [TYPES_REFERENCE, "agents: Record<string, AgentLike>;"],
+    [TYPES_REFERENCE, "buildFn: (ctx: SerializedCtx) => HostNodeJson;"],
+    [TYPES_REFERENCE, "dbPath?: string;"],
+    [TYPES_REFERENCE, "declare function createExternalSmithers"],
+    [TYPES_REFERENCE, "): SmithersWorkflow<S> & { tables: Record<string, any>; cleanup: () => void };"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  if (missing.length) {
+    failed = true;
+    console.error("\n✗ createExternalSmithers docs must match source types:");
+    console.error(
+      `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+    );
+  } else {
+    console.log("✓ createExternalSmithers docs match source types");
   }
 }
 
@@ -3160,6 +3205,7 @@ checkHotReloadDocsMatchRuntimeDefaults();
 checkRunOptionsDocsMatchSourceType();
 checkSmithersCtxDocsMatchDriverDeclaration();
 checkCreateSmithersPostgresDocsMatchFactory();
+checkCreateExternalSmithersDocsMatchSourceTypes();
 checkAlertingDocsMatchRuntimeSurface();
 checkControlPlaneDocsMatchStoreApi();
 checkReferenceDeploymentDocsMatchFiles();

@@ -4946,6 +4946,9 @@ type OutputAccessor<Schema, TRow = unknown> = {
 } & {
   [K in keyof Schema & string]: Array<InferOutputEntry<Schema[K]>>;
 };
+type OutputSnapshot<TFallback = unknown> = {
+  [tableName: string]: Array<TFallback>;
+};
 
 type RunAuthContext = {
   triggeredBy: string;
@@ -5856,6 +5859,38 @@ type CreateSmithersApi<Schema = any> = {
   tables: Record<string, any>;      // schema-generic table map; typed at call-site
   outputs: Record<string, any>;     // schema-generic output accessor map; typed at call-site
 };
+
+type SerializedCtx = {
+  runId: string;
+  iteration: number;
+  iterations: Record<string, number>;
+  input: unknown;
+  outputs: OutputSnapshot;
+};
+
+type HostNodeJson =
+  | {
+      kind: "element";
+      tag: string;
+      props: Record<string, string>;
+      rawProps: Record<string, any>;
+      children: HostNodeJson[];
+    }
+  | {
+      kind: "text";
+      text: string;
+    };
+
+type ExternalSmithersConfig<S extends Record<string, import("zod").ZodObject<any>>> = {
+  schemas: S;
+  agents: Record<string, AgentLike>;
+  buildFn: (ctx: SerializedCtx) => HostNodeJson;
+  dbPath?: string;
+};
+
+declare function createExternalSmithers<S extends Record<string, import("zod").ZodObject<any>>>(
+  config: ExternalSmithersConfig<S>,
+): SmithersWorkflow<S> & { tables: Record<string, any>; cleanup: () => void };
 
 // =============================================================================
 // Observability (smithers-orchestrator/observability)
