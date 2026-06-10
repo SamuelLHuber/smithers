@@ -3075,13 +3075,9 @@ type TimerProps = {
 
 ## Durable Suspend and Wake
 
-<Note>
-Automatic Gateway wake sweeps for due timers landed after `0.23.0`. The timer API exists in `0.23.0`, but host-restart wake guarantees require a build from `main` or a release newer than `0.23.0`.
-</Note>
-
 A waiting timer holds no worker and no CPU. The run's status becomes `waiting-timer`, only the absolute fire time is persisted, and the host releases the worker. Tear the worker down or redeploy mid-wait and nothing is lost.
 
-The host wakes the run on its own when the fire time arrives. A gateway sweeps due timers on its scheduler tick (every 1 to 15s), so wake resolution is bounded by that tick rather than by a live process. Timers that came due while the host was down fire on the first sweep after it restarts.
+The host wakes the run on its own when the fire time arrives. A Gateway sweeps due timers on its scheduler tick (every 1 to 15s), and `bunx smithers-orchestrator supervise` also scans `waiting-timer` runs and resumes due ones when you are operating without Gateway. Wake resolution is bounded by the Gateway tick or supervisor interval rather than by a live process. Timers that came due while the host was down fire on the first sweep after it restarts.
 
 ---
 

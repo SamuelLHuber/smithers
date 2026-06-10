@@ -22,6 +22,7 @@ const DOCS = join(root, "docs");
 const RPC_DOCS = join(DOCS, "rpc");
 const HOW_IT_WORKS = join(DOCS, "how-it-works.mdx");
 const README = join(root, "README.md");
+const TIMER_COMPONENT_DOC = join(DOCS, "components/timer.mdx");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
 const SMITHERS_PACKAGE_JSON = join(root, "packages/smithers/package.json");
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
@@ -34,12 +35,14 @@ const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
 const CLI_ENTRYPOINT = join(root, "apps/cli/src/index.js");
+const CLI_SUPERVISOR_SOURCE = join(root, "apps/cli/src/supervisor.js");
 const MCP_SEMANTIC_TOOLS_SOURCE = join(root, "apps/cli/src/mcp/semantic-tools.js");
 const TOOLS_INTEGRATION = join(DOCS, "integrations/tools.mdx");
 const COMMON_TOOLS_INTEGRATION = join(DOCS, "integrations/common-tools.mdx");
 const INTEGRATIONS_OVERVIEW = join(DOCS, "integrations/integrations.mdx");
 const SERVER_INTEGRATION = join(DOCS, "integrations/server.mdx");
 const SERVER_SOURCE = join(root, "packages/server/src/index.js");
+const SERVER_GATEWAY_SOURCE = join(root, "packages/server/src/gateway.js");
 const GATEWAY_INTEGRATION = join(DOCS, "integrations/gateway.mdx");
 const CUSTOM_UI_INTEGRATION = join(DOCS, "integrations/custom-ui.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
@@ -532,6 +535,52 @@ function checkImplementedApisNotMarkedComingSoon() {
     console.error(offenders.map((offender) => `    ${offender}`).join("\n"));
   } else {
     console.log("✓ implemented egress/timer APIs are not marked coming soon");
+  }
+}
+
+function checkTimerDocsMatchWakeRuntime() {
+  const files = new Map([
+    [TIMER_COMPONENT_DOC, readFileSync(TIMER_COMPONENT_DOC, "utf8")],
+    [SERVER_GATEWAY_SOURCE, readFileSync(SERVER_GATEWAY_SOURCE, "utf8")],
+    [CLI_SUPERVISOR_SOURCE, readFileSync(CLI_SUPERVISOR_SOURCE, "utf8")],
+  ]);
+  const required = [
+    [TIMER_COMPONENT_DOC, "The host wakes the run on its own when the fire time arrives."],
+    [TIMER_COMPONENT_DOC, "A Gateway sweeps due timers on its scheduler tick"],
+    [TIMER_COMPONENT_DOC, "`bunx smithers-orchestrator supervise` also scans `waiting-timer` runs"],
+    [TIMER_COMPONENT_DOC, "Wake resolution is bounded by the Gateway tick or supervisor interval"],
+    [SERVER_GATEWAY_SOURCE, "async processDueTimers()"],
+    [SERVER_GATEWAY_SOURCE, 'adapter.listRuns(1_000, "waiting-timer")'],
+    [SERVER_GATEWAY_SOURCE, 'triggeredBy: "timer:gateway"'],
+    [SERVER_GATEWAY_SOURCE, "void this.processDueTimers();"],
+    [CLI_SUPERVISOR_SOURCE, "function processTimerCandidateEffect(options, run, staleBeforeMs)"],
+    [CLI_SUPERVISOR_SOURCE, '.listRunsEffect(500, "waiting-timer")'],
+    [CLI_SUPERVISOR_SOURCE, "runHasDueTimerEffect(options, run.runId, pollStartedAtMs)"],
+    [CLI_SUPERVISOR_SOURCE, 'expectedStatus: "waiting-timer"'],
+    [CLI_SUPERVISOR_SOURCE, "spawnResumeDetached(workflowPath, run.runId"],
+  ];
+  const forbidden = [
+    [TIMER_COMPONENT_DOC, "Automatic Gateway wake sweeps for due timers landed after"],
+    [TIMER_COMPONENT_DOC, "host-restart wake guarantees require a build from `main`"],
+    [TIMER_COMPONENT_DOC, "release newer than `0.23.0`"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Timer docs must describe current durable wake behavior:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Timer docs describe current Gateway and supervisor wake behavior");
   }
 }
 
@@ -3428,6 +3477,7 @@ checkFacadeDeclarations();
 checkDocumentedSmithersImportsMatchFacade();
 checkDocumentedPackageImportsResolve();
 checkImplementedApisNotMarkedComingSoon();
+checkTimerDocsMatchWakeRuntime();
 checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
