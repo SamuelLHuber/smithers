@@ -6610,8 +6610,10 @@ engine uses for `isRunHeartbeatFresh`.
   output (and rendered in the human view).
 - Gateway RPC `getRun`: `runState` field on the response.
 - DevTools snapshot header: `runState?: RunStateView` field.
-- Event stream: `RunStateChanged` event with `before` and `after`
-  (emitted by the recovery state machine).
+- Event stream: `RunStatusChanged` records persisted status transitions.
+  `RunStateChanged` is a typed/reserved event variant, but the current runtime
+  does not emit it; call `getRun` or `computeRunState` when you need the
+  derived `RunStateView`.
 
 A run id that does not exist is not a `RunState`. It's an error
 (`RUN_NOT_FOUND`). `unknown` is for ambiguity, not for "doesn't exist."

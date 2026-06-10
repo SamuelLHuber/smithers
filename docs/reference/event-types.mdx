@@ -3,7 +3,7 @@ title: Event Types
 description: Current SmithersEvent variants, event categories, and top-level fields.
 ---
 
-`SmithersEvent` is the discriminated union emitted by the runtime, persisted to the event log, passed to `runWorkflow({ onProgress })`, streamed by Gateway, and filtered by `bunx smithers-orchestrator events --type <category>`.
+`SmithersEvent` is the discriminated union understood by the runtime and observability layer. Runtime-emitted variants are persisted to the event log, passed to `runWorkflow({ onProgress })`, streamed by Gateway, and filtered by `bunx smithers-orchestrator events --type <category>`. Reserved variants are documented here when they are typed but not currently emitted.
 
 Every variant has `type`, `runId`, and `timestampMs`. Node-scoped variants add `nodeId` and `iteration`. Attempt-scoped variants add `attempt`.
 
@@ -112,6 +112,8 @@ Discriminate on the `type` field, e.g. `event.type === "NodeFailed"`, to handle 
 | `AgentTraceEvent` | `runId`, `nodeId`, `iteration`, `attempt`, `trace`, `timestampMs` |
 | `AgentTraceSummary` | `runId`, `nodeId`, `iteration`, `attempt`, `summary`, `timestampMs` |
 | `AgentSessionEvent` | `runId`, `nodeId`, `iteration`, `attempt`, `transcript`, `timestampMs` |
+
+`RunStateChanged` is typed and categorized for forward compatibility, but the current runtime does not emit it. Read derived run state with `getRun` or `computeRunState`, and watch `RunStatusChanged` for persisted status transitions.
 
 ## Agent Event Payload
 

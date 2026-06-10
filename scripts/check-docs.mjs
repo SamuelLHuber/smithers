@@ -256,6 +256,43 @@ function checkFreestyleDocsMatchProviderSeam() {
   }
 }
 
+function checkRunStateDocsMatchCurrentEmission() {
+  const files = new Map([
+    [join(root, "docs/runtime/run-state.mdx"), readFileSync(join(root, "docs/runtime/run-state.mdx"), "utf8")],
+    [join(root, "docs/runtime/events.mdx"), readFileSync(join(root, "docs/runtime/events.mdx"), "utf8")],
+    [join(root, "docs/reference/event-types.mdx"), readFileSync(join(root, "docs/reference/event-types.mdx"), "utf8")],
+  ]);
+  const required = [
+    [join(root, "docs/runtime/run-state.mdx"), "RunStateChanged` is a typed/reserved event variant, but the current runtime"],
+    [join(root, "docs/runtime/events.mdx"), "the current runtime does not emit it"],
+    [join(root, "docs/reference/event-types.mdx"), "typed and categorized for forward compatibility, but the current runtime does not emit it"],
+  ];
+  const forbidden = [
+    [join(root, "docs/runtime/run-state.mdx"), "emitted by the recovery state machine"],
+    [join(root, "docs/runtime/run-state.mdx"), "Event stream: `RunStateChanged` event"],
+    [join(root, "docs/runtime/events.mdx"), "every lifecycle event the runtime emits"],
+    [join(root, "docs/reference/event-types.mdx"), "discriminated union emitted by the runtime"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ RunState docs overstate current RunStateChanged emission:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ RunState docs mark RunStateChanged as typed/reserved, not emitted");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -264,5 +301,6 @@ checkFacadeDeclarations();
 checkImplementedApisNotMarkedComingSoon();
 checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
+checkRunStateDocsMatchCurrentEmission();
 
 process.exit(failed ? 1 : 0);
