@@ -31,7 +31,7 @@ All tools are sandboxed to `rootDir` (defaults to the workflow directory). Paths
 |---|---|
 | Path resolution | Relative paths resolve against `rootDir`. Absolute paths must fall within root. |
 | Symlinks | Rejected if target is outside sandbox. |
-| Output size | Truncated to `maxOutputBytes` (default 200KB). |
+| Output size | Process output is truncated to `maxOutputBytes` (default 200KB); `read`, `write`, and `edit` reject files, content, or patches that exceed it. |
 | Timeouts | `bash` and `grep` default to 60s; exceeded processes killed with `SIGKILL`. |
 | Network | `bash` blocks network commands by default. See [bash](#bash). |
 
@@ -266,14 +266,16 @@ Returns combined stdout and stderr. Working directory defaults to `rootDir`. Tim
 
 Controlled by `allowNetwork` in `RunOptions`, `--allow-network` on CLI, or server config. Default: blocked.
 
-When blocked, the command string (executable + args) is checked against these fragments:
+When blocked, Smithers tokenizes `cmd` plus `args`. Executable basenames are
+matched for known network tools, URL tokens are blocked by prefix, and `git`
+plus a remote-operation token is blocked.
 
-| Category | Blocked strings |
+| Category | Match |
 |---|---|
-| HTTP clients | `curl`, `wget` |
-| URL prefixes | `http://`, `https://` |
-| Package managers | `npm`, `bun`, `pip` |
-| Git remote ops | `git push`, `git pull`, `git fetch`, `git clone`, `git remote` |
+| HTTP clients | executable basename `curl` or `wget` |
+| URL tokens | any token starting with `http://` or `https://` |
+| Package managers | executable basename `npm`, `bun`, or `pip` |
+| Git remote ops | `git` plus a `push`, `pull`, `fetch`, `clone`, or `remote` token |
 
 Local git commands (`git status`, `git diff`, `git log`) are allowed.
 

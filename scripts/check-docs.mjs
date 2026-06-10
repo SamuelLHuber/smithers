@@ -1938,6 +1938,62 @@ function checkToolDocsMatchCurrentRuntimeLogging() {
   }
 }
 
+function checkToolDocsMatchRuntimeLimitsAndNetwork() {
+  const docs = readFileSync(TOOLS_INTEGRATION, "utf8");
+  const bashSource = readFileSync(join(root, "packages/smithers/src/tools/bash.js"), "utf8");
+  const toolUtils = readFileSync(join(root, "packages/smithers/src/tools/utils.js"), "utf8");
+  const writeSource = readFileSync(join(root, "packages/smithers/src/tools/write.js"), "utf8");
+  const editSource = readFileSync(join(root, "packages/smithers/src/tools/edit.js"), "utf8");
+  const required = [
+    [TOOLS_INTEGRATION, "Process output is truncated to `maxOutputBytes`"],
+    [TOOLS_INTEGRATION, "`read`, `write`, and `edit` reject files, content, or patches that exceed it."],
+    [TOOLS_INTEGRATION, "Smithers tokenizes `cmd` plus `args`."],
+    [TOOLS_INTEGRATION, "matched for known network tools"],
+    [TOOLS_INTEGRATION, "URL tokens are blocked by prefix"],
+    [TOOLS_INTEGRATION, "`git` plus a `push`, `pull`, `fetch`, `clone`, or `remote` token"],
+    [join(root, "packages/smithers/src/tools/bash.js"), "tokenExecutableName(token)"],
+    [join(root, "packages/smithers/src/tools/bash.js"), "String(part).split(/\\s+/).filter(Boolean)"],
+    [join(root, "packages/smithers/src/tools/bash.js"), "executables.has(name)"],
+    [join(root, "packages/smithers/src/tools/bash.js"), "token.startsWith(scheme)"],
+    [join(root, "packages/smithers/src/tools/bash.js"), 'new Set(["push", "pull", "fetch", "clone", "remote"])'],
+    [join(root, "packages/smithers/src/tools/utils.js"), "truncateToBytes(text, maxBytes)"],
+    [join(root, "packages/smithers/src/tools/utils.js"), "assertReadableFileWithinLimit(path, maxBytes)"],
+    [join(root, "packages/smithers/src/tools/write.js"), "Content too large"],
+    [join(root, "packages/smithers/src/tools/edit.js"), "Patch too large"],
+  ];
+  const sourceByFile = new Map([
+    [TOOLS_INTEGRATION, docs],
+    [join(root, "packages/smithers/src/tools/bash.js"), bashSource],
+    [join(root, "packages/smithers/src/tools/utils.js"), toolUtils],
+    [join(root, "packages/smithers/src/tools/write.js"), writeSource],
+    [join(root, "packages/smithers/src/tools/edit.js"), editSource],
+  ]);
+  const forbidden = [
+    [TOOLS_INTEGRATION, "Output size | Truncated to `maxOutputBytes`"],
+    [TOOLS_INTEGRATION, "checked against these fragments"],
+    [TOOLS_INTEGRATION, "| Category | Blocked strings |"],
+    [TOOLS_INTEGRATION, "command string (executable + args) is checked"],
+  ];
+  const missing = required.filter(([file, needle]) => !sourceByFile.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => sourceByFile.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ docs/integrations/tools.mdx must match current tool limit and network behavior:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ tool docs describe current limit and network behavior");
+  }
+}
+
 function checkMemoryDocsMatchSourceTypes() {
   const docs = readFileSync(TYPES_REFERENCE, "utf8");
   const source = readFileSync(MEMORY_TASK_CONFIG_SOURCE, "utf8");
@@ -2621,6 +2677,7 @@ checkStudioDocsMatchCurrentAppSurface();
 checkCliOverviewCommandCatalogMatchesCli();
 checkCliOverviewWorkflowRunFlagsMatchSchema();
 checkToolDocsMatchCurrentRuntimeLogging();
+checkToolDocsMatchRuntimeLimitsAndNetwork();
 checkMemoryDocsMatchSourceTypes();
 checkScorerDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
