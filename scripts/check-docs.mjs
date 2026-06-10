@@ -33,6 +33,9 @@ const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
 const RUNTIME_EVENTS_REFERENCE = join(DOCS, "runtime/events.mdx");
 const EVENT_TYPES_REFERENCE = join(DOCS, "reference/event-types.mdx");
 const ENGINE_SOURCE = join(root, "packages/engine/src/engine.js");
+const DB_PACKAGE_JSON = join(root, "packages/db/package.json");
+const DB_RUN_STATE_SOURCE = join(root, "packages/db/src/runState.js");
+const DB_RUN_STATE_TYPES = join(root, "packages/db/src/runState-types.ts");
 const OPENAPI_HELPERS_SOURCE = join(root, "packages/openapi/src/tool-factory/_helpers.js");
 const OPENAPI_LOAD_SPEC_EFFECT_SOURCE = join(root, "packages/openapi/src/loadSpecEffect.js");
 const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecSync.js");
@@ -406,13 +409,25 @@ function checkRunStateDocsMatchCurrentEmission() {
     [join(root, "docs/runtime/events.mdx"), readFileSync(join(root, "docs/runtime/events.mdx"), "utf8")],
     [join(root, "docs/reference/event-types.mdx"), readFileSync(join(root, "docs/reference/event-types.mdx"), "utf8")],
     [join(root, "docs/reference/types.mdx"), readFileSync(join(root, "docs/reference/types.mdx"), "utf8")],
+    [DB_PACKAGE_JSON, readFileSync(DB_PACKAGE_JSON, "utf8")],
+    [DB_RUN_STATE_SOURCE, readFileSync(DB_RUN_STATE_SOURCE, "utf8")],
+    [DB_RUN_STATE_TYPES, readFileSync(DB_RUN_STATE_TYPES, "utf8")],
   ]);
   const required = [
+    [join(root, "docs/runtime/run-state.mdx"), 'import { computeRunState } from "@smithers-orchestrator/db/runState";'],
+    [join(root, "docs/runtime/run-state.mdx"), 'import { deriveRunState } from "@smithers-orchestrator/db/runState";'],
     [join(root, "docs/runtime/run-state.mdx"), "RunStateChanged` is a typed/reserved event variant, but the current runtime"],
     [join(root, "docs/runtime/events.mdx"), "the current runtime does not emit it"],
     [join(root, "docs/reference/event-types.mdx"), "typed and categorized for forward compatibility, but the current runtime does not emit it"],
     [join(root, "docs/reference/types.mdx"), "`SmithersEvent` is the discriminated union understood by the runtime and"],
     [join(root, "docs/reference/types.mdx"), "Most variants are emitted by the runtime; reserved"],
+    [DB_PACKAGE_JSON, '"./runState"'],
+    [DB_PACKAGE_JSON, '"types": "./src/runState-types.ts"'],
+    [DB_PACKAGE_JSON, '"import": "./src/runState.js"'],
+    [DB_RUN_STATE_SOURCE, 'export { computeRunState } from "./runState/computeRunState.js";'],
+    [DB_RUN_STATE_SOURCE, 'export { deriveRunState } from "./runState/deriveRunState.js";'],
+    [DB_RUN_STATE_TYPES, "export declare function computeRunState("],
+    [DB_RUN_STATE_TYPES, "export declare function deriveRunState("],
   ];
   const forbidden = [
     [join(root, "docs/runtime/run-state.mdx"), "emitted by the recovery state machine"],
