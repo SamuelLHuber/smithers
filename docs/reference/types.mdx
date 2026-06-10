@@ -507,6 +507,42 @@ type SandboxWorkspaceSpec = {
   idleTimeoutSecs?: number;
   persistence?: "ephemeral" | "sticky";
 };
+type SandboxWorkflow = {
+  db?: unknown;
+  build: (ctx: unknown) => unknown;
+  opts?: Record<string, unknown>;
+  schemaRegistry?: unknown;
+  zodToKeyName?: unknown;
+};
+type SandboxChildWorkflowDefinition =
+  | SandboxWorkflow
+  | (() => SandboxWorkflow | unknown);
+type ExecuteSandboxChildWorkflowOptions = {
+  workflow: SandboxChildWorkflowDefinition;
+  input?: unknown;
+  runId?: string;
+  parentRunId?: string;
+  rootDir?: string;
+  allowNetwork?: boolean;
+  maxOutputBytes?: number;
+  toolTimeoutMs?: number;
+  workflowPath?: string;
+  signal?: AbortSignal;
+};
+type ExecuteSandboxChildWorkflow = (
+  parentWorkflow: SandboxWorkflow | undefined,
+  options: ExecuteSandboxChildWorkflowOptions,
+) => Promise<{ runId: string; status: string; output: unknown }>;
+type SandboxDiffBundleLike = {
+  seq: number;
+  baseRef: string;
+  patches: Array<{
+    path: string;
+    operation: "add" | "modify" | "delete";
+    diff: string;
+    binaryContent?: string;
+  }>;
+};
 type SandboxProviderRequest = {
   runId: string;
   sandboxId: string;
@@ -514,9 +550,9 @@ type SandboxProviderRequest = {
   rootDir: string;
   requestBundlePath: string;
   resultBundlePath: string;
-  workflow: unknown;
-  parentWorkflow?: unknown;
-  executeChildWorkflow: (args: unknown) => Promise<unknown>;
+  workflow: SandboxChildWorkflowDefinition;
+  parentWorkflow?: SandboxWorkflow;
+  executeChildWorkflow: ExecuteSandboxChildWorkflow;
   allowNetwork: boolean;
   maxOutputBytes: number;
   toolTimeoutMs: number;
@@ -535,7 +571,7 @@ type SandboxProviderResult =
       remoteRunId?: string;
       workspaceId?: string;
       containerId?: string;
-      diffBundle?: unknown;
+      diffBundle?: SandboxDiffBundleLike;
       patches?: Array<{ path: string; content: string }>;
       artifacts?: Array<{ path: string; content: string }>;
       streamLogPath?: string | null;
@@ -545,13 +581,31 @@ type SandboxProvider = {
   run(request: SandboxProviderRequest): Promise<SandboxProviderResult> | SandboxProviderResult;
   cleanup?(request: SandboxProviderRequest): Promise<void> | void;
 };
+type ExecuteSandboxOptions = {
+  parentWorkflow?: SandboxWorkflow;
+  sandboxId: string;
+  provider?: SandboxProvider | string;
+  runtime?: SandboxRuntime;
+  workflow: SandboxChildWorkflowDefinition;
+  executeChildWorkflow: ExecuteSandboxChildWorkflow;
+  applyDiffBundle?: (bundle: SandboxDiffBundleLike, targetDir: string) => Promise<void>;
+  input?: unknown;
+  rootDir: string;
+  allowNetwork: boolean;
+  maxOutputBytes: number;
+  toolTimeoutMs: number;
+  reviewDiffs?: boolean;
+  autoAcceptDiffs?: boolean;
+  allowNested?: boolean;
+  config?: Record<string, unknown>;
+};
 
 type SandboxProps = {
   id: string;
-  workflow?: (...args: any[]) => any;
+  workflow?: SmithersWorkflow<unknown>;
   input?: unknown;
   output: OutputTarget;
-  provider?: SandboxProvider | string; // object, or an id registered with registerSandboxProvider()
+  provider?: unknown;              // runtime accepts a provider object or registered provider id
   runtime?: SandboxRuntime;            // legacy local transports
   allowNetwork?: boolean;
   reviewDiffs?: boolean;

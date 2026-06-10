@@ -15,7 +15,7 @@ type SandboxProps = {
   workflow?: SmithersWorkflow<unknown>;
   input?: unknown;
 
-  provider?: SandboxProvider | string;
+  provider?: unknown; // runtime accepts a provider object or registered provider id
   runtime?: "bubblewrap" | "docker" | "codeplane"; // legacy local transports
 
   allowNetwork?: boolean;
@@ -94,7 +94,7 @@ Use `egress` when the sandbox itself should own outbound-network configuration. 
 />
 ```
 
-Provider-backed sandboxes receive the normalized contract as `request.egress`, and the raw serializable value remains in `request.config.egress` for adapters that need provider-specific fields. Pass a provider object directly, or pass a string only after registering a provider with `registerSandboxProvider({ id, run })`; Smithers core does not hardcode a Freestyle or iron-proxy sandbox adapter. Local transports merge the generated proxy environment into the sandbox handle environment, after `env`, so `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, and `NODE_EXTRA_CA_CERTS` are visible inside the sandbox process.
+Provider-backed sandboxes receive the normalized contract as `request.egress`, and the raw serializable value remains in `request.config.egress` for adapters that need provider-specific fields. The JSX prop is typed `unknown`; at execution time Smithers accepts a provider object directly or a string id only after registering a provider with `registerSandboxProvider({ id, run })`. Invalid provider values fail during execution with `INVALID_INPUT`. Smithers core does not hardcode a Freestyle or iron-proxy sandbox adapter. Local transports merge the generated proxy environment into the sandbox handle environment, after `env`, so `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, and `NODE_EXTRA_CA_CERTS` are visible inside the sandbox process.
 
 When `caCertPem` is provided, Smithers writes it into the request bundle at `.smithers/egress/ca.crt` and points local transports at `/workspace/.smithers/egress/ca.crt`. If the CA is already installed by the sandbox image or sidecar, use `caCertPath` instead. Persisted sandbox config redacts egress env values, CA PEM, and secret-binding entries.
 

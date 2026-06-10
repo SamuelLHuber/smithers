@@ -339,6 +339,54 @@ function checkGatewayGetRunDocsMatchResponseShape() {
   }
 }
 
+function checkSandboxDocsMatchProviderTypes() {
+  const files = new Map([
+    [join(root, "packages/components/src/components/SandboxProps.ts"), readFileSync(join(root, "packages/components/src/components/SandboxProps.ts"), "utf8")],
+    [join(root, "packages/sandbox/src/ExecuteSandboxOptions.ts"), readFileSync(join(root, "packages/sandbox/src/ExecuteSandboxOptions.ts"), "utf8")],
+    [join(root, "packages/sandbox/src/SandboxProvider.ts"), readFileSync(join(root, "packages/sandbox/src/SandboxProvider.ts"), "utf8")],
+    [join(root, "docs/components/sandbox.mdx"), readFileSync(join(root, "docs/components/sandbox.mdx"), "utf8")],
+    [join(root, "docs/reference/types.mdx"), readFileSync(join(root, "docs/reference/types.mdx"), "utf8")],
+  ]);
+  const required = [
+    [join(root, "packages/components/src/components/SandboxProps.ts"), "provider?: unknown;"],
+    [join(root, "packages/sandbox/src/ExecuteSandboxOptions.ts"), "provider?: SandboxProvider | string;"],
+    [join(root, "packages/sandbox/src/ExecuteSandboxOptions.ts"), "parentWorkflow: SandboxWorkflow | undefined"],
+    [join(root, "packages/sandbox/src/SandboxProvider.ts"), "executeChildWorkflow: ExecuteSandboxChildWorkflow;"],
+    [join(root, "docs/components/sandbox.mdx"), "provider?: unknown; // runtime accepts a provider object or registered provider id"],
+    [join(root, "docs/components/sandbox.mdx"), "The JSX prop is typed `unknown`; at execution time Smithers accepts a provider object directly"],
+    [join(root, "docs/reference/types.mdx"), "provider?: unknown;              // runtime accepts a provider object or registered provider id"],
+    [join(root, "docs/reference/types.mdx"), "type ExecuteSandboxChildWorkflow = ("],
+    [join(root, "docs/reference/types.mdx"), "executeChildWorkflow: ExecuteSandboxChildWorkflow;"],
+    [join(root, "docs/reference/types.mdx"), "diffBundle?: SandboxDiffBundleLike;"],
+    [join(root, "docs/reference/types.mdx"), "type ExecuteSandboxOptions = {"],
+    [join(root, "docs/reference/types.mdx"), "provider?: SandboxProvider | string;"],
+  ];
+  const forbidden = [
+    [join(root, "docs/components/sandbox.mdx"), "provider?: SandboxProvider | string;"],
+    [join(root, "docs/reference/types.mdx"), "provider?: SandboxProvider | string; // object, or an id registered with registerSandboxProvider()"],
+    [join(root, "docs/reference/types.mdx"), "executeChildWorkflow: (args: unknown) => Promise<unknown>;"],
+    [join(root, "docs/reference/types.mdx"), "diffBundle?: unknown;"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ Sandbox docs must distinguish JSX provider typing from executeSandbox provider typing:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ Sandbox docs match JSX provider and executeSandbox provider types");
+  }
+}
+
 const errorCodes = readErrorDefinitionCodes();
 checkErrorReferenceCodes(errorCodes);
 checkKnownErrorCodeUnion(errorCodes);
@@ -349,5 +397,6 @@ checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
 checkRunStateDocsMatchCurrentEmission();
 checkGatewayGetRunDocsMatchResponseShape();
+checkSandboxDocsMatchProviderTypes();
 
 process.exit(failed ? 1 : 0);
