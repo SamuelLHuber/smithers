@@ -2258,6 +2258,8 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_CLIENT_RPC_TYPE_MAP, "listWorkflows: ListWorkflowsResponse;"],
     [GATEWAY_CLIENT_RPC_TYPE_MAP, "listApprovals: ListApprovalsResponse;"],
     [GATEWAY_CLIENT_RPC_TYPE_MAP, "getNodeOutput: Record<string, unknown>;"],
+    [GATEWAY_CLIENT_SOURCE, "async *streamDevTools("],
+    [GATEWAY_CLIENT_SOURCE, 'const subscribed = await connection.request("streamDevTools", params);'],
     [gatewayServerSource, 'rpcPath: "/v1/rpc",'],
     [gatewayServerSource, 'wsPath: "/",'],
     [GATEWAY_CLIENT_SOURCE, "this.boot = globalThis.__SMITHERS_GATEWAY_UI__;"],
@@ -2367,6 +2369,14 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<ListWorkflowsResponse>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<Record<string, unknown>>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `GatewayAsyncState<ListApprovalsResponse>`"],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "Beyond standard node output and run events, `streamDevTools` provides the live DevTools tree: an initial snapshot plus `devtools.event` delta frames",
+    ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "re-subscribe with the last `afterSeq` or use the sync subscription layer on top of `gatewayKeys.devtools(runId)`",
+    ],
     [CUSTOM_WORKFLOW_UI_GUIDE, "SyncProvider` + `useSyncQuery` / `useSyncMutation` / `useSyncSubscription"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayQuery` / `useGatewayMutation` / `useGatewayRunStream"],
   ];
@@ -2380,6 +2390,9 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `GatewayAsyncState<GatewayApprovalSummary[]>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "dedicated metric streams via DevTools observability channels"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "memory utilization, token counts, and step durations"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "follow the same resilient reconnection mechanics as `streamRunEventsResilient`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "uses the matching `wsPath` and `rpcPath`"],
     [CUSTOM_UI_INTEGRATION, "workflow-scoped path (typically"],
     [CUSTOM_UI_INTEGRATION, "/v1/ws/<workflow>"],

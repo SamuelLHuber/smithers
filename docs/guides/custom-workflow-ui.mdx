@@ -180,9 +180,9 @@ const diff = useGatewayRpc("getNodeDiff", { runId, nodeId: "ship" });
 
 A row arrives either inline (`status: "produced"`) or as a typed `pending` / `failed` state with an optional `partial` payload on failure. Node-output hooks default to a row-shaped value that you should destructure as either the row directly *or* `{ row, schema, status }`; `.smithers/ui/vcs.tsx` shows the canonical normalizer (`rowOf(value)`).
 
-## Metrics and observability streams
+## DevTools observability streams
 
-Beyond standard node output and run events, the Gateway provides dedicated metric streams via DevTools observability channels (`streamDevTools`). When building advanced telemetry views, you can tap into these real-time streams to display memory utilization, token counts, and step durations. These streams are pushed over WebSocket and follow the same resilient reconnection mechanics as `streamRunEventsResilient`. 
+Beyond standard node output and run events, `streamDevTools` provides the live DevTools tree: an initial snapshot plus `devtools.event` delta frames such as `replaceRoot`, `addNode`, `removeNode`, `updateProps`, and `updateTask`. Use it for inspectors that need node props, task metadata, and rebaselining after rewind. It is a raw WebSocket iterator on `SmithersGatewayClient`; if you need reconnect behavior, re-subscribe with the last `afterSeq` or use the sync subscription layer on top of `gatewayKeys.devtools(runId)`.
 
 ## Approvals, signals, and lifecycle actions
 
