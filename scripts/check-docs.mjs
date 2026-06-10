@@ -1344,14 +1344,28 @@ function checkHttpServerDocsMatchRuntimeSurface() {
     [SERVER_INTEGRATION, "`INVALID_JSON`"],
     [SERVER_INTEGRATION, "`PAYLOAD_TOO_LARGE`"],
     [SERVER_INTEGRATION, "`RUN_ID_REQUIRED`"],
+    [SERVER_INTEGRATION, 'import { bashTool } from "smithers-orchestrator/tools";'],
+    [SERVER_INTEGRATION, 'await bashTool("echo", [ctx.input.msg])'],
+  ];
+  const forbidden = [
+    [SERVER_INTEGRATION, 'createSmithers, bash } from "smithers-orchestrator"'],
+    [SERVER_INTEGRATION, "await bash(`echo ${ctx.input.msg}`)"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
-  if (missing.length) {
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
     failed = true;
     console.error("\n✗ HTTP server docs must match runtime routes and error codes:");
-    console.error(
-      `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
-    );
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
   } else {
     console.log("✓ HTTP server docs match runtime routes and error codes");
   }

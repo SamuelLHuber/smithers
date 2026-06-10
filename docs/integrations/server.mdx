@@ -74,7 +74,8 @@ Tools resolve relative to `rootDir`. The example below exposes a workflow that u
 
 ```tsx
 /** @jsxImportSource smithers-orchestrator */
-import { Task, Workflow, createSmithers, bash } from "smithers-orchestrator";
+import { Task, Workflow, createSmithers } from "smithers-orchestrator";
+import { bashTool } from "smithers-orchestrator/tools";
 import { z } from "zod";
 
 const { smithers, outputs } = createSmithers({
@@ -84,7 +85,7 @@ const { smithers, outputs } = createSmithers({
 export default smithers((ctx) => (
   <Workflow name="echo">
     <Task id="run" output={outputs.result}>
-      {async () => ({ stdout: await bash(`echo ${ctx.input.msg}`) })}
+      {async () => ({ stdout: await bashTool("echo", [ctx.input.msg]) })}
     </Task>
   </Workflow>
 ));
