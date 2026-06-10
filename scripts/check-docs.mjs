@@ -19,6 +19,7 @@ import ts from "typescript";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = join(root, "docs");
+const README = join(root, "README.md");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
@@ -114,7 +115,7 @@ function walk(dir, out = []) {
 }
 const offenders = [];
 // The root README follows the same house style, so gate it alongside docs/.
-for (const f of [...walk(DOCS), join(root, "README.md")]) {
+for (const f of [...walk(DOCS), README]) {
   if (readFileSync(f, "utf8").includes("—")) offenders.push(f.replace(root + "/", ""));
 }
 if (offenders.length) {
@@ -244,7 +245,7 @@ function collectExportedNames(source) {
 function collectDocumentedSmithersImports() {
   const imports = new Map();
   const importPattern = /import\s*\{([^{}]*?)\}\s*from\s*["']smithers-orchestrator["']/g;
-  for (const file of walk(DOCS)) {
+  for (const file of currentDocFiles()) {
     const source = readFileSync(file, "utf8");
     for (const match of source.matchAll(importPattern)) {
       for (const raw of match[1].split(",")) {
@@ -267,7 +268,7 @@ function collectDocumentedSmithersImports() {
 
 function currentDocFiles() {
   const changelogDir = join(DOCS, "changelogs");
-  return walk(DOCS).filter((file) => !file.startsWith(`${changelogDir}/`));
+  return [...walk(DOCS).filter((file) => !file.startsWith(`${changelogDir}/`)), README];
 }
 
 function collectDocumentedPackageImports() {
