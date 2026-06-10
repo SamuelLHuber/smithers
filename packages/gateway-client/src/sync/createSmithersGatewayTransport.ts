@@ -3,10 +3,9 @@ import type { SyncRpcOptions, SyncStreamFrame, SyncStreamOptions, SyncTransport 
 
 /**
  * Build a `SyncTransport` backed by a `SmithersGatewayClient`. RPC is wired
- * straight through. Stream subscriptions use the client's resilient streaming
- * generators (`streamRunEventsResilient` / `streamDevTools`) so reconnect +
- * resume from the cached `afterSeq` happens at the gateway layer rather than
- * being re-invented inside the hub.
+ * straight through. Run-event streams use the client's resilient generator;
+ * DevTools streams use the plain client stream and rely on the hub to reopen
+ * with the cached `afterSeq`.
  *
  * The returned transport is intentionally narrow: it ignores stream scopes the
  * client does not know about so a typo in a hook gets a "Transport does not
@@ -17,7 +16,7 @@ export type SmithersGatewayStreamScope = "streamRunEvents" | "streamDevTools";
 
 export type CreateSmithersGatewayTransportOptions = {
   /**
-   * Override per-stream healthyAfterMs / backoff for the resilient generator.
+   * Override per-stream healthyAfterMs / backoff for the run-event resilient generator.
    * The hub will still pass `afterSeq` so reconnects stay incremental.
    */
   streamHealthyAfterMs?: number;
@@ -72,7 +71,13 @@ export function createSmithersGatewayTransport(
       }
       if (scope === "streamDevTools") {
         const runId = asRunId(params);
-        const iterator = client.streamDevTools({ runId }, { signal: streamOptions.signal });
+        const iterator = client.streamDevTools(
+          {
+            runId,
+            ...(typeof streamOptions.afterSeq === "number" ? { afterSeq: streamOptions.afterSeq } : {}),
+          },
+          { signal: streamOptions.signal },
+        );
         for await (const frame of iterator) {
           const seq = typeof frame.seq === "number" ? frame.seq : undefined;
           yield {
