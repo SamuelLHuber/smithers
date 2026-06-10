@@ -2663,6 +2663,8 @@ type ApprovalProps = {
   cache?: { by?: (ctx) => unknown; version?: string };
   label?: string;
   meta?: Record<string, unknown>;
+  key?: string;
+  children?: React.ReactNode;
 };
 ```
 

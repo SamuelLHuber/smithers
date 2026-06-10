@@ -2042,15 +2042,19 @@ function checkHttpServerDocsMatchRuntimeSurface() {
 function checkComponentPropsDocsMatchSourceTypes() {
   const files = new Map([
     [join(root, "packages/components/src/components/ApprovalAutoApprove.ts"), readFileSync(join(root, "packages/components/src/components/ApprovalAutoApprove.ts"), "utf8")],
+    [join(root, "packages/components/src/components/ApprovalProps.ts"), readFileSync(join(root, "packages/components/src/components/ApprovalProps.ts"), "utf8")],
     [join(root, "packages/components/src/components/PollerProps.ts"), readFileSync(join(root, "packages/components/src/components/PollerProps.ts"), "utf8")],
     [join(root, "packages/components/src/components/DriftDetectorProps.ts"), readFileSync(join(root, "packages/components/src/components/DriftDetectorProps.ts"), "utf8")],
     [join(root, "packages/components/src/components/ColumnDef.ts"), readFileSync(join(root, "packages/components/src/components/ColumnDef.ts"), "utf8")],
     [join(root, "docs/reference/types.mdx"), readFileSync(join(root, "docs/reference/types.mdx"), "utf8")],
+    [join(root, "docs/components/approval.mdx"), readFileSync(join(root, "docs/components/approval.mdx"), "utf8")],
     [join(root, "docs/components/poller.mdx"), readFileSync(join(root, "docs/components/poller.mdx"), "utf8")],
     [join(root, "docs/components/drift-detector.mdx"), readFileSync(join(root, "docs/components/drift-detector.mdx"), "utf8")],
   ]);
   const required = [
     [join(root, "packages/components/src/components/ApprovalAutoApprove.ts"), "SmithersCtx<unknown> | null"],
+    [join(root, "packages/components/src/components/ApprovalProps.ts"), "key?: string;"],
+    [join(root, "packages/components/src/components/ApprovalProps.ts"), "children?: React.ReactNode;"],
     [join(root, "packages/components/src/components/PollerProps.ts"), "check: AgentLike | (() => unknown | Promise<unknown>);"],
     [join(root, "packages/components/src/components/DriftDetectorProps.ts"), "intervalMs?: number;"],
     [join(root, "packages/components/src/components/ColumnDef.ts"), 'type ColumnTaskProps = Omit<Partial<TaskProps<unknown>>, "agent" | "children" | "id" | "key" | "output" | "smithersContext">;'],
@@ -2059,6 +2063,8 @@ function checkComponentPropsDocsMatchSourceTypes() {
     [join(root, "docs/reference/types.mdx"), "check: AgentLike | (() => unknown | Promise<unknown>);"],
     [join(root, "docs/reference/types.mdx"), 'type ColumnTaskProps = Omit<Partial<TaskProps<unknown>>, "agent" | "children" | "id" | "key" | "output" | "smithersContext">;'],
     [join(root, "docs/reference/types.mdx"), "task?: ColumnTaskProps;"],
+    [join(root, "docs/components/approval.mdx"), "key?: string;"],
+    [join(root, "docs/components/approval.mdx"), "children?: React.ReactNode;"],
     [join(root, "docs/components/poller.mdx"), "check: AgentLike | (() => Promise<unknown> | unknown);"],
     [join(root, "docs/components/drift-detector.mdx"), "poll?: { intervalMs?: number; maxPolls?: number };"],
   ];
@@ -2067,6 +2073,7 @@ function checkComponentPropsDocsMatchSourceTypes() {
     [join(root, "docs/reference/types.mdx"), "revertOn?: ((ctx: any) => boolean) | (() => boolean);"],
     [join(root, "docs/reference/types.mdx"), "check: AgentLike | ((...args: any[]) => any);"],
     [join(root, "docs/reference/types.mdx"), "task?: Partial<TaskProps<unknown>>;"],
+    [join(root, "docs/components/approval.mdx"), "smithersContext"],
     [join(root, "docs/components/drift-detector.mdx"), "poll?: { intervalMs: number; maxPolls?: number };"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
