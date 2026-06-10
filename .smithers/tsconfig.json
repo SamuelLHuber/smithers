@@ -48,8 +48,8 @@
         "../packages/db/src/index.js"
       ],
       "@smithers/db/runState": [
-        "../packages/db/src/runState-types.ts",
-        "../packages/db/src/runState.js"
+        "../packages/db/src/runState.js",
+        "../packages/db/src/runState.d.ts"
       ],
       "@smithers/db/*": [
         "../packages/db/src/*.ts",

@@ -42,8 +42,8 @@
         "../packages/db/src/index.js"
       ],
       "@smithers-orchestrator/db/runState": [
-        "../packages/db/src/runState-types.ts",
-        "../packages/db/src/runState.js"
+        "../packages/db/src/runState.js",
+        "../packages/db/src/runState.d.ts"
       ],
       "@smithers-orchestrator/db/*": [
         "../packages/db/src/*.ts",
