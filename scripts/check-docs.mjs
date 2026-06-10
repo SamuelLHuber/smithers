@@ -699,12 +699,14 @@ function checkToolDocsMatchCurrentRuntimeLogging() {
     "Smithers creates the `_smithers_tool_calls` table and exposes adapter methods to insert and list rows.",
     "The current engine reads that table on retry to build warnings for previously recorded non-idempotent side-effect tool calls.",
     "The `defineTool()` wrapper itself does not insert a durable row for every call",
+    "`defineTool()` wraps custom [AI SDK](https://ai-sdk.dev) tools with Smithers runtime context, deterministic idempotency keys, side-effect metadata, and the side-effect snapshot hook.",
     "`idempotent: false` marks the tool for retry warnings when a previous attempt has a recorded `_smithers_tool_calls` row.",
     "`defineTool()` does not persist `_smithers_tool_calls` rows directly",
   ];
   const forbidden = [
     "Every invocation is logged to `_smithers_tool_calls`:",
     "Every `defineTool()` call is logged to `_smithers_tool_calls`.",
+    "durable tool-call logging",
   ];
   const missing = required.filter((needle) => !docs.includes(needle));
   const stale = forbidden.filter((needle) => docs.includes(needle));

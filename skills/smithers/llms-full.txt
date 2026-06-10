@@ -9420,7 +9420,7 @@ Smithers creates the `_smithers_tool_calls` table and exposes adapter methods to
 
 ## defineTool
 
-`defineTool()` wraps custom AI SDK tools with Smithers runtime context, deterministic idempotency keys, and durable tool-call logging.
+`defineTool()` wraps custom AI SDK tools with Smithers runtime context, deterministic idempotency keys, side-effect metadata, and the side-effect snapshot hook.
 
 ```ts
 import { defineTool } from "smithers-orchestrator";
