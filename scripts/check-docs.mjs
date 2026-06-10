@@ -20,6 +20,7 @@ import ts from "typescript";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = join(root, "docs");
 const RPC_DOCS = join(DOCS, "rpc");
+const HOW_IT_WORKS = join(DOCS, "how-it-works.mdx");
 const README = join(root, "README.md");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
@@ -1220,6 +1221,109 @@ function checkRunOptionsDocsMatchSourceType() {
     console.error(problems.map((problem) => `    ${problem}`).join("\n"));
   } else {
     console.log("✓ RunOptions docs and declarations match the source type");
+  }
+}
+
+function extractClassBody(source, className) {
+  const classIndex = source.indexOf(`declare class ${className}`);
+  if (classIndex < 0) return null;
+  const openIndex = source.indexOf("{", classIndex);
+  if (openIndex < 0) return null;
+  let depth = 0;
+  for (let index = openIndex; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(openIndex + 1, index);
+    }
+  }
+  return null;
+}
+
+function extractClassPublicMembers(source, className) {
+  const body = extractClassBody(source, className);
+  if (!body) return null;
+  const properties = [];
+  const methods = [];
+  for (const line of body.split("\n")) {
+    const property = line.match(/^\s*(?:readonly\s+)?([A-Za-z_$][\w$]*)\??:/);
+    if (property?.[1] && !property[1].startsWith("_")) properties.push(property[1]);
+    const method = !property && line.match(/^\s*([A-Za-z_$][\w$]*)\b.*\(/);
+    if (method?.[1] && method[1] !== "constructor" && !method[1].startsWith("_")) methods.push(method[1]);
+  }
+  return { properties, methods };
+}
+
+function checkSmithersCtxDocsMatchDriverDeclaration() {
+  const declarations = readFileSync(DRIVER_DECLARATIONS, "utf8");
+  const typesDocs = readFileSync(TYPES_REFERENCE, "utf8");
+  const howDocs = readFileSync(HOW_IT_WORKS, "utf8");
+  const declarationMembers = extractClassPublicMembers(declarations, "SmithersCtx");
+  const docMembers = extractClassPublicMembers(typesDocs, "SmithersCtx");
+  const docBody = extractClassBody(typesDocs, "SmithersCtx");
+  const expectedProperties = ["runId", "iteration", "iterations", "input", "auth", "outputs"];
+  const expectedMethods = [
+    "output",
+    "outputMaybe",
+    "latest",
+    "latestArray",
+    "iterationCount",
+    "resolveTableName",
+    "resolveRow",
+  ];
+  const problems = [];
+  if (!declarationMembers) problems.push("could not parse packages/driver/src/index.d.ts SmithersCtx");
+  if (!docMembers) problems.push("could not parse docs/reference/types.mdx SmithersCtx");
+  if (!docBody) problems.push("could not parse docs/reference/types.mdx SmithersCtx body");
+  if (declarationMembers) {
+    const missingDeclarationProps = expectedProperties.filter((name) => !declarationMembers.properties.includes(name));
+    const missingDeclarationMethods = expectedMethods.filter((name) => !declarationMembers.methods.includes(name));
+    if (missingDeclarationProps.length) problems.push(`driver declaration missing properties: ${missingDeclarationProps.join(", ")}`);
+    if (missingDeclarationMethods.length) problems.push(`driver declaration missing methods: ${missingDeclarationMethods.join(", ")}`);
+  }
+  if (docMembers) {
+    const missingDocProps = expectedProperties.filter((name) => !docMembers.properties.includes(name));
+    const missingDocMethods = expectedMethods.filter((name) => !docMembers.methods.includes(name));
+    if (missingDocProps.length) problems.push(`types docs missing properties: ${missingDocProps.join(", ")}`);
+    if (missingDocMethods.length) problems.push(`types docs missing methods: ${missingDocMethods.join(", ")}`);
+  }
+
+  const required = [
+    [TYPES_REFERENCE, "input: Schema extends { input: infer T } ? T : unknown;"],
+    [TYPES_REFERENCE, "latestArray(value: unknown, schema: SafeParser): unknown[];"],
+    [TYPES_REFERENCE, "resolveTableName(table: any): string;"],
+    [TYPES_REFERENCE, "resolveRow(table: any, key: OutputKey): any | undefined;"],
+    [TYPES_REFERENCE, "type FallbackTableName<Schema> = [keyof Schema & string] extends [never] ? string : never;"],
+    [HOW_IT_WORKS, "`ctx.outputs(table)` / `ctx.outputs.<key>`"],
+    [HOW_IT_WORKS, "`ctx.latestArray(value, schema)`"],
+    [HOW_IT_WORKS, "`ctx.resolveTableName(table)` / `ctx.resolveRow(table, key)`"],
+    [HOW_IT_WORKS, "`ctx.runId` / `ctx.iteration` / `ctx.iterations`"],
+  ];
+  const forbidden = [
+    [TYPES_REFERENCE, "Schema extends { input: infer T } ? T : any"],
+    [TYPES_REFERENCE, "latestArray(value: unknown, schema: any): unknown[];"],
+    [TYPES_REFERENCE, "type OutputAccessor<Schema> = ((table: any) => any[]) & Record<string, any[]>;"],
+    [HOW_IT_WORKS, "ctx.outputMaybe(schema, { nodeId })"],
+    [HOW_IT_WORKS, "ctx.output(schema, { nodeId })"],
+    [HOW_IT_WORKS, "ctx.latest(schema, nodeId)"],
+  ];
+  const fileText = new Map([
+    [TYPES_REFERENCE, typesDocs],
+    [HOW_IT_WORKS, howDocs],
+  ]);
+  const missing = required.filter(([file, needle]) => !fileText.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => fileText.get(file)?.includes(needle));
+  if (missing.length) problems.push(`missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`);
+  if (stale.length) problems.push(`stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`);
+  if (docBody?.includes("readonly runId")) problems.push("SmithersCtx docs still mark runId readonly");
+
+  if (problems.length) {
+    failed = true;
+    console.error("\n✗ SmithersCtx docs must match the driver declaration:");
+    console.error(problems.map((problem) => `    ${problem}`).join("\n"));
+  } else {
+    console.log("✓ SmithersCtx docs match the driver declaration");
   }
 }
 
@@ -3008,6 +3112,7 @@ checkGatewayCancelRunDocsMatchRuntimeErrors();
 checkGatewaySubmitApprovalDocsMatchRuntimeErrors();
 checkHotReloadDocsMatchRuntimeDefaults();
 checkRunOptionsDocsMatchSourceType();
+checkSmithersCtxDocsMatchDriverDeclaration();
 checkAlertingDocsMatchRuntimeSurface();
 checkControlPlaneDocsMatchStoreApi();
 checkReferenceDeploymentDocsMatchFiles();

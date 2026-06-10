@@ -29,11 +29,14 @@ The frame is the unit of progress. Time travel, observability, hot reload, and r
 | Method | Returns | Use for |
 |---|---|---|
 | `ctx.input` | `T` | The immutable input passed to `runWorkflow`. |
-| `ctx.outputMaybe(schema, { nodeId })` | `Row \| undefined` | Conditional rendering; returns `undefined` until the upstream task completes. |
-| `ctx.output(schema, { nodeId })` | `Row` | Same, but throws if missing. Use inside a Task body where the dep is guaranteed. |
-| `ctx.latest(schema, nodeId)` | `Row \| undefined` | Highest iteration of a node, used inside `<Loop>` to read the previous iteration's output. |
-| `ctx.iterationCount(schema, nodeId)` | `number` | Number of completed iterations for a loop node. |
-| `ctx.runId` / `ctx.iteration` | `string` / `number` | Identifiers for logging. |
+| `ctx.outputs(table)` / `ctx.outputs.<key>` | `Row[]` | All rows for an output table or schema key. |
+| `ctx.outputMaybe(table, { nodeId, iteration? })` | `Row \| undefined` | Conditional rendering; returns `undefined` until the upstream task completes. |
+| `ctx.output(table, { nodeId, iteration? })` | `Row` | Same, but throws if missing. Use inside a Task body where the dep is guaranteed. |
+| `ctx.latest(table, nodeId)` | `Row \| undefined` | Highest iteration of a node, used inside `<Loop>` to read the previous iteration's output. |
+| `ctx.latestArray(value, schema)` | `unknown[]` | Parse a JSON string, scalar, or array and keep entries accepted by `schema.safeParse`. |
+| `ctx.iterationCount(table, nodeId)` | `number` | Number of completed iterations for a loop node. |
+| `ctx.resolveTableName(table)` / `ctx.resolveRow(table, key)` | `string` / `Row \| undefined` | Low-level helpers for custom table references and exact output lookup. |
+| `ctx.runId` / `ctx.iteration` / `ctx.iterations` | `string` / `number` / `Record<string, number> \| undefined` | Identifiers and loop counters for logging and scoped loop reads. |
 | `ctx.auth` | `RunAuthContext \| null` | Auth context passed via `RunOptions.auth`. |
 
 Outputs are keyed by `(runId, nodeId, iteration)`. `iteration` is `0` outside loops; inside `<Loop>` each pass writes a new row at the next iteration index.

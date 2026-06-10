@@ -872,11 +872,14 @@ The frame is the unit of progress. Time travel, observability, hot reload, and r
 | Method | Returns | Use for |
 |---|---|---|
 | `ctx.input` | `T` | The immutable input passed to `runWorkflow`. |
-| `ctx.outputMaybe(schema, { nodeId })` | `Row \| undefined` | Conditional rendering; returns `undefined` until the upstream task completes. |
-| `ctx.output(schema, { nodeId })` | `Row` | Same, but throws if missing. Use inside a Task body where the dep is guaranteed. |
-| `ctx.latest(schema, nodeId)` | `Row \| undefined` | Highest iteration of a node, used inside `<Loop>` to read the previous iteration's output. |
-| `ctx.iterationCount(schema, nodeId)` | `number` | Number of completed iterations for a loop node. |
-| `ctx.runId` / `ctx.iteration` | `string` / `number` | Identifiers for logging. |
+| `ctx.outputs(table)` / `ctx.outputs.<key>` | `Row[]` | All rows for an output table or schema key. |
+| `ctx.outputMaybe(table, { nodeId, iteration? })` | `Row \| undefined` | Conditional rendering; returns `undefined` until the upstream task completes. |
+| `ctx.output(table, { nodeId, iteration? })` | `Row` | Same, but throws if missing. Use inside a Task body where the dep is guaranteed. |
+| `ctx.latest(table, nodeId)` | `Row \| undefined` | Highest iteration of a node, used inside `<Loop>` to read the previous iteration's output. |
+| `ctx.latestArray(value, schema)` | `unknown[]` | Parse a JSON string, scalar, or array and keep entries accepted by `schema.safeParse`. |
+| `ctx.iterationCount(table, nodeId)` | `number` | Number of completed iterations for a loop node. |
+| `ctx.resolveTableName(table)` / `ctx.resolveRow(table, key)` | `string` / `Row \| undefined` | Low-level helpers for custom table references and exact output lookup. |
+| `ctx.runId` / `ctx.iteration` / `ctx.iterations` | `string` / `number` / `Record<string, number> \| undefined` | Identifiers and loop counters for logging and scoped loop reads. |
 | `ctx.auth` | `RunAuthContext \| null` | Auth context passed via `RunOptions.auth`. |
 
 Outputs are keyed by `(runId, nodeId, iteration)`. `iteration` is `0` outside loops; inside `<Loop>` each pass writes a new row at the next iteration index.
@@ -4888,28 +4891,41 @@ type SmithersAlertReaction =
 // Context
 // =============================================================================
 
-declare class SmithersCtx<Schema = unknown> {
-  readonly runId: string;
-  readonly iteration: number;
-  readonly iterations?: Record<string, number>;
-  readonly input: Schema extends { input: infer T } ? T : any;
-  readonly auth: RunAuthContext | null;
-  readonly outputs: OutputAccessor<Schema>;
+declare class SmithersCtx<Schema extends unknown = unknown> {
+  runId: string;
+  iteration: number;
+  iterations: Record<string, number> | undefined;
+  input: Schema extends { input: infer T } ? T : unknown;
+  auth: RunAuthContext | null;
+  outputs: OutputAccessor<Schema>;
 
   output(table: any, key: OutputKey): any;
   outputMaybe(table: any, key: OutputKey): any | undefined;
   latest(table: any, nodeId: string): any | undefined;
-  latestArray(value: unknown, schema: any): unknown[];
+  latestArray(value: unknown, schema: SafeParser): unknown[];
   iterationCount(table: any, nodeId: string): number;
+  resolveTableName(table: any): string;
+  resolveRow(table: any, key: OutputKey): any | undefined;
 }
 
 type OutputKey = { nodeId: string; iteration?: number };
-type OutputAccessor<Schema> = ((table: any) => any[]) & Record<string, any[]>;
+type SafeParser = {
+  safeParse(value: unknown):
+    | { success: true; data: unknown }
+    | { success: false; error?: unknown };
+};
 type InferRow<TTable> = TTable extends { $inferSelect: infer R } ? R : never;
 type InferOutputEntry<T> =
   T extends import("zod").ZodTypeAny ? import("zod").infer<T>
   : T extends { $inferSelect: any } ? InferRow<T>
   : never;
+type FallbackTableName<Schema> = [keyof Schema & string] extends [never] ? string : never;
+type OutputAccessor<Schema, TRow = unknown> = {
+  (table: FallbackTableName<Schema>): Array<TRow>;
+  <K extends keyof Schema & string>(table: K): Array<InferOutputEntry<Schema[K]>>;
+} & {
+  [K in keyof Schema & string]: Array<InferOutputEntry<Schema[K]>>;
+};
 
 type RunAuthContext = {
   triggeredBy: string;
