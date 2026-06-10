@@ -955,6 +955,7 @@ function checkSdkAgentDocsMatchSourceTypes() {
   const files = new Map([
     [SDK_AGENTS_INTEGRATION, readFileSync(SDK_AGENTS_INTEGRATION, "utf8")],
     [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+    [RECIPES_DOC, readFileSync(RECIPES_DOC, "utf8")],
     [SDK_AGENT_OPTIONS_SOURCE, readFileSync(SDK_AGENT_OPTIONS_SOURCE, "utf8")],
     [ANTHROPIC_AGENT_OPTIONS_SOURCE, readFileSync(ANTHROPIC_AGENT_OPTIONS_SOURCE, "utf8")],
     [OPENAI_AGENT_OPTIONS_SOURCE, readFileSync(OPENAI_AGENT_OPTIONS_SOURCE, "utf8")],
@@ -964,6 +965,8 @@ function checkSdkAgentDocsMatchSourceTypes() {
   ]);
   const required = [
     [SDK_AGENT_OPTIONS_SOURCE, "model: string | MODEL;"],
+    [SDK_AGENT_OPTIONS_SOURCE, "ToolLoopAgentSettings"],
+    [SDK_AGENT_OPTIONS_SOURCE, "Omit<ToolLoopAgentSettings<CALL_OPTIONS, TOOLS>, \"model\">"],
     [ANTHROPIC_AGENT_OPTIONS_SOURCE, "SdkAgentOptions<CALL_OPTIONS, TOOLS, ReturnType<typeof anthropic>>"],
     [OPENAI_AGENT_OPTIONS_SOURCE, "nativeStructuredOutput?: boolean;"],
     [OPENAI_AGENT_OPTIONS_SOURCE, "baseURL?: never;"],
@@ -991,12 +994,16 @@ function checkSdkAgentDocsMatchSourceTypes() {
     [TYPES_REFERENCE, "type HermesAgentOptions<CALL_OPTIONS = never, TOOLS extends import(\"ai\").ToolSet = {}> ="],
     [TYPES_REFERENCE, "baseURL?: string;               // falls back to HERMES_BASE_URL; required at runtime"],
     [TYPES_REFERENCE, "nativeStructuredOutput?: boolean; // default false"],
+    [RECIPES_DOC, 'new AnthropicAgent({ model, instructions: "Return JSON" })'],
+    [RECIPES_DOC, 'new AnthropicAgent({ model, instructions: "...", tools: { read, grep } })'],
+    [RECIPES_DOC, 'new AnthropicAgent({ model, instructions: "...", tools: { read, write, edit, bash } })'],
   ];
   const forbidden = [
     [SDK_AGENTS_INTEGRATION, "Provider-backed AI SDK agent wrappers for Anthropic and OpenAI"],
     [SDK_AGENTS_INTEGRATION, "`AnthropicAgent` and `OpenAIAgent` are thin wrappers"],
     [SDK_AGENTS_INTEGRATION, "Both classes accept a model ID string"],
     [SDK_AGENTS_INTEGRATION, "in that form, `apiKey: \"none\"` belongs in the `createOpenAI` config"],
+    [RECIPES_DOC, "new AnthropicAgent({ model, system:"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));

@@ -4515,9 +4515,9 @@ One context boundary per logical operation, not per step. Splitting too finely l
 ```tsx
 import { AnthropicAgent } from "smithers-orchestrator";
 
-const analyst     = new AnthropicAgent({ model, system: "Return JSON" });               // no tools
-const reviewer    = new AnthropicAgent({ model, system: "...", tools: { read, grep } }); // read-only
-const implementer = new AnthropicAgent({ model, system: "...", tools: { read, write, edit, bash } });
+const analyst     = new AnthropicAgent({ model, instructions: "Return JSON" });               // no tools
+const reviewer    = new AnthropicAgent({ model, instructions: "...", tools: { read, grep } }); // read-only
+const implementer = new AnthropicAgent({ model, instructions: "...", tools: { read, write, edit, bash } });
 ```
 
 Match the tool surface to the role.
