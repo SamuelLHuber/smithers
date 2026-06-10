@@ -45,6 +45,7 @@ const OPENAPI_LOAD_SPEC_EFFECT_SOURCE = join(root, "packages/openapi/src/loadSpe
 const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecSync.js");
 const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
+const GATEWAY_CLIENT_SOURCE = join(root, "packages/gateway-client/src/SmithersGatewayClient.ts");
 const GATEWAY_RPC_INDEX = join(root, "packages/gateway/src/rpc/index.ts");
 const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const GATEWAY_REACT_ASYNC_STATE = join(root, "packages/gateway-react/src/GatewayAsyncState.ts");
@@ -2232,11 +2233,14 @@ function checkCliAgentOptionDocsMatchSourceTypes() {
 }
 
 function checkGatewaySdkDocsMatchExports() {
+  const gatewayServerSource = join(root, "packages/server/src/gateway.js");
   const files = new Map([
     [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
     [CUSTOM_UI_INTEGRATION, readFileSync(CUSTOM_UI_INTEGRATION, "utf8")],
     [CUSTOM_WORKFLOW_UI_GUIDE, readFileSync(CUSTOM_WORKFLOW_UI_GUIDE, "utf8")],
+    [gatewayServerSource, readFileSync(gatewayServerSource, "utf8")],
     [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
+    [GATEWAY_CLIENT_SOURCE, readFileSync(GATEWAY_CLIENT_SOURCE, "utf8")],
     [GATEWAY_REACT_INDEX, readFileSync(GATEWAY_REACT_INDEX, "utf8")],
     [GATEWAY_REACT_ASYNC_STATE, readFileSync(GATEWAY_REACT_ASYNC_STATE, "utf8")],
     [GATEWAY_REACT_USE_GATEWAY_RUN, readFileSync(GATEWAY_REACT_USE_GATEWAY_RUN, "utf8")],
@@ -2248,6 +2252,11 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_CLIENT_INDEX, 'export { gatewayKeys } from "./sync/gatewayKeys.ts";'],
     [GATEWAY_CLIENT_INDEX, "createSmithersGatewayTransport"],
     [GATEWAY_CLIENT_INDEX, "GatewayExtensionStreamFrame"],
+    [gatewayServerSource, 'rpcPath: "/v1/rpc",'],
+    [gatewayServerSource, 'wsPath: "/",'],
+    [GATEWAY_CLIENT_SOURCE, "this.boot = globalThis.__SMITHERS_GATEWAY_UI__;"],
+    [GATEWAY_CLIENT_SOURCE, "const response = await this.fetchImpl(`${this.baseUrl}/v1/rpc/${method}`, {"],
+    [GATEWAY_CLIENT_SOURCE, "new this.WebSocketImpl(toWebSocketUrl(this.baseUrl, this.boot?.wsPath));"],
     [GATEWAY_REACT_INDEX, "useGatewayExtensionResource"],
     [GATEWAY_REACT_INDEX, "useGatewayExtensionAction"],
     [GATEWAY_REACT_INDEX, "useGatewayExtensionStream"],
@@ -2284,7 +2293,23 @@ function checkGatewaySdkDocsMatchExports() {
       CUSTOM_WORKFLOW_UI_GUIDE,
       "const run = useGatewayRun(runId);                   // run record + optional runState, refetches when runId changes",
     ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "Its HTTP RPC wrapper calls `/v1/rpc/<method>` under `baseUrl`, while WebSocket streams use the boot `wsPath`.",
+    ],
+    [
+      CUSTOM_WORKFLOW_UI_GUIDE,
+      "a direct `fetch` target (`rpcPath`)",
+    ],
     [CUSTOM_UI_INTEGRATION, 'useGatewayRuns({ filter: { status: "running" } });'],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "HTTP RPC calls go to `/v1/rpc/<method>` under `baseUrl`, and WebSocket streams use the boot `wsPath`",
+    ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "For a page hosted elsewhere, there is normally no boot global; pass an explicit `baseUrl` and token.",
+    ],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
@@ -2298,6 +2323,10 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `{ data: WorkflowSummary[] }`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `{ data: NodeOutputResponse }`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `{ data: GatewayApprovalSummary[] }`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "uses the matching `wsPath` and `rpcPath`"],
+    [CUSTOM_UI_INTEGRATION, "workflow-scoped path (typically"],
+    [CUSTOM_UI_INTEGRATION, "/v1/ws/<workflow>"],
+    [CUSTOM_UI_INTEGRATION, "the boot config is ignored"],
     [CUSTOM_UI_INTEGRATION, 'useGatewayRuns({ status: "running" })'],
     [CUSTOM_WORKFLOW_UI_GUIDE, "refetches as the seq advances"],
   ];

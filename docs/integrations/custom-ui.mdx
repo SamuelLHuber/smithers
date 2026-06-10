@@ -375,9 +375,9 @@ Every piece (pushed updates, reconnect, stale guards, abort on unmount, optimist
 
 ## Boot config (when the gateway hosts your UI)
 
-When you serve a UI directly off `gateway.register(name, workflow, { ui })`, the gateway sets `globalThis.__SMITHERS_GATEWAY_UI__` on the page before your bundle runs. `SmithersGatewayClient` reads it automatically and points the WebSocket at the workflow-scoped path (typically `ws+unix:///…:/rpc` or `/v1/ws/<workflow>`). Your UI code does not need to know; `new SmithersGatewayClient()` Just Works.
+When you serve a UI directly off `gateway.register(name, workflow, { ui })`, the gateway sets `globalThis.__SMITHERS_GATEWAY_UI__` on the page before your bundle runs. `SmithersGatewayClient` reads it automatically. HTTP RPC calls go to `/v1/rpc/<method>` under `baseUrl`, and WebSocket streams use the boot `wsPath` (currently `/` under the Gateway origin, or that path after the socket separator for `ws+unix:` base URLs). Your UI code does not need to know; `new SmithersGatewayClient()` Just Works.
 
-To opt out (e.g. you embed the SDK in a page hosted elsewhere), pass an explicit `baseUrl` and the boot config is ignored.
+For a page hosted elsewhere, there is normally no boot global; pass an explicit `baseUrl` and token.
 
 ## Errors at a glance
 

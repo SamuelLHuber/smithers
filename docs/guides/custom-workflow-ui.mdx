@@ -53,7 +53,7 @@ type GatewayUiBootConfig = {
 };
 ```
 
-You do not normally touch this. `new SmithersGatewayClient()` reads it automatically and uses the matching `wsPath` and `rpcPath`. Reach for it directly when you need a UI-specific prop (`__SMITHERS_GATEWAY_UI__?.props.brand`), a CDN asset (`assetBasePath`), or to react to whether the Gateway mounted you for one workflow or for the global inspector (`kind === "workflow"`).
+You do not normally touch this. `new SmithersGatewayClient()` reads it automatically. Its HTTP RPC wrapper calls `/v1/rpc/<method>` under `baseUrl`, while WebSocket streams use the boot `wsPath`. Reach for the boot config directly when you need a UI-specific prop (`__SMITHERS_GATEWAY_UI__?.props.brand`), a direct `fetch` target (`rpcPath`), a CDN asset (`assetBasePath`), or to react to whether the Gateway mounted you for one workflow or for the global inspector (`kind === "workflow"`).
 
 The `?runId=` query parameter is **not** in the boot config; it is in `location.search`, because a single UI bundle may be invoked across many runs. Read it once at startup and pass it through your store:
 
