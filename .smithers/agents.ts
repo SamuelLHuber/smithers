@@ -17,8 +17,14 @@ export const providers = {
   gemini1: new SmithersGeminiAgent({ model: "gemini-3.1-pro-preview", configDir: path.join(homedir(), ".gemini"), cwd: process.cwd() }),
 } as const;
 
+// LOCAL OVERRIDE (uncommitted, dogfooding session): the codex providers reject
+// `gpt-5.3-codex` under ChatGPT auth, opencode runs on an uncredited Anthropic
+// API key, and the kimi accounts' OAuth has expired — all local credential
+// issues, not a shared-config fix. A kimi auth-setup error is fatal (the engine
+// fails the run instead of failing over), so leading arrays with it kills runs.
+// Restrict to the two reliable ClaudeCode subscription providers. See issue #236.
 export const agents = {
-  cheapFast: [providers.kimi, providers.claudeSonnet, providers.kimi1, providers.gemini1],
-  smart: [providers.codex, providers.opencode, providers.claude, providers.kimi1, providers.codex1, providers.gemini1],
-  smartTool: [providers.claude, providers.codex, providers.opencode, providers.kimi1, providers.codex1, providers.gemini1],
+  cheapFast: [providers.claudeSonnet, providers.claude],
+  smart: [providers.claude, providers.claudeSonnet],
+  smartTool: [providers.claude, providers.claudeSonnet],
 } as const satisfies Record<string, AgentLike[]>;
