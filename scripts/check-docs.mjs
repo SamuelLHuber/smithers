@@ -25,6 +25,7 @@ const README = join(root, "README.md");
 const ERROR_DEFINITIONS = join(root, "packages/errors/src/smithersErrorDefinitions.js");
 const SMITHERS_FACADE_SOURCE = join(root, "packages/smithers/src/index.js");
 const SMITHERS_FACADE_DECLARATIONS = join(root, "packages/smithers/src/index.d.ts");
+const SMITHERS_CREATE_SOURCE = join(root, "packages/smithers/src/create.js");
 const ERROR_REFERENCE = join(DOCS, "reference/errors.mdx");
 const TYPES_REFERENCE = join(DOCS, "reference/types.mdx");
 const CLI_OVERVIEW = join(DOCS, "cli/overview.mdx");
@@ -39,6 +40,7 @@ const CUSTOM_UI_INTEGRATION = join(DOCS, "integrations/custom-ui.mdx");
 const CUSTOM_WORKFLOW_UI_GUIDE = join(DOCS, "guides/custom-workflow-ui.mdx");
 const ALERTING_GUIDE = join(DOCS, "guides/alerting.mdx");
 const CONTROL_PLANE_GUIDE = join(DOCS, "deployment/control-plane.mdx");
+const PRODUCTION_HARDENING_GUIDE = join(DOCS, "deployment/production-hardening.mdx");
 const REFERENCE_DEPLOYMENT_GUIDE = join(DOCS, "deployment/reference.mdx");
 const OPENAPI_CONCEPTS = join(DOCS, "concepts/openapi-tools.mdx");
 const MEMORY_CONCEPTS = join(DOCS, "concepts/memory.mdx");
@@ -1324,6 +1326,50 @@ function checkSmithersCtxDocsMatchDriverDeclaration() {
     console.error(problems.map((problem) => `    ${problem}`).join("\n"));
   } else {
     console.log("✓ SmithersCtx docs match the driver declaration");
+  }
+}
+
+function checkCreateSmithersPostgresDocsMatchFactory() {
+  const files = new Map([
+    [SMITHERS_CREATE_SOURCE, readFileSync(SMITHERS_CREATE_SOURCE, "utf8")],
+    [SMITHERS_FACADE_DECLARATIONS, readFileSync(SMITHERS_FACADE_DECLARATIONS, "utf8")],
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+    [PRODUCTION_HARDENING_GUIDE, readFileSync(PRODUCTION_HARDENING_GUIDE, "utf8")],
+  ]);
+  const required = [
+    [SMITHERS_CREATE_SOURCE, "const client = new pg.Client(connectionString ? { connectionString } : opts?.connection);"],
+    [SMITHERS_CREATE_SOURCE, "close: async () => {"],
+    [SMITHERS_FACADE_DECLARATIONS, "connection?: object;"],
+    [SMITHERS_FACADE_DECLARATIONS, "close: () => Promise<void>;"],
+    [TYPES_REFERENCE, '{ provider?: "postgres"; connectionString?: string; connection?: object }'],
+    [TYPES_REFERENCE, "Promise<CreateSmithersApi<Schemas> & { close: () => Promise<void> }>;"],
+    [PRODUCTION_HARDENING_GUIDE, 'pass a node-postgres connection config with `{ provider: "postgres", connection }`'],
+    [PRODUCTION_HARDENING_GUIDE, 'run an in-process PGlite with `{ provider: "pglite", dataDir }`'],
+    [PRODUCTION_HARDENING_GUIDE, "returns the same `createSmithers` API plus a `close()` teardown"],
+  ];
+  const forbidden = [
+    [
+      PRODUCTION_HARDENING_GUIDE,
+      'Point it at managed Postgres with `{ provider: "postgres", connectionString }`, or at an in-process PGlite',
+    ],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ createSmithersPostgres docs must match the factory and declaration:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ createSmithersPostgres docs match the factory and declaration");
   }
 }
 
@@ -3113,6 +3159,7 @@ checkGatewaySubmitApprovalDocsMatchRuntimeErrors();
 checkHotReloadDocsMatchRuntimeDefaults();
 checkRunOptionsDocsMatchSourceType();
 checkSmithersCtxDocsMatchDriverDeclaration();
+checkCreateSmithersPostgresDocsMatchFactory();
 checkAlertingDocsMatchRuntimeSurface();
 checkControlPlaneDocsMatchStoreApi();
 checkReferenceDeploymentDocsMatchFiles();
