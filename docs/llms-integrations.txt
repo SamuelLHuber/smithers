@@ -1081,11 +1081,13 @@ PI sessions are first-class hijack targets. `bunx smithers-orchestrator hijack R
 
 ### 2) PI Server Client
 
-Drive Smithers server APIs from a PI extension or any Node process via `@smithers-orchestrator/pi-plugin`:
+Drive Smithers server APIs from a PI extension or Bun process via `@smithers-orchestrator/pi-plugin`:
 
 ```ts
 import { runWorkflow, approve, streamEvents } from "@smithers-orchestrator/pi-plugin";
 ```
+
+`@smithers-orchestrator/pi-plugin` currently publishes TypeScript source entrypoints; run it with Bun or bundle it before using it from plain Node.
 
 The older `smithers-orchestrator/pi-plugin` and `smithers-orchestrator/pi-extension` subpaths were removed; use the scoped package directly.
 

@@ -119,6 +119,7 @@
     "@smithers-orchestrator/memory": "workspace:*",
     "@smithers-orchestrator/observability": "workspace:*",
     "@smithers-orchestrator/openapi": "workspace:*",
+    "@smithers-orchestrator/pi-plugin": "workspace:*",
     "@smithers-orchestrator/protocol": "workspace:*",
     "@smithers-orchestrator/react-reconciler": "workspace:*",
     "@smithers-orchestrator/sandbox": "workspace:*",

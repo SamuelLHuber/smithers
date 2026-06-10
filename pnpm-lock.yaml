@@ -80,6 +80,9 @@ importers:
       '@smithers-orchestrator/openapi':
         specifier: workspace:*
         version: link:packages/openapi
+      '@smithers-orchestrator/pi-plugin':
+        specifier: workspace:*
+        version: link:packages/pi-plugin
       '@smithers-orchestrator/protocol':
         specifier: workspace:*
         version: link:packages/protocol

@@ -15,6 +15,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS = join(root, "docs");
@@ -35,7 +36,7 @@ const EVENT_TYPES_REFERENCE = join(DOCS, "reference/event-types.mdx");
 const ENGINE_SOURCE = join(root, "packages/engine/src/engine.js");
 const DB_PACKAGE_JSON = join(root, "packages/db/package.json");
 const DB_RUN_STATE_SOURCE = join(root, "packages/db/src/runState.js");
-const DB_RUN_STATE_TYPES = join(root, "packages/db/src/runState-types.ts");
+const DB_RUN_STATE_TYPES = join(root, "packages/db/src/runState.d.ts");
 const OPENAPI_HELPERS_SOURCE = join(root, "packages/openapi/src/tool-factory/_helpers.js");
 const OPENAPI_LOAD_SPEC_EFFECT_SOURCE = join(root, "packages/openapi/src/loadSpecEffect.js");
 const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecSync.js");
@@ -45,6 +46,7 @@ const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
 const SDK_AGENTS_INTEGRATION = join(DOCS, "integrations/sdk-agents.mdx");
 const CLI_AGENTS_INTEGRATION = join(DOCS, "integrations/cli-agents.mdx");
+const PI_INTEGRATION = join(DOCS, "integrations/pi-integration.mdx");
 const CLI_AGENT_AVAILABILITY_TYPE = join(root, "apps/cli/src/AgentAvailability.ts");
 const CLI_AGENT_DETECTION_SOURCE = join(root, "apps/cli/src/agent-detection.js");
 const CLI_HIJACK_SOURCE = join(root, "apps/cli/src/hijack.js");
@@ -80,7 +82,11 @@ const TIME_TRAVEL_DECLARATIONS = join(root, "packages/time-travel/src/index.d.ts
 const OBSERVABILITY_INDEX_SOURCE = join(root, "apps/observability/src/index.js");
 const OBSERVABILITY_DECLARATIONS = join(root, "apps/observability/src/index.d.ts");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
+const ROOT_TSCONFIG = join(root, "tsconfig.json");
+const EXAMPLES_TSCONFIG = join(root, "examples/tsconfig.json");
+const SMITHERS_TSCONFIG = join(root, ".smithers/tsconfig.json");
 const ROOT_BUNFIG = join(root, "bunfig.toml");
+const PI_PLUGIN_PACKAGE_JSON = join(root, "packages/pi-plugin/package.json");
 const RUNTIME_REVERT_REFERENCE = join(DOCS, "runtime/revert.mdx");
 const WATCH_AND_STEER_GUIDE = join(DOCS, "guide/watch-and-steer.mdx");
 const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json");
@@ -259,6 +265,130 @@ function collectDocumentedSmithersImports() {
   return imports;
 }
 
+function currentDocFiles() {
+  const changelogDir = join(DOCS, "changelogs");
+  return walk(DOCS).filter((file) => !file.startsWith(`${changelogDir}/`));
+}
+
+function collectDocumentedPackageImports() {
+  const imports = new Map();
+  const importPattern =
+    /import\s+(?:type\s+)?\{([^{}]*?)\}\s*from\s*["']((?:smithers-orchestrator\/|@smithers-orchestrator\/)[^"']+)["']/g;
+  for (const file of currentDocFiles()) {
+    const source = readFileSync(file, "utf8");
+    for (const match of source.matchAll(importPattern)) {
+      const specifier = match[2];
+      const isTypeImport = /import\s+type\s*\{/.test(match[0]);
+      const entry = imports.get(specifier) ?? new Map();
+      for (const raw of match[1].split(",")) {
+        let part = raw.trim();
+        if (!part) continue;
+        const isType = isTypeImport || part.startsWith("type ");
+        part = part.replace(/^type\s+/, "").trim();
+        const name = part.split(/\s+as\s+/)[0].trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name)) continue;
+        const item = entry.get(name) ?? { type: false, value: false, files: new Set() };
+        if (isType) item.type = true;
+        else item.value = true;
+        item.files.add(file);
+        entry.set(name, item);
+      }
+      imports.set(specifier, entry);
+    }
+  }
+  return imports;
+}
+
+function checkDocumentedPackageImportsResolve() {
+  const documented = collectDocumentedPackageImports();
+  const runtimePayload = [...documented]
+    .map(([specifier, names]) => ({
+      specifier,
+      values: [...names]
+        .filter(([, entry]) => entry.value)
+        .map(([name, entry]) => ({ name, files: [...entry.files].map(displayPath) })),
+    }))
+    .filter((item) => item.values.length);
+  const runtimeScript = `
+const payload = ${JSON.stringify(runtimePayload)};
+const problems = [];
+for (const item of payload) {
+  let mod;
+  try {
+    mod = await import(item.specifier);
+  } catch (error) {
+    problems.push(item.specifier + ": runtime import failed " + error.message);
+    continue;
+  }
+  const keys = new Set(Object.keys(mod));
+  for (const value of item.values) {
+    if (!keys.has(value.name)) {
+      problems.push(item.specifier + ": missing runtime export " + value.name + " (" + value.files.join(", ") + ")");
+    }
+  }
+}
+if (problems.length) {
+  console.error(problems.join("\\n"));
+  process.exit(1);
+}
+`;
+  const runtimeCheck = spawnSync("bun", ["--eval", runtimeScript], { cwd: root, encoding: "utf8" });
+
+  const typeLines = [];
+  let bindingCounter = 0;
+  let typeCounter = 0;
+  for (const [specifier, names] of [...documented].sort()) {
+    const checks = [];
+    const specifiers = [...names].sort(([left], [right]) => left.localeCompare(right)).map(([name, entry]) => {
+      const localName = `__DocsPackageImport${bindingCounter++}`;
+      if (entry.value) {
+        checks.push(`void ${localName};`);
+        return `${name} as ${localName}`;
+      }
+      checks.push(`type __DocsPackageImportType${typeCounter++} = ${localName};`);
+      return `type ${name} as ${localName}`;
+    });
+    typeLines.push(`import { ${specifiers.join(", ")} } from ${JSON.stringify(specifier)};`);
+    typeLines.push(...checks);
+  }
+  const typeSource = `${typeLines.join("\n")}\n`;
+  const rootFile = join(root, ".docs-package-import-check.ts");
+  const compilerOptions = {
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    target: ts.ScriptTarget.ES2022,
+    jsx: ts.JsxEmit.ReactJSX,
+    strict: true,
+    skipLibCheck: true,
+    types: ["bun"],
+  };
+  const host = ts.createCompilerHost(compilerOptions);
+  const getSourceFile = host.getSourceFile.bind(host);
+  host.getSourceFile = (fileName, languageVersion, onError, shouldCreateNewSourceFile) =>
+    fileName === rootFile
+      ? ts.createSourceFile(fileName, typeSource, languageVersion, true, ts.ScriptKind.TS)
+      : getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile);
+  host.fileExists = (fileName) => fileName === rootFile || ts.sys.fileExists(fileName);
+  host.readFile = (fileName) => (fileName === rootFile ? typeSource : ts.sys.readFile(fileName));
+  const program = ts.createProgram([rootFile], compilerOptions, host);
+  const diagnostics = ts.getPreEmitDiagnostics(program).filter((diagnostic) => diagnostic.file?.fileName === rootFile);
+
+  if (runtimeCheck.status !== 0 || diagnostics.length) {
+    failed = true;
+    console.error("\n✗ documented package imports must resolve at runtime and in TypeScript:");
+    if (runtimeCheck.status !== 0) console.error(runtimeCheck.stderr.trim());
+    if (diagnostics.length) {
+      for (const diagnostic of diagnostics) {
+        const pos = diagnostic.file?.getLineAndCharacterOfPosition(diagnostic.start ?? 0);
+        const where = pos ? `${pos.line + 1}:${pos.character + 1}` : "unknown";
+        console.error(`    ${where} TS${diagnostic.code}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`);
+      }
+    }
+  } else {
+    console.log("✓ documented package imports resolve at runtime and in TypeScript");
+  }
+}
+
 function checkDocumentedSmithersImportsMatchFacade() {
   const documented = collectDocumentedSmithersImports();
   const runtimeExports = collectExportedNames(readFileSync(SMITHERS_FACADE_SOURCE, "utf8"));
@@ -416,6 +546,9 @@ function checkRunStateDocsMatchCurrentEmission() {
     [DB_PACKAGE_JSON, readFileSync(DB_PACKAGE_JSON, "utf8")],
     [DB_RUN_STATE_SOURCE, readFileSync(DB_RUN_STATE_SOURCE, "utf8")],
     [DB_RUN_STATE_TYPES, readFileSync(DB_RUN_STATE_TYPES, "utf8")],
+    [ROOT_TSCONFIG, readFileSync(ROOT_TSCONFIG, "utf8")],
+    [EXAMPLES_TSCONFIG, readFileSync(EXAMPLES_TSCONFIG, "utf8")],
+    [SMITHERS_TSCONFIG, readFileSync(SMITHERS_TSCONFIG, "utf8")],
   ]);
   const required = [
     [join(root, "docs/runtime/run-state.mdx"), 'import { computeRunState } from "@smithers-orchestrator/db/runState";'],
@@ -426,12 +559,17 @@ function checkRunStateDocsMatchCurrentEmission() {
     [join(root, "docs/reference/types.mdx"), "`SmithersEvent` is the discriminated union understood by the runtime and"],
     [join(root, "docs/reference/types.mdx"), "Most variants are emitted by the runtime; reserved"],
     [DB_PACKAGE_JSON, '"./runState"'],
-    [DB_PACKAGE_JSON, '"types": "./src/runState-types.ts"'],
     [DB_PACKAGE_JSON, '"import": "./src/runState.js"'],
     [DB_RUN_STATE_SOURCE, 'export { computeRunState } from "./runState/computeRunState.js";'],
     [DB_RUN_STATE_SOURCE, 'export { deriveRunState } from "./runState/deriveRunState.js";'],
     [DB_RUN_STATE_TYPES, "export declare function computeRunState("],
     [DB_RUN_STATE_TYPES, "export declare function deriveRunState("],
+    [ROOT_TSCONFIG, "./packages/db/src/runState.js"],
+    [ROOT_TSCONFIG, "./packages/db/src/runState.d.ts"],
+    [EXAMPLES_TSCONFIG, "../packages/db/src/runState.js"],
+    [EXAMPLES_TSCONFIG, "../packages/db/src/runState.d.ts"],
+    [SMITHERS_TSCONFIG, "../packages/db/src/runState.js"],
+    [SMITHERS_TSCONFIG, "../packages/db/src/runState.d.ts"],
   ];
   const forbidden = [
     [join(root, "docs/runtime/run-state.mdx"), "emitted by the recovery state machine"],
@@ -439,6 +577,9 @@ function checkRunStateDocsMatchCurrentEmission() {
     [join(root, "docs/runtime/events.mdx"), "every lifecycle event the runtime emits"],
     [join(root, "docs/reference/event-types.mdx"), "discriminated union emitted by the runtime"],
     [join(root, "docs/reference/types.mdx"), "every lifecycle event the runtime"],
+    [ROOT_TSCONFIG, "runState-types.ts"],
+    [EXAMPLES_TSCONFIG, "runState-types.ts"],
+    [SMITHERS_TSCONFIG, "runState-types.ts"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
@@ -727,6 +868,42 @@ function checkPackageConfigurationDocsMatchRootConfig() {
     if (extraWorkspacePackageRows.length) console.error(`    extra workspace package rows: ${extraWorkspacePackageRows.join(", ")}`);
   } else {
     console.log("✓ package configuration docs match root package.json and bunfig.toml");
+  }
+}
+
+function checkPiPluginDocsMatchPackageRuntime() {
+  const files = new Map([
+    [PI_INTEGRATION, readFileSync(PI_INTEGRATION, "utf8")],
+    [PI_PLUGIN_PACKAGE_JSON, readFileSync(PI_PLUGIN_PACKAGE_JSON, "utf8")],
+    [ROOT_PACKAGE_JSON, readFileSync(ROOT_PACKAGE_JSON, "utf8")],
+  ]);
+  const required = [
+    [PI_INTEGRATION, "Drive Smithers server APIs from a PI extension or Bun process via `@smithers-orchestrator/pi-plugin`:"],
+    [PI_INTEGRATION, 'import { runWorkflow, approve, streamEvents } from "@smithers-orchestrator/pi-plugin";'],
+    [PI_INTEGRATION, "`@smithers-orchestrator/pi-plugin` currently publishes TypeScript source entrypoints"],
+    [PI_PLUGIN_PACKAGE_JSON, '"import": "./src/index.ts"'],
+    [ROOT_PACKAGE_JSON, '"@smithers-orchestrator/pi-plugin": "workspace:*"'],
+  ];
+  const forbidden = [
+    [PI_INTEGRATION, "any Node process"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ PI plugin docs must match the TypeScript-source package runtime:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ PI plugin docs match TypeScript-source package runtime");
   }
 }
 
@@ -1648,6 +1825,7 @@ checkKnownErrorCodeUnion(errorCodes);
 checkGatewayTypeDocs();
 checkFacadeDeclarations();
 checkDocumentedSmithersImportsMatchFacade();
+checkDocumentedPackageImportsResolve();
 checkImplementedApisNotMarkedComingSoon();
 checkIronProxySpecMatchesSandboxSeam();
 checkFreestyleDocsMatchProviderSeam();
@@ -1657,6 +1835,7 @@ checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkComponentPropsDocsMatchSourceTypes();
 checkPackageConfigurationDocsMatchRootConfig();
+checkPiPluginDocsMatchPackageRuntime();
 checkVcsHelperDocsMatchCurrentExports();
 checkTimeTravelDocsMatchCurrentExports();
 checkStudioDocsMatchCurrentAppSurface();
