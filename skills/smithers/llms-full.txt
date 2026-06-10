@@ -6034,6 +6034,53 @@ type SamplingConfig =
 type ScorerBinding = { scorer: Scorer; sampling?: SamplingConfig };
 type ScorersMap    = Record<string, ScorerBinding>;
 
+type ScoreRow = {
+  id: string;
+  runId: string;
+  nodeId: string;
+  iteration: number;
+  attempt: number;
+  scorerId: string;
+  scorerName: string;
+  source: "live" | "batch";
+  score: number;
+  reason: string | null;
+  metaJson: string | null;
+  inputJson: string | null;
+  outputJson: string | null;
+  latencyMs: number | null;
+  scoredAtMs: number;
+  durationMs: number | null;
+};
+
+type AggregateScore = {
+  scorerId: string;
+  scorerName: string;
+  count: number;
+  mean: number;
+  min: number;
+  max: number;
+  p50: number;
+  stddev: number;
+};
+
+type AggregateOptions = {
+  runId?: string;
+  nodeId?: string;
+  scorerId?: string;
+};
+
+type ScorerContext = {
+  runId: string;
+  nodeId: string;
+  iteration: number;
+  attempt: number;
+  input: unknown;
+  output: unknown;
+  latencyMs?: number;
+  outputSchema?: import("zod").ZodObject<any>;
+};
+
 type LlmJudgeConfig = {
   id: string;
   name: string;

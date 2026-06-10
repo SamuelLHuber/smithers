@@ -114,6 +114,7 @@ const AMP_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AmpAgentOptions
 const VIBE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/VibeAgentOptions.ts");
 const MEMORY_TASK_CONFIG_SOURCE = join(root, "packages/memory/src/TaskMemoryConfig.ts");
 const SCORER_TYPES_SOURCE = join(root, "packages/scorers/src/types.ts");
+const SCORER_AGGREGATE_OPTIONS_SOURCE = join(root, "packages/scorers/src/AggregateOptions.ts");
 const LLM_JUDGE_CONFIG_SOURCE = join(root, "packages/scorers/src/LlmJudgeConfig.ts");
 const CREATE_SCORER_CONFIG_SOURCE = join(root, "packages/scorers/src/CreateScorerConfig.ts");
 const SANDBOX_PROPS_SOURCE = join(root, "packages/components/src/components/SandboxProps.ts");
@@ -2904,15 +2905,33 @@ function checkScorerDocsMatchSourceTypes() {
     [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
     [RECIPES_DOC, readFileSync(RECIPES_DOC, "utf8")],
     [SCORER_TYPES_SOURCE, readFileSync(SCORER_TYPES_SOURCE, "utf8")],
+    [SCORER_AGGREGATE_OPTIONS_SOURCE, readFileSync(SCORER_AGGREGATE_OPTIONS_SOURCE, "utf8")],
     [LLM_JUDGE_CONFIG_SOURCE, readFileSync(LLM_JUDGE_CONFIG_SOURCE, "utf8")],
     [CREATE_SCORER_CONFIG_SOURCE, readFileSync(CREATE_SCORER_CONFIG_SOURCE, "utf8")],
   ]);
   const required = [
     [SCORER_TYPES_SOURCE, '| { type: "ratio"; rate: number }'],
+    [SCORER_TYPES_SOURCE, "export type ScoreRow = {"],
+    [SCORER_TYPES_SOURCE, 'source: "live" | "batch";'],
+    [SCORER_TYPES_SOURCE, "durationMs: number | null;"],
+    [SCORER_TYPES_SOURCE, "export type AggregateScore = {"],
+    [SCORER_TYPES_SOURCE, "stddev: number;"],
+    [SCORER_TYPES_SOURCE, "export type ScorerContext = {"],
+    [SCORER_AGGREGATE_OPTIONS_SOURCE, "runId?: string;"],
+    [SCORER_AGGREGATE_OPTIONS_SOURCE, "nodeId?: string;"],
+    [SCORER_AGGREGATE_OPTIONS_SOURCE, "scorerId?: string;"],
     [LLM_JUDGE_CONFIG_SOURCE, "judge: AgentLike;"],
     [LLM_JUDGE_CONFIG_SOURCE, "instructions: string;"],
     [LLM_JUDGE_CONFIG_SOURCE, "promptTemplate: (input: ScorerInput) => string;"],
     [CREATE_SCORER_CONFIG_SOURCE, "score: ScorerFn;"],
+    [TYPES_REFERENCE, "type ScoreRow = {"],
+    [TYPES_REFERENCE, 'source: "live" | "batch";'],
+    [TYPES_REFERENCE, "durationMs: number | null;"],
+    [TYPES_REFERENCE, "type AggregateScore = {"],
+    [TYPES_REFERENCE, "stddev: number;"],
+    [TYPES_REFERENCE, "type AggregateOptions = {"],
+    [TYPES_REFERENCE, "scorerId?: string;"],
+    [TYPES_REFERENCE, "type ScorerContext = {"],
     [TYPES_REFERENCE, "judge: AgentLike;"],
     [TYPES_REFERENCE, "instructions: string;"],
     [TYPES_REFERENCE, "promptTemplate: (input: ScorerInput) => string;"],
@@ -2926,6 +2945,9 @@ function checkScorerDocsMatchSourceTypes() {
     [TYPES_REFERENCE, "type LlmJudgeConfig    = { model: string; systemPrompt?: string; temperature?: number; maxTokens?: number };"],
     [TYPES_REFERENCE, "model: string;\n  criteria: string;"],
     [TYPES_REFERENCE, "examples?: Array<{ input: unknown; output: unknown; score: number; explanation: string }>;"],
+    [TYPES_REFERENCE, "type ScoreRow = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type AggregateScore = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type ScorerContext = Record<string, unknown>;"],
     [RECIPES_DOC, "llmJudge({ model:"],
     [RECIPES_DOC, "prompt: \"Rate the analysis quality 0-1\""],
     [RECIPES_DOC, 'sampling: { kind: "ratio", ratio: 0.1 },'],
