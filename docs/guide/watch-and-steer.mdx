@@ -33,11 +33,11 @@ Smithers pulls the reviewer step's output and reads you the findings: the struct
   <img src="/images/why/runs-live.gif" alt="A Smithers run streaming live step transitions into a tree as each task starts and finishes" />
 </Frame>
 
-## Studio: the visual console (coming soon)
+## Studio: the visual console
 
-When you want eyes on it instead of a transcript, Studio is the Smithers operations console: one window for watching runs and workspaces. Studio is coming soon; the screenshots below preview what it adds on top of the CLI watch loop.
+When you want eyes on it instead of a transcript, Studio is the Smithers operations console: one window for watching runs and workspaces. In this repo, `pnpm dev:studio` starts the Studio 2 dev stack.
 
-When Studio ships, you open it the same way you do everything else, by asking. "Open Studio so I can watch the kanban board." Smithers opens the workspace in Studio, where you browse runs and workspaces, watch them update live, and drop into an embedded terminal, all in one window.
+You open it the same way you do everything else, by asking. "Open Studio so I can watch the kanban board." Smithers opens the workspace in Studio, where you browse runs and workspaces, watch them update live, and drop into an embedded terminal, all in one window.
 
 <Frame caption="Studio's home surface lists your workspaces and a live operations strip, so you start every session knowing exactly what is in flight.">
   <img src="/images/studio-2/home.png" alt="Smithers Studio home screen showing recent workspaces and a live operations strip" />
@@ -62,7 +62,7 @@ When you need to get hands-on inside a run's workspace, Studio gives you a real 
 </Frame>
 
 <Note>
-Studio is coming soon. Until it lands, the CLI watch loop (`ps`, `chat --follow`, `inspect --watch`) and the installable web app are the always-available paths, and work on any machine, with any agent, no GUI required.
+The CLI watch loop (`ps`, `chat --follow`, `inspect --watch`) and the installable web app remain the always-available paths, and work on any machine, with any agent, no GUI required.
 </Note>
 
 ## A browser and remote view

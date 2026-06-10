@@ -28,7 +28,7 @@ approved), never decoration.
 
 ## Scripts
 
-- `npm run dev` from the repo root starts the Smithers Gateway and Studio 2 together.
+- `pnpm dev:studio` from the repo root starts the Smithers Gateway, workspace API, and Studio 2 together.
 - `pnpm --filter @smithers-orchestrator/smithers-studio-2 dev`
 - `pnpm --filter @smithers-orchestrator/smithers-studio-2 typecheck`
 - `pnpm --filter @smithers-orchestrator/smithers-studio-2 build`
@@ -45,8 +45,8 @@ The root dev script probes for available ports starting at `7331` for the Gatewa
   local recents). This is the backbone for most surfaces today.
 - **`@smithers-orchestrator/gateway-client`** drives live runs over WebSocket
   (`listRuns`, `listWorkflows`, `listApprovals`, `launchRun`, `streamRunEvents`,
-  `streamDevTools`, …). The **Runs** surface wires to this; until it lands, Runs
-  reads run history/approvals over HTTP so it is never empty.
+  `streamDevTools`, …). The **Runs** and **Workflows** surfaces use this for
+  run history, approvals, workflow UI paths, launches, and event streams.
 
 ## Packaging
 
