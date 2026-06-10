@@ -44,6 +44,9 @@ const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecS
 const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
 const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
+const GATEWAY_REACT_ASYNC_STATE = join(root, "packages/gateway-react/src/GatewayAsyncState.ts");
+const GATEWAY_REACT_USE_GATEWAY_RPC = join(root, "packages/gateway-react/src/useGatewayRpc.ts");
+const GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT = join(root, "packages/gateway-react/src/useGatewayNodeOutput.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
 const SDK_AGENTS_INTEGRATION = join(DOCS, "integrations/sdk-agents.mdx");
 const CLI_AGENTS_INTEGRATION = join(DOCS, "integrations/cli-agents.mdx");
@@ -1794,6 +1797,9 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, readFileSync(CUSTOM_WORKFLOW_UI_GUIDE, "utf8")],
     [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
     [GATEWAY_REACT_INDEX, readFileSync(GATEWAY_REACT_INDEX, "utf8")],
+    [GATEWAY_REACT_ASYNC_STATE, readFileSync(GATEWAY_REACT_ASYNC_STATE, "utf8")],
+    [GATEWAY_REACT_USE_GATEWAY_RPC, readFileSync(GATEWAY_REACT_USE_GATEWAY_RPC, "utf8")],
+    [GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT, readFileSync(GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT, "utf8")],
   ]);
   const required = [
     [GATEWAY_CLIENT_INDEX, 'export { SyncClient } from "./sync/SyncClient.ts";'],
@@ -1810,6 +1816,12 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_REACT_INDEX, "useGatewayQuery"],
     [GATEWAY_REACT_INDEX, "useGatewayMutation"],
     [GATEWAY_REACT_INDEX, "useGatewayRunStream"],
+    [GATEWAY_REACT_ASYNC_STATE, "data: T | undefined;"],
+    [GATEWAY_REACT_ASYNC_STATE, "error: Error | undefined;"],
+    [GATEWAY_REACT_ASYNC_STATE, "loading: boolean;"],
+    [GATEWAY_REACT_ASYNC_STATE, "refetch: () => Promise<void>;"],
+    [GATEWAY_REACT_USE_GATEWAY_RPC, "): GatewayAsyncState<GatewayRpcPayload<Method>>"],
+    [GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT, 'return useGatewayRpc(\n    "getNodeOutput",'],
     [GATEWAY_INTEGRATION, "SyncCache"],
     [GATEWAY_INTEGRATION, "SyncClient"],
     [GATEWAY_INTEGRATION, "SyncSubscriptionHub"],
@@ -1825,11 +1837,19 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionResource(namespace, key, params?, opts?)"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionAction(namespace, key)"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayExtensionStream(namespace, key, params?, opts?)"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `GatewayAsyncState<GatewayApprovalSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "SyncProvider` + `useSyncQuery` / `useSyncMutation` / `useSyncSubscription"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayQuery` / `useGatewayMutation` / `useGatewayRunStream"],
   ];
   const forbidden = [
     [CUSTOM_WORKFLOW_UI_GUIDE, "re-exports nothing the client does not"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `{ data: RunSummary[] }`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `{ data: WorkflowSummary[] }`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `{ data: NodeOutputResponse }`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `{ data: GatewayApprovalSummary[] }`"],
   ];
   const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
   const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));

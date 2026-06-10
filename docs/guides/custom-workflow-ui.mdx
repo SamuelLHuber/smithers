@@ -105,11 +105,11 @@ The React hooks all live in `packages/gateway-react/src` and follow one rule: **
 |---|---|---|
 | `useSmithersGateway()` | `SmithersGatewayClient` | Bare client; fall back to it for one-off RPC. |
 | `useGatewayRun(runId)` | `{ data: Record<string, unknown>, loading, error, refetch }` | Reads the `getRun` payload: a run record with `summary` and optional `runState: RunStateView`. Refetches when `runId` changes. Disabled when `runId` is `undefined`. |
-| `useGatewayRuns({ filter? })` | `{ data: RunSummary[] }` | List recent runs; `filter` accepts `status`, `limit`. |
-| `useGatewayWorkflows()` | `{ data: WorkflowSummary[] }` | Powers picker UIs. |
+| `useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>` | List recent runs; `filter` accepts `status`, `limit`. |
+| `useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>` | Powers picker UIs. |
 | `useGatewayRunEvents(runId, opts?)` | `{ events, lastHeartbeat, streaming, error }` | Live WebSocket subscription. Drops the oldest events past `maxEvents` (default 1000). |
-| `useGatewayNodeOutput({ runId, nodeId, iteration? })` | `{ data: NodeOutputResponse }` | Reads a finished task's row + schema. |
-| `useGatewayApprovals({ filter? })` | `{ data: GatewayApprovalSummary[] }` | All gates waiting; `filter` accepts `runId`, `workflow`, `limit`. |
+| `useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>` | Reads a finished task's row + schema. |
+| `useGatewayApprovals({ filter? })` | `GatewayAsyncState<GatewayApprovalSummary[]>` | All gates waiting; `filter` accepts `runId`, `workflow`, `limit`. |
 | `useGatewayActions()` | Bound `submitApproval`, `submitSignal`, `cancelRun`, `resumeRun`, `rewindRun`, `cronCreate`, … | Memoized so dependent effects do not retrigger. |
 | `useGatewayRpc(method, params, opts?)` | `GatewayAsyncState<Payload>` | Escape hatch for any v1 RPC. |
 | `useGatewayExtensionResource(namespace, key, params?, opts?)` | `GatewayAsyncState<T>` | Declarative extension read/action call over `SmithersGatewayClient.extensionRpc` with the same stale-response fence as `useGatewayRpc`. |
