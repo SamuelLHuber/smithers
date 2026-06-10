@@ -2259,6 +2259,9 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_CLIENT_SOURCE, 'listRuns(params: GatewayRpcParams<"listRuns"> = {}) {'],
     [GATEWAY_CLIENT_SOURCE, 'headers.set("authorization", `Bearer ${options.token}`);'],
     [GATEWAY_CLIENT_SOURCE, "...(this.token ? { auth: { token: this.token } } : {}),"],
+    [gatewayServerSource, 'return responseError(id, "FORBIDDEN", `Missing required scope ${requiredScope} for ${method}`, {'],
+    [gatewayServerSource, "return responseError(id, authResult.code, authResult.message, authResult.details);"],
+    [gatewayServerSource, 'refresh: "smithers token issue",'],
     [GATEWAY_CLIENT_SOURCE, "const response = await this.fetchImpl(`${this.baseUrl}/v1/rpc/${method}`, {"],
     [GATEWAY_CLIENT_SOURCE, "new this.WebSocketImpl(toWebSocketUrl(this.baseUrl, this.boot?.wsPath));"],
     [GATEWAY_REACT_INDEX, "useGatewayExtensionResource"],
@@ -2338,6 +2341,22 @@ function checkGatewaySdkDocsMatchExports() {
       CUSTOM_UI_INTEGRATION,
       "`token` is sent as a bearer header on HTTP RPC calls and in the WebSocket `connect` request body.",
     ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      'error.code === "Forbidden" || error.code === "FORBIDDEN"',
+    ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "`code`: `UNAUTHORIZED` / `FORBIDDEN` at the auth gate; some method-level errors use canonical `Unauthorized` / `Forbidden`.",
+    ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      '`refresh?: string`: a server hint string; current token and JWT expiry responses use "smithers token issue".',
+    ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "| `UNAUTHORIZED` / `FORBIDDEN` (or canonical `Unauthorized` / `Forbidden`) |",
+    ],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
@@ -2359,6 +2378,8 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_UI_INTEGRATION, "Authorization: Bearer …"],
     [CUSTOM_UI_INTEGRATION, "on every HTTP and WebSocket handshake"],
     [CUSTOM_UI_INTEGRATION, "bearer header on every request, including the WebSocket handshake"],
+    [CUSTOM_UI_INTEGRATION, 'if (error instanceof GatewayRpcError && error.code === "Forbidden")'],
+    [CUSTOM_UI_INTEGRATION, 'e.g. `"reauth"`'],
     [CUSTOM_UI_INTEGRATION, 'useGatewayRuns({ status: "running" })'],
     [CUSTOM_WORKFLOW_UI_GUIDE, "refetches as the seq advances"],
   ];

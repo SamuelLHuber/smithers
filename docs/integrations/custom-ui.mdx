@@ -57,7 +57,7 @@ try {
   const run = await gateway.getRun({ runId: "run-1" });
   console.log(run.status);
 } catch (error) {
-  if (error instanceof GatewayRpcError && error.code === "Forbidden") {
+  if (error instanceof GatewayRpcError && (error.code === "Forbidden" || error.code === "FORBIDDEN")) {
     promptReauth(error.requiredScope);
   } else {
     throw error;
@@ -186,11 +186,11 @@ The pushed `approval.decided` event will arrive shortly after. When it does, rec
 
 ### Auth handling
 
-`token` is sent as a bearer header on HTTP RPC calls and in the WebSocket `connect` request body. When the gateway rejects with `Unauthorized` / `Forbidden`, the error carries:
+`token` is sent as a bearer header on HTTP RPC calls and in the WebSocket `connect` request body. When the gateway rejects auth or scope, the error carries:
 
-- `code: "Unauthorized" | "Forbidden"`
+- `code`: `UNAUTHORIZED` / `FORBIDDEN` at the auth gate; some method-level errors use canonical `Unauthorized` / `Forbidden`.
 - `requiredScope?: string`: the scope the call needs (e.g. `"run:write"`).
-- `refresh?: string`: a hint string set by your auth plane (e.g. `"reauth"`).
+- `refresh?: string`: a server hint string; current token and JWT expiry responses use "smithers token issue".
 
 A token refresh is just constructing a new client with the new bearer; `SmithersGatewayProvider` re-memoizes on token change, so React UIs see a clean cutover:
 
@@ -383,7 +383,7 @@ For a page hosted elsewhere, there is normally no boot global; pass an explicit 
 
 | Code | When | What to do |
 |---|---|---|
-| `Unauthorized` / `Forbidden` | Token missing or lacking scope. | Re-auth; new token; check `requiredScope`. |
+| `UNAUTHORIZED` / `FORBIDDEN` (or canonical `Unauthorized` / `Forbidden`) | Token missing or lacking scope. | Re-auth; new token; check `requiredScope`. |
 | `RateLimited` | Caller exceeded a quota. | Retry with `gatewayBackoffDelay`. |
 | `Busy` | Conflicting operation in flight (e.g. rewind already running). | Wait + retry. |
 | `BackpressureDisconnect` | Server shed the WebSocket due to subscriber backlog. | `streamRunEventsResilient` reconnects automatically. |
