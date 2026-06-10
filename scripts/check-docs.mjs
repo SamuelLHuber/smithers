@@ -45,6 +45,8 @@ const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
 const SDK_AGENTS_INTEGRATION = join(DOCS, "integrations/sdk-agents.mdx");
 const CLI_AGENTS_INTEGRATION = join(DOCS, "integrations/cli-agents.mdx");
+const CLI_HIJACK_SOURCE = join(root, "apps/cli/src/hijack.js");
+const NATIVE_HIJACK_ENGINE_SOURCE = join(root, "apps/cli/src/NativeHijackEngine.ts");
 const BASE_CLI_AGENT_SOURCE = join(root, "packages/agents/src/BaseCliAgent/BaseCliAgent.js");
 const SDK_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/SdkAgentOptions.ts");
 const ANTHROPIC_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AnthropicAgentOptions.ts");
@@ -1484,6 +1486,51 @@ function checkCliAgentDocsMatchCurrentModelDefaults() {
   }
 }
 
+function checkCliAgentHijackDocsMatchLauncher() {
+  const files = new Map([
+    [CLI_AGENTS_INTEGRATION, readFileSync(CLI_AGENTS_INTEGRATION, "utf8")],
+    [CLI_HIJACK_SOURCE, readFileSync(CLI_HIJACK_SOURCE, "utf8")],
+    [NATIVE_HIJACK_ENGINE_SOURCE, readFileSync(NATIVE_HIJACK_ENGINE_SOURCE, "utf8")],
+  ]);
+  const required = [
+    [NATIVE_HIJACK_ENGINE_SOURCE, '| "gemini"'],
+    [CLI_HIJACK_SOURCE, 'candidate.engine === "gemini"'],
+    [CLI_HIJACK_SOURCE, 'command: "gemini"'],
+    [CLI_HIJACK_SOURCE, 'args: ["--resume", candidate.resume]'],
+    [CLI_AGENTS_INTEGRATION, "| `ClaudeCodeAgent` | `claude --resume` |"],
+    [CLI_AGENTS_INTEGRATION, "| `CodexAgent` | `codex resume` |"],
+    [CLI_AGENTS_INTEGRATION, "| `AntigravityAgent` | `agy --conversation` |"],
+    [CLI_AGENTS_INTEGRATION, "| `GeminiAgent` | `gemini --resume` |"],
+    [CLI_AGENTS_INTEGRATION, "| `PiAgent` | `pi --session` |"],
+    [CLI_AGENTS_INTEGRATION, "| `KimiAgent` | `kimi --session` |"],
+    [CLI_AGENTS_INTEGRATION, "| `ForgeAgent` | `forge --conversation-id` |"],
+    [CLI_AGENTS_INTEGRATION, "| `AmpAgent` | `amp threads continue` |"],
+    [CLI_AGENTS_INTEGRATION, "native `bunx smithers-orchestrator hijack` support for Vibe and OpenCode is not shipped yet"],
+  ];
+  const forbidden = [
+    [CLI_AGENTS_INTEGRATION, "| `VibeAgent` | `vibe --resume` |"],
+    [CLI_AGENTS_INTEGRATION, "| `OpenCodeAgent` | `opencode --session` |"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ CLI agent hijack docs must match the native launcher:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ CLI agent hijack docs match the native launcher");
+  }
+}
+
 function checkCliAgentOptionDocsMatchSourceTypes() {
   const files = new Map([
     [CLI_AGENTS_INTEGRATION, readFileSync(CLI_AGENTS_INTEGRATION, "utf8")],
@@ -1616,6 +1663,7 @@ checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
 checkSdkAgentDocsMatchSourceTypes();
 checkCliAgentDocsMatchCurrentModelDefaults();
+checkCliAgentHijackDocsMatchLauncher();
 checkCliAgentOptionDocsMatchSourceTypes();
 checkGatewaySdkDocsMatchExports();
 

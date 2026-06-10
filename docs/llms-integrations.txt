@@ -387,6 +387,7 @@ Smithers persists the native session or conversation id on each task event. On h
 | `ClaudeCodeAgent` | `claude --resume` |
 | `CodexAgent` | `codex resume` |
 | `AntigravityAgent` | `agy --conversation` |
+| `GeminiAgent` | `gemini --resume` |
 | `PiAgent` | `pi --session` |
 | `KimiAgent` | `kimi --session` |
 | `ForgeAgent` | `forge --conversation-id` |
