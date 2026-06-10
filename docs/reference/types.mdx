@@ -583,6 +583,254 @@ type KanbanProps = {
   children?: React.ReactNode | Record<string, unknown>;
 };
 
+type ApprovalGateProps = {
+  id: string;
+  output: OutputTarget;
+  request: ApprovalRequest;
+  when: boolean;                    // false auto-approves
+  onDeny?: "fail" | "continue" | "skip";
+  skipIf?: boolean;
+  timeoutMs?: number;
+  heartbeatTimeoutMs?: number;
+  heartbeatTimeout?: number;
+  retries?: number;
+  retryPolicy?: RetryPolicy;
+  continueOnFail?: boolean;
+};
+
+type HumanTaskProps = {
+  id: string;
+  output: OutputTarget;
+  outputSchema?: import("zod").ZodObject<any>;
+  prompt: string | React.ReactNode;
+  maxAttempts?: number;
+  async?: boolean;
+  skipIf?: boolean;
+  timeoutMs?: number;
+  continueOnFail?: boolean;
+  dependsOn?: string[];
+  needs?: Record<string, string>;
+  label?: string;
+  meta?: Record<string, unknown>;
+  key?: string;
+};
+
+type CheckConfig = {
+  id: string;
+  agent?: AgentLike;
+  command?: string;
+  label?: string;
+};
+type CheckSuiteProps = {
+  id?: string;
+  checks: CheckConfig[] | Record<string, Omit<CheckConfig, "id">>;
+  verdictOutput: OutputTarget;
+  strategy?: "all-pass" | "majority" | "any-pass";
+  maxConcurrency?: number;
+  continueOnFail?: boolean;
+  skipIf?: boolean;
+};
+
+type TokenBudgetConfig = { max: number; perTask?: number; onExceeded?: "fail" | "warn" | "skip-remaining" };
+type LatencySloConfig = { maxMs: number; perTask?: number; onExceeded?: "fail" | "warn" };
+type CostBudgetConfig = { maxUsd: number; onExceeded?: "fail" | "warn" | "skip-remaining" };
+type TrackingConfig = { tokens?: boolean; latency?: boolean; cost?: boolean };
+type AspectsProps = {
+  tokenBudget?: TokenBudgetConfig;
+  latencySlo?: LatencySloConfig;
+  costBudget?: CostBudgetConfig;
+  tracking?: TrackingConfig;
+  children?: React.ReactNode;
+};
+
+type CategoryConfig = {
+  agent: AgentLike;
+  output?: OutputTarget;
+  prompt?: (item: unknown) => string;
+};
+type ClassifyAndRouteProps = {
+  id?: string;
+  items: unknown | unknown[];
+  categories: Record<string, AgentLike | CategoryConfig>;
+  classifierAgent: AgentLike;
+  classifierOutput: OutputTarget;
+  routeOutput: OutputTarget;
+  classificationResult?: {
+    classifications: Array<{ itemId?: string; category: string; [key: string]: unknown }>;
+  } | null;
+  maxConcurrency?: number;
+  skipIf?: boolean;
+  children?: React.ReactNode;
+};
+
+type SourceDef = {
+  agent: AgentLike;
+  prompt?: string;
+  output?: OutputTarget;
+  children?: React.ReactNode;
+};
+type GatherAndSynthesizeProps = {
+  id?: string;
+  sources: Record<string, SourceDef>;
+  synthesizer: AgentLike;
+  gatherOutput: OutputTarget;
+  synthesisOutput: OutputTarget;
+  gatheredResults?: Record<string, unknown> | null;
+  maxConcurrency?: number;
+  synthesisPrompt?: string;
+  skipIf?: boolean;
+  children?: React.ReactNode;
+};
+
+type ContentPipelineStage = { id: string; agent: AgentLike; output: OutputTarget; label?: string };
+type ContentPipelineProps = {
+  id?: string;
+  stages: ContentPipelineStage[];
+  skipIf?: boolean;
+  children: string | React.ReactNode;
+};
+
+type DebateProps = {
+  id?: string;
+  proposer: AgentLike;
+  opponent: AgentLike;
+  judge: AgentLike;
+  rounds?: number;
+  argumentOutput: OutputTarget;
+  verdictOutput: OutputTarget;
+  topic: string | React.ReactNode;
+  skipIf?: boolean;
+};
+
+type DecisionRule = { when: boolean; then: React.ReactElement; label?: string };
+type DecisionTableProps = {
+  id?: string;
+  rules: DecisionRule[];
+  default?: React.ReactElement;
+  strategy?: "first-match" | "all-match";
+  skipIf?: boolean;
+};
+
+type DriftDetectorProps = {
+  id?: string;
+  captureAgent: AgentLike;
+  compareAgent: AgentLike;
+  captureOutput: OutputTarget;
+  compareOutput: OutputTarget;
+  baseline: unknown;
+  alertIf?: (comparison: unknown) => boolean;
+  alert?: React.ReactElement;
+  poll?: { intervalMs?: number; maxPolls?: number };
+  skipIf?: boolean;
+};
+
+type EscalationLevel = {
+  agent: AgentLike;
+  output: OutputTarget;
+  label?: string;
+  escalateIf?: (result: unknown) => boolean;
+};
+type EscalationChainProps = {
+  id?: string;
+  levels: EscalationLevel[];
+  humanFallback?: boolean;
+  humanRequest?: ApprovalRequest;
+  escalationOutput: OutputTarget;
+  skipIf?: boolean;
+  children?: React.ReactNode;
+};
+
+type MergeQueueProps = { id?: string; maxConcurrency?: number; skipIf?: boolean; children?: React.ReactNode };
+
+type OptimizerProps = {
+  id?: string;
+  generator: AgentLike;
+  evaluator: AgentLike | ((candidate: unknown) => unknown | Promise<unknown>);
+  generateOutput: OutputTarget;
+  evaluateOutput: OutputTarget;
+  targetScore?: number;
+  maxIterations?: number;
+  onMaxReached?: "return-last" | "fail";
+  skipIf?: boolean;
+  children: string | React.ReactNode;
+};
+
+type PanelistConfig = { agent: AgentLike; role?: string; label?: string };
+type PanelProps = {
+  id?: string;
+  panelists: PanelistConfig[] | AgentLike[];
+  moderator: AgentLike;
+  panelistOutput: OutputTarget;
+  moderatorOutput: OutputTarget;
+  strategy?: "synthesize" | "vote" | "consensus";
+  minAgree?: number;
+  maxConcurrency?: number;
+  skipIf?: boolean;
+  children: string | React.ReactNode;
+};
+
+type ReviewLoopProps = {
+  id?: string;
+  producer: AgentLike;
+  reviewer: AgentLike | AgentLike[];
+  produceOutput: OutputTarget;
+  reviewOutput: OutputTarget;
+  maxIterations?: number;
+  onMaxReached?: "return-last" | "fail";
+  skipIf?: boolean;
+  children: string | React.ReactNode;
+};
+
+type RunbookStep = {
+  id: string;
+  agent?: AgentLike;
+  command?: string;
+  risk: "safe" | "risky" | "critical";
+  label?: string;
+  output?: OutputTarget;
+};
+type RunbookProps = {
+  id?: string;
+  steps: RunbookStep[];
+  defaultAgent?: AgentLike;
+  stepOutput: OutputTarget;
+  approvalRequest?: Partial<ApprovalRequest>;
+  onDeny?: "fail" | "skip";
+  skipIf?: boolean;
+};
+
+type ScanFixVerifyProps = {
+  id?: string;
+  scanner: AgentLike;
+  fixer: AgentLike | AgentLike[];
+  verifier: AgentLike;
+  scanOutput: OutputTarget;
+  fixOutput: OutputTarget;
+  verifyOutput: OutputTarget;
+  reportOutput: OutputTarget;
+  maxConcurrency?: number;
+  maxRetries?: number;
+  skipIf?: boolean;
+  children?: React.ReactNode;
+};
+
+type SupervisorProps = {
+  id?: string;
+  boss: AgentLike;
+  workers: Record<string, AgentLike>;
+  planOutput: OutputTarget;
+  workerOutput: OutputTarget;
+  reviewOutput: OutputTarget;
+  finalOutput: OutputTarget;
+  maxIterations?: number;
+  maxConcurrency?: number;
+  useWorktrees?: boolean;
+  skipIf?: boolean;
+  children: string | React.ReactNode;
+};
+
+type ContinueAsNewProps = { state?: unknown };
+
 // Sandbox
 type SandboxRuntime = "bubblewrap" | "docker" | "codeplane";
 type SandboxEgressConfig = {

@@ -643,6 +643,42 @@ function inlineCodeList(items) {
   return `${quoted.slice(0, -1).join(", ")}, and ${quoted.at(-1)}`;
 }
 
+function readTypeLiteralFieldNames(file, typeName) {
+  const source = readFileSync(file, "utf8");
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  let fields = null;
+  function visit(node) {
+    if (ts.isTypeAliasDeclaration(node) && node.name.text === typeName && ts.isTypeLiteralNode(node.type)) {
+      fields = node.type.members
+        .filter((member) => (ts.isPropertySignature(member) || ts.isMethodSignature(member)) && member.name)
+        .map((member) => member.name.getText(sf).replace(/^["']|["']$/g, ""));
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sf);
+  if (!fields) {
+    throw new Error(`Could not read type literal ${typeName} from ${displayPath(file)}`);
+  }
+  return fields;
+}
+
+function readDocsTypeBlock(source, typeName) {
+  const idx = source.indexOf(`type ${typeName}`);
+  if (idx < 0) return null;
+  const start = source.indexOf("{", idx);
+  if (start < 0) return null;
+  let depth = 0;
+  for (let i = start; i < source.length; i += 1) {
+    const ch = source[i];
+    if (ch === "{") depth += 1;
+    if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function readGatewayRpcDefinitionsFromSource() {
   const source = readFileSync(GATEWAY_RPC_INDEX, "utf8");
   const entries = [];
@@ -1992,6 +2028,65 @@ function checkComponentPropsDocsMatchSourceTypes() {
     }
   } else {
     console.log("✓ Component prop docs match source prop declarations");
+  }
+}
+
+function checkTypesReferenceIncludesCompositeComponentProps() {
+  const reference = readFileSync(TYPES_REFERENCE, "utf8");
+  const trackedTypes = [
+    ["ApprovalGateProps", join(root, "packages/components/src/components/ApprovalGateProps.ts")],
+    ["HumanTaskProps", join(root, "packages/components/src/components/HumanTaskProps.ts")],
+    ["CheckConfig", join(root, "packages/components/src/components/CheckConfig.ts")],
+    ["CheckSuiteProps", join(root, "packages/components/src/components/CheckSuiteProps.ts")],
+    ["TokenBudgetConfig", join(root, "packages/components/src/aspects/TokenBudgetConfig.ts")],
+    ["LatencySloConfig", join(root, "packages/components/src/aspects/LatencySloConfig.ts")],
+    ["CostBudgetConfig", join(root, "packages/components/src/aspects/CostBudgetConfig.ts")],
+    ["TrackingConfig", join(root, "packages/components/src/aspects/TrackingConfig.ts")],
+    ["AspectsProps", join(root, "packages/components/src/components/AspectsProps.ts")],
+    ["CategoryConfig", join(root, "packages/components/src/components/CategoryConfig.ts")],
+    ["ClassifyAndRouteProps", join(root, "packages/components/src/components/ClassifyAndRouteProps.ts")],
+    ["SourceDef", join(root, "packages/components/src/components/SourceDef.ts")],
+    ["GatherAndSynthesizeProps", join(root, "packages/components/src/components/GatherAndSynthesizeProps.ts")],
+    ["ContentPipelineStage", join(root, "packages/components/src/components/ContentPipelineStage.ts")],
+    ["ContentPipelineProps", join(root, "packages/components/src/components/ContentPipelineProps.ts")],
+    ["DebateProps", join(root, "packages/components/src/components/DebateProps.ts")],
+    ["DecisionRule", join(root, "packages/components/src/components/DecisionRule.ts")],
+    ["DecisionTableProps", join(root, "packages/components/src/components/DecisionTableProps.ts")],
+    ["DriftDetectorProps", join(root, "packages/components/src/components/DriftDetectorProps.ts")],
+    ["EscalationLevel", join(root, "packages/components/src/components/EscalationLevel.ts")],
+    ["EscalationChainProps", join(root, "packages/components/src/components/EscalationChainProps.ts")],
+    ["MergeQueueProps", join(root, "packages/components/src/components/MergeQueueProps.ts")],
+    ["OptimizerProps", join(root, "packages/components/src/components/OptimizerProps.ts")],
+    ["PanelistConfig", join(root, "packages/components/src/components/PanelistConfig.ts")],
+    ["PanelProps", join(root, "packages/components/src/components/PanelProps.ts")],
+    ["ReviewLoopProps", join(root, "packages/components/src/components/ReviewLoopProps.ts")],
+    ["RunbookStep", join(root, "packages/components/src/components/RunbookStep.ts")],
+    ["RunbookProps", join(root, "packages/components/src/components/RunbookProps.ts")],
+    ["ScanFixVerifyProps", join(root, "packages/components/src/components/ScanFixVerifyProps.ts")],
+    ["SupervisorProps", join(root, "packages/components/src/components/SupervisorProps.ts")],
+    ["ContinueAsNewProps", join(root, "packages/components/src/components/ContinueAsNewProps.ts")],
+  ];
+  const missing = [];
+  for (const [typeName, file] of trackedTypes) {
+    const block = readDocsTypeBlock(reference, typeName);
+    if (!block) {
+      missing.push([TYPES_REFERENCE, `type ${typeName}`]);
+      continue;
+    }
+    for (const fieldName of readTypeLiteralFieldNames(file, typeName)) {
+      if (!block.includes(fieldName)) {
+        missing.push([TYPES_REFERENCE, `${typeName}.${fieldName}`]);
+      }
+    }
+  }
+  if (missing.length) {
+    failed = true;
+    console.error("\n✗ Types reference must include exported composite component prop types:");
+    console.error(
+      `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+    );
+  } else {
+    console.log("✓ Types reference includes exported composite component prop types");
   }
 }
 
@@ -3571,6 +3666,7 @@ checkSandboxEgressDocsMatchRuntime();
 checkServeDocsMatchServerTypes();
 checkHttpServerDocsMatchRuntimeSurface();
 checkComponentPropsDocsMatchSourceTypes();
+checkTypesReferenceIncludesCompositeComponentProps();
 checkPackageConfigurationDocsMatchRootConfig();
 checkPiPluginDocsMatchPackageRuntime();
 checkVcsHelperDocsMatchCurrentExports();
