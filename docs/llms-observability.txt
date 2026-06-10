@@ -668,6 +668,8 @@ type GatewayOptions = {
   features?: string[];               // default ["streaming", "runs"]
   heartbeatMs?: number;              // default 15_000
   auth?: GatewayAuthConfig;
+  ui?: GatewayUiConfig;              // custom gateway UI; true mounts the built-in console
+  operatorUi?: GatewayOperatorUiConfig | false; // default { path: "/console" }; false disables
   defaults?: { cliAgentTools?: "all" | "explicit-only" };
   maxBodyBytes?: number;             // default 1_048_576 for POST /rpc
   maxPayload?: number;               // default 1_048_576 for WebSocket frames
@@ -677,10 +679,35 @@ type GatewayOptions = {
   requestTimeout?: number;           // default 60_000
 };
 
+type GatewayOperatorUiConfig = {
+  path?: string;                      // default "/console"
+  title?: string;
+  props?: Record<string, unknown>;
+};
+
+type GatewayUiConfig =
+  | true
+  | {
+      entry: string;
+      path?: string;                  // gateway default "/"; workflow default "/workflows/<workflowKey>"
+      title?: string;
+      props?: Record<string, unknown>;
+    };
+
+type GatewayTokenGrant = {
+  role: string;
+  scopes: string[];
+  userId?: string;
+  tokenId?: string;
+  issuedAtMs?: number;
+  expiresAtMs?: number;
+  revokedAtMs?: number;
+};
+
 type GatewayAuthConfig =
   | {
       mode: "token";
-      tokens: Record<string, { role: string; scopes: string[]; userId?: string }>;
+      tokens: Record<string, GatewayTokenGrant>;
     }
   | {
       mode: "jwt";

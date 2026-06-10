@@ -48,6 +48,8 @@ const GATEWAY_REACT_ASYNC_STATE = join(root, "packages/gateway-react/src/Gateway
 const GATEWAY_REACT_USE_GATEWAY_RUN = join(root, "packages/gateway-react/src/useGatewayRun.ts");
 const GATEWAY_REACT_USE_GATEWAY_RPC = join(root, "packages/gateway-react/src/useGatewayRpc.ts");
 const GATEWAY_REACT_USE_GATEWAY_NODE_OUTPUT = join(root, "packages/gateway-react/src/useGatewayNodeOutput.ts");
+const GATEWAY_OPTIONS_SOURCE = join(root, "packages/server/src/GatewayOptions.ts");
+const GATEWAY_TOKEN_GRANT_SOURCE = join(root, "packages/server/src/GatewayTokenGrant.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
 const SDK_AGENTS_INTEGRATION = join(DOCS, "integrations/sdk-agents.mdx");
 const CLI_AGENTS_INTEGRATION = join(DOCS, "integrations/cli-agents.mdx");
@@ -191,6 +193,9 @@ function requireContains(label, source, needles) {
 
 function checkGatewayTypeDocs() {
   const docs = readFileSync(TYPES_REFERENCE, "utf8");
+  const integration = readFileSync(GATEWAY_INTEGRATION, "utf8");
+  const optionsSource = readFileSync(GATEWAY_OPTIONS_SOURCE, "utf8");
+  const tokenGrantSource = readFileSync(GATEWAY_TOKEN_GRANT_SOURCE, "utf8");
   requireContains("gateway type docs", docs, [
     "type GatewayUiConfig =",
     "type GatewayOperatorUiConfig =",
@@ -202,6 +207,36 @@ function checkGatewayTypeDocs() {
     "expiresAtMs?: number;",
     "revokedAtMs?: number;",
   ]);
+  requireContains("gateway option source", optionsSource, [
+    "ui?: GatewayUiConfig;",
+    "operatorUi?: GatewayOperatorUiConfig | false;",
+  ]);
+  requireContains("gateway token grant source", tokenGrantSource, [
+    "tokenId?: string;",
+    "issuedAtMs?: number;",
+    "expiresAtMs?: number;",
+    "revokedAtMs?: number;",
+  ]);
+  requireContains("gateway integration docs", integration, [
+    "ui?: GatewayUiConfig;",
+    "operatorUi?: GatewayOperatorUiConfig | false;",
+    "type GatewayOperatorUiConfig =",
+    "type GatewayUiConfig =",
+    "type GatewayTokenGrant =",
+    "tokens: Record<string, GatewayTokenGrant>;",
+    "tokenId?: string;",
+    "issuedAtMs?: number;",
+    "expiresAtMs?: number;",
+    "revokedAtMs?: number;",
+  ]);
+  const staleGatewayIntegration = [
+    "tokens: Record<string, { role: string; scopes: string[]; userId?: string }>;",
+  ].filter((needle) => integration.includes(needle));
+  if (staleGatewayIntegration.length) {
+    failed = true;
+    console.error("\n✗ gateway integration docs include stale type text:");
+    console.error(staleGatewayIntegration.map((needle) => `    ${needle}`).join("\n"));
+  }
 }
 
 function checkFacadeDeclarations() {
