@@ -1,17 +1,20 @@
 ---
 title: VCS Helper Reference
-description: Public JJ helper APIs exported by smithers-orchestrator for repo detection, snapshot inspection, and workspace management.
+description: Public JJ and VCS helper APIs for repo detection, snapshot inspection, binary resolution, and workspace management.
 ---
 
-Smithers exports a small JJ helper surface for applications that inspect or manage Jujutsu state directly.
+Smithers exports a small VCS helper surface for applications that inspect or manage Jujutsu state directly.
 
 Lightweight by design:
 
 - every helper accepts an optional `cwd` to target a specific repository
 - spawn failures are normalized instead of throwing, so they are safe to call even when `jj` is not installed
 - workspace helpers try a few command shapes to tolerate JJ version drift
+- JJ command helpers return `Effect` values, so direct callers must provide an Effect `CommandExecutor` layer
 
 ## Import
+
+The root `smithers-orchestrator` facade exports the main JJ helpers:
 
 ```ts
 import {
@@ -25,12 +28,39 @@ import {
 } from "smithers-orchestrator";
 ```
 
+The lower-level VCS package also exports repository discovery, binary resolution, tooling preflight, and snapshot capture helpers:
+
+```ts
+import {
+  captureWorkspaceSnapshot,
+  findVcsRoot,
+  resolveGitBinary,
+  resolveJjBinary,
+  vcsToolingStatus,
+} from "@smithers-orchestrator/vcs";
+```
+
+Direct JJ helper calls need a platform layer:
+
+```ts
+import type * as CommandExecutor from "@effect/platform/CommandExecutor";
+import * as BunContext from "@effect/platform-bun/BunContext";
+import { Effect } from "effect";
+
+type VcsEffect<A> = Effect.Effect<A, never, CommandExecutor.CommandExecutor>;
+
+const runVcs = <A,>(effect: VcsEffect<A>) =>
+  Effect.runPromise(effect.pipe(Effect.provide(BunContext.layer)));
+```
+
+Install `@effect/platform-bun` when using the Bun snippet, or use the equivalent `CommandExecutor` layer for another runtime.
+
 ## `runJj(args, opts?)`
 
 Run an arbitrary `jj` command and capture its output.
 
 ```ts
-const result = await runJj(["status"], { cwd: "/path/to/repo" });
+const result = await runVcs(runJj(["status"], { cwd: "/path/to/repo" }));
 ```
 
 ```ts
@@ -43,6 +73,8 @@ type RunJjResult = {
   stdout: string;
   stderr: string;
 };
+
+function runJj(args: string[], opts?: RunJjOptions): VcsEffect<RunJjResult>;
 ```
 
 Notes:
@@ -56,11 +88,11 @@ Notes:
 Return the current workspace `change_id` for `@`, or `null` when JJ is unavailable or the current directory is not a JJ repo.
 
 ```ts
-const pointer = await getJjPointer("/path/to/repo");
+const pointer = await runVcs(getJjPointer("/path/to/repo"));
 ```
 
 ```ts
-function getJjPointer(cwd?: string): Promise<string | null>;
+function getJjPointer(cwd?: string): VcsEffect<string | null>;
 ```
 
 Smithers uses the same pointer model internally for revert support and cache invalidation.
@@ -70,7 +102,7 @@ Smithers uses the same pointer model internally for revert support and cache inv
 Restore the working copy from a previously recorded JJ pointer. A pointer is a JJ `change_id` string, as returned by `getJjPointer`.
 
 ```ts
-const result = await revertToJjPointer("zqkopwvn", "/path/to/repo");
+const result = await runVcs(revertToJjPointer("zqkopwvn", "/path/to/repo"));
 ```
 
 ```ts
@@ -78,6 +110,8 @@ type JjRevertResult = {
   success: boolean;
   error?: string;
 };
+
+function revertToJjPointer(pointer: string, cwd?: string): VcsEffect<JjRevertResult>;
 ```
 
 This helper wraps `jj restore --from <pointer>`.
@@ -87,11 +121,11 @@ This helper wraps `jj restore --from <pointer>`.
 Detect whether a directory is a readable JJ repository.
 
 ```ts
-const enabled = await isJjRepo("/path/to/repo");
+const enabled = await runVcs(isJjRepo("/path/to/repo"));
 ```
 
 ```ts
-function isJjRepo(cwd?: string): Promise<boolean>;
+function isJjRepo(cwd?: string): VcsEffect<boolean>;
 ```
 
 Use this before showing JJ-specific UI or attempting a revert flow.
@@ -101,10 +135,12 @@ Use this before showing JJ-specific UI or attempting a revert flow.
 Create a JJ workspace with a friendly name at a target filesystem path.
 
 ```ts
-const result = await workspaceAdd("feature-auth", "/tmp/wt-feature-auth", {
-  cwd: "/path/to/repo",
-  atRev: "@",
-});
+const result = await runVcs(
+  workspaceAdd("feature-auth", "/tmp/wt-feature-auth", {
+    cwd: "/path/to/repo",
+    atRev: "@",
+  }),
+);
 ```
 
 ```ts
@@ -117,6 +153,8 @@ type WorkspaceResult = {
   success: boolean;
   error?: string;
 };
+
+function workspaceAdd(name: string, path: string, opts?: WorkspaceAddOptions): VcsEffect<WorkspaceResult>;
 ```
 
 Behavior notes:
@@ -130,7 +168,7 @@ Behavior notes:
 List known workspaces for the current JJ repo.
 
 ```ts
-const workspaces = await workspaceList("/path/to/repo");
+const workspaces = await runVcs(workspaceList("/path/to/repo"));
 ```
 
 ```ts
@@ -139,6 +177,8 @@ type WorkspaceInfo = {
   path: string | null;
   selected: boolean;
 };
+
+function workspaceList(cwd?: string): VcsEffect<WorkspaceInfo[]>;
 ```
 
 Prefers template output when supported, falls back to parsing the human-readable `jj workspace list` output.
@@ -148,19 +188,98 @@ Prefers template output when supported, falls back to parsing the human-readable
 Forget a JJ workspace by name.
 
 ```ts
-const result = await workspaceClose("feature-auth", {
-  cwd: "/path/to/repo",
-});
+const result = await runVcs(
+  workspaceClose("feature-auth", {
+    cwd: "/path/to/repo",
+  }),
+);
 ```
 
 ```ts
 function workspaceClose(
   name: string,
   opts?: { cwd?: string },
-): Promise<WorkspaceResult>;
+): VcsEffect<WorkspaceResult>;
 ```
 
 This wraps `jj workspace forget <name>`.
+
+## `captureWorkspaceSnapshot(cwd?)`
+
+Capture the current JJ working-copy state as a restorable handle. This helper is exported by `@smithers-orchestrator/vcs`, not by the root facade.
+
+```ts
+const snapshot = await runVcs(captureWorkspaceSnapshot("/path/to/repo"));
+```
+
+```ts
+type WorkspaceSnapshot = {
+  commitId: string;
+  changeId: string;
+  operationId: string;
+};
+
+function captureWorkspaceSnapshot(cwd?: string): VcsEffect<WorkspaceSnapshot | null>;
+```
+
+It returns `null` on failures and timeouts, including non-JJ directories. Smithers uses the `commitId` and `operationId` values for workspace durability checkpoints.
+
+## `findVcsRoot(startDir)`
+
+Walk upward from a directory and return the nearest `.jj` or `.git` root. JJ wins when both markers exist in the same directory.
+
+```ts
+const root = await Effect.runPromise(findVcsRoot(process.cwd()));
+```
+
+```ts
+type VcsRoot =
+  | { type: "jj"; root: string }
+  | { type: "git"; root: string };
+
+function findVcsRoot(startDir: string): Effect.Effect<VcsRoot | null, never, never>;
+```
+
+## `resolveGitBinary()` and `resolveJjBinary()`
+
+Resolve the executable Smithers will spawn for VCS commands.
+
+```ts
+const git = resolveGitBinary();
+const jj = resolveJjBinary();
+```
+
+```ts
+type ResolvedBinary = {
+  path: string;
+  source: "env" | "bundled" | "path";
+};
+
+function resolveGitBinary(): ResolvedBinary;
+function resolveJjBinary(): ResolvedBinary;
+```
+
+`resolveGitBinary()` checks `SMITHERS_GIT_PATH`, then falls back to `git` on `PATH`. `resolveJjBinary()` checks `SMITHERS_JJ_PATH`, then a bundled `@smithers-orchestrator/jj-<platform>` package, then `jj` on `PATH`.
+
+## `vcsToolingStatus()`
+
+Probe whether the resolved VCS binaries are usable on the current host.
+
+```ts
+const status = vcsToolingStatus();
+```
+
+```ts
+type VcsToolingStatus = {
+  jj: ResolvedBinary | null;
+  git: ResolvedBinary | null;
+  ok: boolean;
+};
+
+function vcsToolingStatus(): VcsToolingStatus;
+```
+
+This is synchronous and best-effort. It runs version probes with a short timeout and powers the CLI's VCS preflight checks.
 
 ## When To Use These Helpers
 
@@ -169,6 +288,7 @@ Use these helpers when your application needs to:
 - show whether JJ-backed revert is available
 - record or inspect a pointer outside the Smithers engine
 - manage JJ workspaces directly from an app or integration layer
+- check whether JJ or Git tooling is available before starting worktree logic
 
 For workflow-level revert behavior, prefer the runtime and CLI docs:
 

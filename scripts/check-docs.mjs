@@ -60,6 +60,11 @@ const LLM_JUDGE_CONFIG_SOURCE = join(root, "packages/scorers/src/LlmJudgeConfig.
 const CREATE_SCORER_CONFIG_SOURCE = join(root, "packages/scorers/src/CreateScorerConfig.ts");
 const RECIPES_DOC = join(DOCS, "recipes.mdx");
 const PACKAGE_CONFIGURATION_REFERENCE = join(DOCS, "reference/package-configuration.mdx");
+const VCS_HELPERS_REFERENCE = join(DOCS, "reference/vcs-helpers.mdx");
+const VCS_PACKAGE_JSON = join(root, "packages/vcs/package.json");
+const VCS_INDEX_SOURCE = join(root, "packages/vcs/src/index.js");
+const VCS_JJ_SOURCE = join(root, "packages/vcs/src/jj.js");
+const VCS_DECLARATIONS = join(root, "packages/vcs/src/index.d.ts");
 const ROOT_PACKAGE_JSON = join(root, "package.json");
 const ROOT_BUNFIG = join(root, "bunfig.toml");
 const WATCH_AND_STEER_GUIDE = join(DOCS, "guide/watch-and-steer.mdx");
@@ -604,6 +609,124 @@ function checkPackageConfigurationDocsMatchRootConfig() {
     if (extraWorkspacePackageRows.length) console.error(`    extra workspace package rows: ${extraWorkspacePackageRows.join(", ")}`);
   } else {
     console.log("✓ package configuration docs match root package.json and bunfig.toml");
+  }
+}
+
+function checkVcsHelperDocsMatchCurrentExports() {
+  const files = new Map([
+    [VCS_HELPERS_REFERENCE, readFileSync(VCS_HELPERS_REFERENCE, "utf8")],
+    [VCS_PACKAGE_JSON, readFileSync(VCS_PACKAGE_JSON, "utf8")],
+    [VCS_INDEX_SOURCE, readFileSync(VCS_INDEX_SOURCE, "utf8")],
+    [VCS_JJ_SOURCE, readFileSync(VCS_JJ_SOURCE, "utf8")],
+    [VCS_DECLARATIONS, readFileSync(VCS_DECLARATIONS, "utf8")],
+    [SMITHERS_FACADE_DECLARATIONS, readFileSync(SMITHERS_FACADE_DECLARATIONS, "utf8")],
+  ]);
+  const expectedRuntimeExports = [
+    "captureWorkspaceSnapshot",
+    "findVcsRoot",
+    "getJjPointer",
+    "isJjRepo",
+    "resolveGitBinary",
+    "resolveJjBinary",
+    "revertToJjPointer",
+    "runJj",
+    "vcsToolingStatus",
+    "workspaceAdd",
+    "workspaceClose",
+    "workspaceList",
+  ];
+  const runtimeImport = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      "import('./packages/vcs/src/index.js').then((m)=>console.log(Object.keys(m).sort().join('\\n'))).catch((e)=>{console.error(e.message);process.exit(1);})",
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+  const runtimeExports = runtimeImport.status === 0
+    ? runtimeImport.stdout.trim().split(/\n/).filter(Boolean)
+    : [];
+  const missingRuntimeExports = expectedRuntimeExports.filter((name) => !runtimeExports.includes(name));
+  const extraRuntimeExports = runtimeExports.filter((name) => !expectedRuntimeExports.includes(name));
+  const required = [
+    [VCS_HELPERS_REFERENCE, "The root `smithers-orchestrator` facade exports the main JJ helpers:"],
+    [VCS_HELPERS_REFERENCE, "The lower-level VCS package also exports repository discovery, binary resolution, tooling preflight, and snapshot capture helpers:"],
+    [VCS_HELPERS_REFERENCE, 'import type * as CommandExecutor from "@effect/platform/CommandExecutor";'],
+    [VCS_HELPERS_REFERENCE, 'import * as BunContext from "@effect/platform-bun/BunContext";'],
+    [VCS_HELPERS_REFERENCE, "type VcsEffect<A> = Effect.Effect<A, never, CommandExecutor.CommandExecutor>;"],
+    [VCS_HELPERS_REFERENCE, 'const result = await runVcs(runJj(["status"], { cwd: "/path/to/repo" }));'],
+    [VCS_HELPERS_REFERENCE, "function runJj(args: string[], opts?: RunJjOptions): VcsEffect<RunJjResult>;"],
+    [VCS_HELPERS_REFERENCE, "function getJjPointer(cwd?: string): VcsEffect<string | null>;"],
+    [VCS_HELPERS_REFERENCE, "function isJjRepo(cwd?: string): VcsEffect<boolean>;"],
+    [VCS_HELPERS_REFERENCE, "function workspaceList(cwd?: string): VcsEffect<WorkspaceInfo[]>;"],
+    [VCS_HELPERS_REFERENCE, "): VcsEffect<WorkspaceResult>;"],
+    [VCS_HELPERS_REFERENCE, "## `captureWorkspaceSnapshot(cwd?)`"],
+    [VCS_HELPERS_REFERENCE, "This helper is exported by `@smithers-orchestrator/vcs`, not by the root facade."],
+    [VCS_HELPERS_REFERENCE, "function captureWorkspaceSnapshot(cwd?: string): VcsEffect<WorkspaceSnapshot | null>;"],
+    [VCS_HELPERS_REFERENCE, "function findVcsRoot(startDir: string): Effect.Effect<VcsRoot | null, never, never>;"],
+    [VCS_HELPERS_REFERENCE, "function resolveGitBinary(): ResolvedBinary;"],
+    [VCS_HELPERS_REFERENCE, "function resolveJjBinary(): ResolvedBinary;"],
+    [VCS_HELPERS_REFERENCE, "function vcsToolingStatus(): VcsToolingStatus;"],
+    [VCS_PACKAGE_JSON, '"build": "rm -f src/index.d.ts && tsup --dts-only"'],
+    [VCS_INDEX_SOURCE, 'export * from "./find-root.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./jj.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./resolveGitBinary.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./resolveJjBinary.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./vcsToolingStatus.js";'],
+    [VCS_JJ_SOURCE, "@typedef {object} WorkspaceSnapshot"],
+    [VCS_JJ_SOURCE, "export function captureWorkspaceSnapshot(cwd)"],
+    [VCS_DECLARATIONS, "declare function captureWorkspaceSnapshot(cwd?: string): Effect.Effect<WorkspaceSnapshot | null, never, _effect_platform_CommandExecutor.CommandExecutor>;"],
+    [VCS_DECLARATIONS, "type WorkspaceSnapshot = {"],
+    [VCS_DECLARATIONS, "export { type JjRevertResult, type RunJjOptions, type RunJjResult, type VcsToolingStatus, type WorkspaceAddOptions, type WorkspaceInfo, type WorkspaceResult, type WorkspaceSnapshot, captureWorkspaceSnapshot,"],
+    [SMITHERS_FACADE_DECLARATIONS, "export { getJjPointer, isJjRepo, revertToJjPointer, runJj, workspaceAdd, workspaceClose, workspaceList } from '@smithers-orchestrator/vcs/jj';"],
+  ];
+  const forbidden = [
+    [VCS_HELPERS_REFERENCE, "Promise<string | null>"],
+    [VCS_HELPERS_REFERENCE, "Promise<boolean>"],
+    [VCS_HELPERS_REFERENCE, "Promise<WorkspaceResult>"],
+    [VCS_HELPERS_REFERENCE, "const result = await runJj(["],
+    [VCS_HELPERS_REFERENCE, "const pointer = await getJjPointer("],
+    [VCS_HELPERS_REFERENCE, "const result = await revertToJjPointer("],
+    [VCS_HELPERS_REFERENCE, "const enabled = await isJjRepo("],
+    [VCS_HELPERS_REFERENCE, "const result = await workspaceAdd("],
+    [VCS_HELPERS_REFERENCE, "const workspaces = await workspaceList("],
+    [VCS_HELPERS_REFERENCE, "const result = await workspaceClose("],
+    [VCS_INDEX_SOURCE, 'export * from "./ResolvedBinary.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./JjRevertResult.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./RunJjOptions.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./RunJjResult.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./WorkspaceAddOptions.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./WorkspaceInfo.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./WorkspaceResult.js";'],
+    [VCS_INDEX_SOURCE, 'export * from "./WorkspaceSnapshot.js";'],
+    [VCS_DECLARATIONS, "export { type VcsToolingStatus, findVcsRoot, getJjPointer"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (
+    runtimeImport.status !== 0 ||
+    missing.length ||
+    stale.length ||
+    missingRuntimeExports.length ||
+    extraRuntimeExports.length
+  ) {
+    failed = true;
+    console.error("\n✗ VCS helper docs must match the current runtime exports and Effect declarations:");
+    if (runtimeImport.status !== 0) console.error(`    runtime import failed: ${runtimeImport.stderr.trim()}`);
+    if (missingRuntimeExports.length) console.error(`    missing runtime exports: ${missingRuntimeExports.join(", ")}`);
+    if (extraRuntimeExports.length) console.error(`    undocumented runtime exports: ${extraRuntimeExports.join(", ")}`);
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ VCS helper docs match runtime exports and Effect declarations");
   }
 }
 
@@ -1279,6 +1402,7 @@ checkSandboxDocsMatchProviderTypes();
 checkServeDocsMatchServerTypes();
 checkComponentPropsDocsMatchSourceTypes();
 checkPackageConfigurationDocsMatchRootConfig();
+checkVcsHelperDocsMatchCurrentExports();
 checkStudioDocsMatchCurrentAppSurface();
 checkCliOverviewCommandCatalogMatchesCli();
 checkCliOverviewWorkflowRunFlagsMatchSchema();
