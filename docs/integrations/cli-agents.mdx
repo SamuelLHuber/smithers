@@ -33,17 +33,17 @@ export default smithers((ctx) => (
 ## Available agents
 
 ```toon
-agents[10]{class,cli,defaultModel,hijack,notes}:
-  ClaudeCodeAgent,claude,claude-sonnet-4-20250514,native session id,Anthropic Claude Code CLI
-  CodexAgent,codex,gpt-5.3-codex,native thread id,OpenAI Codex CLI (codex exec via stdin + JSON stream)
+agents[10]{class,cli,modelDefault,hijack,notes}:
+  ClaudeCodeAgent,claude,CLI default,native session id,Anthropic Claude Code CLI
+  CodexAgent,codex,CLI default,native thread id,OpenAI Codex CLI (codex exec via stdin + JSON stream)
   AntigravityAgent,agy,CLI default,native session id,Google Antigravity CLI
   GeminiAgent,gemini,CLI default,legacy session id,Deprecated legacy Gemini CLI wrapper
-  PiAgent,pi,gpt-5.2-codex,native session id,Pi CLI (text/json/rpc modes + extension UI hooks)
-  KimiAgent,kimi,kimi-latest,native session id,Moonshot Kimi CLI (auto-isolates KIMI_SHARE_DIR)
-  ForgeAgent,forge,anthropic/claude-sonnet-4-20250514,conversation id,Forge CLI (300+ models)
-  AmpAgent,amp,claude-sonnet-4-20250514,thread id,Amp CLI (--execute headless mode)
+  PiAgent,pi,CLI default,native session id,Pi CLI (text/json/rpc modes + extension UI hooks)
+  KimiAgent,kimi,CLI default,native session id,Moonshot Kimi CLI (auto-isolates KIMI_SHARE_DIR)
+  ForgeAgent,forge,CLI default,conversation id,Forge CLI (300+ models)
+  AmpAgent,amp,CLI default,thread id,Amp CLI (--execute headless mode)
   VibeAgent,vibe,CLI default,headless session id,Mistral Vibe CLI
-  OpenCodeAgent,opencode,provider/model string,not yet,OpenCode CLI (opencode run --format json)
+  OpenCodeAgent,opencode,CLI default,not yet,OpenCode CLI (opencode run --format json)
 ```
 
 CLI binaries must be on `PATH`: `claude`, `codex`, `agy`, `gemini`, `pi`, `kimi`, `forge`, `amp`, `vibe`, `opencode`.

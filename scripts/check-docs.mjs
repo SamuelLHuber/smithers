@@ -39,6 +39,8 @@ const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
 const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const MCP_INTEGRATION_EXAMPLE_README = join(root, "examples/mcp-integration/README.md");
+const CLI_AGENTS_INTEGRATION = join(DOCS, "integrations/cli-agents.mdx");
+const BASE_CLI_AGENT_SOURCE = join(root, "packages/agents/src/BaseCliAgent/BaseCliAgent.js");
 const CLAUDE_CODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/ClaudeCodeAgentOptions.ts");
 const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOptions.ts");
 const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptions.ts");
@@ -942,6 +944,52 @@ function checkMcpIntegrationDocsMatchAgentOptions() {
   }
 }
 
+function checkCliAgentDocsMatchCurrentModelDefaults() {
+  const files = new Map([
+    [CLI_AGENTS_INTEGRATION, readFileSync(CLI_AGENTS_INTEGRATION, "utf8")],
+    [BASE_CLI_AGENT_SOURCE, readFileSync(BASE_CLI_AGENT_SOURCE, "utf8")],
+  ]);
+  const required = [
+    [BASE_CLI_AGENT_SOURCE, "this.model = opts.model;"],
+    [CLI_AGENTS_INTEGRATION, "agents[10]{class,cli,modelDefault,hijack,notes}:"],
+    [CLI_AGENTS_INTEGRATION, "ClaudeCodeAgent,claude,CLI default,native session id"],
+    [CLI_AGENTS_INTEGRATION, "CodexAgent,codex,CLI default,native thread id"],
+    [CLI_AGENTS_INTEGRATION, "PiAgent,pi,CLI default,native session id"],
+    [CLI_AGENTS_INTEGRATION, "KimiAgent,kimi,CLI default,native session id"],
+    [CLI_AGENTS_INTEGRATION, "ForgeAgent,forge,CLI default,conversation id"],
+    [CLI_AGENTS_INTEGRATION, "AmpAgent,amp,CLI default,thread id"],
+    [CLI_AGENTS_INTEGRATION, "OpenCodeAgent,opencode,CLI default,not yet"],
+  ];
+  const forbidden = [
+    [CLI_AGENTS_INTEGRATION, "agents[10]{class,cli,defaultModel,hijack,notes}:"],
+    [CLI_AGENTS_INTEGRATION, "ClaudeCodeAgent,claude,claude-sonnet-4-20250514,"],
+    [CLI_AGENTS_INTEGRATION, "CodexAgent,codex,gpt-5.3-codex,"],
+    [CLI_AGENTS_INTEGRATION, "PiAgent,pi,gpt-5.2-codex,"],
+    [CLI_AGENTS_INTEGRATION, "KimiAgent,kimi,kimi-latest,"],
+    [CLI_AGENTS_INTEGRATION, "ForgeAgent,forge,anthropic/claude-sonnet-4-20250514,"],
+    [CLI_AGENTS_INTEGRATION, "AmpAgent,amp,claude-sonnet-4-20250514,"],
+    [CLI_AGENTS_INTEGRATION, "OpenCodeAgent,opencode,provider/model string,"],
+  ];
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ CLI agent docs must not claim Smithers-owned model defaults:");
+    if (missing.length) {
+      console.error(
+        `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+    if (stale.length) {
+      console.error(
+        `    stale: ${stale.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
+      );
+    }
+  } else {
+    console.log("✓ CLI agent docs match current model default behavior");
+  }
+}
+
 function checkGatewaySdkDocsMatchExports() {
   const files = new Map([
     [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
@@ -1026,6 +1074,7 @@ checkMemoryDocsMatchSourceTypes();
 checkScorerDocsMatchSourceTypes();
 checkOpenApiDocsMatchCurrentPackage();
 checkMcpIntegrationDocsMatchAgentOptions();
+checkCliAgentDocsMatchCurrentModelDefaults();
 checkGatewaySdkDocsMatchExports();
 
 process.exit(failed ? 1 : 0);
