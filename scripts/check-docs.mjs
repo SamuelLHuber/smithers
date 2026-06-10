@@ -46,6 +46,7 @@ const OPENAPI_LOAD_SPEC_SYNC_SOURCE = join(root, "packages/openapi/src/loadSpecS
 const OPENAPI_DECLARATIONS = join(root, "packages/openapi/src/index.d.ts");
 const GATEWAY_CLIENT_INDEX = join(root, "packages/gateway-client/src/index.ts");
 const GATEWAY_CLIENT_SOURCE = join(root, "packages/gateway-client/src/SmithersGatewayClient.ts");
+const GATEWAY_CLIENT_RPC_TYPE_MAP = join(root, "packages/gateway-client/src/GatewayRpcTypeMap.ts");
 const GATEWAY_RPC_INDEX = join(root, "packages/gateway/src/rpc/index.ts");
 const GATEWAY_REACT_INDEX = join(root, "packages/gateway-react/src/index.ts");
 const GATEWAY_REACT_ASYNC_STATE = join(root, "packages/gateway-react/src/GatewayAsyncState.ts");
@@ -2241,6 +2242,7 @@ function checkGatewaySdkDocsMatchExports() {
     [gatewayServerSource, readFileSync(gatewayServerSource, "utf8")],
     [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
     [GATEWAY_CLIENT_SOURCE, readFileSync(GATEWAY_CLIENT_SOURCE, "utf8")],
+    [GATEWAY_CLIENT_RPC_TYPE_MAP, readFileSync(GATEWAY_CLIENT_RPC_TYPE_MAP, "utf8")],
     [GATEWAY_REACT_INDEX, readFileSync(GATEWAY_REACT_INDEX, "utf8")],
     [GATEWAY_REACT_ASYNC_STATE, readFileSync(GATEWAY_REACT_ASYNC_STATE, "utf8")],
     [GATEWAY_REACT_USE_GATEWAY_RUN, readFileSync(GATEWAY_REACT_USE_GATEWAY_RUN, "utf8")],
@@ -2252,6 +2254,10 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_CLIENT_INDEX, 'export { gatewayKeys } from "./sync/gatewayKeys.ts";'],
     [GATEWAY_CLIENT_INDEX, "createSmithersGatewayTransport"],
     [GATEWAY_CLIENT_INDEX, "GatewayExtensionStreamFrame"],
+    [GATEWAY_CLIENT_RPC_TYPE_MAP, "listRuns: Array<Record<string, unknown>>;"],
+    [GATEWAY_CLIENT_RPC_TYPE_MAP, "listWorkflows: ListWorkflowsResponse;"],
+    [GATEWAY_CLIENT_RPC_TYPE_MAP, "listApprovals: ListApprovalsResponse;"],
+    [GATEWAY_CLIENT_RPC_TYPE_MAP, "getNodeOutput: Record<string, unknown>;"],
     [gatewayServerSource, 'rpcPath: "/v1/rpc",'],
     [gatewayServerSource, 'wsPath: "/",'],
     [GATEWAY_CLIENT_SOURCE, "this.boot = globalThis.__SMITHERS_GATEWAY_UI__;"],
@@ -2357,10 +2363,10 @@ function checkGatewaySdkDocsMatchExports() {
       CUSTOM_UI_INTEGRATION,
       "| `UNAUTHORIZED` / `FORBIDDEN` (or canonical `Unauthorized` / `Forbidden`) |",
     ],
-    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
-    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
-    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
-    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `GatewayAsyncState<GatewayApprovalSummary[]>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<Record<string, unknown>[]>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<ListWorkflowsResponse>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<Record<string, unknown>>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `GatewayAsyncState<ListApprovalsResponse>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "SyncProvider` + `useSyncQuery` / `useSyncMutation` / `useSyncSubscription"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "useGatewayQuery` / `useGatewayMutation` / `useGatewayRunStream"],
   ];
@@ -2370,6 +2376,10 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `{ data: WorkflowSummary[] }`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `{ data: NodeOutputResponse }`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `{ data: GatewayApprovalSummary[] }`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
+    [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayApprovals({ filter? })` | `GatewayAsyncState<GatewayApprovalSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "uses the matching `wsPath` and `rpcPath`"],
     [CUSTOM_UI_INTEGRATION, "workflow-scoped path (typically"],
     [CUSTOM_UI_INTEGRATION, "/v1/ws/<workflow>"],
