@@ -113,6 +113,13 @@ const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptio
 const AMP_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/AmpAgentOptions.ts");
 const VIBE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/VibeAgentOptions.ts");
 const MEMORY_TASK_CONFIG_SOURCE = join(root, "packages/memory/src/TaskMemoryConfig.ts");
+const MEMORY_WORKING_CONFIG_SOURCE = join(root, "packages/memory/src/WorkingMemoryConfig.ts");
+const MEMORY_SEMANTIC_RECALL_CONFIG_SOURCE = join(root, "packages/memory/src/SemanticRecallConfig.ts");
+const MEMORY_MESSAGE_HISTORY_CONFIG_SOURCE = join(root, "packages/memory/src/MessageHistoryConfig.ts");
+const MEMORY_SERVICE_API_SOURCE = join(root, "packages/memory/src/MemoryServiceApi.ts");
+const MEMORY_PROCESSOR_SOURCE = join(root, "packages/memory/src/MemoryProcessor.ts");
+const MEMORY_PROCESSOR_CONFIG_SOURCE = join(root, "packages/memory/src/MemoryProcessorConfig.ts");
+const MEMORY_LAYER_CONFIG_SOURCE = join(root, "packages/memory/src/MemoryLayerConfig.ts");
 const SCORER_TYPES_SOURCE = join(root, "packages/scorers/src/types.ts");
 const SCORER_AGGREGATE_OPTIONS_SOURCE = join(root, "packages/scorers/src/AggregateOptions.ts");
 const LLM_JUDGE_CONFIG_SOURCE = join(root, "packages/scorers/src/LlmJudgeConfig.ts");
@@ -2845,16 +2852,55 @@ function checkToolDocsMatchRuntimeLimitsAndNetwork() {
 }
 
 function checkMemoryDocsMatchSourceTypes() {
-  const docs = readFileSync(TYPES_REFERENCE, "utf8");
-  const concepts = readFileSync(MEMORY_CONCEPTS, "utf8");
-  const source = readFileSync(MEMORY_TASK_CONFIG_SOURCE, "utf8");
-  const storeSource = readFileSync(join(root, "packages/memory/src/store/createMemoryStore.js"), "utf8");
+  const memoryStoreFactorySource = join(root, "packages/memory/src/store/createMemoryStore.js");
+  const files = new Map([
+    [TYPES_REFERENCE, readFileSync(TYPES_REFERENCE, "utf8")],
+    [MEMORY_CONCEPTS, readFileSync(MEMORY_CONCEPTS, "utf8")],
+    [MEMORY_TASK_CONFIG_SOURCE, readFileSync(MEMORY_TASK_CONFIG_SOURCE, "utf8")],
+    [MEMORY_WORKING_CONFIG_SOURCE, readFileSync(MEMORY_WORKING_CONFIG_SOURCE, "utf8")],
+    [MEMORY_SEMANTIC_RECALL_CONFIG_SOURCE, readFileSync(MEMORY_SEMANTIC_RECALL_CONFIG_SOURCE, "utf8")],
+    [MEMORY_MESSAGE_HISTORY_CONFIG_SOURCE, readFileSync(MEMORY_MESSAGE_HISTORY_CONFIG_SOURCE, "utf8")],
+    [MEMORY_SERVICE_API_SOURCE, readFileSync(MEMORY_SERVICE_API_SOURCE, "utf8")],
+    [MEMORY_PROCESSOR_SOURCE, readFileSync(MEMORY_PROCESSOR_SOURCE, "utf8")],
+    [MEMORY_PROCESSOR_CONFIG_SOURCE, readFileSync(MEMORY_PROCESSOR_CONFIG_SOURCE, "utf8")],
+    [MEMORY_LAYER_CONFIG_SOURCE, readFileSync(MEMORY_LAYER_CONFIG_SOURCE, "utf8")],
+    [memoryStoreFactorySource, readFileSync(memoryStoreFactorySource, "utf8")],
+  ]);
   const required = [
     [MEMORY_TASK_CONFIG_SOURCE, "namespace?: string | MemoryNamespace;"],
+    [MEMORY_WORKING_CONFIG_SOURCE, "export type WorkingMemoryConfig<"],
+    [MEMORY_WORKING_CONFIG_SOURCE, "schema?: T;"],
+    [MEMORY_WORKING_CONFIG_SOURCE, "ttlMs?: number;"],
+    [MEMORY_SEMANTIC_RECALL_CONFIG_SOURCE, "export type SemanticRecallConfig = {"],
+    [MEMORY_SEMANTIC_RECALL_CONFIG_SOURCE, "similarityThreshold?: number;"],
+    [MEMORY_MESSAGE_HISTORY_CONFIG_SOURCE, "export type MessageHistoryConfig = {"],
+    [MEMORY_MESSAGE_HISTORY_CONFIG_SOURCE, "lastMessages?: number;"],
+    [MEMORY_SERVICE_API_SOURCE, "export type MemoryServiceApi = {"],
+    [MEMORY_SERVICE_API_SOURCE, "readonly store: MemoryStore;"],
+    [MEMORY_PROCESSOR_SOURCE, "export type MemoryProcessor = {"],
+    [MEMORY_PROCESSOR_SOURCE, "processEffect: (store: MemoryStore) => Effect.Effect<void, SmithersError>;"],
+    [MEMORY_PROCESSOR_CONFIG_SOURCE, "export type MemoryProcessorConfig = {"],
+    [MEMORY_PROCESSOR_CONFIG_SOURCE, "processors?: string[];"],
+    [MEMORY_LAYER_CONFIG_SOURCE, "export type MemoryLayerConfig = {"],
+    [MEMORY_LAYER_CONFIG_SOURCE, "db: BunSQLiteDatabase<Record<string, unknown>>;"],
     [TYPES_REFERENCE, "namespace?: string | MemoryNamespace;"],
     [TYPES_REFERENCE, "recall?: { namespace?: MemoryNamespace; query?: string; topK?: number };"],
     [TYPES_REFERENCE, "remember?: { namespace?: MemoryNamespace; key?: string };"],
-    [join(root, "packages/memory/src/store/createMemoryStore.js"), "BunSQLiteDatabase"],
+    [TYPES_REFERENCE, "type WorkingMemoryConfig<"],
+    [TYPES_REFERENCE, "schema?: T;"],
+    [TYPES_REFERENCE, "type SemanticRecallConfig = {"],
+    [TYPES_REFERENCE, "similarityThreshold?: number;"],
+    [TYPES_REFERENCE, "type MessageHistoryConfig = {"],
+    [TYPES_REFERENCE, "lastMessages?: number;"],
+    [TYPES_REFERENCE, "type MemoryServiceApi = {"],
+    [TYPES_REFERENCE, "readonly store: MemoryStore;"],
+    [TYPES_REFERENCE, "type MemoryProcessorConfig = {"],
+    [TYPES_REFERENCE, "processors?: string[];"],
+    [TYPES_REFERENCE, "type MemoryProcessor = {"],
+    [TYPES_REFERENCE, "processEffect: (store: MemoryStore) => Effect.Effect<void, SmithersError>;"],
+    [TYPES_REFERENCE, "type MemoryLayerConfig = {"],
+    [TYPES_REFERENCE, 'import("drizzle-orm/bun-sqlite").BunSQLiteDatabase<Record<string, unknown>>;'],
+    [memoryStoreFactorySource, "BunSQLiteDatabase"],
     [MEMORY_CONCEPTS, 'import { drizzle } from "drizzle-orm/bun-sqlite";'],
     [MEMORY_CONCEPTS, 'const sqlite = new Database("smithers.db");'],
     [MEMORY_CONCEPTS, "const db = drizzle(sqlite);"],
@@ -2862,29 +2908,19 @@ function checkMemoryDocsMatchSourceTypes() {
   ];
   const forbidden = [
     [TYPES_REFERENCE, "type TaskMemoryConfig = {\n  recall?: { namespace?: MemoryNamespace; query?: string; topK?: number };"],
+    [TYPES_REFERENCE, "type WorkingMemoryConfig = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type SemanticRecallConfig = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type MessageHistoryConfig = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type MemoryServiceApi = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type MemoryProcessor = Record<string, unknown>;"],
+    [TYPES_REFERENCE, "type MemoryLayerConfig = { db: unknown };"],
     [MEMORY_CONCEPTS, 'createMemoryStore(new Database("smithers.db"))'],
   ];
-  const missing = required.filter(([file, needle]) => {
-    const haystack = file === MEMORY_TASK_CONFIG_SOURCE
-      ? source
-      : file === MEMORY_CONCEPTS
-        ? concepts
-        : file.endsWith("createMemoryStore.js")
-          ? storeSource
-          : docs;
-    return !haystack.includes(needle);
-  });
-  const stale = forbidden.filter(([file, needle]) => {
-    const haystack = file === MEMORY_TASK_CONFIG_SOURCE
-      ? source
-      : file === MEMORY_CONCEPTS
-        ? concepts
-        : docs;
-    return haystack.includes(needle);
-  });
+  const missing = required.filter(([file, needle]) => !files.get(file)?.includes(needle));
+  const stale = forbidden.filter(([file, needle]) => files.get(file)?.includes(needle));
   if (missing.length || stale.length) {
     failed = true;
-    console.error("\n✗ Memory docs must match exported TaskMemoryConfig and store factory types:");
+    console.error("\n✗ Memory docs must match exported memory package types:");
     if (missing.length) {
       console.error(
         `    missing: ${missing.map(([file, needle]) => `${displayPath(file)}:${needle}`).join(", ")}`,
@@ -2896,7 +2932,7 @@ function checkMemoryDocsMatchSourceTypes() {
       );
     }
   } else {
-    console.log("✓ Memory docs match exported TaskMemoryConfig and store factory types");
+    console.log("✓ Memory docs match exported memory package types");
   }
 }
 
