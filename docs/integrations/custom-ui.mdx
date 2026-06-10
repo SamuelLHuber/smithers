@@ -44,7 +44,7 @@ const gateway = new SmithersGatewayClient({
 const workflows = await gateway.listWorkflows({ filter: { hasUi: true } });
 ```
 
-`baseUrl` defaults to `globalThis.location.origin` so a UI hosted on the gateway needs no config. `token` is sent as `Authorization: Bearer …` on every HTTP and WebSocket handshake. Pass `headers` if your reverse proxy needs extra fields, `fetch` / `WebSocket` to override the defaults (for tests, workers, or React Native).
+`baseUrl` defaults to `globalThis.location.origin` so a UI hosted on the gateway needs no config. `token` is sent as `Authorization: Bearer ...` on HTTP RPC calls and as `auth: { token }` in the WebSocket `connect` request. Pass `headers` for extra HTTP RPC headers, or `fetch` / `WebSocket` to override the transport defaults (for tests, workers, or React Native).
 
 ### Declarative RPC
 
@@ -186,7 +186,7 @@ The pushed `approval.decided` event will arrive shortly after. When it does, rec
 
 ### Auth handling
 
-`token` is sent as a bearer header on every request, including the WebSocket handshake. When the gateway rejects with `Unauthorized` / `Forbidden`, the error carries:
+`token` is sent as a bearer header on HTTP RPC calls and in the WebSocket `connect` request body. When the gateway rejects with `Unauthorized` / `Forbidden`, the error carries:
 
 - `code: "Unauthorized" | "Forbidden"`
 - `requiredScope?: string`: the scope the call needs (e.g. `"run:write"`).

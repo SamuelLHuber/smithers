@@ -2257,6 +2257,8 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_CLIENT_SOURCE, "this.boot = globalThis.__SMITHERS_GATEWAY_UI__;"],
     [GATEWAY_CLIENT_SOURCE, "options: { signal?: AbortSignal } = {},"],
     [GATEWAY_CLIENT_SOURCE, 'listRuns(params: GatewayRpcParams<"listRuns"> = {}) {'],
+    [GATEWAY_CLIENT_SOURCE, 'headers.set("authorization", `Bearer ${options.token}`);'],
+    [GATEWAY_CLIENT_SOURCE, "...(this.token ? { auth: { token: this.token } } : {}),"],
     [GATEWAY_CLIENT_SOURCE, "const response = await this.fetchImpl(`${this.baseUrl}/v1/rpc/${method}`, {"],
     [GATEWAY_CLIENT_SOURCE, "new this.WebSocketImpl(toWebSocketUrl(this.baseUrl, this.boot?.wsPath));"],
     [GATEWAY_REACT_INDEX, "useGatewayExtensionResource"],
@@ -2324,6 +2326,18 @@ function checkGatewaySdkDocsMatchExports() {
       CUSTOM_UI_INTEGRATION,
       "Pending HTTP RPCs made through `gateway.rpc` can be aborted by the caller's `AbortSignal`",
     ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "`token` is sent as `Authorization: Bearer ...` on HTTP RPC calls and as `auth: { token }` in the WebSocket `connect` request.",
+    ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "Pass `headers` for extra HTTP RPC headers, or `fetch` / `WebSocket` to override the transport defaults",
+    ],
+    [
+      CUSTOM_UI_INTEGRATION,
+      "`token` is sent as a bearer header on HTTP RPC calls and in the WebSocket `connect` request body.",
+    ],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayRuns({ filter? })` | `GatewayAsyncState<RunSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayWorkflows()` | `GatewayAsyncState<WorkflowSummary[]>`"],
     [CUSTOM_WORKFLOW_UI_GUIDE, "`useGatewayNodeOutput({ runId, nodeId, iteration? })` | `GatewayAsyncState<NodeOutputResponse>`"],
@@ -2342,6 +2356,9 @@ function checkGatewaySdkDocsMatchExports() {
     [CUSTOM_UI_INTEGRATION, "/v1/ws/<workflow>"],
     [CUSTOM_UI_INTEGRATION, "the boot config is ignored"],
     [CUSTOM_UI_INTEGRATION, "Every request accepts an `AbortSignal`"],
+    [CUSTOM_UI_INTEGRATION, "Authorization: Bearer …"],
+    [CUSTOM_UI_INTEGRATION, "on every HTTP and WebSocket handshake"],
+    [CUSTOM_UI_INTEGRATION, "bearer header on every request, including the WebSocket handshake"],
     [CUSTOM_UI_INTEGRATION, 'useGatewayRuns({ status: "running" })'],
     [CUSTOM_WORKFLOW_UI_GUIDE, "refetches as the seq advances"],
   ];
