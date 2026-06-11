@@ -93,7 +93,7 @@ export default defineConfig({
       env: gatewayEnv,
     },
     {
-      command: `vite --host 127.0.0.1 --port ${appPort} --strictPort`,
+      command: "bash ../../scripts/e2e-real/vite-up.sh",
       port: parseInt(appPort, 10),
       reuseExistingServer: true,
       timeout: 60_000,
