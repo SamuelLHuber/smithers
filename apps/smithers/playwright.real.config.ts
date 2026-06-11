@@ -1,35 +1,49 @@
 import { defineConfig, devices } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
 const appPort = process.env.SMITHERS_REAL_APP_PORT || "5375";
 const gatewayPort = process.env.SMITHERS_REAL_GATEWAY_PORT || "7342";
-const gatewayHost = process.env.SMITHERS_REAL_GATEWAY_HOST || "127.0.0.1";
-const plueUrl = process.env.PLUE_API_BASE_URL || "http://127.0.0.1:4000";
-const gatewayUrl = `http://${gatewayHost}:${gatewayPort}`;
-const appUrl = `http://127.0.0.1:${appPort}`;
-const appDir = fileURLToPath(new URL(".", import.meta.url));
+const plueApiBaseUrl = process.env.PLUE_API_BASE_URL || "http://127.0.0.1:4000";
+const appOrigin = `http://127.0.0.1:${appPort}`;
+const gatewayOrigin = `http://127.0.0.1:${gatewayPort}`;
 
-function parseEnvFile(path: string): Record<string, string> {
-  if (!existsSync(path)) return {};
+function onboardedOrigin(origin: string) {
+  return {
+    origin,
+    localStorage: [
+      {
+        name: "smithers.onboarding",
+        value: JSON.stringify({ state: { completed: true }, version: 0 }),
+      },
+    ],
+  };
+}
+
+function readLocalEnv(): Record<string, string> {
+  const envPath = resolve(import.meta.dirname, ".env.e2e.local");
+  if (!existsSync(envPath)) {
+    return {};
+  }
 
   const env: Record<string, string> = {};
-  for (const rawLine of readFileSync(path, "utf8").split(/\r?\n/)) {
+  for (const rawLine of readFileSync(envPath, "utf8").split(/\r?\n/)) {
     const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
 
-    const exportPrefix = "export ";
-    const body = line.startsWith(exportPrefix) ? line.slice(exportPrefix.length).trim() : line;
-    const equals = body.indexOf("=");
-    if (equals <= 0) continue;
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
+    if (!match) {
+      continue;
+    }
 
-    const key = body.slice(0, equals).trim();
-    let value = body.slice(equals + 1).trim();
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue;
-
-    const quote = value[0];
-    if ((quote === "\"" || quote === "'") && value.endsWith(quote)) {
+    const [, key, rawValue] = match;
+    let value = rawValue.trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     env[key] = value;
@@ -37,30 +51,9 @@ function parseEnvFile(path: string): Record<string, string> {
   return env;
 }
 
-const localEnv = parseEnvFile(resolve(appDir, ".env.e2e.local"));
-const gatewayEnv = {
-  ...localEnv,
-  PORT: gatewayPort,
-  HOST: gatewayHost,
-};
-
-if (!localEnv.ANTHROPIC_API_KEY) {
-  delete gatewayEnv.ANTHROPIC_API_KEY;
-}
-
 const onboardedStorageState = {
   cookies: [],
-  origins: [
-    {
-      origin: appUrl,
-      localStorage: [
-        {
-          name: "smithers.onboarding",
-          value: JSON.stringify({ state: { completed: true }, version: 0 }),
-        },
-      ],
-    },
-  ],
+  origins: [onboardedOrigin(appOrigin)],
 };
 
 export default defineConfig({
@@ -73,7 +66,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: process.env.CI ? "line" : "html",
   use: {
-    baseURL: appUrl,
+    baseURL: appOrigin,
     trace: "on-first-retry",
     storageState: onboardedStorageState,
   },
@@ -81,26 +74,30 @@ export default defineConfig({
   webServer: [
     {
       command: "bash ../../scripts/e2e-real/plue-up.sh",
-      url: `${plueUrl}/api/health`,
+      url: `${plueApiBaseUrl}/api/health`,
       reuseExistingServer: true,
       timeout: 240_000,
     },
     {
       command: "bun ../../.smithers/gateway.ts",
-      url: `${gatewayUrl}/health`,
-      reuseExistingServer: true,
-      timeout: 60_000,
-      env: gatewayEnv,
-    },
-    {
-      command: "bash ../../scripts/e2e-real/vite-up.sh",
-      port: parseInt(appPort, 10),
+      url: `${gatewayOrigin}/health`,
       reuseExistingServer: true,
       timeout: 60_000,
       env: {
-        SMITHERS_AUTH_PROXY_TARGET: plueUrl,
-        SMITHERS_PLATFORM_PROXY_TARGET: plueUrl,
-        SMITHERS_GATEWAY_PROXY_TARGET: gatewayUrl,
+        ...readLocalEnv(),
+        PORT: gatewayPort,
+        HOST: "127.0.0.1",
+      },
+    },
+    {
+      command: `vite --host 127.0.0.1 --port ${appPort} --strictPort`,
+      url: appOrigin,
+      reuseExistingServer: true,
+      timeout: 60_000,
+      env: {
+        SMITHERS_AUTH_PROXY_TARGET: plueApiBaseUrl,
+        SMITHERS_PLATFORM_PROXY_TARGET: plueApiBaseUrl,
+        SMITHERS_GATEWAY_PROXY_TARGET: gatewayOrigin,
       },
     },
   ],
