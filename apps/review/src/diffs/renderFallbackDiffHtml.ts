@@ -1,4 +1,4 @@
-import { escapeHtml } from "./escapeHtml";
+import { escapeHtml } from "../walkthrough/escapeHtml";
 
 const MAX_RENDERED_LINES = 1_500;
 
@@ -22,7 +22,7 @@ function row(kind: "add" | "del" | "ctx", oldNum: string, newNum: string, text: 
 }
 
 /** Display-only unified-diff renderer for the walkthrough. */
-export function renderDiffHtml(diffText: string): string {
+export function renderFallbackDiffHtml(diffText: string): string {
   if (!diffText.trim()) return `<p class="diff-note">No textual diff (binary or empty change).</p>`;
   const rows: string[] = [];
   let oldLine = 0;

@@ -161,7 +161,7 @@ export function createReviewWorkflow(opts: {
             dependsOn={["resolve-target", "collect-changes", "review", ...(narrating ? ["narrate"] : [])]}
             noRetry
           >
-            {() => {
+            {async () => {
               const target = ctx.outputMaybe(outputs.target, { nodeId: "resolve-target" });
               const changesOut = ctx.outputMaybe(outputs.changes, { nodeId: "collect-changes" });
               const reviewOut = ctx.outputMaybe(outputs.review, { nodeId: "review" });
@@ -170,7 +170,7 @@ export function createReviewWorkflow(opts: {
               if (!changesOut) throw new Error("collect-changes did not complete");
               if (!reviewOut) throw new Error("review did not complete");
               const story = normalizeStory(storyOut, changesOut.files);
-              const html = renderWalkthroughHtml({
+              const html = await renderWalkthroughHtml({
                 title: input.title,
                 story,
                 files: changesOut.files,
@@ -179,6 +179,7 @@ export function createReviewWorkflow(opts: {
                 mode: target.mode,
                 ref: target.ref,
                 generatedAt: new Date().toISOString(),
+                diffStyle: input.split ? "split" : "unified",
               });
               const requested = input.out.trim();
               const outPath = requested

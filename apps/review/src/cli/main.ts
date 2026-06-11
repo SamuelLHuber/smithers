@@ -23,6 +23,7 @@ Usage: smithers-review [repo] [options]
   --no-narrate              skip the narrator agent; deterministic story order
   --concurrency <n>         parallel file reviews (default 8)
   --timeout <min>           per-agent-task timeout in minutes (default 10)
+  --split                   side-by-side diffs instead of unified
   --open                    open the walkthrough in the default browser
   -h, --help                show this help`;
 
@@ -64,6 +65,7 @@ async function main() {
     out: args.out,
     narrate: args.narrate,
     title: args.title,
+    split: args.split,
   };
 
   console.error(

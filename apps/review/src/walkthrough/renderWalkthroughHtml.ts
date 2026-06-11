@@ -1,12 +1,17 @@
 import type { ReviewRunOutput } from "smithers-workflows/lib/open-code-review";
+import { extractDiffAssets } from "../diffs/extractDiffAssets";
+import { renderFallbackDiffHtml } from "../diffs/renderFallbackDiffHtml";
+import { renderPierreFileDiff } from "../diffs/renderPierreFileDiff";
 import type { ChangedFile } from "./changedFileSchema";
 import { escapeHtml } from "./escapeHtml";
-import { renderDiffHtml } from "./renderDiffHtml";
 import type { Story } from "./storySchema";
 
 type ReviewComment = ReviewRunOutput["comments"][number];
 
 const OPEN_DIFF_MAX_CHURN = 300;
+// Above this churn the diff is rendered by the plain fallback renderer (which
+// truncates) instead of the fully highlighted Pierre renderer.
+const PIERRE_MAX_CHURN = 5_000;
 
 const css = `
 :root { color-scheme: light; }
@@ -57,6 +62,7 @@ aside.finding .pre-label { font-size: 11.5px; color: #59636e; margin-top: 8px; }
 article.file details { border-top: 1px solid #d1d9e0; }
 article.file details summary { cursor: pointer; padding: 8px 14px; font-size: 13px; color: #59636e; user-select: none; }
 article.file details summary:hover { background: #f6f8fa; }
+article.file .pierre-diff pre[data-diff] { margin: 0; border-radius: 0; }
 .diff { width: 100%; border-collapse: collapse; font-size: 12.5px; line-height: 1.55; }
 .diff td { padding: 0 8px; vertical-align: top; }
 .diff td.ln { width: 1%; min-width: 42px; text-align: right; color: #8c959f; user-select: none; border-right: 1px solid #eaeef2; }
@@ -102,6 +108,7 @@ function fileSection(
   role: string,
   comments: ReviewComment[],
   anchor: string,
+  diffBody: string,
 ): string {
   const open = file.insertions + file.deletions <= OPEN_DIFF_MAX_CHURN;
   const notReviewed =
@@ -111,17 +118,50 @@ function fileSection(
     `<div class="file-head"><code>${escapeHtml(file.path)}</code><span class="badge ${escapeHtml(file.status)}">${escapeHtml(file.status)}</span>${statChip(file.insertions, file.deletions)}${notReviewed}</div>`,
     role ? `<p class="role">${escapeHtml(role)}</p>` : "",
     ...comments.map(findingCard),
-    `<details${open ? " open" : ""}><summary>Diff (+${file.insertions} −${file.deletions})</summary>${renderDiffHtml(file.diff)}</details>`,
+    `<details${open ? " open" : ""}><summary>Diff (+${file.insertions} −${file.deletions})</summary><div class="pierre-diff">${diffBody}</div></details>`,
     `</article>`,
   ].join("");
 }
 
 /**
- * Self-contained HTML walkthrough: story chapters in reading order, each file
- * with its role, review findings, and diff. No external assets; opens from
- * file://.
+ * Render every file's diff with @pierre/diffs (syntax highlighting,
+ * word-level diffs, line numbers), hoisting the shared style/sprite assets so
+ * the page carries them once. Binary, oversized, and unparseable diffs fall
+ * back to the plain renderer.
  */
-export function renderWalkthroughHtml(opts: {
+async function renderDiffBodies(
+  files: ChangedFile[],
+  diffStyle: "unified" | "split",
+): Promise<{ bodies: Map<string, string>; sprite: string; styles: string[] }> {
+  const bodies = new Map<string, string>();
+  const styles = new Set<string>();
+  let sprite = "";
+  await Promise.all(
+    files.map(async (file) => {
+      if (!file.diff.trim() || file.insertions + file.deletions > PIERRE_MAX_CHURN) {
+        bodies.set(file.path, renderFallbackDiffHtml(file.diff));
+        return;
+      }
+      try {
+        const html = await renderPierreFileDiff({ diff: file.diff, diffStyle });
+        const assets = extractDiffAssets(html);
+        for (const style of assets.styles) styles.add(style);
+        if (!sprite) sprite = assets.sprite;
+        bodies.set(file.path, assets.body);
+      } catch {
+        bodies.set(file.path, renderFallbackDiffHtml(file.diff));
+      }
+    }),
+  );
+  return { bodies, sprite, styles: [...styles] };
+}
+
+/**
+ * Self-contained HTML walkthrough: story chapters in reading order, each file
+ * with its role, review findings, and a Pierre-rendered diff. No external
+ * assets; opens from file://.
+ */
+export async function renderWalkthroughHtml(opts: {
   title: string;
   story: Story;
   files: ChangedFile[];
@@ -130,7 +170,8 @@ export function renderWalkthroughHtml(opts: {
   mode: string;
   ref: string;
   generatedAt: string;
-}): string {
+  diffStyle?: "unified" | "split";
+}): Promise<string> {
   const { story, files, comments } = opts;
   const title = opts.title.trim() || story.headline || "Change walkthrough";
   const fileByPath = new Map(files.map((file) => [file.path, file]));
@@ -139,6 +180,8 @@ export function renderWalkthroughHtml(opts: {
   for (const comment of comments) {
     commentsByPath.set(comment.path, [...(commentsByPath.get(comment.path) ?? []), comment]);
   }
+
+  const { bodies, sprite, styles } = await renderDiffBodies(files, opts.diffStyle ?? "unified");
 
   const totalInsertions = files.reduce((sum, file) => sum + file.insertions, 0);
   const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
@@ -178,7 +221,13 @@ export function renderWalkthroughHtml(opts: {
         .map((entry) => {
           const file = fileByPath.get(entry.path);
           if (!file) return "";
-          return fileSection(file, entry.role, commentsByPath.get(entry.path) ?? [], anchorByPath.get(entry.path) ?? "");
+          return fileSection(
+            file,
+            entry.role,
+            commentsByPath.get(entry.path) ?? [],
+            anchorByPath.get(entry.path) ?? "",
+            bodies.get(entry.path) ?? renderFallbackDiffHtml(file.diff),
+          );
         })
         .join("");
       return [
@@ -199,8 +248,10 @@ export function renderWalkthroughHtml(opts: {
     `<meta name="viewport" content="width=device-width, initial-scale=1">`,
     `<title>${escapeHtml(title)}</title>`,
     `<style>${css}</style>`,
+    ...styles,
     `</head>`,
     `<body>`,
+    sprite,
     `<main>`,
     `<header class="page">`,
     `<h1>${escapeHtml(title)}</h1>`,

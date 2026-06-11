@@ -11,6 +11,7 @@ export type ReviewArgs = {
   narrate: boolean;
   concurrency: number;
   timeout: number;
+  split: boolean;
   open: boolean;
   help: boolean;
 };
@@ -29,6 +30,7 @@ export function parseReviewArgs(argv: string[]): ReviewArgs {
     narrate: true,
     concurrency: 8,
     timeout: 10,
+    split: false,
     open: false,
     help: false,
   };
@@ -50,6 +52,7 @@ export function parseReviewArgs(argv: string[]): ReviewArgs {
     else if (arg === "--no-narrate") args.narrate = false;
     else if (arg === "--concurrency") args.concurrency = Number(next());
     else if (arg === "--timeout") args.timeout = Number(next());
+    else if (arg === "--split") args.split = true;
     else if (arg === "--open") args.open = true;
     else if (arg === "--help" || arg === "-h") args.help = true;
     else if (arg.startsWith("-")) throw new Error(`Unknown option: ${arg}`);

@@ -73,7 +73,8 @@ describe("smithers review workflow (agentless e2e through the real engine)", () 
         expect(html).toContain(path);
       }
       expect(html).toContain("The main change: src");
-      expect(html).toContain("+export const next = 2;".replace("+", ""));
+      expect(html).toContain('data-line-type="change-addition"');
+      expect(html).toContain("--diffs-token-light");
 
       const rows = (await loadOutputs(db as never, tables as never, runId)) as Record<
         string,

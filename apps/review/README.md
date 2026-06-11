@@ -43,10 +43,27 @@ One durable smithers workflow, run in-process through the engine:
    appears in exactly one chapter; a deterministic fallback story covers agent
    failure and `--no-narrate`.
 4. `walkthrough` renders self-contained HTML (inline CSS, no external assets)
-   and writes it to `--out`.
+   and writes it to `--out`. Diffs are rendered with `@pierre/diffs`: syntax
+   highlighting, word-level diffs, line numbers, unified or `--split` view.
 
 Review findings never change the exit code; smithers review reports, humans
 decide.
+
+## Rendering diffs anywhere else
+
+The diff renderer is exported as `@smithers-orchestrator/review/diffs` so
+humans and agents can embed the same diffs in any artifact (reports, custom
+workflow UIs, dashboards):
+
+```ts
+import { renderPierreFileDiff, extractDiffAssets } from "@smithers-orchestrator/review/diffs";
+
+const html = await renderPierreFileDiff({ diff: gitPatchForOneFile });
+// embedding many diffs in one page? hoist the shared assets once:
+const { sprite, styles, body } = extractDiffAssets(html);
+```
+
+The Pierre reference clone lives at `reference/pierre/` (gitignored).
 
 Agents default to ClaudeCode subscription providers (opus primary, sonnet
 failover). Override with `SMITHERS_REVIEW_MODEL` /

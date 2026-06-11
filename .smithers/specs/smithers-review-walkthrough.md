@@ -109,6 +109,30 @@ order:
 All dynamic text is HTML-escaped. Diff rendering is display-only and lives in
 the app, not the review lib.
 
+## Diff rendering (@pierre/diffs)
+
+Diffs are rendered with `@pierre/diffs` (Pierre's open-source diff renderer,
+Apache-2.0) through its SSR entry: syntax highlighting via light/dark token
+variables, word-level intra-line diffs, line numbers, unified or split view
+(`--split`). The reference clone lives at `reference/pierre/` (gitignored).
+
+The integration is the `src/diffs/` domain in `apps/review`, exported as
+`@smithers-orchestrator/review/diffs` so any workspace code, workflow compute
+node, or agent-authored artifact can render the same diffs:
+
+- `renderPierreFileDiff({ diff, diffStyle, themeType })`: one file's git
+  patch to self-contained HTML (`preloadPatchDiff` under the hood, file
+  header disabled because the walkthrough draws its own).
+- `extractDiffAssets(html)`: splits the SVG sprite sheet and `<style>` blocks
+  from the body. Every Pierre block ships identical assets, so a page with
+  many diffs hoists them once; the walkthrough carries exactly one sprite and
+  two Pierre styles regardless of file count.
+- `renderFallbackDiffHtml(diff)`: the plain truncating renderer, used for
+  binary files, diffs over 5000 changed lines, and Pierre parse failures.
+
+Pierre line annotations render as empty hydration slots in SSR, so review
+findings stay as callout cards above each diff instead of inline rows.
+
 ## Outputs
 
 CLI-read output rows (`walkthrough`, via `loadOutputs`) use single-word

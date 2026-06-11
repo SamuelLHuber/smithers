@@ -2,30 +2,49 @@ import { describe, expect, test } from "bun:test";
 import type { ChangedFile } from "../src/walkthrough/changedFileSchema";
 import { renderWalkthroughHtml } from "../src/walkthrough/renderWalkthroughHtml";
 
-const diff = [
-  "diff --git a/src/a.ts b/src/a.ts",
-  "--- a/src/a.ts",
-  "+++ b/src/a.ts",
-  "@@ -1,2 +1,3 @@",
-  " const keep = 1;",
-  "-const removed = 2;",
-  "+const added = 2;",
-  "+const more = 3;",
-].join("\n");
+function patchFor(path: string, removed: string, added: string[]): string {
+  return [
+    `diff --git a/${path} b/${path}`,
+    `--- a/${path}`,
+    `+++ b/${path}`,
+    `@@ -1,2 +1,${1 + added.length} @@`,
+    " const keep = 1;",
+    `-${removed}`,
+    ...added.map((line) => `+${line}`),
+  ].join("\n");
+}
 
 const files: ChangedFile[] = [
-  { path: "src/a.ts", status: "modified", insertions: 2, deletions: 1, diff, reviewed: true, excludeReason: "" },
-  { path: "src/a.test.ts", status: "added", insertions: 4, deletions: 0, diff: "", reviewed: false, excludeReason: "default_path" },
+  {
+    path: "src/a.ts",
+    status: "modified",
+    insertions: 2,
+    deletions: 1,
+    diff: patchFor("src/a.ts", "const removed = 2;", ["const added = 2;", "const more = 3;"]),
+    reviewed: true,
+    excludeReason: "",
+  },
+  {
+    path: "src/b.ts",
+    status: "modified",
+    insertions: 1,
+    deletions: 1,
+    diff: patchFor("src/b.ts", "const old = 1;", ["const fresh = 1;"]),
+    reviewed: true,
+    excludeReason: "",
+  },
+  { path: "assets/logo.png", status: "binary", insertions: 0, deletions: 0, diff: "", reviewed: false, excludeReason: "binary" },
 ];
 
 const story = {
   headline: "Replaces removed with added <script>",
   synopsis: "A tiny arc.",
   chapters: [
-    { title: "The change & its test", narrative: "Read me first.", files: [
+    { title: "The change & its core", narrative: "Read me first.", files: [
       { path: "src/a.ts", role: "the actual change" },
-      { path: "src/a.test.ts", role: "proves it" },
+      { path: "src/b.ts", role: "supporting tweak" },
     ] },
+    { title: "Assets", narrative: "", files: [{ path: "assets/logo.png", role: "binary asset" }] },
   ],
 };
 
@@ -55,34 +74,42 @@ function render() {
 }
 
 describe("renderWalkthroughHtml", () => {
-  test("escapes all dynamic content", () => {
-    const html = render();
+  test("escapes all dynamic chrome content", async () => {
+    const html = await render();
     expect(html).toContain("Replaces removed with added &lt;script&gt;");
     expect(html).toContain("Possible bug: &lt;b&gt;unescaped&lt;/b&gt; &amp; dangerous");
     expect(html).not.toContain("<b>unescaped</b>");
   });
 
-  test("renders chapters in order with every file and its findings", () => {
-    const html = render();
-    expect(html).toContain("The change &amp; its test");
-    expect(html.indexOf("src/a.ts")).toBeLessThan(html.indexOf("src/a.test.ts"));
+  test("renders chapters in order with every file and its findings", async () => {
+    const html = await render();
+    expect(html).toContain("The change &amp; its core");
+    expect(html.indexOf("src/a.ts")).toBeLessThan(html.indexOf("src/b.ts"));
     expect(html).toContain("the actual change");
     expect(html).toContain("const added = safe();");
     expect(html).toContain("Review findings (1)");
-    expect(html).toContain("not agent-reviewed (default_path)");
   });
 
-  test("renders the diff with add/del rows and is a complete document", () => {
-    const html = render();
+  test("embeds Pierre diffs with shared assets hoisted once", async () => {
+    const html = await render();
     expect(html.startsWith("<!doctype html>")).toBe(true);
     expect(html).toContain("</html>");
-    expect(html).toContain('<tr class="add">');
-    expect(html).toContain('<tr class="del">');
-    expect(html).toContain("@@ −1 +1 @@");
+    expect(html).toContain('data-line-type="change-addition"');
+    expect(html).toContain('data-line-type="change-deletion"');
+    expect(html).toContain("--diffs-token-light");
+    // Two Pierre-rendered files share one set of assets: page css + 2 pierre
+    // styles, one sprite sheet.
+    expect((html.match(/<style/g) ?? []).length).toBe(3);
+    expect((html.match(/diffs-icon-symbol/g) ?? []).length).toBeGreaterThan(0);
   });
 
-  test("handles an empty change set", () => {
-    const html = renderWalkthroughHtml({
+  test("binary files fall back to the plain note", async () => {
+    const html = await render();
+    expect(html).toContain("No textual diff (binary or empty change).");
+  });
+
+  test("handles an empty change set", async () => {
+    const html = await renderWalkthroughHtml({
       title: "Nothing",
       story: { headline: "", synopsis: "No changes detected.", chapters: [] },
       files: [],
