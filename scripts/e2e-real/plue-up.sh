@@ -45,6 +45,18 @@ case "${1:-up}" in
     echo "[plue-up] Waiting for $PLUE_HEALTH_URL ..."
     wait_for_health || exit 4
     echo "[plue-up] Ready."
+    sleep infinity 2>/dev/null &
+    probe_pid="$!"
+    sleep 0.1
+    if kill -0 "$probe_pid" 2>/dev/null; then
+      kill "$probe_pid" 2>/dev/null || true
+      wait "$probe_pid" 2>/dev/null || true
+      exec sleep infinity
+    fi
+    wait "$probe_pid" 2>/dev/null || true
+    if command -v gsleep >/dev/null 2>&1; then
+      exec gsleep infinity
+    fi
     exec bash -c 'while :; do sleep 86400; done'
     ;;
   down)
