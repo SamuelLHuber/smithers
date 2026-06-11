@@ -278,6 +278,19 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
         }
       }
     })();
+    // Fallback snapshot poll — every 5 s until terminal or closed. Guards against
+    // the case where the gateway closes its WS streams before the browser receives
+    // `run.completed`, leaving the status pill stuck on "running" indefinitely.
+    void (async () => {
+      while (!abort.signal.aborted) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 5_000));
+        if (abort.signal.aborted) break;
+        if (get().selectedRunId !== runId) break;
+        const view = get().runViews[runId];
+        if (view?.status === "ok" || view?.status === "failed") break;
+        await get().refreshSnapshot(runId);
+      }
+    })();
   }
 
   return {
