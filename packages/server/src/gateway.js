@@ -2265,6 +2265,11 @@ export class Gateway {
             if ((req.method ?? "GET") === "GET" && (req.url ?? "/") === "/metrics") {
                 return sendText(res, 200, renderPrometheusMetrics(), prometheusContentType);
             }
+            if ((req.method ?? "GET") === "GET" && (req.url ?? "/") === "/workflows") {
+                return sendJson(res, 200, {
+                    workflows: this.listWorkflowSummaries(undefined),
+                });
+            }
             if ((req.method ?? "GET") === "POST" && webhookMatch) {
                 return this.handleWebhook(req, res, decodeURIComponent(webhookMatch[1]));
             }
