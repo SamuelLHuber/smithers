@@ -62,7 +62,9 @@ const PLUE_DIR = process.env.PLUE_DIR ?? resolve(REPO, "../plue");
 const TICKET_DIR = resolve(REPO, ".smithers/tickets/real-stack-e2e");
 
 const GEMINI_OPENAI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
-const GEMINI_FLASH_MODEL = process.env.SMITHERS_E2E_CHAT_MODEL ?? "gemini-flash-latest";
+// Verified live against the OpenAI-compatible endpoint's /models list
+// (gemini-flash-latest is NOT served there).
+const GEMINI_FLASH_MODEL = process.env.SMITHERS_E2E_CHAT_MODEL ?? "gemini-2.5-flash";
 const CODEX_MODEL = process.env.SMITHERS_E2E_CODEX_MODEL ?? "gpt-5.5";
 const RALPH_MAX_ITERATIONS = 12;
 
@@ -177,6 +179,7 @@ const GROUND_RULES = `## Ground rules (non-negotiable)
 - The e2e gateway shares .smithers/smithers.db with any dev gateway on this machine. Specs must therefore assert on the runId THEY launched, never on list counts, and the real config runs with workers: 1.
 - Everything you build must be idempotent: re-running the stack boot with services already up is a no-op; playwright webServer entries use reuseExistingServer.
 - Asserting on LLM output: assert BEHAVIOR (a non-empty assistant message streamed, the run reached finished, structured output validated) — never exact model text.
+- The shell-exported ANTHROPIC_API_KEY on this machine has NO credits. Any script that spawns the claude CLI directly (probes, helpers) must \`unset ANTHROPIC_API_KEY\` first so the CLI uses subscription auth, unless apps/smithers/.env.e2e.local explicitly supplies a working key.
 - App code style (if you touch src/): zero useState/useEffect, state in zustand; one named export per file, filename = export name; index.ts is barrels only; colocate by domain.`;
 
 const OPS_NOTES = `## When you are blocked
@@ -275,7 +278,7 @@ Success criteria: verify command exits 0 with a REAL upstream (the workflow's pr
 
 1. \`.smithers/workflows/e2e-probe.tsx\`: a minimal one-task agent workflow (output schema like { answer: z.string() }) whose Task uses a ClaudeCodeAgent (model claude-sonnet-4-7, cheap) and asks for a one-line answer. The gateway auto-mounts every .smithers/workflows/*.tsx at boot, so creating the file registers it on next gateway boot.
    - Mount caveat: an ALREADY-RUNNING e2e gateway on 7342 will not see the new file. If 7342 is up and /workflows lacks e2e-probe, kill ONLY that gateway process (the one bound to 7342; never 7331) and let playwright's webServer reboot it. Script this guard into the spec setup or a tiny stack helper.
-2. \`scripts/e2e-real/probe-agent-cred.sh\` — ASSUMPTION PROBE, must run before the spec: source apps/smithers/.env.e2e.local if present, then run \`claude -p "Say OK" --model claude-sonnet-4-7\` ON THE HOST (the gateway spawns the same host CLI) and require exit 0 with non-empty output. If this fails, the spec is doomed — fail fast naming the missing credential (claude /login, claude setup-token, or ANTHROPIC_API_KEY).
+2. \`scripts/e2e-real/probe-agent-cred.sh\` — ASSUMPTION PROBE, must run before the spec: source apps/smithers/.env.e2e.local if present, \`unset ANTHROPIC_API_KEY\` unless that file supplied one (see ground rules: the shell-exported key has no credits), then run \`claude -p "Say OK" --model claude-sonnet-4-7\` ON THE HOST (the gateway spawns the same host CLI) and require exit 0 with non-empty output. If this fails, the spec is doomed — fail fast naming the missing credential (claude /login, claude setup-token, or ANTHROPIC_API_KEY).
 3. \`apps/smithers/tests/e2e-real/gatewayRun.spec.ts\`: through the UI (study tests/e2e/launchRun.spec.ts + gatewayRun.spec.ts for the surfaces, but target the real config), launch the e2e-probe workflow on the real gateway, watch live run events arrive, and assert THAT run (by its runId) reaches finished with a visible non-empty output. Timeout generous (a real Claude call takes 30-120s).
 
 Success criteria: probe script + spec both green via the verify command. The LLM call is real (visible token usage / agent events in the gateway run, no canned text).`,
@@ -338,7 +341,11 @@ async function runPreflight() {
   // prompt (one tiny real call). Tokens from .env.e2e.local are honored.
   let claudeAuthOk = false;
   if (claudeCliOk) {
-    const probe = await sh('claude -p "Say OK" --model claude-fable-5', {
+    // The inherited shell ANTHROPIC_API_KEY has no credits and flips the
+    // claude CLI to API billing. Unset it (exactly what ClaudeCodeAgent does)
+    // unless the operator explicitly supplied a key via the env file.
+    const keyPrefix = fileEnv["ANTHROPIC_API_KEY"] ? "" : "unset ANTHROPIC_API_KEY; ";
+    const probe = await sh(keyPrefix + 'claude -p "Say OK" --model claude-fable-5', {
       timeoutMs: 120_000,
       env: verifyEnv(),
     });
@@ -354,11 +361,14 @@ async function runPreflight() {
   if (up) {
     chatProvider = `${up.provider}/${up.model}`;
     const body = JSON.stringify({ model: up.model, messages: [{ role: "user", content: "Say OK" }] });
-    const probe = await sh(
-      `curl -fsS --max-time 45 "${up.baseUrl}/chat/completions" -H "Authorization: Bearer ${up.key}" -H "content-type: application/json" -d '${body}'`,
-      { timeoutMs: 60_000 },
-    );
+    const curlCmd = `curl -fsS --max-time 45 "${up.baseUrl}/chat/completions" -H "Authorization: Bearer ${up.key}" -H "content-type: application/json" -d '${body}'`;
+    let probe = await sh(curlCmd, { timeoutMs: 60_000 });
     chatUpstreamOk = probe.exitCode === 0 && probe.tail.includes('"choices"');
+    if (!chatUpstreamOk) {
+      // One retry: model endpoints throw transient 5xx under load.
+      probe = await sh("sleep 5; " + curlCmd, { timeoutMs: 70_000 });
+      chatUpstreamOk = probe.exitCode === 0 && probe.tail.includes('"choices"');
+    }
     if (!chatUpstreamOk) chatProvider += ` (probe failed: ${tailOf(probe.tail, 300).replace(/\n/g, " ")})`;
   }
 
