@@ -16,8 +16,9 @@ import { zodToCreateTableSQL, syncZodTableSchema } from "@smithers-orchestrator/
 import { camelToSnake } from "@smithers-orchestrator/db/utils/camelToSnake";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { POSTGRES } from "@smithers-orchestrator/db/dialect";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
+import { findSmithersAnchorDir } from "./findSmithersAnchorDir.js";
 /** @typedef {import("@smithers-orchestrator/components").ApprovalProps<any, any>} ApprovalProps */
 /** @typedef {import("@smithers-orchestrator/components").SandboxProps} SandboxProps */
 /** @typedef {import("@smithers-orchestrator/components").SignalProps<any>} SignalProps */
@@ -363,7 +364,12 @@ function buildSmithersApi(config) {
  * ```
  */
 export function createSmithers(schemas, opts) {
-    const dbPath = opts?.dbPath ?? "./smithers.db";
+    // Resolve the DB path from the nearest .smithers/ anchor so that running a
+    // workflow from a subdirectory always creates/uses the project-root DB, not
+    // a new one at CWD. An explicit opts.dbPath overrides this entirely.
+    const anchorDir = findSmithersAnchorDir(process.cwd());
+    const defaultDbPath = anchorDir ? join(anchorDir, "smithers.db") : "./smithers.db";
+    const dbPath = opts?.dbPath ?? defaultDbPath;
     const absDbPath = resolve(process.cwd(), dbPath);
     if (process.env.SMITHERS_HOT === "1") {
         const sig = computeSchemaSig(schemas, absDbPath);
