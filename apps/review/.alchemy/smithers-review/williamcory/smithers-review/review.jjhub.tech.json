@@ -1,0 +1,33 @@
+{
+  "kind": "cloudflare::CustomDomain",
+  "id": "review.jjhub.tech",
+  "fqn": "smithers-review/williamcory/smithers-review/review.jjhub.tech",
+  "seq": 0,
+  "data": {},
+  "status": "created",
+  "output": {
+    "Symbol(alchemy::ResourceKind)": "cloudflare::CustomDomain",
+    "Symbol(alchemy::ResourceID)": "review.jjhub.tech",
+    "Symbol(alchemy::ResourceFQN)": "smithers-review/williamcory/smithers-review/review.jjhub.tech",
+    "Symbol(alchemy::ResourceScope)": {
+      "@scope": null
+    },
+    "Symbol(alchemy::ResourceSeq)": 0,
+    "name": "review.jjhub.tech",
+    "zoneId": "72854846f57d9e46794e7e6aae7e3328",
+    "adopt": true,
+    "workerName": "smithers-review-smithers-review-williamcory",
+    "dev": false,
+    "id": "c52358c69dc05bde3d76c7f8a3ccd97de845d03e",
+    "environment": "production",
+    "createdAt": 1781192629587,
+    "updatedAt": 1781192629587
+  },
+  "props": {
+    "name": "review.jjhub.tech",
+    "zoneId": "72854846f57d9e46794e7e6aae7e3328",
+    "adopt": true,
+    "workerName": "smithers-review-smithers-review-williamcory",
+    "dev": false
+  }
+}

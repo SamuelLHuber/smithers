@@ -17,6 +17,9 @@ bun apps/review/src/cli/main.ts
 # review a branch against main, open the walkthrough when done
 bun apps/review/src/cli/main.ts --from main --to HEAD --open
 
+# publish the walkthrough to the share service and print the URL
+bun apps/review/src/cli/main.ts --from main --to HEAD --publish
+
 # review one commit
 bun apps/review/src/cli/main.ts --commit abc1234
 
@@ -64,6 +67,20 @@ const { sprite, styles, body } = extractDiffAssets(html);
 ```
 
 The Pierre reference clone lives at `reference/pierre/` (gitignored).
+
+## Publish service
+
+`--publish` uploads the walkthrough to a Cloudflare Worker (R2-backed,
+deployed with Alchemy from `alchemy.run.ts`) and prints an unlisted share
+URL. Live at `https://review.jjhub.tech`; the target domain
+`review.smithers.sh` is pre-wired but blocked on credentials (see the spec's
+"Publishing" section). Credentials come from `SMITHERS_REVIEW_PUBLISH_URL` /
+`SMITHERS_REVIEW_PUBLISH_TOKEN` or `~/.smithers-review.json`.
+
+```sh
+REVIEW_PUBLISH_TOKEN=... pnpm -C apps/review deploy   # alchemy deploy
+SMITHERS_REVIEW_E2E=1 pnpm -C apps/review test        # includes live publish e2e
+```
 
 Agents default to ClaudeCode subscription providers (opus primary, sonnet
 failover). Override with `SMITHERS_REVIEW_MODEL` /

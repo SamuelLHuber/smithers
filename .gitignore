@@ -94,3 +94,6 @@ workflows/*.db-wal
 
 # smithers review (apps/review) per-repo state
 .smithers-review/
+
+# Alchemy IaC local state
+.alchemy/

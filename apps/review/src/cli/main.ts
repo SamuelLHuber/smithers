@@ -7,6 +7,7 @@ import { Effect } from "effect";
 import { createReviewAgents } from "../workflow/createReviewAgents";
 import { createReviewWorkflow } from "../workflow/createReviewWorkflow";
 import { parseReviewArgs, type ReviewArgs } from "./parseReviewArgs";
+import { publishWalkthrough } from "./publishWalkthrough";
 
 const USAGE = `smithers review — code review + story-form HTML walkthrough
 
@@ -24,6 +25,7 @@ Usage: smithers-review [repo] [options]
   --concurrency <n>         parallel file reviews (default 8)
   --timeout <min>           per-agent-task timeout in minutes (default 10)
   --split                   side-by-side diffs instead of unified
+  --publish                 upload to review.smithers.sh and print the share URL
   --open                    open the walkthrough in the default browser
   -h, --help                show this help`;
 
@@ -91,12 +93,23 @@ async function main() {
   if (review?.message) console.log(`Review: ${String(review.message)}`);
   console.log(String(walkthrough.message ?? `Walkthrough written to ${String(walkthrough.path)}`));
 
+  let publishFailed = false;
+  if (args.publish) {
+    try {
+      const shareUrl = await publishWalkthrough(String(walkthrough.path));
+      console.log(`Published: ${shareUrl}`);
+    } catch (error) {
+      publishFailed = true;
+      console.error(`smithers-review: ${(error as Error).message}`);
+    }
+  }
+
   if (args.open) {
     const opener = process.platform === "darwin" ? "open" : "xdg-open";
     spawn(opener, [String(walkthrough.path)], { stdio: "ignore", detached: true }).unref();
   }
 
-  const failed = result.status === "failed" || result.status === "cancelled";
+  const failed = result.status === "failed" || result.status === "cancelled" || publishFailed;
   process.exit(failed ? 1 : 0);
 }
 

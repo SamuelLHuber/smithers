@@ -157,8 +157,44 @@ to the target repo. Override models with `SMITHERS_REVIEW_MODEL` and
 - Agent-driven runs are exercised manually (`smithers review` on this repo); they need
   ClaudeCode credentials.
 
+## Publishing
+
+Walkthroughs are static HTML, so "deploying" smithers review means giving the
+artifacts a home. A Cloudflare Worker (deployed with Alchemy IaC from
+`apps/review/alchemy.run.ts`, R2-backed) serves published walkthroughs. It is
+live at `https://review.jjhub.tech` (plus a workers.dev fallback URL):
+
+- `POST /api/walkthroughs` with `Authorization: Bearer <token>` and an HTML
+  body stores the walkthrough in R2 under a random id and returns
+  `{ id, url }`. The token is the `REVIEW_PUBLISH_TOKEN` Worker secret.
+- `GET /w/<id>` serves the stored walkthrough (unlisted capability links,
+  `x-robots-tag: noindex`).
+- `GET /` is a usage landing page.
+
+CLI: `--publish` uploads the generated walkthrough and prints the share URL.
+The endpoint and token come from `SMITHERS_REVIEW_PUBLISH_URL` /
+`SMITHERS_REVIEW_PUBLISH_TOKEN`, falling back to `~/.smithers-review.json`
+(`{ "publishUrl": ..., "publishToken": ... }`).
+
+Domain status: the target hostname is `review.smithers.sh`, but the
+`smithers.sh` zone lives on Vercel DNS (registrar Name.com), not Cloudflare,
+so the Worker cannot take it as a plain custom domain. The plan is Cloudflare
+for SaaS on the `jjhub.tech` zone (custom hostname + fallback origin + Worker
+route + a CNAME at Vercel). Both credential paths are currently blocked: the
+`CLOUDFLARE_API_TOKEN` lacks the Zone SSL-and-Certificates permission that
+the custom-hostnames API requires, and `VERCEL_API_TOKEN` is expired. The
+route is pre-wired in `alchemy.run.ts` behind
+`REVIEW_ENABLE_SMITHERS_SH_ROUTE=1`; once fresh tokens exist, provision the
+custom hostname, add the Vercel CNAME, redeploy with the flag and
+`REVIEW_PUBLIC_BASE_URL=https://review.smithers.sh`.
+
+Agents still run locally; the service stores and serves artifacts only. It
+never sees repo contents beyond the HTML you choose to publish.
+
 ## Non-goals (for now)
 
-- No GitHub App, webhooks, or PR comment posting. Output is local HTML.
+- No GitHub App, webhooks, or PR comment posting. Output is local HTML
+  (optionally published).
 - No incremental re-review state. Each run is a fresh review of the target.
 - No chat replies on findings.
+- No walkthrough listing/index endpoint; URLs are unlisted capability links.
