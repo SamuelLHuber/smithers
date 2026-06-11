@@ -1,0 +1,54 @@
+---
+title: "0.23.1"
+description: "Patch: GATEWAY_UNREACHABLE hint, approval durability, ctx.output metadata, structured-output warnings, and SQLite anchor-walk."
+---
+
+Five targeted bug fixes from community dogfooding reports.
+
+---
+
+## Fix: `smithers ui` GATEWAY_UNREACHABLE hint
+
+`smithers ui` now shows an accurate recovery path when no Gateway is reachable.
+
+The old error message told users to run `smithers gateway` — a command that does not exist. The new message points to starting a real Gateway (`.smithers/gateway.ts` or programmatic `new Gateway().register(workflow, { ui }).listen(7331)`) and clarifies that `smithers up --serve` starts a lightweight serve server without the `/v1/rpc/*` routes that `ui` needs. The `ui --help` description was updated to set that expectation upfront. Fixes [#244](https://github.com/smithersai/smithers/issues/244).
+
+## Fix: `resolve_approval` no longer strands runs on post-commit bridge failure
+
+Approving a gate through the MCP `resolve_approval` tool could return `INTERNAL_ERROR` while still consuming the approval row, leaving the run permanently stuck with no way to re-drive the gate.
+
+The root cause: `approveNode` commits the approval decision to the database, then calls `bridgeApprovalResolve` outside the transaction. If the bridge threw, the caller saw an error but the approval was gone. The fix catches post-commit bridge failures, logs a `console.warn`, and returns success — the committed approval record is the durable source of truth and the engine will process it on resume. Fixes [#241](https://github.com/smithersai/smithers/issues/241).
+
+## Fix: supervisor auto-resumes detached runs after an approval is recorded
+
+Approving a gate on a detached run recorded the decision but left the run stuck in `waiting-event` forever. The supervisor, `smithers why`, and `smithers approve` all gave misleading signals.
+
+Three changes land together:
+
+- **Supervisor** now queries `_smithers_approvals` (joined to `_smithers_nodes WHERE state = 'pending'`) on every poll cycle and spawns a detached resume for any `waiting-event` run whose approval was decided but not yet consumed by an engine. The pending-node join scopes the check to unconsumed decisions and excludes historical approvals that the engine already processed.
+- **`smithers approve`** now fetches run state after recording the decision and, when the run is still `waiting-event`, prepends a resume command to the CTA: `smithers up <workflow> --resume --run-id <runId>`.
+- **`smithers why`** now emits an `approval-decided-resume-required` blocker when a run is `waiting-event` and has a decided approval record, pointing users at the exact resume command.
+
+Fixes [#242](https://github.com/smithersai/smithers/issues/242).
+
+## Fix: silent structured-output degradation and `ctx.output` metadata leak
+
+Two related issues on `<Task output={schema}>`:
+
+**Degradation warning.** When a task is assigned an engine without native structured output (Pi, Codex, Gemini, and others that don't declare `supportsNativeStructuredOutput`), the engine now emits a `console.warn` at the prompt-injection fallback path. The warning includes the node id and engine name so the silent downgrade is at least diagnosable.
+
+**Metadata stripped from `ctx.output`.** `ctx.output()` and `ctx.outputMaybe()` previously returned the raw database row, which includes internal harness fields (`runId`, `nodeId`, `iteration`). Serializing that into a downstream prompt leaked internal-looking fields that caused at least one model (Pi) to interpret them as evidence it was seeing a "truncated checkpoint" rather than real data, producing degenerate output. The return value is now stripped to schema fields only. The `OutputRow` type is updated to reflect this. Fixes [#243](https://github.com/smithersai/smithers/issues/243).
+
+## Fix: `smithers.db` resolves from project anchor, not raw CWD
+
+Running CLI commands from inside `.smithers/` (or any subdirectory) created a stray `smithers.db` alongside the project-root database, silently fragmenting run history. Commands like `smithers cancel` returned `RUN_NOT_FOUND` when run from the wrong directory.
+
+The fix:
+
+- Both `apps/cli` and `packages/smithers` now walk upward from CWD looking for a `.smithers/` anchor directory and resolve `smithers.db` relative to it. HOME and filesystem root are excluded from the walk.
+- If an anchor directory exists but its database hasn't been created yet, the walk stops there rather than crossing the project boundary to a stray DB.
+- A warning is printed to stderr when multiple `smithers.db` files are found along the resolution path.
+- `RUN_NOT_FOUND` errors now include the DB path consulted so the wrong-store case is diagnosable.
+- `findSmithersAnchorDir` is extracted into a shared utility (`packages/smithers/src/findSmithersAnchorDir.js`) to eliminate the duplicate implementation.
+
+Fixes [#240](https://github.com/smithersai/smithers/issues/240).
