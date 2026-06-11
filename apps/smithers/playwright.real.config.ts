@@ -4,9 +4,11 @@ import { resolve } from "node:path";
 
 const appPort = process.env.SMITHERS_REAL_APP_PORT || "5375";
 const gatewayPort = process.env.SMITHERS_REAL_GATEWAY_PORT || "7342";
+const workerPort = process.env.SMITHERS_REAL_WORKER_PORT || "5376";
 const plueApiBaseUrl = process.env.PLUE_API_BASE_URL || "http://127.0.0.1:4000";
 const appOrigin = `http://127.0.0.1:${appPort}`;
 const gatewayOrigin = `http://127.0.0.1:${gatewayPort}`;
+const workerOrigin = `http://127.0.0.1:${workerPort}`;
 
 function onboardedOrigin(origin: string) {
   return {
@@ -56,6 +58,17 @@ const onboardedStorageState = {
   origins: [onboardedOrigin(appOrigin)],
 };
 
+const localEnv = readLocalEnv();
+const chatUpstreamEnv = {
+  CEREBRAS_API_KEY: process.env.CEREBRAS_API_KEY ?? localEnv.CEREBRAS_API_KEY,
+  CEREBRAS_BASE_URL:
+    process.env.CEREBRAS_BASE_URL ?? localEnv.CEREBRAS_BASE_URL,
+  CEREBRAS_MODEL: process.env.CEREBRAS_MODEL ?? localEnv.CEREBRAS_MODEL,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? localEnv.GEMINI_API_KEY,
+  SMITHERS_E2E_CHAT_MODEL:
+    process.env.SMITHERS_E2E_CHAT_MODEL ?? localEnv.SMITHERS_E2E_CHAT_MODEL,
+};
+
 export default defineConfig({
   testDir: "./tests/e2e-real",
   testMatch: "**/*.spec.ts",
@@ -84,9 +97,23 @@ export default defineConfig({
       reuseExistingServer: true,
       timeout: 60_000,
       env: {
-        ...readLocalEnv(),
+        ...localEnv,
         PORT: gatewayPort,
         HOST: "127.0.0.1",
+      },
+    },
+    {
+      command: "bun ../../scripts/e2e-real/worker.ts",
+      url: `${workerOrigin}/health`,
+      reuseExistingServer: true,
+      timeout: 60_000,
+      env: {
+        ...chatUpstreamEnv,
+        SMITHERS_REAL_WORKER_PORT: workerPort,
+        AUTH_API_BASE_URL: plueApiBaseUrl,
+        PLUE_API_BASE_URL: plueApiBaseUrl,
+        GO_API_BASE_URL: plueApiBaseUrl,
+        GATEWAY_BASE_URL: gatewayOrigin,
       },
     },
     {
@@ -98,6 +125,7 @@ export default defineConfig({
         SMITHERS_AUTH_PROXY_TARGET: plueApiBaseUrl,
         SMITHERS_PLATFORM_PROXY_TARGET: plueApiBaseUrl,
         SMITHERS_GATEWAY_PROXY_TARGET: gatewayOrigin,
+        SMITHERS_CHAT_PROXY_TARGET: workerOrigin,
       },
     },
   ],
