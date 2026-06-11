@@ -20,8 +20,8 @@ import { collectChanges } from "../walkthrough/collectChanges";
 import { normalizeStory } from "../walkthrough/normalizeStory";
 import { renderWalkthroughHtml } from "../walkthrough/renderWalkthroughHtml";
 import { storySchema } from "../walkthrough/storySchema";
-import { normalizeRabbitInput } from "./normalizeRabbitInput";
-import { rabbitInputSchema } from "./rabbitInputSchema";
+import { normalizeReviewInput } from "./normalizeReviewInput";
+import { reviewInputSchema } from "./reviewInputSchema";
 
 // Single-word column names on purpose: output rows come back snake_cased from
 // loadOutputs, single words round-trip unchanged (see the spec).
@@ -34,7 +34,7 @@ const walkthroughOutputSchema = z.object({
   message: z.string().default(""),
 });
 
-export function createRabbitWorkflow(opts: {
+export function createReviewWorkflow(opts: {
   dbPath: string;
   reviewAgents?: AgentLike[];
   narratorAgents?: AgentLike[];
@@ -42,7 +42,7 @@ export function createRabbitWorkflow(opts: {
   mkdirSync(dirname(resolve(opts.dbPath)), { recursive: true });
   const api = createSmithers(
     {
-      input: rabbitInputSchema,
+      input: reviewInputSchema,
       target: reviewTargetSchema,
       preview: previewOutputSchema,
       reviewPrompt: nativeReviewPromptSchema,
@@ -59,7 +59,7 @@ export function createRabbitWorkflow(opts: {
   const narratorAgents = opts.narratorAgents ?? [];
 
   const workflow = smithers((ctx) => {
-    const input = normalizeRabbitInput(ctx.input);
+    const input = normalizeReviewInput(ctx.input);
     // Without review agents the per-file tasks never run, so the finalizer
     // must see runReview=false and report "skipped" instead of "failed".
     const reviewInput = { ...input, runReview: input.runReview && reviewAgents.length > 0 };
@@ -74,7 +74,7 @@ export function createRabbitWorkflow(opts: {
     const heartbeatTimeoutMs = Math.max(60_000, Math.min(agentTimeoutMs, 600_000));
 
     return (
-      <Workflow name="rabbit">
+      <Workflow name="smithers-review">
         <Sequence>
           <Task id="resolve-target" output={outputs.target} noRetry>
             {async () => resolveReviewTarget(reviewInput)}
@@ -185,7 +185,7 @@ export function createRabbitWorkflow(opts: {
                 ? isAbsolute(requested)
                   ? requested
                   : resolve(target.repoDir, requested)
-                : join(target.repoDir, ".rabbit", "walkthrough.html");
+                : join(target.repoDir, ".smithers-review", "walkthrough.html");
               mkdirSync(dirname(outPath), { recursive: true });
               writeFileSync(outPath, html);
               return {

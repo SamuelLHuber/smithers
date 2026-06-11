@@ -20,9 +20,9 @@ export async function collectChanges(input: OpenCodeReviewInput, preview: Previe
   const diffs = await loadDiffs(target.repoDir, normalized);
   const previewByPath = new Map(preview.entries.map((entry) => [entry.path, entry]));
   const files = diffs
-    // Rabbit's own state dir: in not-yet-gitignored repos its db would show
+    // The app's own state dir: in not-yet-gitignored repos its db would show
     // up as a giant untracked "added" file on the very change set it reviews.
-    .filter((diff) => effectivePath(diff) !== ".rabbit" && !effectivePath(diff).startsWith(".rabbit/"))
+    .filter((diff) => effectivePath(diff) !== ".smithers-review" && !effectivePath(diff).startsWith(".smithers-review/"))
     .map((diff) => {
       const path = effectivePath(diff);
       const entry = previewByPath.get(path);

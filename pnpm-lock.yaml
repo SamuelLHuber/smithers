@@ -333,7 +333,7 @@ importers:
         specifier: ~5.9.3
         version: 5.9.3
 
-  apps/rabbit:
+  apps/review:
     dependencies:
       '@smithers-orchestrator/db':
         specifier: workspace:*

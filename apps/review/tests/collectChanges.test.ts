@@ -24,7 +24,7 @@ function write(path: string, content: string) {
 }
 
 function tempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), "rabbit-changes-"));
+  const dir = mkdtempSync(join(tmpdir(), "review-changes-"));
   tempDirs.push(dir);
   run("git", ["init"], dir);
   run("git", ["config", "user.email", "test@example.com"], dir);

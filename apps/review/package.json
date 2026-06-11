@@ -1,11 +1,11 @@
 {
-  "name": "@smithers-orchestrator/rabbit",
+  "name": "@smithers-orchestrator/review",
   "version": "0.0.1",
   "private": true,
   "description": "Code review plus story-form HTML walkthrough, built on the OpenCodeReview-derived review flow",
   "type": "module",
   "bin": {
-    "rabbit": "./src/cli/main.ts"
+    "smithers-review": "./src/cli/main.ts"
   },
   "scripts": {
     "start": "bun ./src/cli/main.ts",

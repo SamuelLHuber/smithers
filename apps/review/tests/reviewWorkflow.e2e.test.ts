@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { loadOutputs } from "@smithers-orchestrator/db/snapshot";
 import { runWorkflow } from "@smithers-orchestrator/engine";
 import { Effect } from "effect";
-import { createRabbitWorkflow } from "../src/workflow/createRabbitWorkflow";
+import { createReviewWorkflow } from "../src/workflow/createReviewWorkflow";
 
 const tempDirs: string[] = [];
 
@@ -26,7 +26,7 @@ function write(path: string, content: string) {
 }
 
 function tempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), "rabbit-e2e-"));
+  const dir = mkdtempSync(join(tmpdir(), "review-e2e-"));
   tempDirs.push(dir);
   run("git", ["init"], dir);
   run("git", ["config", "user.email", "test@example.com"], dir);
@@ -37,7 +37,7 @@ function tempRepo() {
   return dir;
 }
 
-describe("rabbit workflow (agentless e2e through the real engine)", () => {
+describe("smithers review workflow (agentless e2e through the real engine)", () => {
   test(
     "writes a walkthrough HTML covering every changed file; review reports skipped",
     async () => {
@@ -47,16 +47,16 @@ describe("rabbit workflow (agentless e2e through the real engine)", () => {
       write(join(repo, "src/app.test.ts"), "test('x', () => {});\n");
       write(join(repo, "README.md"), "# Demo\n");
 
-      const work = mkdtempSync(join(tmpdir(), "rabbit-work-"));
+      const work = mkdtempSync(join(tmpdir(), "review-work-"));
       tempDirs.push(work);
-      const dbPath = join(work, "rabbit.db");
+      const dbPath = join(work, "review.db");
       const outPath = join(work, "walkthrough.html");
 
       // runReview/narrate stay true: with no agents configured the workflow
       // must downgrade review to "skipped" and narration to the fallback
       // story on its own.
-      const { workflow, db, tables } = createRabbitWorkflow({ dbPath, reviewAgents: [], narratorAgents: [] });
-      const runId = `rabbit-e2e-${Date.now()}`;
+      const { workflow, db, tables } = createReviewWorkflow({ dbPath, reviewAgents: [], narratorAgents: [] });
+      const runId = `review-e2e-${Date.now()}`;
       const result = (await Effect.runPromise(
         runWorkflow(workflow as never, {
           input: { repo, out: outPath, runReview: true, narrate: true },

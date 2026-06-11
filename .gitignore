@@ -92,5 +92,5 @@ workflows/*.db
 workflows/*.db-shm
 workflows/*.db-wal
 
-# rabbit (apps/rabbit) per-repo state
-.rabbit/
+# smithers review (apps/review) per-repo state
+.smithers-review/

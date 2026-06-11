@@ -1,6 +1,6 @@
-# Rabbit: code review + story-form HTML walkthrough
+# Smithers review: code review + story-form HTML walkthrough
 
-`apps/rabbit` is our CodeRabbit. It does two things in one run:
+`apps/review` ("smithers review") is our CodeRabbit. It does two things in one run:
 
 1. Reviews changed code with the OpenCodeReview-derived per-file review flow
    already in `.smithers/lib/open-code-review.ts` (the same prompts, filters,
@@ -13,15 +13,15 @@
 ## CLI
 
 ```
-rabbit [repo] [options]
+smithers review [repo] [options]
 
   --from <ref> --to <ref>   review a ref range (merge-base diff)
   --commit <sha>            review a single commit
                             (default: workspace changes, tracked + untracked)
   --background <text>       requirement background passed to review + narrator
   --title <text>            walkthrough title (default: narrator headline)
-  --out <file>              output HTML path (default: <repo>/.rabbit/walkthrough.html)
-  --db <file>               smithers db path (default: <repo>/.rabbit/rabbit.db)
+  --out <file>              output HTML path (default: <repo>/.smithers review/walkthrough.html)
+  --db <file>               smithers db path (default: <repo>/.smithers review/smithers review.db)
   --no-review               skip review agents; walkthrough only
   --no-narrate              skip the narrator agent; deterministic story order
   --concurrency <n>         parallel file reviews (default 8)
@@ -29,13 +29,13 @@ rabbit [repo] [options]
   --open                    open the HTML in the default browser when done
 ```
 
-Run it with bun: `bun apps/rabbit/src/cli/main.ts` or via the `rabbit` bin.
+Run it with bun: `bun apps/smithers review/src/cli/main.ts` or via the `smithers review` bin.
 Exit code 0 when the walkthrough is written, 1 on failure. Review findings do
-not affect the exit code; rabbit reports, humans decide.
+not affect the exit code; smithers review reports, humans decide.
 
 ## Pipeline
 
-One durable smithers workflow (`createRabbitWorkflow`), programmatic engine run
+One durable smithers workflow (`createReviewWorkflow`), programmatic engine run
 (`runWorkflow` from `@smithers-orchestrator/engine`), own sqlite db. Tasks:
 
 | id                | kind    | what it does |
@@ -49,8 +49,8 @@ One durable smithers workflow (`createRabbitWorkflow`), programmatic engine run
 | `narrate`         | agent   | turns the change set + findings into a story (schema below) |
 | `walkthrough`     | compute | normalize the story, render HTML, write the file |
 
-Review reuse is at the lib level: rabbit imports the lib functions, it does not
-fork their logic. New lib exports added for rabbit: `loadDiffs`,
+Review reuse is at the lib level: smithers review imports the lib functions, it does not
+fork their logic. New lib exports added for smithers review: `loadDiffs`,
 `effectivePath`, `diffStatus`, `type DiffRecord` (all existed as internals).
 
 `--no-review` (or no review agents configured) sets `runReview: false` before
@@ -119,8 +119,8 @@ because output rows come back snake_cased; single words round-trip unchanged.
 
 Default agents are the two reliable ClaudeCode subscription providers (see
 `.smithers/agents.ts` and issue #236): opus primary, sonnet fallback, `cwd` set
-to the target repo. Override models with `RABBIT_MODEL` and
-`RABBIT_FALLBACK_MODEL`.
+to the target repo. Override models with `SMITHERS_REVIEW_MODEL` and
+`SMITHERS_REVIEW_FALLBACK_MODEL`.
 
 ## Testing
 
@@ -130,7 +130,7 @@ to the target repo. Override models with `RABBIT_MODEL` and
 - An agentless end-to-end test runs the real workflow through the real engine
   (`runWorkflow`, real sqlite, real git): `--no-review --no-narrate` on a temp
   repo, then asserts the HTML exists and contains every changed file.
-- Agent-driven runs are exercised manually (`rabbit` on this repo); they need
+- Agent-driven runs are exercised manually (`smithers review` on this repo); they need
   ClaudeCode credentials.
 
 ## Non-goals (for now)

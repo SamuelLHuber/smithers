@@ -1,4 +1,4 @@
-export type RabbitArgs = {
+export type ReviewArgs = {
   repo: string;
   from: string;
   to: string;
@@ -15,8 +15,8 @@ export type RabbitArgs = {
   help: boolean;
 };
 
-export function parseRabbitArgs(argv: string[]): RabbitArgs {
-  const args: RabbitArgs = {
+export function parseReviewArgs(argv: string[]): ReviewArgs {
+  const args: ReviewArgs = {
     repo: ".",
     from: "",
     to: "",

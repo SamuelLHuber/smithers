@@ -4,21 +4,21 @@ import { join, resolve } from "node:path";
 import { loadOutputs } from "@smithers-orchestrator/db/snapshot";
 import { runWorkflow } from "@smithers-orchestrator/engine";
 import { Effect } from "effect";
-import { createRabbitAgents } from "../workflow/createRabbitAgents";
-import { createRabbitWorkflow } from "../workflow/createRabbitWorkflow";
-import { parseRabbitArgs, type RabbitArgs } from "./parseRabbitArgs";
+import { createReviewAgents } from "../workflow/createReviewAgents";
+import { createReviewWorkflow } from "../workflow/createReviewWorkflow";
+import { parseReviewArgs, type ReviewArgs } from "./parseReviewArgs";
 
-const USAGE = `rabbit — code review + story-form HTML walkthrough
+const USAGE = `smithers review — code review + story-form HTML walkthrough
 
-Usage: rabbit [repo] [options]
+Usage: smithers-review [repo] [options]
 
   --from <ref> --to <ref>   review a ref range (merge-base diff)
   --commit <sha>            review a single commit
                             (default: workspace changes, tracked + untracked)
   --background <text>       requirement background for review + narrator
   --title <text>            walkthrough title (default: narrator headline)
-  --out <file>              output HTML path (default: <repo>/.rabbit/walkthrough.html)
-  --db <file>               smithers db path (default: <repo>/.rabbit/rabbit.db)
+  --out <file>              output HTML path (default: <repo>/.smithers-review/walkthrough.html)
+  --db <file>               smithers db path (default: <repo>/.smithers-review/review.db)
   --no-review               skip review agents; walkthrough only
   --no-narrate              skip the narrator agent; deterministic story order
   --concurrency <n>         parallel file reviews (default 8)
@@ -27,11 +27,11 @@ Usage: rabbit [repo] [options]
   -h, --help                show this help`;
 
 async function main() {
-  let args: RabbitArgs;
+  let args: ReviewArgs;
   try {
-    args = parseRabbitArgs(process.argv.slice(2));
+    args = parseReviewArgs(process.argv.slice(2));
   } catch (error) {
-    console.error(`rabbit: ${(error as Error).message}\n`);
+    console.error(`smithers-review: ${(error as Error).message}\n`);
     console.error(USAGE);
     process.exit(1);
     return;
@@ -42,15 +42,15 @@ async function main() {
   }
 
   const repoDir = resolve(args.repo);
-  const dbPath = args.db ? resolve(args.db) : join(repoDir, ".rabbit", "rabbit.db");
-  const agents = args.review || args.narrate ? createRabbitAgents(repoDir) : { review: [], narrate: [] };
-  const { workflow, db, tables } = createRabbitWorkflow({
+  const dbPath = args.db ? resolve(args.db) : join(repoDir, ".smithers-review", "review.db");
+  const agents = args.review || args.narrate ? createReviewAgents(repoDir) : { review: [], narrate: [] };
+  const { workflow, db, tables } = createReviewWorkflow({
     dbPath,
     reviewAgents: args.review ? agents.review : [],
     narratorAgents: args.narrate ? agents.narrate : [],
   });
 
-  const runId = `rabbit-${Date.now()}`;
+  const runId = `review-${Date.now()}`;
   const input = {
     repo: repoDir,
     from: args.from,
@@ -67,7 +67,7 @@ async function main() {
   };
 
   console.error(
-    `[rabbit] run ${runId} on ${repoDir} (review ${args.review ? "on" : "off"}, narration ${args.narrate ? "on" : "off"})`,
+    `[smithers-review] run ${runId} on ${repoDir} (review ${args.review ? "on" : "off"}, narration ${args.narrate ? "on" : "off"})`,
   );
   const result = (await Effect.runPromise(
     runWorkflow(workflow as never, { input, runId, allowNetwork: true }) as never,
@@ -81,7 +81,7 @@ async function main() {
   const review = rows.review?.at(-1);
 
   if (!walkthrough) {
-    console.error(`[rabbit] run ended with status "${result.status}" but produced no walkthrough.`);
+    console.error(`[smithers-review] run ended with status "${result.status}" but produced no walkthrough.`);
     process.exit(1);
     return;
   }
@@ -99,6 +99,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`rabbit: ${(error as Error)?.message ?? String(error)}`);
+  console.error(`smithers-review: ${(error as Error)?.message ?? String(error)}`);
   process.exit(1);
 });

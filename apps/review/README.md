@@ -1,4 +1,4 @@
-# rabbit
+# smithers review
 
 Our CodeRabbit. One command reviews a change set with agents and writes a
 single-file HTML walkthrough that presents the change as a story: chapters in
@@ -6,22 +6,22 @@ logical reading order, each explaining why a group of files changed, with
 diffs and review findings inline. You read it top to bottom instead of
 decoding an alphabetical file list.
 
-Spec: `.smithers/specs/rabbit-review-walkthrough.md`.
+Spec: `.smithers/specs/smithers-review-walkthrough.md`.
 
 ## Usage
 
 ```sh
-# review the working tree of the current repo, write .rabbit/walkthrough.html
-bun apps/rabbit/src/cli/main.ts
+# review the working tree of the current repo, write .smithers-review/walkthrough.html
+bun apps/review/src/cli/main.ts
 
 # review a branch against main, open the walkthrough when done
-bun apps/rabbit/src/cli/main.ts --from main --to HEAD --open
+bun apps/review/src/cli/main.ts --from main --to HEAD --open
 
 # review one commit
-bun apps/rabbit/src/cli/main.ts --commit abc1234
+bun apps/review/src/cli/main.ts --commit abc1234
 
 # no agents: deterministic story, no review findings (works offline)
-bun apps/rabbit/src/cli/main.ts --no-review --no-narrate
+bun apps/review/src/cli/main.ts --no-review --no-narrate
 ```
 
 Run `--help` for all options.
@@ -45,14 +45,16 @@ One durable smithers workflow, run in-process through the engine:
 4. `walkthrough` renders self-contained HTML (inline CSS, no external assets)
    and writes it to `--out`.
 
-Review findings never change the exit code; rabbit reports, humans decide.
+Review findings never change the exit code; smithers review reports, humans
+decide.
 
 Agents default to ClaudeCode subscription providers (opus primary, sonnet
-failover). Override with `RABBIT_MODEL` / `RABBIT_FALLBACK_MODEL`.
+failover). Override with `SMITHERS_REVIEW_MODEL` /
+`SMITHERS_REVIEW_FALLBACK_MODEL`.
 
 ## Tests
 
 ```sh
-pnpm -C apps/rabbit test        # bun test: real git fixtures + agentless engine e2e
-pnpm -C apps/rabbit typecheck
+pnpm -C apps/review test        # bun test: real git fixtures + agentless engine e2e
+pnpm -C apps/review typecheck
 ```
