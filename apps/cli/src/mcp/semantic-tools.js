@@ -1067,6 +1067,9 @@ export function createSemanticToolDefinitions(options = {}) {
                     });
                 }
                 const approval = matches[0];
+                // Post-commit bridge errors are already swallowed inside approveNode/denyNode
+                // (approvals.js) and will not propagate here. Any rejection that does reach
+                // this await is a real failure (e.g. INVALID_INPUT) and should propagate normally.
                 if (input.action === "approve") {
                     await Effect.runPromise(approveNode(adapter, approval.runId, approval.nodeId, approval.iteration ?? 0, input.note, input.decidedBy, input.decision));
                 }
