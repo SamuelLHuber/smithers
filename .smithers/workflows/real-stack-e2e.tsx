@@ -813,10 +813,17 @@ export default smithers((ctx) => {
                   agent={impl}
                   retries={2}
                   timeoutMs={90 * 60 * 1000}
+                  heartbeatTimeoutMs={90 * 60 * 1000}
                 >
                   {implementPrompt(t, s.feedback)}
                 </Task>
-                <Task id={`${t.id}:verify`} output={outputs.verify} noRetry timeoutMs={t.verifyTimeoutMs + 60_000}>
+                <Task
+                  id={`${t.id}:verify`}
+                  output={outputs.verify}
+                  noRetry
+                  timeoutMs={t.verifyTimeoutMs + 60_000}
+                  heartbeatTimeoutMs={t.verifyTimeoutMs + 60_000}
+                >
                   {() => runVerify(t)}
                 </Task>
                 <Task id={`${t.id}:audit`} output={outputs.audit} noRetry timeoutMs={5 * 60 * 1000}>
@@ -829,6 +836,7 @@ export default smithers((ctx) => {
                     agent={planners}
                     retries={2}
                     timeoutMs={30 * 60 * 1000}
+                    heartbeatTimeoutMs={30 * 60 * 1000}
                   >
                     {reviewPrompt(t, s.verify?.outputTail ?? "")}
                   </Task>
@@ -859,6 +867,7 @@ export default smithers((ctx) => {
             agent={planners}
             retries={2}
             timeoutMs={45 * 60 * 1000}
+            heartbeatTimeoutMs={45 * 60 * 1000}
           >
             {ralphPlanPrompt(ralphIter, ralphPrev)}
           </Task>
@@ -870,6 +879,7 @@ export default smithers((ctx) => {
                 agent={impl}
                 retries={2}
                 timeoutMs={90 * 60 * 1000}
+                heartbeatTimeoutMs={90 * 60 * 1000}
               >
                 {ralphImplementPrompt(ralphPlan?.focus ?? "", ralphPlan?.items ?? "")}
               </Task>
@@ -878,6 +888,7 @@ export default smithers((ctx) => {
                 output={outputs.verify}
                 noRetry
                 timeoutMs={RALPH_GATE.verifyTimeoutMs + 60_000}
+                heartbeatTimeoutMs={RALPH_GATE.verifyTimeoutMs + 60_000}
               >
                 {() => runVerify(RALPH_GATE)}
               </Task>
@@ -891,6 +902,7 @@ export default smithers((ctx) => {
                   agent={planners}
                   retries={2}
                   timeoutMs={30 * 60 * 1000}
+                  heartbeatTimeoutMs={30 * 60 * 1000}
                 >
                   {ralphReviewPrompt(ralphPlan?.focus ?? "", ralphPlan?.items ?? "", rVerify?.outputTail ?? "")}
                 </Task>
@@ -915,6 +927,7 @@ export default smithers((ctx) => {
         agent={planners}
         retries={2}
         timeoutMs={30 * 60 * 1000}
+        heartbeatTimeoutMs={30 * 60 * 1000}
       >
         {reportPrompt()}
       </Task>
