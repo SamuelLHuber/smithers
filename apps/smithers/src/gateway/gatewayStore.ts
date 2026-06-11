@@ -161,6 +161,13 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
       nextStatus = "waiting";
     }
     if (!nextStatus) return;
+    // Don't regress a run that has already reached a terminal state. When the
+    // gateway replays historical events for an already-finished run (e.g.
+    // run.started before run.completed), a late replay must not overwrite "ok".
+    const currentRunView = get().runViews[runId];
+    if (currentRunView && isTerminal(currentRunView.status) && !isTerminal(nextStatus)) {
+      return;
+    }
     set((store) => ({
       runs: store.runs.map((run) =>
         run.runId === runId ? { ...run, status: nextStatus } : run,
@@ -401,19 +408,28 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
           return;
         }
         const state = asString(asRecord(asRecord(snapshot).runState).state);
+        const nextRunStatus = toNodeStatus(state);
         set((store) => ({
           status: "online",
           runViews: {
             ...store.runViews,
             [runId]: {
               workflowKey: store.runViews[runId]?.workflowKey ?? "",
-              status: toNodeStatus(state),
+              status: nextRunStatus,
               tree: snapshotToRunNode(snapshot as never),
               loaded: true,
             },
           },
         }));
         setStatusGauge("online");
+        // Stop the SSE streams once the snapshot confirms the run is terminal.
+        // This prevents an infinite reconnect loop for runs that were already
+        // complete when the inspector opened (the gateway stops sending
+        // run.completed to the event stream once the run is done, so
+        // streamRunEventsResilient would otherwise reconnect indefinitely).
+        if (isTerminal(nextRunStatus) && activeRunId === runId) {
+          stopRunStreams();
+        }
         surfaceRefreshTotal.inc({
           surface: "snapshot",
           trigger: "poll",
