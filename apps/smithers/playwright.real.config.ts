@@ -92,8 +92,8 @@ export default defineConfig({
       timeout: 240_000,
     },
     {
-      command: "bun ../../.smithers/gateway.ts",
-      url: `${gatewayOrigin}/health`,
+      command: "bash ../../scripts/e2e-real/gateway-up.sh",
+      url: `${gatewayOrigin}/workflows/e2e-probe`,
       reuseExistingServer: true,
       timeout: 60_000,
       env: {
