@@ -698,6 +698,66 @@ function buildDiagnosis(params) {
                 : {}),
         });
     }
+    // Detect runs stuck in waiting-event with no actual waiting-event nodes but
+    // with pending nodes — this happens when an approval decision is recorded
+    // while the run is detached. The node transitions to "pending" but no engine
+    // is alive to execute it. The supervisor auto-resumes these, but diagnose
+    // them explicitly so users get a clear action.
+    if (status === "waiting-event") {
+        const hasWaitingEventNodes = nodes.some((node) => node.state === "waiting-event");
+        const pendingNodes = nodes.filter((node) => node.state === "pending");
+        if (!hasWaitingEventNodes && pendingNodes.length > 0) {
+            for (const node of pendingNodes) {
+                blockers.push({
+                    kind: "approval-decided-resume-required",
+                    nodeId: node.nodeId,
+                    iteration: node.iteration ?? 0,
+                    reason: "Approval decision recorded — run must be resumed to continue",
+                    waitingSince: waitingSinceFallback(nowMs, node.updatedAtMs, run.startedAtMs, run.createdAtMs),
+                    unblocker: buildResumeUnblocker(run),
+                    context: "The approval gate was decided while the run was detached. Resume the run to execute the next step.",
+                });
+            }
+        }
+        // Detect failed nodes that have a decided (denied) approval — the engine
+        // processed the denial and left the node in "failed", but if the run is
+        // still waiting-event (e.g. detached / try-catch path) a resume is needed.
+        const failedNodesWithDecidedApproval = nodes.filter(
+            (node) =>
+                node.state === "failed" &&
+                approvals.some(
+                    (a) =>
+                        a.runId === node.runId &&
+                        a.nodeId === node.nodeId &&
+                        a.iteration === (node.iteration ?? 0) &&
+                        (a.status === "approved" || a.status === "denied")
+                )
+        );
+        if (!hasWaitingEventNodes && failedNodesWithDecidedApproval.length > 0) {
+            for (const node of failedNodesWithDecidedApproval) {
+                const approval = approvals.find(
+                    (a) =>
+                        a.runId === node.runId &&
+                        a.nodeId === node.nodeId &&
+                        a.iteration === (node.iteration ?? 0)
+                );
+                const isDenied = approval?.status === "denied";
+                blockers.push({
+                    kind: "approval-decided-resume-required",
+                    nodeId: node.nodeId,
+                    iteration: node.iteration ?? 0,
+                    reason: isDenied
+                        ? "Approval denied — run must be resumed to handle the denial"
+                        : "Approval decision recorded — run must be resumed to continue",
+                    waitingSince: waitingSinceFallback(nowMs, node.updatedAtMs, run.startedAtMs, run.createdAtMs),
+                    unblocker: buildResumeUnblocker(run),
+                    context: isDenied
+                        ? "The approval gate was denied while the run was detached. Resume the run to propagate the failure."
+                        : "The approval gate was decided while the run was detached. Resume the run to execute the next step.",
+                });
+            }
+        }
+    }
     for (const node of nodes.filter((entry) => entry.state === "waiting-timer")) {
         const key = nodeKey(node.nodeId, node.iteration ?? 0);
         const snapshot = computeTimerSnapshot(node, attemptsByNode.get(key) ?? [], parsedEvents);
@@ -877,14 +937,16 @@ function buildDiagnosis(params) {
  */
 export function diagnoseRunEffect(adapter, runId, nowMs = Date.now()) {
     return Effect.withLogSpan("why:diagnose")(Effect.gen(function* () {
-        const [run, nodes, approvals, attempts, lastSeq, lastFrame] = yield* Effect.all([
+        const [run, nodes, pendingApprovals, decidedApprovals, attempts, lastSeq, lastFrame] = yield* Effect.all([
             adapter.getRunEffect(runId),
             adapter.listNodesEffect(runId),
             adapter.listPendingApprovalsEffect(runId),
+            adapter.listAllDecidedApprovalsEffect(runId),
             adapter.listAttemptsForRunEffect(runId),
             adapter.getLastEventSeqEffect(runId),
             adapter.getLastFrameEffect(runId),
         ]);
+        const approvals = [...(pendingApprovals ?? []), ...(decidedApprovals ?? [])];
         if (!run) {
             return yield* Effect.fail(new SmithersError("RUN_NOT_FOUND", `Run not found: ${runId}`));
         }
@@ -896,7 +958,7 @@ export function diagnoseRunEffect(adapter, runId, nowMs = Date.now()) {
         const diagnosis = buildDiagnosis({
             run: run,
             nodes: nodes ?? [],
-            approvals: approvals ?? [],
+            approvals: approvals,
             attempts: attempts ?? [],
             events: events ?? [],
             lastFrame: lastFrame,
@@ -973,6 +1035,7 @@ export function diagnosisCtaCommands(diagnosis) {
         "retries-exhausted": "Resume run after fixing failure",
         "stale-heartbeat": "Force resume orphaned run",
         "dependency-failed": "Resume after dependency fix",
+        "approval-decided-resume-required": "Resume run after recorded approval",
     };
     const unique = new Map();
     for (const blocker of diagnosis.blockers) {
