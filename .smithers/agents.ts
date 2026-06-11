@@ -11,7 +11,7 @@ export const providers = {
   pi: new SmithersPiAgent({ provider: "openai", model: "gpt-5.3-codex" }),
   kimi: new SmithersKimiAgent({ model: "kimi-latest" }),
   amp: new SmithersAmpAgent(),
-  claudeSonnet: new SmithersClaudeCodeAgent({ model: "claude-sonnet-4-7", cwd: process.cwd() }),
+  claudeSonnet: new SmithersClaudeCodeAgent({ model: "claude-sonnet-4-6", cwd: process.cwd() }),
   kimi1: new SmithersKimiAgent({ model: "kimi-latest", configDir: path.join(homedir(), ".smithers/accounts/kimi-1"), cwd: process.cwd() }),
   codex1: new SmithersCodexAgent({ model: "gpt-5.3-codex", configDir: path.join(homedir(), ".codex"), skipGitRepoCheck: true, cwd: process.cwd() }),
   gemini1: new SmithersGeminiAgent({ model: "gemini-3.1-pro-preview", configDir: path.join(homedir(), ".gemini"), cwd: process.cwd() }),
