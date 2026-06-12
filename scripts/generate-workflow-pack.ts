@@ -48,6 +48,8 @@ const SEEDED_WORKFLOW_IDS = [
   "backpressure-plan",
   "eval-author",
   "report-slideshow",
+  // Fable-as-operator meta-workflow (authored in fable-smithers, moved here).
+  "smithering",
 ];
 
 type TemplateFile = { path: string; contents: string };
