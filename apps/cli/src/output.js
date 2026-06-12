@@ -5,6 +5,7 @@
 
 import { getNodeOutputRoute } from "@smithers-orchestrator/server/gatewayRoutes/getNodeOutput";
 import { NodeOutputRouteError } from "@smithers-orchestrator/server/gatewayRoutes/NodeOutputRouteError";
+import { camelToSnake } from "@smithers-orchestrator/db/utils/camelToSnake";
 import { EXIT_OK } from "./util/exitCodes.js";
 import { formatCliErrorForStderr, getCliErrorMapping } from "./util/errorMessage.js";
 
@@ -113,9 +114,42 @@ async function runRawJsonOutput(input, iteration) {
     if (!outputTable) {
         throw new NodeOutputRouteError("NodeHasNoOutput", `Node ${input.nodeId} has no output table.`);
     }
-    const row = await input.adapter.getRawNodeOutputForIteration(outputTable, input.runId, input.nodeId, iteration);
+    const row = await fetchRawOutputRow(input.adapter, outputTable, input.runId, input.nodeId, iteration);
     input.stdout.write(`${JSON.stringify(stripOutputKeyColumns(row))}\n`);
     return { exitCode: EXIT_OK };
+}
+
+/**
+ * Fetch the raw output row, resolving the physical table name.
+ *
+ * `_smithers_nodes.output_table` stores the workflow schema key verbatim
+ * (e.g. `reviewCodex`) while the physical table is its snake_case form
+ * (`review_codex`). Older runs may already store the snake_case name, so try
+ * the stored name first and fall back to the snake_case translation.
+ *
+ * @param {import("@smithers-orchestrator/db/adapter").SmithersDb} adapter
+ * @param {string} outputTable
+ * @param {string} runId
+ * @param {string} nodeId
+ * @param {number} iteration
+ * @returns {Promise<Record<string, unknown> | null>}
+ */
+async function fetchRawOutputRow(adapter, outputTable, runId, nodeId, iteration) {
+    const row = await adapter.getRawNodeOutputForIteration(outputTable, runId, nodeId, iteration);
+    if (row !== null && row !== undefined) {
+        return row;
+    }
+    const snakeTable = camelToSnake(outputTable);
+    if (snakeTable === outputTable) {
+        return row ?? null;
+    }
+    // Only consult the snake_case form when the stored name has no physical
+    // table: a real camelCase table whose row is merely missing must return
+    // null rather than another table's row.
+    if (await adapter.hasPhysicalTable(outputTable)) {
+        return row ?? null;
+    }
+    return adapter.getRawNodeOutputForIteration(snakeTable, runId, nodeId, iteration);
 }
 
 /**

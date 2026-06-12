@@ -57,6 +57,167 @@ describe("renderPrettyOutput", () => {
 });
 
 describe("runOutputOnce", () => {
+    test("resolves camelCase output_table keys to the snake_case physical table", async () => {
+        const { sqlite, adapter } = await openMemoryDb();
+        const stdout = makeStream();
+        const stderr = makeStream();
+        try {
+            await adapter.insertRun({
+                runId: "run-camel",
+                workflowName: "wf",
+                status: "finished",
+                createdAtMs: 1_000,
+                startedAtMs: 1_000,
+                finishedAtMs: 2_000,
+            });
+            // The engine stores the workflow schema key verbatim (camelCase)
+            // while the physical table is snake_case.
+            await adapter.insertNode({
+                runId: "run-camel",
+                nodeId: "review-codex",
+                iteration: 0,
+                state: "done",
+                lastAttempt: 1,
+                updatedAtMs: 1_500,
+                outputTable: "reviewCodex",
+                label: "Review (codex)",
+            });
+            sqlite.run(`CREATE TABLE review_codex (
+                run_id TEXT NOT NULL,
+                node_id TEXT NOT NULL,
+                iteration INTEGER NOT NULL DEFAULT 0,
+                verdict TEXT,
+                PRIMARY KEY (run_id, node_id, iteration)
+            )`);
+            sqlite.run(`INSERT INTO review_codex (run_id, node_id, iteration, verdict)
+                VALUES ('run-camel', 'review-codex', 0, 'approved')`);
+            const result = await runOutputOnce({
+                adapter,
+                runId: "run-camel",
+                nodeId: "review-codex",
+                json: true,
+                pretty: false,
+                stdout,
+                stderr,
+            });
+            expect(result.exitCode).toBe(0);
+            expect(stderr.value).toBe("");
+            expect(JSON.parse(stdout.value)).toEqual({ verdict: "approved" });
+        } finally {
+            sqlite.close();
+        }
+    });
+
+    test("does not fall back to the snake_case table when a physical camelCase table exists", async () => {
+        const { sqlite, adapter } = await openMemoryDb();
+        const stdout = makeStream();
+        const stderr = makeStream();
+        try {
+            await adapter.insertRun({
+                runId: "run-mixed",
+                workflowName: "wf",
+                status: "finished",
+                createdAtMs: 1_000,
+                startedAtMs: 1_000,
+                finishedAtMs: 2_000,
+            });
+            await adapter.insertNode({
+                runId: "run-mixed",
+                nodeId: "review-codex",
+                iteration: 0,
+                state: "done",
+                lastAttempt: 1,
+                updatedAtMs: 1_500,
+                outputTable: "reviewCodex",
+                label: "Review (codex)",
+            });
+            // A REAL camelCase physical table exists (e.g. a custom drizzle
+            // table) but has no row for this node; a snake_case table with a
+            // row for the same key also exists. The missing row must surface
+            // as null, never as the other table's row.
+            sqlite.run(`CREATE TABLE reviewCodex (
+                run_id TEXT NOT NULL,
+                node_id TEXT NOT NULL,
+                iteration INTEGER NOT NULL DEFAULT 0,
+                verdict TEXT,
+                PRIMARY KEY (run_id, node_id, iteration)
+            )`);
+            sqlite.run(`CREATE TABLE review_codex (
+                run_id TEXT NOT NULL,
+                node_id TEXT NOT NULL,
+                iteration INTEGER NOT NULL DEFAULT 0,
+                verdict TEXT,
+                PRIMARY KEY (run_id, node_id, iteration)
+            )`);
+            sqlite.run(`INSERT INTO review_codex (run_id, node_id, iteration, verdict)
+                VALUES ('run-mixed', 'review-codex', 0, 'should-not-leak')`);
+            const result = await runOutputOnce({
+                adapter,
+                runId: "run-mixed",
+                nodeId: "review-codex",
+                json: true,
+                pretty: false,
+                stdout,
+                stderr,
+            });
+            expect(result.exitCode).toBe(0);
+            expect(stderr.value).toBe("");
+            expect(JSON.parse(stdout.value)).toBe(null);
+        } finally {
+            sqlite.close();
+        }
+    });
+
+    test("still resolves output_table values already stored as snake_case", async () => {
+        const { sqlite, adapter } = await openMemoryDb();
+        const stdout = makeStream();
+        const stderr = makeStream();
+        try {
+            await adapter.insertRun({
+                runId: "run-snake",
+                workflowName: "wf",
+                status: "finished",
+                createdAtMs: 1_000,
+                startedAtMs: 1_000,
+                finishedAtMs: 2_000,
+            });
+            // Older runs persisted the physical snake_case name directly.
+            await adapter.insertNode({
+                runId: "run-snake",
+                nodeId: "review-codex",
+                iteration: 0,
+                state: "done",
+                lastAttempt: 1,
+                updatedAtMs: 1_500,
+                outputTable: "review_codex",
+                label: "Review (codex)",
+            });
+            sqlite.run(`CREATE TABLE review_codex (
+                run_id TEXT NOT NULL,
+                node_id TEXT NOT NULL,
+                iteration INTEGER NOT NULL DEFAULT 0,
+                verdict TEXT,
+                PRIMARY KEY (run_id, node_id, iteration)
+            )`);
+            sqlite.run(`INSERT INTO review_codex (run_id, node_id, iteration, verdict)
+                VALUES ('run-snake', 'review-codex', 0, 'approved')`);
+            const result = await runOutputOnce({
+                adapter,
+                runId: "run-snake",
+                nodeId: "review-codex",
+                json: true,
+                pretty: false,
+                stdout,
+                stderr,
+            });
+            expect(result.exitCode).toBe(0);
+            expect(stderr.value).toBe("");
+            expect(JSON.parse(stdout.value)).toEqual({ verdict: "approved" });
+        } finally {
+            sqlite.close();
+        }
+    });
+
     test("maps InvalidRunId to exit 1", async () => {
         const { sqlite, adapter } = await openMemoryDb();
         const stdout = makeStream();

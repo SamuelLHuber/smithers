@@ -1294,6 +1294,23 @@ export class SmithersDb {
    * @param {number} iteration
    * @returns {RunnableEffect<Record<string, unknown> | null, SmithersError>}
    */
+    /**
+   * Whether a physical table with this exact name exists in the database.
+   * @param {string} tableName
+   * @returns {RunnableEffect<boolean, SmithersError>}
+   */
+    hasPhysicalTable(tableName) {
+        return runnableEffect(this.read(`has physical table ${tableName}`, () => {
+            if (this.internalStorage.dialect === POSTGRES) {
+                return this.internalStorage
+                    .queryOneRaw(`SELECT 1 AS one FROM information_schema.tables WHERE table_name = ? LIMIT 1`, [tableName])
+                    .then((row) => row != null);
+            }
+            const client = this.db.session.client;
+            const stmt = client.query(`SELECT 1 AS one FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1`);
+            return Promise.resolve(stmt.get(tableName) != null);
+        }).pipe(Effect.catchAll(() => Effect.succeed(false))));
+    }
     getRawNodeOutputForIteration(tableName, runId, nodeId, iteration) {
         return runnableEffect(this.read(`get raw node output ${tableName} iteration ${iteration}`, () => {
             const escaped = tableName.replaceAll(`"`, `""`);
