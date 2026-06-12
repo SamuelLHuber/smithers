@@ -30,7 +30,9 @@ function defaultDeps(ctx?: ReviewWorkerCtx): ReviewWorkerDeps {
   return {
     jwksUrl: DEFAULT_JWKS_URL,
     anthropicBaseUrl: DEFAULT_ANTHROPIC,
-    fetchUpstream: fetch,
+    // Wrapped, not a bare reference: workerd's fetch throws "Illegal
+    // invocation" when called through a stored property (unbound `this`).
+    fetchUpstream: (input, init) => fetch(input, init),
     now: () => Date.now(),
     waitUntil: ctx?.waitUntil
       ? (p: Promise<unknown>) => {
