@@ -6794,6 +6794,7 @@ Most applications should import from `smithers-orchestrator`. The workspace pack
 | `@smithers-orchestrator/pi-plugin` | PI extension runtime, views, API wrappers, and workflow inspection integration | PI Integration |
 | `@smithers-orchestrator/protocol` | Shared contracts, small value types, and protocol-level errors for cross-package use | Types, Errors |
 | `@smithers-orchestrator/react-reconciler` | Custom React reconciler, host context, DOM renderer, DevTools preload, driver, and JSX runtime internals | Why React, Render Frame |
+| `@smithers-orchestrator/review` | Private code review app: review flow plus story-form HTML walkthrough, exposed through the `smithers-review` bin | CLI Overview |
 | `@smithers-orchestrator/sandbox` | Sandbox bundle, execute, and transport primitives used by the `Sandbox` component | Sandbox |
 | `@smithers-orchestrator/scheduler` | Pure workflow state machine: task state, scheduler decisions, retry/cache policies, wait reasons, and workflow session services | Workflow State, Suspend and Resume |
 | `@smithers-orchestrator/scorers` | Scorer definitions, LLM judges, batch execution, aggregation, persistence schema, and metrics | Evals, Evals Quickstart |
@@ -6935,6 +6936,8 @@ Defined in the root `package.json` for development:
 | `docs` | `cd docs && bunx mintlify dev` | Start the Mintlify docs dev server for local preview |
 | `version` | `node scripts/bump.mjs` | Bump package versions using the release helper |
 | `release` | `node scripts/publish.mjs` | Publish packages using the release helper |
+| `sandbox:up` | `bun scripts/sandbox.ts up` | Create a disposable GCP sandbox VM and open an SSH session into it |
+| `sandbox:down` | `bun scripts/sandbox.ts down` | Delete the sandbox VM created by `sandbox:up` |
 
 ### For end-user projects
 
