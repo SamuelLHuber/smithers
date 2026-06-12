@@ -40,6 +40,8 @@ function writeWorkflowPackTypecheckHarness(repo) {
         "  export const Branch: any;",
         "  export const Loop: any;",
         "  export const Approval: any;",
+        "  export const HumanTask: any;",
+        "  export const ScanFixVerify: any;",
         "  export const ContinueAsNew: any;",
         "  export const Sandbox: any;",
         "  export const Signal: any;",
@@ -405,7 +407,7 @@ test("workflow inspect and skills use seeded workflow metadata", () => {
     expect(reportInspect.exitCode).toBe(0);
     expect(reportInspect.json.inputSchema.fields).toEqual(expect.arrayContaining([
         expect.objectContaining({
-            name: "runId",
+            name: "targetRunId",
             type: "string",
             required: true,
         }),
@@ -415,7 +417,7 @@ test("workflow inspect and skills use seeded workflow metadata", () => {
             default: null,
         }),
     ]));
-    expect(reportInspect.json.skillPreview).toContain("| `runId` | `string` | required |");
+    expect(reportInspect.json.skillPreview).toContain("| `targetRunId` | `string` | required |");
     expect(reportInspect.json.skillPreview).toContain("| `title` | `string | null` | default: `null` |");
 }, 15_000);
 test("seeded workflows reuse the shared review substrate", () => {
