@@ -26,7 +26,7 @@ const linearGetIssue = tool({
 });
 
 const opsAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { linearGetIssue },
 });
 ```
@@ -101,7 +101,7 @@ const { smithers, outputs } = createSmithers({
 });
 
 const claude = new ClaudeCodeAgent({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-fable-5",
   systemPrompt: "You are a careful code reviewer.",
   timeoutMs: 30 * 60 * 1000,
 });
@@ -146,7 +146,7 @@ const { smithers, outputs } = createSmithers({
 });
 
 const codex = new CodexAgent({
-  model: "gpt-5.3-codex",
+  model: "gpt-5.5",
   sandbox: "workspace-write",
   skipGitRepoCheck: true,
   yolo: true,
@@ -426,14 +426,14 @@ import { stepCountIs } from "ai";
 
 ```ts
 const claude = new AnthropicAgent({
-  model: "claude-opus-4-7",
+  model: "claude-fable-5",
   tools,
   instructions: "You are a careful planner.",
   stopWhen: stepCountIs(40),
 });
 
 const codex = new OpenAIAgent({
-  model: "gpt-5.3-codex",
+  model: "gpt-5.5",
   tools,
   instructions: "You are a precise implementation agent.",
   stopWhen: stepCountIs(40),
@@ -449,7 +449,7 @@ const codex = new OpenAIAgent({
 
 ## Model Input
 
-`AnthropicAgent` and `OpenAIAgent` accept a model ID string (`"claude-opus-4-7"`, `"gpt-5.3-codex"`) or a prebuilt provider model instance. `HermesAgent` accepts an optional model ID string and defaults it to `"hermes"`.
+`AnthropicAgent` and `OpenAIAgent` accept a model ID string (`"claude-fable-5"`, `"gpt-5.5"`) or a prebuilt provider model instance. `HermesAgent` accepts an optional model ID string and defaults it to `"hermes"`.
 
 ## Options
 
@@ -557,11 +557,11 @@ const useCli = process.env.USE_CLI_AGENTS === "1";
 
 export const claude = useCli
   ? new ClaudeCodeAgent({
-      model: "claude-opus-4-7",
+      model: "claude-fable-5",
       dangerouslySkipPermissions: true,
     })
   : new AnthropicAgent({
-      model: "claude-opus-4-7",
+      model: "claude-fable-5",
       tools,
       instructions: "You are a careful planner.",
       stopWhen: stepCountIs(40),
@@ -609,7 +609,7 @@ const mcp = await createMcpToolset({
 
 try {
   const agent = new AnthropicAgent({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-fable-5",
     instructions: "Use the available tools when they are relevant.",
     tools: mcp.tools,
   });
@@ -864,7 +864,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { read, grep } from "smithers-orchestrator";
 
 const codeAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { read, grep },
 });
 ```
@@ -897,7 +897,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { write, read } from "smithers-orchestrator";
 
 const writerAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { write, read },
 });
 ```
@@ -988,7 +988,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { bash } from "smithers-orchestrator";
 
 const devAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { bash },
 });
 ```
@@ -1013,7 +1013,7 @@ import { createSmithers, read, write, edit, grep, bash, Task } from "smithers-or
 import { z } from "zod";
 
 const codeAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { read, write, edit, grep, bash },
   instructions: "You are a senior engineer. Use the available tools to complete tasks.",
 });
@@ -1039,7 +1039,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { tools } from "smithers-orchestrator";
 
 const fullAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools,
 });
 ```

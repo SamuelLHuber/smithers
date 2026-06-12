@@ -131,9 +131,10 @@ bunx smithers-orchestrator init
 bunx smithers-orchestrator up workflow.tsx --input '{"name":"world"}'
 ```
 
-Outputs are validated by Zod, persisted to SQLite, and survive crashes. Resume with
-`--resume true`, or drive everything from your coding agent with the
-`smithers` skill.
+Outputs are validated by Zod, persisted to SQLite, and survive crashes; a crashed run
+resumes with `--resume true`. Install the
+`smithers` skill and your coding agent drives
+all of this for you.
 
 ## What makes Smithers different
 
@@ -171,7 +172,7 @@ to run, and treats having your agent author new ones as a first-class path.
 ## Built-in workflows
 
 `bunx smithers-orchestrator init` scaffolds a `.smithers/` folder preloaded with
-production-ready workflows. Point your agent at one and go with
+production-ready workflows. Ask your agent for the outcome and it runs
 `bunx smithers-orchestrator workflow run WORKFLOW_ID --prompt "..."`:
 
 ```bash
@@ -355,6 +356,13 @@ Don't use it for a single prompt → single response. Use your model provider's 
 
 Most teams should start with the workflow pack. It gives you a working `.smithers/` directory with seeded workflows, prompts, and agent configuration instead of assembling the project structure by hand.
 
+<Note>
+  Installation is the one step a human may run by hand. Everything after it
+  (starting runs, inspecting them, clearing approvals) is your coding agent's
+  job: install the agent skill, then ask the agent
+  for outcomes instead of typing Smithers commands yourself.
+</Note>
+
 ## Always Run with `bunx`
 
 <Warning>
@@ -485,6 +493,13 @@ If no bundled binary installed (an unsupported platform, or `--no-optional`) and
 
 > Scaffold and run a Smithers workflow in two commands.
 
+<Note>
+  The commands below are operated by the coding agent. If you are an agent, run
+  them yourself on the human's behalf; never hand them to the human. If you are
+  a human, ask your agent for the outcome and it runs these for you; the initial
+  `init` is the only command worth typing by hand before an agent is set up.
+</Note>
+
 <Steps>
   <Step title="Scaffold a project">
     `init` creates `.smithers/` (workflows, prompts, components, agent config). Add
@@ -533,9 +548,9 @@ For a full worked example, see the Tour. For every CLI command see the CLI catal
 
 ## Starters
 
-> Choose a plain-English outcome and copy the Smithers command.
+> Choose a plain-English outcome and the command your agent runs for it.
 
-Smithers ships with starter workflows for when you want a result before your agent writes any workflow code. Browse the starter gallery from any repo:
+Smithers ships with starter workflows for when you want a result before your agent writes any workflow code. The commands on this page are what the coding agent runs: a human picks the outcome and asks their agent (or names the starter); the agent runs the matching command. Reading this as an agent? Run them yourself; never hand them to the human. Browse the starter gallery from any repo:
 
 ```bash
 bunx smithers-orchestrator starters
@@ -688,7 +703,7 @@ const { Workflow, smithers, outputs } = createSmithers({
 });
 
 const analyst = new AnthropicAgent({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-fable-5",
   instructions: "You are a senior code reviewer. Return structured JSON.",
 });
 
@@ -732,12 +747,12 @@ const { Workflow, smithers, outputs } = createSmithers({
 });
 
 const analyst = new AnthropicAgent({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-fable-5",
   instructions: "You are a senior code reviewer. Return structured JSON.",
 });
 
 const fixer = new AnthropicAgent({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-fable-5",
   instructions: "Write minimal, correct fixes as a unified diff.",
 });
 
@@ -782,7 +797,7 @@ Same shape works for branching, parallel groups, and loops:
 
 ## 5. An approval gate
 
-Pause for a human. The runtime persists the pending decision and exits cleanly; an operator approves or denies through the CLI; resume picks up from the gate.
+Pause for a human. The runtime persists the pending decision and exits cleanly; the operating agent relays the question to the human, then approves or denies through the CLI; resume picks up from the gate.
 
 ```tsx
 import { Approval } from "smithers-orchestrator";
@@ -808,7 +823,7 @@ import { Approval } from "smithers-orchestrator";
 ) : null}
 ```
 
-Operator side:
+Operator side (you, the agent, run these on the human's behalf; never hand them to the human):
 
 ```bash
 bunx smithers-orchestrator ps --status waiting-approval     # find paused runs
@@ -1031,7 +1046,7 @@ flowchart TD
   style S fill:#def,stroke:#36c
 ```
 
-Operator side is identical for both:
+Operator side is identical for both (you, the agent, run these on the human's behalf; never hand them to the human):
 
 ```bash
 bunx smithers-orchestrator ps --status waiting-approval
@@ -2208,6 +2223,12 @@ commands[70]:
 
 **Prerequisites:** `bun` installed, and a project directory where you want to run Smithers.
 
+<Note>
+  This cheatsheet is for the agent operating Smithers. You, the agent, run every
+  command on this page for the human; never hand them to the human. The human
+  states outcomes and answers questions; you operate the CLI.
+</Note>
+
 **Set up**
 
 ```bash
@@ -2273,7 +2294,7 @@ bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true   # res
 [12:00:40] ✓ Run finished
 ```
 
-`✓ Run finished` means the run completed. `⏸ <node> waiting for approval` means it paused for you (clear it with `approve`, then resume). `✗ Run failed: …` reports the error. The CLI prints the run id and suggested next commands (`logs`, `inspect`) after launch; pass that id to every command below.
+`✓ Run finished` means the run completed. `⏸ <node> waiting for approval` means it paused for a human decision (relay the question to the human, then clear it with `approve` and resume). `✗ Run failed: …` reports the error. The CLI prints the run id and suggested next commands (`logs`, `inspect`) after launch; pass that id to every command below.
 
 **Observe & control**
 
@@ -2315,7 +2336,7 @@ const { Workflow, Task, smithers, outputs } = createSmithers({
 });
 
 const researcher = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   instructions: "You are a research assistant.",
 });
 
@@ -2389,7 +2410,7 @@ import { ToolLoopAgent as Agent } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 
 const codeAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   instructions: "You are a senior software engineer.",
 });
 
@@ -2722,7 +2743,7 @@ export default smithers((ctx) => {
 ## Notes
 
 - `mode="select"` returns `{ selected, notes }`; `mode="rank"` returns `{ ranked, notes }`.
-- Durable deferred keyed on (run, node, iteration) survives restarts; `bunx smithers-orchestrator approve`/`deny` resolves it.
+- Durable deferred keyed on (run, node, iteration) survives restarts; the operating agent resolves it with `bunx smithers-orchestrator approve`/`deny` after relaying the request to the human and getting their decision (never hand the command to the human).
 - For a pre-task pause without persisted decision, use `<Task needsApproval>`.
 
 ---
@@ -2945,7 +2966,7 @@ export default smithers((ctx) => {
 
 ## Notes
 
-- Submit via `bunx smithers-orchestrator human answer <requestId> --value '<json>'`. Find the requestId with `bunx smithers-orchestrator human inbox`. The `bunx smithers-orchestrator approve` command is for `<Approval>` components, not `<HumanTask>`.
+- The operating agent submits the answer via `bunx smithers-orchestrator human answer <requestId> --value '<json>'`: relay the prompt to the human in conversation, collect their answer, and run the command yourself; never ask the human to run it. Find the requestId with `bunx smithers-orchestrator human inbox`. The `bunx smithers-orchestrator approve` command is for `<Approval>` components, not `<HumanTask>`.
 - Failed JSON re-prompts up to `maxAttempts` with zero backoff.
 - Same durable deferred mechanism as `<Approval>`; survives restarts.
 
@@ -6270,6 +6291,86 @@ type OpenApiAuth =
   | { type: "bearer"; token: string }
   | { type: "basic"; username: string; password: string };
 
+type OpenApiRefObject = {
+  $ref: string;
+};
+
+type OpenApiSchemaObject = {
+  type?: string;
+  format?: string;
+  description?: string;
+  properties?: Record<string, OpenApiSchemaObject | OpenApiRefObject>;
+  required?: string[];
+  items?: OpenApiSchemaObject | OpenApiRefObject;
+  enum?: unknown[];
+  default?: unknown;
+  nullable?: boolean;
+  oneOf?: Array<OpenApiSchemaObject | OpenApiRefObject>;
+  anyOf?: Array<OpenApiSchemaObject | OpenApiRefObject>;
+  allOf?: Array<OpenApiSchemaObject | OpenApiRefObject>;
+  additionalProperties?: boolean | OpenApiSchemaObject | OpenApiRefObject;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  $ref?: string;
+};
+
+type OpenApiParameterObject = {
+  name: string;
+  in: "query" | "header" | "path" | "cookie";
+  description?: string;
+  required?: boolean;
+  schema?: OpenApiSchemaObject | OpenApiRefObject;
+  deprecated?: boolean;
+};
+
+type OpenApiRequestBodyObject = {
+  description?: string;
+  required?: boolean;
+  content: Record<string, { schema?: OpenApiSchemaObject | OpenApiRefObject }>;
+};
+
+type OpenApiOperationObject = {
+  operationId?: string;
+  summary?: string;
+  description?: string;
+  parameters?: Array<OpenApiParameterObject | OpenApiRefObject>;
+  requestBody?: OpenApiRequestBodyObject | OpenApiRefObject;
+  responses?: Record<string, unknown>;
+  tags?: string[];
+  deprecated?: boolean;
+};
+
+type OpenApiPathItem = {
+  get?: OpenApiOperationObject;
+  post?: OpenApiOperationObject;
+  put?: OpenApiOperationObject;
+  delete?: OpenApiOperationObject;
+  patch?: OpenApiOperationObject;
+  parameters?: Array<OpenApiParameterObject | OpenApiRefObject>;
+};
+
+type OpenApiSpec = {
+  openapi: string;
+  info: {
+    title: string;
+    version: string;
+    description?: string;
+  };
+  servers?: Array<{
+    url: string;
+    description?: string;
+  }>;
+  paths: Record<string, OpenApiPathItem>;
+  components?: {
+    schemas?: Record<string, OpenApiSchemaObject>;
+    parameters?: Record<string, OpenApiParameterObject>;
+    requestBodies?: Record<string, OpenApiRequestBodyObject>;
+  };
+};
+
 type OpenApiToolsOptions = {
   baseUrl?: string;
   headers?: Record<string, string>;
@@ -7539,7 +7640,7 @@ bunx smithers-orchestrator optimize workflow.tsx \
   --cases evals/smoke.jsonl \
   --suite smoke-gepa \
   --provider cerebras \
-  --model gpt-oss-120b \
+  --model zai-glm-4.7 \
   --artifact .smithers/optimizations/smoke-gepa.json
 ```
 
@@ -7572,7 +7673,7 @@ CEREBRAS_API_KEY=... bunx smithers-orchestrator optimize workflow.tsx \
   --cases evals/opt.jsonl \
   --suite cerebras-proof \
   --provider cerebras \
-  --model gpt-oss-120b \
+  --model zai-glm-4.7 \
   --artifact artifacts/optimized.json \
   --report-dir artifacts/reports \
   --format json
@@ -7586,7 +7687,7 @@ Observed result:
   "optimized": { "score": 1, "passed": 1, "total": 1 },
   "improved": true,
   "provider": "cerebras",
-  "model": "gpt-oss-120b"
+  "model": "zai-glm-4.7"
 }
 ```
 
@@ -7596,13 +7697,13 @@ Observed result:
 
 | Provider | Optimizer API | Required env | Default model |
 | --- | --- | --- | --- |
-| `cerebras` | OpenAI-compatible | `CEREBRAS_API_KEY` | `gpt-oss-120b` |
-| `openai-api`, `openai`, `openai-sdk`, `codex` | OpenAI-compatible | `OPENAI_API_KEY` | `gpt-5.3-codex` |
-| `anthropic-api`, `anthropic`, `anthropic-sdk`, `claude-code`, `claude` | Anthropic Messages API | `ANTHROPIC_API_KEY` | `claude-opus-4-7` |
+| `cerebras` | OpenAI-compatible | `CEREBRAS_API_KEY` | `zai-glm-4.7` |
+| `openai-api`, `openai`, `openai-sdk`, `codex` | OpenAI-compatible | `OPENAI_API_KEY` | `gpt-5.5` |
+| `anthropic-api`, `anthropic`, `anthropic-sdk`, `claude-code`, `claude` | Anthropic Messages API | `ANTHROPIC_API_KEY` | `claude-fable-5` |
 | `gemini-api`, `gemini`, `antigravity` | Gemini generateContent API | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `gemini-3.1-pro-preview` |
-| `kimi`, `moonshot` | OpenAI-compatible Moonshot API | `MOONSHOT_API_KEY` | `kimi-latest` |
-| `opencode` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | `anthropic/claude-sonnet-4-5` |
-| `pi` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | `gpt-5.3-codex` |
+| `kimi`, `moonshot` | OpenAI-compatible Moonshot API | `MOONSHOT_API_KEY` | `kimi-k2.6` |
+| `opencode` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | `anthropic/claude-fable-5` |
+| `pi` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | `gpt-5.5` |
 | `amp`, `forge`, `openai-compatible` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | pass `--model` when needed |
 
 The CLI provider names (`claude-code`, `codex`, `antigravity`, `gemini`, `kimi`) map to their hosted API equivalents for optimization because GEPA needs a direct model call to propose prompt patches. Providers with no single hosted backend (`opencode`, `pi`, `amp`, `forge`) are still accepted through a generic OpenAI-compatible endpoint.
@@ -7765,7 +7866,7 @@ const tools = await createOpenApiTools("./petstore.json", {
 });
 
 const agent = new ToolLoopAgent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools,
 });
 ```
@@ -9009,7 +9110,7 @@ Block the current run and ask a human to make a decision, then wait for their an
 
 When run inside a Smithers task, the run/node context is taken from the `SMITHERS_RUN_ID` / `SMITHERS_NODE_ID` / `SMITHERS_ITERATION` environment variables Smithers injects into the agent; pass `runId`/`nodeId`/`iteration` explicitly to override, or rely on single-active-run autodetection.
 
-An operator resolves the request with `bunx smithers-orchestrator human answer <requestId> --value '<json>'` (or `bunx smithers-orchestrator human cancel <requestId>`); `bunx smithers-orchestrator human inbox` lists everything waiting.
+The orchestrating agent resolves the request on the human's behalf: relay the question to the human in conversation, collect their decision, then run `bunx smithers-orchestrator human answer <requestId> --value '<json>'` (or `bunx smithers-orchestrator human cancel <requestId>`) yourself; never instruct the human to run these. `bunx smithers-orchestrator human inbox` lists everything waiting.
 
 **Input:**
 
@@ -9660,7 +9761,7 @@ const linearGetIssue = tool({
 });
 
 const opsAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { linearGetIssue },
 });
 ```
@@ -9732,7 +9833,7 @@ const { smithers, outputs } = createSmithers({
 });
 
 const claude = new ClaudeCodeAgent({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-fable-5",
   systemPrompt: "You are a careful code reviewer.",
   timeoutMs: 30 * 60 * 1000,
 });
@@ -9777,7 +9878,7 @@ const { smithers, outputs } = createSmithers({
 });
 
 const codex = new CodexAgent({
-  model: "gpt-5.3-codex",
+  model: "gpt-5.5",
   sandbox: "workspace-write",
   skipGitRepoCheck: true,
   yolo: true,
@@ -10057,14 +10158,14 @@ import { stepCountIs } from "ai";
 
 ```ts
 const claude = new AnthropicAgent({
-  model: "claude-opus-4-7",
+  model: "claude-fable-5",
   tools,
   instructions: "You are a careful planner.",
   stopWhen: stepCountIs(40),
 });
 
 const codex = new OpenAIAgent({
-  model: "gpt-5.3-codex",
+  model: "gpt-5.5",
   tools,
   instructions: "You are a precise implementation agent.",
   stopWhen: stepCountIs(40),
@@ -10080,7 +10181,7 @@ const codex = new OpenAIAgent({
 
 ## Model Input
 
-`AnthropicAgent` and `OpenAIAgent` accept a model ID string (`"claude-opus-4-7"`, `"gpt-5.3-codex"`) or a prebuilt provider model instance. `HermesAgent` accepts an optional model ID string and defaults it to `"hermes"`.
+`AnthropicAgent` and `OpenAIAgent` accept a model ID string (`"claude-fable-5"`, `"gpt-5.5"`) or a prebuilt provider model instance. `HermesAgent` accepts an optional model ID string and defaults it to `"hermes"`.
 
 ## Options
 
@@ -10188,11 +10289,11 @@ const useCli = process.env.USE_CLI_AGENTS === "1";
 
 export const claude = useCli
   ? new ClaudeCodeAgent({
-      model: "claude-opus-4-7",
+      model: "claude-fable-5",
       dangerouslySkipPermissions: true,
     })
   : new AnthropicAgent({
-      model: "claude-opus-4-7",
+      model: "claude-fable-5",
       tools,
       instructions: "You are a careful planner.",
       stopWhen: stepCountIs(40),
@@ -10235,7 +10336,7 @@ const mcp = await createMcpToolset({
 
 try {
   const agent = new AnthropicAgent({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-fable-5",
     instructions: "Use the available tools when they are relevant.",
     tools: mcp.tools,
   });
@@ -10484,7 +10585,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { read, grep } from "smithers-orchestrator";
 
 const codeAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { read, grep },
 });
 ```
@@ -10517,7 +10618,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { write, read } from "smithers-orchestrator";
 
 const writerAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { write, read },
 });
 ```
@@ -10608,7 +10709,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { bash } from "smithers-orchestrator";
 
 const devAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { bash },
 });
 ```
@@ -10633,7 +10734,7 @@ import { createSmithers, read, write, edit, grep, bash, Task } from "smithers-or
 import { z } from "zod";
 
 const codeAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { read, write, edit, grep, bash },
   instructions: "You are a senior engineer. Use the available tools to complete tasks.",
 });
@@ -10659,7 +10760,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { tools } from "smithers-orchestrator";
 
 const fullAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools,
 });
 ```
