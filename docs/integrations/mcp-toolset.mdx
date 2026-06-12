@@ -32,7 +32,7 @@ const mcp = await createMcpToolset({
 
 try {
   const agent = new AnthropicAgent({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-fable-5",
     instructions: "Use the available tools when they are relevant.",
     tools: mcp.tools,
   });

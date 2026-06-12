@@ -196,7 +196,7 @@ type Scorer$7 = Scorer$8;
  *   id: "tone",
  *   name: "Professional Tone",
  *   description: "Evaluates professional tone",
- *   judge: new AnthropicAgent({ model: "claude-sonnet-4-20250514" }),
+ *   judge: new AnthropicAgent({ model: "claude-fable-5" }),
  *   instructions: "You evaluate text for professional tone.",
  *   promptTemplate: ({ output }) =>
  *     `Rate the professionalism of this text (0-1 JSON):\n\n${String(output)}`,

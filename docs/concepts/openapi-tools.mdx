@@ -16,7 +16,7 @@ const tools = await createOpenApiTools("./petstore.json", {
 });
 
 const agent = new ToolLoopAgent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools,
 });
 ```

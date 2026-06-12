@@ -2,9 +2,9 @@ const CEREBRAS_CHAT_URL = "https://api.cerebras.ai/v1/chat/completions";
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 
-export const DEFAULT_CEREBRAS_MODEL = "gpt-oss-120b";
+export const DEFAULT_CEREBRAS_MODEL = "zai-glm-4.7";
 export const DEFAULT_OPENAI_MODEL = "gpt-5.5";
-export const DEFAULT_ANTHROPIC_MODEL = "claude-opus-4.7";
+export const DEFAULT_ANTHROPIC_MODEL = "claude-fable-5";
 export const DEBATE_E2E_PROMPT =
   "Do a loop where you have two LMs debate communism versus capitalism and then have a judge LM output a final result.";
 

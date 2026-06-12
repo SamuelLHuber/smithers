@@ -17,8 +17,8 @@ import {
 /** Cerebras' OpenAI-compatible Chat Completions endpoint (default upstream). */
 const DEFAULT_CEREBRAS_BASE_URL = "https://api.cerebras.ai/v1";
 
-/** The Cerebras model the chat runs on — the very fast gpt-oss-120b. */
-const DEFAULT_CEREBRAS_MODEL = "gpt-oss-120b";
+/** The Cerebras model the chat runs on. */
+const DEFAULT_CEREBRAS_MODEL = "zai-glm-4.7";
 
 /** Most messages we will forward to Cerebras in a single request. */
 const MAX_MESSAGES = 100;

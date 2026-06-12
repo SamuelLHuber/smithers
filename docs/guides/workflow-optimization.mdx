@@ -10,7 +10,7 @@ bunx smithers-orchestrator optimize workflow.tsx \
   --cases evals/smoke.jsonl \
   --suite smoke-gepa \
   --provider cerebras \
-  --model gpt-oss-120b \
+  --model zai-glm-4.7 \
   --artifact .smithers/optimizations/smoke-gepa.json
 ```
 
@@ -43,7 +43,7 @@ CEREBRAS_API_KEY=... bunx smithers-orchestrator optimize workflow.tsx \
   --cases evals/opt.jsonl \
   --suite cerebras-proof \
   --provider cerebras \
-  --model gpt-oss-120b \
+  --model zai-glm-4.7 \
   --artifact artifacts/optimized.json \
   --report-dir artifacts/reports \
   --format json
@@ -57,7 +57,7 @@ Observed result:
   "optimized": { "score": 1, "passed": 1, "total": 1 },
   "improved": true,
   "provider": "cerebras",
-  "model": "gpt-oss-120b"
+  "model": "zai-glm-4.7"
 }
 ```
 
@@ -67,13 +67,13 @@ Observed result:
 
 | Provider | Optimizer API | Required env | Default model |
 | --- | --- | --- | --- |
-| `cerebras` | OpenAI-compatible | `CEREBRAS_API_KEY` | `gpt-oss-120b` |
-| `openai-api`, `openai`, `openai-sdk`, `codex` | OpenAI-compatible | `OPENAI_API_KEY` | `gpt-5.3-codex` |
-| `anthropic-api`, `anthropic`, `anthropic-sdk`, `claude-code`, `claude` | Anthropic Messages API | `ANTHROPIC_API_KEY` | `claude-opus-4-7` |
+| `cerebras` | OpenAI-compatible | `CEREBRAS_API_KEY` | `zai-glm-4.7` |
+| `openai-api`, `openai`, `openai-sdk`, `codex` | OpenAI-compatible | `OPENAI_API_KEY` | `gpt-5.5` |
+| `anthropic-api`, `anthropic`, `anthropic-sdk`, `claude-code`, `claude` | Anthropic Messages API | `ANTHROPIC_API_KEY` | `claude-fable-5` |
 | `gemini-api`, `gemini`, `antigravity` | Gemini generateContent API | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `gemini-3.1-pro-preview` |
-| `kimi`, `moonshot` | OpenAI-compatible Moonshot API | `MOONSHOT_API_KEY` | `kimi-latest` |
-| `opencode` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | `anthropic/claude-sonnet-4-5` |
-| `pi` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | `gpt-5.3-codex` |
+| `kimi`, `moonshot` | OpenAI-compatible Moonshot API | `MOONSHOT_API_KEY` | `kimi-k2.6` |
+| `opencode` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | `anthropic/claude-fable-5` |
+| `pi` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | `gpt-5.5` |
 | `amp`, `forge`, `openai-compatible` | OpenAI-compatible endpoint | `SMITHERS_OPTIMIZER_API_KEY` and `SMITHERS_OPTIMIZER_BASE_URL` | pass `--model` when needed |
 
 The CLI provider names (`claude-code`, `codex`, `antigravity`, `gemini`, `kimi`) map to their hosted API equivalents for optimization because GEPA needs a direct model call to propose prompt patches. Providers with no single hosted backend (`opencode`, `pi`, `amp`, `forge`) are still accepted through a generic OpenAI-compatible endpoint.

@@ -113,7 +113,7 @@ const claudeRateLimitCheck = {
                     "content-type": "application/json",
                 },
                 body: JSON.stringify({
-                    model: "claude-sonnet-4-20250514",
+                    model: "claude-fable-5",
                     messages: [{ role: "user", content: "hi" }],
                 }),
                 signal: AbortSignal.timeout(4_000),

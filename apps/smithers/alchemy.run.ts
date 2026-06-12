@@ -3,7 +3,7 @@
  *
  * Deploys the PWA to Cloudflare as a single Worker that:
  *   - serves the built Vite app (dist/) as static assets with SPA routing, and
- *   - handles POST /api/chat by running Cerebras (gpt-oss-120b) server-side.
+ *   - handles POST /api/chat by running Cerebras (`zai-glm-4.7`) server-side.
  *
  * Deploy:   bun run deploy        (or: pnpm deploy)
  * Destroy:  bun run destroy

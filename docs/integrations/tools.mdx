@@ -163,7 +163,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { read, grep } from "smithers-orchestrator";
 
 const codeAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { read, grep },
 });
 ```
@@ -196,7 +196,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { write, read } from "smithers-orchestrator";
 
 const writerAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { write, read },
 });
 ```
@@ -287,7 +287,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { bash } from "smithers-orchestrator";
 
 const devAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { bash },
 });
 ```
@@ -312,7 +312,7 @@ import { createSmithers, read, write, edit, grep, bash, Task } from "smithers-or
 import { z } from "zod";
 
 const codeAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools: { read, write, edit, grep, bash },
   instructions: "You are a senior engineer. Use the available tools to complete tasks.",
 });
@@ -338,7 +338,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { tools } from "smithers-orchestrator";
 
 const fullAgent = new Agent({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("claude-fable-5"),
   tools,
 });
 ```

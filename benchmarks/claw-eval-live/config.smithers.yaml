@@ -4,10 +4,10 @@
 model:
   api_key: smithers-local            # unused by the gateway; client requires a value
   base_url: http://127.0.0.1:8788/v1 # the Smithers mixture brain
-  model_id: smithers-mixture-opus48-gpt55
+  model_id: smithers-mixture-fable5-gpt55
   input_modalities: [text, image]    # gpt-5.5 (gather) is vision-capable
 
-# Neutral judge: Gemini — NOT one of the two contestant models (Opus 4.8 / gpt-5.5),
+# Neutral judge: Gemini — NOT one of the two contestant models (Fable / gpt-5.5),
 # so the communication dimension cannot be self-graded. This is exactly the judge
 # the benchmark authors recommend (config_template.yaml -> gemini-3-flash-preview).
 judge:

@@ -16,11 +16,11 @@
  *               through, so the benchmark executes them exactly as it would for
  *               any model.
  *   - SYNTHESIS: the moment gpt-5.5 is ready to answer (no tool_calls), Claude
- *               Opus 4.8 (via Smithers ClaudeCodeAgent, subscription) writes the
+ *               Fable (via Smithers ClaudeCodeAgent, subscription) writes the
  *               final answer from the gathered context. That is the role-split
- *               "mixture of Opus 4.8 + Codex 5.5" (gpt-5.5 gathers, Opus 4.8
+ *               "mixture of Fable + GPT-5.5" (gpt-5.5 gathers, Fable
  *               synthesizes) and it lands on the turn the graders actually
- *               measure. If Opus is unavailable, the turn falls back to gpt-5.5's
+ *               measure. If Fable is unavailable, the turn falls back to gpt-5.5's
  *               own final answer. The brain contains no LLM judge of its own.
  *
  * Fairness invariants (see README): the brain only ever sees what the benchmark
@@ -31,51 +31,50 @@
 import { ClaudeCodeAgent, OpenAIAgent } from "@smithers-orchestrator/agents";
 
 // ---- model identifiers -----------------------------------------------------
-// "Codex 5.5" → gpt-5.5 (the flagship 5.5; no `gpt-5.5-codex` variant exists,
-// the latest codex-tuned model is gpt-5.3-codex). gpt-5.5 is the strongest 5.5.
+// "Codex 5.5" → gpt-5.5 (the flagship 5.5; no `gpt-5.5-codex` variant exists).
 const GATHER_MODEL = process.env.CLAW_GATHER_MODEL ?? "gpt-5.5";
 const GPT_SYNTH_MODEL = process.env.CLAW_GPT_MODEL ?? "gpt-5.5";
-const OPUS_MODEL = process.env.CLAW_OPUS_MODEL ?? "opus"; // -> claude-opus-4-8
+const FABLE_MODEL = process.env.CLAW_FABLE_MODEL ?? "claude-fable-5";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY ?? "";
 
-const OPUS_TIMEOUT_MS = Number(process.env.CLAW_OPUS_TIMEOUT_MS ?? 150_000);
+const FABLE_TIMEOUT_MS = Number(process.env.CLAW_FABLE_TIMEOUT_MS ?? 150_000);
 const GPT_TIMEOUT_MS = Number(process.env.CLAW_GPT_TIMEOUT_MS ?? 120_000);
 
-// Each Opus draft spawns a `claude` CLI subprocess. Bound how many run at once
+// Each Fable draft spawns a `claude` CLI subprocess. Bound how many run at once
 // so a parallel batch can't fork-bomb the box; over the cap we simply fall back
 // to the gpt-5.5 draft for that turn (synthesis still happens, just single-model).
-const OPUS_MAX = Number(process.env.CLAW_OPUS_MAX_CONCURRENCY ?? 2);
+const FABLE_MAX = Number(process.env.CLAW_FABLE_MAX_CONCURRENCY ?? 2);
 // Cap the transcript fed to the synthesis drafts (large tool results / file dumps
 // would otherwise blow up memory and token cost).
 const MAX_TRANSCRIPT_CHARS = Number(process.env.CLAW_MAX_TRANSCRIPT_CHARS ?? 140_000);
 
-let opusActive = 0;
-const opusWaiters: Array<() => void> = [];
-function acquireOpus(): Promise<boolean> {
-  if (opusActive < OPUS_MAX) {
-    opusActive++;
+let fableActive = 0;
+const fableWaiters: Array<() => void> = [];
+function acquireFable(): Promise<boolean> {
+  if (fableActive < FABLE_MAX) {
+    fableActive++;
     return Promise.resolve(true);
   }
   return new Promise<boolean>((resolve) => {
     const grant = () => {
       clearTimeout(timer);
-      opusActive++;
+      fableActive++;
       resolve(true);
     };
     const timer = setTimeout(() => {
-      const i = opusWaiters.indexOf(grant);
-      if (i >= 0) opusWaiters.splice(i, 1);
+      const i = fableWaiters.indexOf(grant);
+      if (i >= 0) fableWaiters.splice(i, 1);
       resolve(false); // saturated -> caller falls back to gpt-only synthesis
-    }, OPUS_TIMEOUT_MS);
-    opusWaiters.push(grant);
+    }, FABLE_TIMEOUT_MS);
+    fableWaiters.push(grant);
   });
 }
-function releaseOpus(): void {
-  opusActive = Math.max(0, opusActive - 1);
-  const next = opusWaiters.shift();
+function releaseFable(): void {
+  fableActive = Math.max(0, fableActive - 1);
+  const next = fableWaiters.shift();
   if (next) next();
 }
 
@@ -87,8 +86,8 @@ function clampMiddle(s: string, max: number): string {
 }
 
 // Reused agent instances (stateless per generate()).
-const opusAgent = new ClaudeCodeAgent({
-  model: OPUS_MODEL,
+const fableAgent = new ClaudeCodeAgent({
+  model: FABLE_MODEL,
   yolo: false,
   tools: "", // decision/writing only — no tool use
   systemPrompt: SYNTH_SYSTEM(),
@@ -267,20 +266,20 @@ function renderTranscript(messages: OAIMessage[]): { task: string; transcript: s
 }
 
 // ---- phase 2 drafts --------------------------------------------------------
-async function opusDraft(transcript: string): Promise<string> {
-  const got = await acquireOpus();
+async function fableDraft(transcript: string): Promise<string> {
+  const got = await acquireFable();
   if (!got) {
-    console.error("[mixture] opus saturated — falling back to gpt-only synthesis this turn");
+    console.error("[mixture] fable saturated — falling back to gpt-only synthesis this turn");
     return "";
   }
   try {
-    const res: any = await opusAgent.generate({
+    const res: any = await fableAgent.generate({
       prompt: `Here is the full task context and all information already gathered via tools.\n\n${transcript}\n\nNow write the complete final answer.`,
-      timeout: OPUS_TIMEOUT_MS,
+      timeout: FABLE_TIMEOUT_MS,
     });
     return (res?.text ?? "").trim();
   } finally {
-    releaseOpus();
+    releaseFable();
   }
 }
 
@@ -307,23 +306,23 @@ export async function decideTurn(req: DecideRequest): Promise<DecideResult> {
     };
   }
 
-  // Ready to answer -> Opus 4.8 writes the final deliverable (the graded turn).
-  // gpt-5.5 has already done all the tool-driven gathering; Opus 4.8 — the
+  // Ready to answer -> Fable writes the final deliverable (the graded turn).
+  // gpt-5.5 has already done all the tool-driven gathering; Fable — the
   // stronger synthesizer — composes the final answer from that context. This is
-  // the role-split mixture: GPT-5.5 gathers, Opus 4.8 synthesizes. (No LLM
+  // the role-split mixture: GPT-5.5 gathers, Fable synthesizes. (No LLM
   // arbiter: the only LLM-as-judge in the whole pipeline is the benchmark's own
   // neutral judge, keeping the fairness story minimal.)
   const { transcript } = renderTranscript(req.messages);
-  const opusFinal = await opusDraft(transcript).catch((e) => {
-    console.error("[mixture] opusDraft failed:", String(e).slice(0, 200));
+  const fableFinal = await fableDraft(transcript).catch((e) => {
+    console.error("[mixture] fableDraft failed:", String(e).slice(0, 200));
     return "";
   });
-  if (opusFinal) {
-    return finalResult(opusFinal, g.usage, { phase: "synthesis", writer: "opus-4.8" });
+  if (fableFinal) {
+    return finalResult(fableFinal, g.usage, { phase: "synthesis", writer: "claude-fable-5" });
   }
-  // Opus unavailable/saturated -> fall back to gpt-5.5's own final answer.
+  // Fable unavailable/saturated -> fall back to gpt-5.5's own final answer.
   const gptFinal = (g.content ?? "").trim() || (await gptDraft(transcript).catch(() => ""));
-  return finalResult(gptFinal, g.usage, { phase: "synthesis", writer: "gpt-5.5", reason: "opus unavailable" });
+  return finalResult(gptFinal, g.usage, { phase: "synthesis", writer: "gpt-5.5", reason: "fable unavailable" });
 }
 
 function finalResult(

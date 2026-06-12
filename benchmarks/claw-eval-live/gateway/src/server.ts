@@ -14,23 +14,23 @@
 // Bun caps idleTimeout at 255s, and a turn is idle on the socket for its whole
 // gather+synthesis duration (the response is only written after both phases
 // finish). mixture.ts reads its per-phase budgets from CLAW_GPT_TIMEOUT_MS +
-// CLAW_OPUS_TIMEOUT_MS at module load, and their defaults (120s + 150s = 270s)
+// CLAW_FABLE_TIMEOUT_MS at module load, and their defaults (120s + 150s = 270s)
 // exceed that ceiling, so a slow synthesis turn would be killed by Bun before
 // it could respond. Clamp the sum to fit under idleTimeout (with margin) BEFORE
 // importing mixture.ts so the per-phase timeouts become the real constraint.
 const IDLE_TIMEOUT_S = 255; // Bun's documented maximum.
 const PHASE_BUDGET_MS = (IDLE_TIMEOUT_S - 5) * 1000; // leave headroom for I/O.
 {
-  const opus = Number(process.env.CLAW_OPUS_TIMEOUT_MS ?? 150_000);
+  const fable = Number(process.env.CLAW_FABLE_TIMEOUT_MS ?? 150_000);
   const gpt = Number(process.env.CLAW_GPT_TIMEOUT_MS ?? 120_000);
-  if (opus + gpt > PHASE_BUDGET_MS) {
-    const scale = PHASE_BUDGET_MS / (opus + gpt);
+  if (fable + gpt > PHASE_BUDGET_MS) {
+    const scale = PHASE_BUDGET_MS / (fable + gpt);
     process.env.CLAW_GPT_TIMEOUT_MS = String(Math.floor(gpt * scale));
-    process.env.CLAW_OPUS_TIMEOUT_MS = String(Math.floor(opus * scale));
+    process.env.CLAW_FABLE_TIMEOUT_MS = String(Math.floor(fable * scale));
     console.warn(
-      `[gateway] gather+synthesis budget ${opus + gpt}ms exceeds idle ceiling; ` +
+      `[gateway] gather+synthesis budget ${fable + gpt}ms exceeds idle ceiling; ` +
         `clamped to CLAW_GPT_TIMEOUT_MS=${process.env.CLAW_GPT_TIMEOUT_MS} ` +
-        `CLAW_OPUS_TIMEOUT_MS=${process.env.CLAW_OPUS_TIMEOUT_MS}`,
+        `CLAW_FABLE_TIMEOUT_MS=${process.env.CLAW_FABLE_TIMEOUT_MS}`,
     );
   }
 }
@@ -45,7 +45,7 @@ process.on("uncaughtException", (err) => console.error("[gateway] uncaughtExcept
 process.on("unhandledRejection", (reason) => console.error("[gateway] unhandledRejection:", reason));
 
 const PORT = Number(process.env.CLAW_GATEWAY_PORT ?? 8788);
-const MODEL_ID = process.env.CLAW_MODEL_ID ?? "smithers-mixture-opus48-gpt55";
+const MODEL_ID = process.env.CLAW_MODEL_ID ?? "smithers-mixture-fable5-gpt55";
 
 function requireEnv() {
   const missing: string[] = [];
@@ -132,4 +132,4 @@ const server = Bun.serve({
 
 console.log(`[gateway] Smithers mixture brain listening on http://127.0.0.1:${server.port}`);
 console.log(`[gateway] model_id=${MODEL_ID}`);
-console.log(`[gateway] gather=${process.env.CLAW_GATHER_MODEL ?? "gpt-5.5"} opus=${process.env.CLAW_OPUS_MODEL ?? "opus"} arbiter=${process.env.CLAW_ARBITER_MODEL ?? "gemini-3.5-flash"}`);
+console.log(`[gateway] gather=${process.env.CLAW_GATHER_MODEL ?? "gpt-5.5"} fable=${process.env.CLAW_FABLE_MODEL ?? "claude-fable-5"} arbiter=${process.env.CLAW_ARBITER_MODEL ?? "gemini-3.5-flash"}`);

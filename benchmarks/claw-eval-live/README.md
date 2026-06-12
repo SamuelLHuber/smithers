@@ -2,7 +2,7 @@
 
 Run the [Claw-Eval-Live](https://github.com/Claw-Eval-Live/Claw-Eval-Live) agent
 benchmark ([arXiv:2604.28139](https://arxiv.org/abs/2604.28139)) with **Smithers
-orchestrating a mixture of Claude Opus 4.8 + GPT‑5.5 ("Codex 5.5")** as the agent.
+orchestrating a mixture of Claude Fable + GPT-5.5** as the agent.
 
 Claw-Eval-Live evaluates agents on 105 real enterprise workflows across 17
 families — they interact with controlled mock services, edit workspace files,
@@ -34,7 +34,7 @@ would for any model. The benchmark cannot tell — and does not care — that th
  │  • JSONL trace          │ ◀───────────────────────────── │  decideTurn():                 │
  │  • grader.py + Gemini    │   assistant turn (tool_calls    │   GATHER → gpt-5.5 (native      │
  │    judge (UNCHANGED)     │   or final text)               │     tool calls, passthrough)   │
- └────────────────────────┘                                │   SYNTHESIS → Opus 4.8 writes   │
+ └────────────────────────┘                                │   SYNTHESIS → Fable writes      │
                                                             │     the final deliverable from  │
                                                             │     the gathered context        │
                                                             └──────────────────────────────┘
@@ -47,17 +47,17 @@ would for any model. The benchmark cannot tell — and does not care — that th
   through, so the benchmark executes the mock-service / sandbox tools exactly as
   it would for a raw model.
 - **Synthesis.** The moment `gpt-5.5` is ready to answer (returns no tool calls),
-  **Claude Opus 4.8** (via Smithers `ClaudeCodeAgent`, subscription auth) — the
+  **Claude Fable** (via Smithers `ClaudeCodeAgent`, subscription auth) — the
   stronger synthesizer — composes the final deliverable from the gathered
-  context. This is the role-split "mixture of Opus 4.8 + Codex 5.5" (gpt-5.5
-  gathers, Opus 4.8 synthesizes), and it lands Opus on the turn the graders
+  context. This is the role-split "mixture of Fable + GPT-5.5" (gpt-5.5
+  gathers, Fable synthesizes), and it lands Fable on the turn the graders
   actually measure (the benchmark loop ends, and final text is the dominant
-  scored signal for most families). If Opus is unavailable, the turn falls back
+  scored signal for most families). If Fable is unavailable, the turn falls back
   to gpt-5.5's own final answer.
 
 This split plays to each model's strengths (gpt-5.5's fast native function
-calling for tool loops; Opus 4.8's synthesis quality on the graded deliverable)
-while keeping Opus cost/latency bounded (≈ one Opus call per task, not per turn).
+calling for tool loops; Fable's synthesis quality on the graded deliverable)
+while keeping Fable cost/latency bounded (≈ one Fable call per task, not per turn).
 The brain contains **no** LLM judge of its own — the only LLM-as-judge anywhere
 in the pipeline is the benchmark's own (neutral) grader judge.
 
@@ -66,11 +66,11 @@ in the pipeline is the benchmark's own (neutral) grader judge.
 | Role | Model | Auth |
 |---|---|---|
 | Multi-turn tool gathering | `gpt-5.5` | `OPENAI_API_KEY` |
-| Final synthesis (the graded turn) | Claude Opus 4.8 (`opus` → `claude-opus-4-8`) | `claude` CLI subscription |
+| Final synthesis (the graded turn) | Claude Fable (`claude-fable-5`) | `claude` CLI subscription |
 | Benchmark judge (semantic grading) | `gemini-2.5-flash-lite` (neutral, not a contestant) | `GEMINI_API_KEY` |
 
-> "Codex 5.5" → `gpt-5.5`: there is no `gpt-5.5-codex` model (the latest
-> codex-tuned id is `gpt-5.3-codex`); `gpt-5.5` is the flagship 5.5.
+> "Codex 5.5" → `gpt-5.5`: there is no `gpt-5.5-codex` model in the listings
+> checked here; `gpt-5.5` is the flagship 5.5.
 
 ---
 
@@ -94,7 +94,7 @@ integration preserves that. Concretely:
    synthesis path for all 105 tasks. There is no task-id branching, no
    hardcoded outputs, no keyword stuffing.
 4. **Neutral judge; the brain has no judge of its own.** The brain just routes
-   work between the two contestants (gpt-5.5 gathers, Opus 4.8 synthesizes) — it
+   work between the two contestants (gpt-5.5 gathers, Fable synthesizes) — it
    contains no LLM-as-judge, so there is nothing for a contestant to self-grade.
    The only LLM judge anywhere is the **benchmark's own** semantic grader, which
    we point at **Gemini** (`gemini-2.5-flash-lite`) — neither contestant. (Per the
@@ -121,7 +121,7 @@ a Smithers difference; the same agent brain drives both modes.
 ## Run it
 
 Prereqs: `uv`, `bun`, Docker (for the 5 `CTB_W*` tasks), an authenticated
-`claude` CLI (Opus 4.8 subscription), and:
+`claude` CLI (Fable subscription access), and:
 
 ```bash
 export OPENAI_API_KEY=sk-...      # gpt-5.5
@@ -152,7 +152,7 @@ Traces + `batch_summary.json` land in `vendor/Claw-Eval-Live/traces_smithers/`.
 | File | Purpose |
 |---|---|
 | `gateway/src/server.ts` | OpenAI-compatible HTTP server (`/v1/chat/completions`, `/v1/models`, `/health`) |
-| `gateway/src/mixture.ts` | The mixture brain: gather (gpt-5.5) → synthesis (Opus 4.8 + gpt-5.5 + Gemini arbiter) |
+| `gateway/src/mixture.ts` | The mixture brain: gather (gpt-5.5) → synthesis (Fable, with gpt-5.5 fallback) |
 | `config.smithers.yaml` | Points the benchmark's agent at the gateway; sets the neutral judge |
 | `Dockerfile.sandbox` | Slim sandbox image for the 5 terminal tasks |
 | `setup.sh` / `start-gateway.sh` / `run-one.sh` / `run-batch.sh` / `run-docker-w.sh` | Fetch, serve, run |

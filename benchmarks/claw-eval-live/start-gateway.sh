@@ -15,7 +15,7 @@ if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
   exit 1
 fi
 while true; do
-  # Opus 4.8 is reached via the `claude` CLI subscription; unset any API key so
+  # Fable is reached via the `claude` CLI subscription; unset any API key so
   # ClaudeCodeAgent uses subscription auth (it does this itself, but be explicit).
   env -u ANTHROPIC_API_KEY bun "$HERE/gateway/src/server.ts"
   code=$?

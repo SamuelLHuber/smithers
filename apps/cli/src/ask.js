@@ -312,7 +312,7 @@ function buildAgent(selection, bootstrap, systemPrompt, cwd) {
                 return {
                     agent: new ClaudeCodeAgent({
                         cwd,
-                        model: "claude-sonnet-4-20250514",
+                        model: "claude-fable-5",
                         systemPrompt,
                         dangerouslySkipPermissions: true,
                     }),
@@ -323,7 +323,7 @@ function buildAgent(selection, bootstrap, systemPrompt, cwd) {
             return {
                 agent: new ClaudeCodeAgent({
                     cwd,
-                    model: "claude-sonnet-4-20250514",
+                    model: "claude-fable-5",
                     mcpConfig: [mcpConfig.path],
                     strictMcpConfig: true,
                     systemPrompt,
@@ -339,7 +339,7 @@ function buildAgent(selection, bootstrap, systemPrompt, cwd) {
                 return {
                     agent: new KimiAgent({
                         cwd,
-                        model: "kimi-latest",
+                        model: "kimi-k2.6",
                         systemPrompt,
                     }),
                     cleanup() { },
@@ -349,7 +349,7 @@ function buildAgent(selection, bootstrap, systemPrompt, cwd) {
             return {
                 agent: new KimiAgent({
                     cwd,
-                    model: "kimi-latest",
+                    model: "kimi-k2.6",
                     mcpConfigFile: [mcpConfig.path],
                     systemPrompt,
                 }),
@@ -384,7 +384,7 @@ function buildAgent(selection, bootstrap, systemPrompt, cwd) {
             return {
                 agent: new CodexAgent({
                     cwd,
-                    model: "gpt-5.3-codex",
+                    model: "gpt-5.5",
                     config: bootstrap.mode === "mcp-config-inline"
                         ? bootstrap.configOverrides
                         : undefined,
@@ -399,7 +399,7 @@ function buildAgent(selection, bootstrap, systemPrompt, cwd) {
                 agent: new PiAgent({
                     cwd,
                     provider: "openai",
-                    model: "gpt-5.3-codex",
+                    model: "gpt-5.5",
                     systemPrompt,
                 }),
                 cleanup() { },

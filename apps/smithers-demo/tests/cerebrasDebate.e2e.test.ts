@@ -44,7 +44,7 @@ describe("Cerebras debate e2e workflow", () => {
     await callProviderChat({
       provider: "anthropic",
       apiKey: "anthropic-key",
-      model: "claude-opus-4.7",
+      model: "claude-fable-5",
       messages: [
         { role: "system", content: "judge fairly" },
         { role: "user", content: DEBATE_E2E_PROMPT },
@@ -62,14 +62,14 @@ describe("Cerebras debate e2e workflow", () => {
     expect(JSON.parse(String(requests[0].init.body))).toMatchObject({ model: "gpt-5.5" });
     expect(requests[1].url).toBe("https://api.anthropic.com/v1/messages");
     expect(requests[1].init.headers).toMatchObject({ "x-api-key": "anthropic-key" });
-    expect(JSON.parse(String(requests[1].init.body))).toMatchObject({ model: "claude-opus-4.7" });
+    expect(JSON.parse(String(requests[1].init.body))).toMatchObject({ model: "claude-fable-5" });
   });
 
   test("posts to the real Cerebras chat completions endpoint shape", async () => {
     const requests: Array<{ url: string; init: RequestInit }> = [];
     const content = await callCerebrasChat({
       apiKey: "test-key",
-      model: "gpt-oss-120b",
+      model: "zai-glm-4.7",
       messages: [{ role: "user", content: DEBATE_E2E_PROMPT }],
       fetchImpl: (async (url, init) => {
         requests.push({ url: String(url), init: init ?? {} });
@@ -90,7 +90,7 @@ describe("Cerebras debate e2e workflow", () => {
       "Content-Type": "application/json",
     });
     expect(JSON.parse(String(requests[0].init.body))).toMatchObject({
-      model: "gpt-oss-120b",
+      model: "zai-glm-4.7",
       messages: [{ role: "user", content: DEBATE_E2E_PROMPT }],
     });
   });

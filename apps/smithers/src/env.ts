@@ -11,7 +11,7 @@ export interface CloudflareEnv {
    * the whole gateway path can be exercised without a real key.
    */
   CEREBRAS_BASE_URL?: string;
-  /** Override for the upstream model id. Defaults to gpt-oss-120b. */
+  /** Override for the upstream model id. Defaults to zai-glm-4.7. */
   CEREBRAS_MODEL?: string;
   /**
    * Optional Plue API origin used for Smithers browser auth. When configured,

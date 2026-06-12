@@ -82,13 +82,13 @@ const UNSAFE = process.env.SMITHERS_UNSAFE === "1";
 
 // Claude: switches between API agent and CLI agent
 const claudeApi = new Agent({
-  model: anthropic("claude-opus-4-7"),
+  model: anthropic("claude-fable-5"),
   instructions: SYSTEM_PROMPT,
   stopWhen: stepCountIs(100),
 });
 
 const claudeCli = new ClaudeCodeAgent({
-  model: "claude-opus-4-7",
+  model: "claude-fable-5",
   systemPrompt: SYSTEM_PROMPT,
   dangerouslySkipPermissions: UNSAFE,
   timeoutMs: 30 * 60 * 1000,
@@ -98,7 +98,7 @@ export const claude = USE_CLI ? claudeCli : claudeApi;
 
 // Codex: CLI agent (CodexAgent does not have an API mode)
 export const codex = new CodexAgent({
-  model: "gpt-5.3-codex",
+  model: "gpt-5.5",
   systemPrompt: SYSTEM_PROMPT,
   yolo: UNSAFE,
   timeoutMs: 30 * 60 * 1000,

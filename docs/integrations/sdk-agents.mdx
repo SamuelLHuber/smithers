@@ -20,14 +20,14 @@ import { stepCountIs } from "ai";
 
 ```ts
 const claude = new AnthropicAgent({
-  model: "claude-opus-4-7",
+  model: "claude-fable-5",
   tools,
   instructions: "You are a careful planner.",
   stopWhen: stepCountIs(40),
 });
 
 const codex = new OpenAIAgent({
-  model: "gpt-5.3-codex",
+  model: "gpt-5.5",
   tools,
   instructions: "You are a precise implementation agent.",
   stopWhen: stepCountIs(40),
@@ -43,7 +43,7 @@ const codex = new OpenAIAgent({
 
 ## Model Input
 
-`AnthropicAgent` and `OpenAIAgent` accept a model ID string (`"claude-opus-4-7"`, `"gpt-5.3-codex"`) or a prebuilt provider model instance. `HermesAgent` accepts an optional model ID string and defaults it to `"hermes"`.
+`AnthropicAgent` and `OpenAIAgent` accept a model ID string (`"claude-fable-5"`, `"gpt-5.5"`) or a prebuilt provider model instance. `HermesAgent` accepts an optional model ID string and defaults it to `"hermes"`.
 
 ## Options
 
@@ -151,11 +151,11 @@ const useCli = process.env.USE_CLI_AGENTS === "1";
 
 export const claude = useCli
   ? new ClaudeCodeAgent({
-      model: "claude-opus-4-7",
+      model: "claude-fable-5",
       dangerouslySkipPermissions: true,
     })
   : new AnthropicAgent({
-      model: "claude-opus-4-7",
+      model: "claude-fable-5",
       tools,
       instructions: "You are a careful planner.",
       stopWhen: stepCountIs(40),

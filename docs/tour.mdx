@@ -95,7 +95,7 @@ const { Workflow, smithers, outputs } = createSmithers({
 });
 
 const analyst = new AnthropicAgent({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-fable-5",
   instructions: "You are a senior code reviewer. Return structured JSON.",
 });
 
@@ -140,12 +140,12 @@ const { Workflow, smithers, outputs } = createSmithers({
 });
 
 const analyst = new AnthropicAgent({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-fable-5",
   instructions: "You are a senior code reviewer. Return structured JSON.",
 });
 
 const fixer = new AnthropicAgent({
-  model: "claude-sonnet-4-20250514",
+  model: "claude-fable-5",
   instructions: "Write minimal, correct fixes as a unified diff.",
 });
 

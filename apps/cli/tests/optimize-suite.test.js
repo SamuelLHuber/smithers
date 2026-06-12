@@ -136,7 +136,7 @@ describe("optimize suite helpers", () => {
         expect(getOptimizerProviderConfig("codex")?.kind).toBe("openai-compatible");
         expect(getOptimizerProviderConfig("antigravity")?.kind).toBe("gemini");
         expect(getOptimizerProviderConfig("kimi")?.kind).toBe("openai-compatible");
-        expect(resolveOptimizerProviderModel("cerebras")).toBe("gpt-oss-120b");
+        expect(resolveOptimizerProviderModel("cerebras")).toBe("zai-glm-4.7");
         expect(resolveOptimizerProviderModel("openai-compatible", "custom-model")).toBe("custom-model");
     });
 
@@ -178,7 +178,7 @@ describe("optimize suite helpers", () => {
         }, { fetch: fakeFetch, env: { OPENAI_API_KEY: "openai-key" } });
         expect(openaiPatches.answer.source).toBe("codex-gepa");
         expect(calls.at(-1).url).toBe("https://api.openai.com/v1/chat/completions");
-        expect(calls.at(-1).body.model).toBe("gpt-5.3-codex");
+        expect(calls.at(-1).body.model).toBe("gpt-5.5");
 
         await buildProviderGepaPatches({
             provider: "claude-code",

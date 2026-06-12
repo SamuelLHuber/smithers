@@ -5,7 +5,7 @@ import { parseAnthropicRateLimitHeaders } from "./parseAnthropicRateLimitHeaders
 const COUNT_TOKENS_URL = "https://api.anthropic.com/v1/messages/count_tokens";
 
 /** The count_tokens probe needs a valid model id but generates no output tokens. */
-const PROBE_MODEL = process.env.SMITHERS_ANTHROPIC_PROBE_MODEL ?? "claude-sonnet-4-20250514";
+const PROBE_MODEL = process.env.SMITHERS_ANTHROPIC_PROBE_MODEL ?? "claude-fable-5";
 
 /**
  * Reads live Anthropic rate-limit headers for an API-key account. Uses the

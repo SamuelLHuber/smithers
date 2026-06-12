@@ -32,7 +32,7 @@ OPENAI_API_KEY=... pnpm --filter @smithers-orchestrator/smithers-demo cerebras:d
 ANTHROPIC_API_KEY=... pnpm --filter @smithers-orchestrator/smithers-demo cerebras:debate
 ```
 
-The browser app stores provider, model, and key settings in local browser settings. Defaults are Cerebras `gpt-oss-120b`, OpenAI `gpt-5.5`, and Claude `claude-opus-4.7`.
+The browser app stores provider, model, and key settings in local browser settings. Defaults are Cerebras `zai-glm-4.7`, OpenAI `gpt-5.5`, and Claude `claude-fable-5`.
 
 ## Validate
 

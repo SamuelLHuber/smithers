@@ -5870,14 +5870,14 @@ async function createChatAgent(agentId, cwd) {
             const { ClaudeCodeAgent } = await import("@smithers-orchestrator/agents/ClaudeCodeAgent");
             return new ClaudeCodeAgent({
                 cwd,
-                model: "claude-opus-4-7",
+                model: "claude-fable-5",
             });
         }
         case "codex": {
             const { CodexAgent } = await import("@smithers-orchestrator/agents/CodexAgent");
             return new CodexAgent({
                 cwd,
-                model: "gpt-5.3-codex",
+                model: "gpt-5.5",
                 skipGitRepoCheck: true,
             });
         }
