@@ -188,7 +188,6 @@ function App() {
     await Promise.all([
       runsQuery.refetch(),
       runDetail.refetch(),
-      stream.refetch?.(),
       approvalsQuery.refetch(),
       discoverOut.refetch(),
     ].filter(Boolean) as Promise<unknown>[]);
