@@ -71,6 +71,18 @@ GitHub rejects the inline batch, the findings are folded into the body and
 the review still posts. The PR's head must exist locally (check out the
 branch or fetch it first).
 
+## CI
+
+`.github/workflows/pr-review.yml` runs `--pr <number> --publish` on every
+non-draft PR from a branch in this repo and posts the review onto it. The job
+is scoped to `contents: read` + `pull-requests: write` and stays on the
+`pull_request` event (never `pull_request_target`), so fork PRs run without
+secrets and are skipped. Repo secrets: `CLAUDE_CODE_OAUTH_TOKEN` (from
+`claude setup-token`; `ANTHROPIC_API_KEY` also works) for the agents, and
+`SMITHERS_REVIEW_PUBLISH_TOKEN` for the hosted walkthrough link. Missing agent
+credentials skip the job; a missing publish token posts the review without the
+link. The walkthrough HTML is also uploaded as a run artifact.
+
 ## Rendering diffs anywhere else
 
 The diff renderer is exported as `@smithers-orchestrator/review/diffs` so
