@@ -1,0 +1,72 @@
+---
+title: "0.23.2"
+description: "Patch: parallel Loop advancement, out-of-process event bridge, gateway command, default agent scaffolding, workflow inspect schema, observability assets, budgets docs, and CI gate restoration."
+---
+
+Eight targeted fixes from engine correctness work, Gateway coverage, and CLI scaffolding.
+
+---
+
+## Fix: parallel `<Loop>` iterations no longer starve until total run quiescence
+
+Parallel `<Loop>` iterations stalled until the entire run graph went quiet before any ready loop could advance. All three scheduling paths shared the same bug: the legacy engine ladder waited for full quiescence before calling `advanceLoop`, the workflow session gated loop progress behind a global-idle check, and the `WorkflowDriver`'s `Promise.all` batch barrier held all completions until the batch finished.
+
+Three changes land together:
+
+- **Legacy engine ladder and workflow session** now advance ready loops whenever a loop node is complete, without waiting for unrelated in-flight or pending tasks to settle.
+- **`WorkflowDriver`** processes task completions incrementally and re-evaluates decisions after each completion, so a finished loop task can unblock the next iteration before the rest of the batch lands.
+- **Continue-as-new handoffs** remain quiescence-only: the engine still waits for full quiet before handing off to the next run segment.
+- **Unhandled task failures** retain precedence over further iterations, preserving the existing error propagation guarantee.
+
+Fixes [#267](https://github.com/smithersai/smithers/issues/267). PR [#271](https://github.com/smithersai/smithers/pull/271).
+
+## Fix: Gateway streams persisted events from detached runs
+
+`streamRunEvents` returned heartbeats only for runs started with `bunx smithers-orchestrator up -d`, because the Gateway host had no visibility into events written by the detached process.
+
+A built-in out-of-process event bridge now tails `_smithers_events` for runs the Gateway host did not execute. The bridge is on by default and configurable via `outOfProcessEventBridge` (boolean) and `outOfProcessEventBridgePollMs` (number) Gateway options. Detached runs now deliver real event frames to connected clients without any changes to the workflow or the detached runner.
+
+Fixes [#254](https://github.com/smithersai/smithers/issues/254). PR [#266](https://github.com/smithersai/smithers/pull/266).
+
+## Feature: `bunx smithers-orchestrator gateway` command
+
+A new `bunx smithers-orchestrator gateway` command starts the multi-run Gateway RPC and WebSocket control plane headlessly, backed by the workspace database. It exposes `listRuns`, `streamRunEvents`, and `streamDevTools` and prints the workspace and DB paths it serves on startup.
+
+This is distinct from `bunx smithers-orchestrator up --serve`, which runs a single workflow and adds a lightweight serve layer. Use `gateway` when you need the full `/v1/rpc/*` control plane without launching a workflow run.
+
+Fixes [#255](https://github.com/smithersai/smithers/issues/255). PR [#268](https://github.com/smithersai/smithers/pull/268).
+
+## Fix: default agent scaffolding no longer ships broken providers
+
+`bunx smithers-orchestrator init` generated an `agents.ts` that placed opencode-over-Anthropic-API providers in the default `smart` and `smartTool` pools. Those providers are non-functional for most users out of the box and caused runs to fail with cryptic errors rather than a clear diagnostic.
+
+Generated `agents.ts` files now lead `smart` and `smartTool` with a working Claude subscription provider. The opencode-over-Anthropic-API entry is removed from default pools. If `init` cannot find any usable provider it now fails with `NO_USABLE_AGENTS` instead of writing a configuration that cannot run.
+
+Fixes [#236](https://github.com/smithersai/smithers/issues/236). PR [#270](https://github.com/smithersai/smithers/pull/270).
+
+## Feature: workflow input schemas in `inspect` and generated skills
+
+`bunx smithers-orchestrator inspect` now returns the machine-readable JSON schema for each workflow's input alongside the run summary. The schema is also surfaced in generated skill docs: real field names, types, defaults, enums, and descriptions appear in the skill file rather than a generic placeholder.
+
+Fixes [#258](https://github.com/smithersai/smithers/issues/258). PR [#272](https://github.com/smithersai/smithers/pull/272).
+
+## Fix: `observability` ships its Docker Compose stack assets
+
+The `@smithers/observability` package was missing the Docker Compose stack files that `bunx smithers-orchestrator observability` expects at a known path inside the package. The command exited with a confusing path error rather than a clear prerequisite message.
+
+The stack assets are now included in the published package at the path the CLI resolves. The prerequisite error message was updated to name Docker Compose explicitly, and the docs were reconciled with the actual command surface.
+
+Fixes [#262](https://github.com/smithersai/smithers/issues/262). PR [#269](https://github.com/smithersai/smithers/pull/269).
+
+## Docs: Aspects budgets marked declarative, not yet enforced
+
+The `costBudget`, `tokenBudget`, and `latencySlo` fields on `<Aspect>` were documented as active runtime constraints. They are accepted and stored but not currently enforced by the engine. The docs now label them as declarative scaffolding; runtime enforcement is tracked in [#273](https://github.com/smithersai/smithers/issues/273).
+
+Fixes [#265](https://github.com/smithersai/smithers/issues/265). PR [#274](https://github.com/smithersai/smithers/pull/274).
+
+## Fix: CI gates restored on main
+
+Two CI failures on main are resolved:
+
+- A typecheck error in the `.smithers/` workspace used by the real-stack-e2e workflow blocked the CI test job (commit `ad0b69a4`).
+- Bare CLI invocations in the 0.23.1 changelog (without the `bunx smithers-orchestrator` prefix) failed the `normalize-bunx` docs gate (commit `d7747b15`).
