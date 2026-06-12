@@ -9,7 +9,7 @@ Eight targeted fixes from engine correctness work, Gateway coverage, and CLI sca
 
 ## Fix: parallel `<Loop>` iterations no longer starve until total run quiescence
 
-Parallel `<Loop>` iterations stalled until the entire run graph went quiet before any ready loop could advance. All three scheduling paths shared the same bug: the legacy engine ladder waited for full quiescence before calling `advanceLoop`, the workflow session gated loop progress behind a global-idle check, and the `WorkflowDriver`'s `Promise.all` batch barrier held all completions until the batch finished.
+Parallel `<Loop>` iterations stalled until the entire run graph went quiet before any ready loop could advance. All three scheduling paths shared the same bug: the legacy engine ladder returned `await-trigger` for any in-flight task or `schedule-retry` for any pending task before ever reaching its ready-loop handling, the workflow session gated loop progress behind a global-idle check, and the `WorkflowDriver`'s `Promise.all` batch barrier held all completions until the batch finished.
 
 Three changes land together:
 
@@ -70,3 +70,9 @@ Two CI failures on main are resolved:
 
 - A typecheck error in the `.smithers/` workspace used by the real-stack-e2e workflow blocked the CI test job (commit `ad0b69a4`).
 - Bare CLI invocations in the 0.23.1 changelog (without the `bunx smithers-orchestrator` prefix) failed the `normalize-bunx` docs gate (commit `d7747b15`).
+
+## Docs: agent-operated CLI framing and reference additions
+
+The docs now state explicitly that a coding agent operates the Smithers CLI on the human's behalf. The guide, quickstart, CLI cheatsheet, component pages, MCP server docs, and the agent skill were updated to make the division of responsibility concrete: the agent runs every command itself, relays approval and human-task prompts to the human in conversation, and submits the resolving command (`approve`, `deny`, `human answer`, `signal`) without asking the human to type Smithers commands. Installation remains the one step a human may run by hand.
+
+The reference docs also document the `@smithers-orchestrator/review` package and the `sandbox:up` / `sandbox:down` GCP VM scripts in the package-configuration tables. The generated `llms.txt`, `llms-full.txt`, and skill bundles were regenerated to include these changes.
