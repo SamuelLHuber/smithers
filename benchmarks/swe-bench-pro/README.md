@@ -20,7 +20,7 @@ dataset (ScaleAI/SWE-bench_Pro)
 prepareCheckout ── extract /app from the canonical image at base_commit,
    │               strip git history (the fix can't leak)
    ▼
-smithers up workflow.tsx ── Opus 4.8 implements → Codex 5.5 reviews & repairs
+smithers up workflow.tsx ── GPT-5.5 implements → Claude Fable reviews & repairs
    │                         (agents see only problem statement + requirements +
    │                          interface — never the tests or the gold patch)
    ▼
@@ -70,8 +70,8 @@ node scripts/cli.js verify --ids instance_flipt-io__flipt-518ec324b66a07fdd95464
 ### Honest limitations
 
 - **Network during patch generation.** Like the canonical SWE-agent/mini-swe-agent
-  setups, the implementer keeps a shell (for dependency installs) but is denied
-  WebFetch/WebSearch; the reviewer runs in Codex's workspace-write sandbox with
+  setups, the reviewer keeps a shell for local build/test commands but is denied
+  WebFetch/WebSearch; the implementer runs in Codex's workspace-write sandbox with
   network disabled. Both are instructed not to consult external solutions. The
   meaningful cheat vector — overfitting to the hidden tests — is impossible: those
   tests are never on disk during generation and are introduced only inside the
@@ -86,9 +86,9 @@ node scripts/cli.js verify --ids instance_flipt-io__flipt-518ec324b66a07fdd95464
 
 ## Setup
 
-Requires Docker (running), Node 20+, `bun`, an authenticated `claude` CLI (Opus
-4.8) and `codex` CLI (GPT-5.5). The canonical images are amd64; on Apple Silicon
-they run under emulation (≈1 min/scoring).
+Requires Docker (running), Node 20+, `bun`, an authenticated `codex` CLI
+(GPT-5.5) and `claude` CLI (Claude Fable). The canonical images are amd64; on
+Apple Silicon they run under emulation (≈1 min/scoring).
 
 ```bash
 node scripts/setup.js          # vendor scaleapi/SWE-bench_Pro-os into vendor/
@@ -111,7 +111,7 @@ node scripts/cli.js run \
 
 # A small mixed-model sweep
 node scripts/cli.js run --languages go --limit 5 \
-  --implementer claude-opus-4-8 --reviewer gpt-5.5-codex
+  --implementer gpt-5.5 --reviewer claude-fable-5
 ```
 
 Selection flags: `--ids`, `--repos`, `--languages`, `--limit`. Model flags:
@@ -122,8 +122,8 @@ gold/empty controls (not recommended for reported numbers).
 
 | Path | Role |
 | --- | --- |
-| `workflow.tsx` | Patch-generation workflow (Opus implement → Codex review/repair) |
-| `components/agents.js` | Opus 4.8 + Codex 5.5 agent factories |
+| `workflow.tsx` | Patch-generation workflow (GPT-5.5 implement → Fable review/repair) |
+| `components/agents.js` | GPT-5.5 + Claude Fable agent factories |
 | `src/loadInstances.js` | Dataset loader (faithful field decoding) |
 | `src/prepareCheckout.js` | Extract repo at base_commit, strip history |
 | `src/createEntryScript.js` | Port of ScaleAI's `create_entryscript` |

@@ -44,8 +44,8 @@ export function runWorkflowForInstance(instance, repoDir, opts = {}) {
   const env = {
     ...process.env,
     SWEBP_DB_PATH: dbPath,
-    SWEBP_IMPLEMENTER_MODEL: opts.implementerModel ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "claude-opus-4-8",
-    SWEBP_REVIEWER_MODEL: opts.reviewerModel ?? process.env.SWEBP_REVIEWER_MODEL ?? "gpt-5.5",
+    SWEBP_IMPLEMENTER_MODEL: opts.implementerModel ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "gpt-5.5",
+    SWEBP_REVIEWER_MODEL: opts.reviewerModel ?? process.env.SWEBP_REVIEWER_MODEL ?? "claude-fable-5",
   };
 
   const args = [

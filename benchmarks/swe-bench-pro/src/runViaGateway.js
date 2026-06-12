@@ -57,8 +57,8 @@ export function startGatewayServer(opts = {}) {
     SWEBP_GATEWAY_HOST: host,
     SWEBP_GATEWAY_WORKFLOW_KEY: key,
     SWEBP_DB_PATH: join(runDir, "gateway.db"),
-    SWEBP_IMPLEMENTER_MODEL: opts.implementerModel ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "claude-opus-4-8",
-    SWEBP_REVIEWER_MODEL: opts.reviewerModel ?? process.env.SWEBP_REVIEWER_MODEL ?? "gpt-5.5",
+    SWEBP_IMPLEMENTER_MODEL: opts.implementerModel ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "gpt-5.5",
+    SWEBP_REVIEWER_MODEL: opts.reviewerModel ?? process.env.SWEBP_REVIEWER_MODEL ?? "claude-fable-5",
     ...(opts.token ? { SWEBP_GATEWAY_TOKEN: opts.token } : {}),
   };
 
@@ -195,8 +195,8 @@ export async function runGatewayBenchmark(opts) {
     dataset: `${config.upstream.dataset}:${config.upstream.datasetSplit}`,
     transport: "gateway",
     models: {
-      implementer: opts.implementerModel ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "claude-opus-4-8",
-      reviewer: opts.reviewerModel ?? process.env.SWEBP_REVIEWER_MODEL ?? "gpt-5.5",
+      implementer: opts.implementerModel ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "gpt-5.5",
+      reviewer: opts.reviewerModel ?? process.env.SWEBP_REVIEWER_MODEL ?? "claude-fable-5",
     },
     integrityChecked: !opts.skipIntegrity,
     finishedAtMs: opts.nowMs ?? null,

@@ -11,7 +11,7 @@ import { summarizeResults } from "./summarizeResults.js";
  *
  * Instances run sequentially by default: the canonical images are amd64 and run
  * under emulation on Apple Silicon, and each instance already spawns its own
- * Opus + Codex subprocesses, so serial execution keeps the box responsive and
+ * GPT + Fable subprocesses, so serial execution keeps the box responsive and
  * the timings honest. Set `concurrency > 1` only on a fast amd64 host.
  *
  * @param {object} opts
@@ -59,8 +59,8 @@ export async function runBenchmark(opts) {
   const report = summarizeResults(results, {
     dataset: `${config.upstream.dataset}:${config.upstream.datasetSplit}`,
     models: {
-      implementer: opts.implementerModel ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "claude-opus-4-8",
-      reviewer: opts.reviewerModel ?? process.env.SWEBP_REVIEWER_MODEL ?? "gpt-5.5",
+      implementer: opts.implementerModel ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "gpt-5.5",
+      reviewer: opts.reviewerModel ?? process.env.SWEBP_REVIEWER_MODEL ?? "claude-fable-5",
     },
     integrityChecked: !opts.skipIntegrity,
     finishedAtMs: opts.nowMs ?? null,

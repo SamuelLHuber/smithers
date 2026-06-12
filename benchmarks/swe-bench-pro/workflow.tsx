@@ -10,10 +10,10 @@ import { implementerAgent, reviewerAgent } from "./components/agents.js";
  * Two frontier models collaborate on a real repository checkout (already pinned
  * to `base_commit` with history stripped by the runner):
  *
- *   implement — Claude Opus 4.8 reads the task spec, edits the source in place,
- *               and self-verifies with the repo's own build/test where it can.
- *   review    — Codex 5.5 independently audits the working-tree diff against the
- *               requirements/interface, rebuilds, and directly fixes any gaps.
+ *   implement — GPT-5.5 reads the task spec, edits the source in place, and
+ *               self-verifies with the repo's own build/test where it can.
+ *   review    — Claude Fable independently audits the working-tree diff against
+ *               the requirements/interface, rebuilds, and directly fixes gaps.
  *
  * The agents never receive the hidden tests or the gold patch — only the
  * problem statement, behavioral requirements, and interface. The runner captures

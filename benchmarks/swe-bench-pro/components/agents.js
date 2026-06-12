@@ -18,49 +18,45 @@ const BUILD_TOOLS = [
 ];
 
 /**
- * Claude Opus 4.8 implementer. Reads the task spec + repo and edits files in
- * place to satisfy the requirements. Runs on the host `claude` CLI against the
- * extracted checkout (`cwd`), using the user's subscription (the constructor
- * clears ANTHROPIC_API_KEY so it does not fall back to metered API billing).
+ * GPT-5.5 implementer. Reads the task spec + repo and edits files in place to
+ * satisfy the requirements. Runs on the host `codex` CLI with workspace-write
+ * sandboxing scoped to the extracted checkout.
  *
  * @param {{ cwd: string, model?: string, timeoutMs?: number }} opts
- * @returns {ClaudeCodeAgent}
+ * @returns {CodexAgent}
  */
 export function implementerAgent(opts) {
-  return new ClaudeCodeAgent({
-    id: "opus-implementer",
+  return new CodexAgent({
+    id: "gpt-implementer",
     cwd: opts.cwd,
-    model: opts.model ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "claude-opus-4-8",
-    permissionMode: "bypassPermissions",
-    yolo: true,
-    allowedTools: BUILD_TOOLS,
-    disallowedTools: ["WebFetch", "WebSearch"],
+    model: opts.model ?? process.env.SWEBP_IMPLEMENTER_MODEL ?? "gpt-5.5",
+    sandbox: "workspace-write",
+    fullAuto: true,
     timeoutMs: opts.timeoutMs ?? 30 * 60 * 1000,
   });
 }
 
 /**
- * Codex 5.5 (GPT-5.5) reviewer/repairer. Independently re-reads the spec, audits
- * Opus's working-tree diff, builds/tests what it can, and directly fixes any
- * remaining gaps. Runs on the host `codex` CLI with workspace-write sandboxing
- * scoped to the checkout, so it can edit but not roam the host.
+ * Claude Fable reviewer/repairer. Independently re-reads the spec, audits the
+ * GPT implementer's working-tree diff, builds/tests what it can, and directly
+ * fixes any remaining gaps using the user's Claude subscription.
  *
- * Network posture (kept symmetric with the implementer on purpose): `--full-auto`
- * selects Codex's workspace-write sandbox, which disables network access by
- * default — so the reviewer cannot fetch external solutions. The implementer
- * keeps Bash for dependency installs but is denied WebFetch/WebSearch. Neither
- * agent can reach the hidden tests, which exist only inside the scoring container.
+ * Network posture: the reviewer keeps Bash for local build/test commands but is
+ * denied WebFetch/WebSearch. Neither agent can reach the hidden tests, which
+ * exist only inside the scoring container.
  *
  * @param {{ cwd: string, model?: string, timeoutMs?: number }} opts
- * @returns {CodexAgent}
+ * @returns {ClaudeCodeAgent}
  */
 export function reviewerAgent(opts) {
-  return new CodexAgent({
-    id: "codex-reviewer",
+  return new ClaudeCodeAgent({
+    id: "fable-reviewer",
     cwd: opts.cwd,
-    model: opts.model ?? process.env.SWEBP_REVIEWER_MODEL ?? "gpt-5.5",
-    sandbox: "workspace-write",
-    fullAuto: true,
+    model: opts.model ?? process.env.SWEBP_REVIEWER_MODEL ?? "claude-fable-5",
+    permissionMode: "bypassPermissions",
+    yolo: true,
+    allowedTools: BUILD_TOOLS,
+    disallowedTools: ["WebFetch", "WebSearch"],
     timeoutMs: opts.timeoutMs ?? 30 * 60 * 1000,
   });
 }

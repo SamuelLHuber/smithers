@@ -45,8 +45,8 @@ Selection:
   --limit N           Cap count
 
 Run options:
-  --implementer M     Implementer model (default claude-opus-4-8)
-  --reviewer M        Reviewer model    (default gpt-5.5-codex)
+  --implementer M     Implementer model (default gpt-5.5)
+  --reviewer M        Reviewer model    (default claude-fable-5)
   --skip-integrity    Skip gold/empty controls (faster, less rigorous)
   --agent-timeout-ms  Per-instance agent wall-clock cap
   --report PATH       Where to write the JSON report
