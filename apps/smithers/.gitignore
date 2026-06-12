@@ -1,2 +1,5 @@
 # Alchemy writes local state and a wrangler.json containing plaintext secrets here.
 .alchemy/
+
+# Real-stack e2e secrets (real-stack-e2e workflow)
+.env.e2e.local
