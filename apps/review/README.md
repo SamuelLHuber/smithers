@@ -1,125 +1,169 @@
 # smithers review
 
-Our CodeRabbit. One command reviews a change set with agents and writes a
-single-file HTML walkthrough that presents the change as a story: chapters in
-logical reading order, each explaining why a group of files changed, with
-diffs and review findings inline. You read it top to bottom instead of
-decoding an alphabetical file list.
+Agent code review that reads like a story.
 
-Spec: `.smithers/specs/smithers-review-walkthrough.md`.
+`smithers review` runs one review agent per changed file, then a narrator
+agent writes a walkthrough of the whole change: chapters in logical reading
+order, prose explaining why each group of files changed, diffs embedded at
+the right point in the narrative, and Mermaid diagrams wherever structure
+changed. The output is a single self-contained HTML file you can open, share,
+or publish to a hosted URL.
 
-## Usage
+Pointed at a GitHub pull request, it also posts the review onto the PR: the
+narrative summary as the review body, and every finding as an inline comment
+with a ` ```suggestion ` block when there is replacement code to apply.
+
+Findings never fail the build. smithers review reports; humans decide.
+
+## Requirements
+
+- [Bun](https://bun.sh) 1.3+
+- `git`, and the [`gh` CLI](https://cli.github.com) for PR mode
+- Claude credentials: a logged-in `claude` CLI, a `CLAUDE_CODE_OAUTH_TOKEN`
+  (from `claude setup-token`), or an `ANTHROPIC_API_KEY`
+
+## Use it from the terminal
+
+The CLI runs from a checkout of this repository and can review any repo on
+your machine:
 
 ```sh
-# review the working tree of the current repo, write .smithers-review/walkthrough.html
-bun apps/review/src/cli/main.ts
+git clone https://github.com/smithersai/smithers
+cd smithers && pnpm install
+```
+
+```sh
+# review the working tree of a repo, write .smithers-review/walkthrough.html
+bun apps/review/src/cli/main.ts /path/to/repo
 
 # review a branch against main, open the walkthrough when done
-bun apps/review/src/cli/main.ts --from main --to HEAD --open
-
-# publish the walkthrough to the share service and print the URL
-bun apps/review/src/cli/main.ts --from main --to HEAD --publish
-
-# review a GitHub PR and post the review onto it (summary + inline findings)
-bun apps/review/src/cli/main.ts --pr 123 --publish
+bun apps/review/src/cli/main.ts /path/to/repo --from main --to HEAD --open
 
 # review one commit
-bun apps/review/src/cli/main.ts --commit abc1234
+bun apps/review/src/cli/main.ts /path/to/repo --commit abc1234
+
+# review GitHub PR #123 and post the review onto it (via gh)
+bun apps/review/src/cli/main.ts /path/to/repo --pr 123
+
+# publish the walkthrough to the share service and print an unlisted URL
+bun apps/review/src/cli/main.ts /path/to/repo --pr 123 --publish
 
 # no agents: deterministic story, no review findings (works offline)
-bun apps/review/src/cli/main.ts --no-review --no-narrate
+bun apps/review/src/cli/main.ts /path/to/repo --no-review --no-narrate
 ```
 
-Run `--help` for all options.
+The repo path defaults to the current directory. Run `--help` for all
+options.
 
-## How it works
+## Set up automatic PR reviews (GitHub Actions)
 
-One durable smithers workflow, run in-process through the engine:
+There is no GitHub App to install yet; reviews run as a GitHub Actions
+workflow inside your repo. The job posts one review per PR push and uploads
+the walkthrough HTML as a run artifact.
 
-1. The review side reuses `.smithers/lib/open-code-review.ts` (the
-   OpenCodeReview-derived flow): target resolution, file filtering, one
-   parallel review agent per file with the OpenCodeReview prompt, then comment
-   normalization and line anchoring.
-2. `collect-changes` loads the full diff for every changed file, including
-   files the review filters skip (tests, docs, configs). The walkthrough shows
-   everything.
-3. `narrate` (an agent) writes the story as block streams: prose explanation
-   (markdown), diff blocks that embed each file's diff at the right point in
-   the narrative, and Mermaid diagrams wherever structure or flow changed.
-   Chapters open with the central change and follow dependency order; prose
-   between diffs carries the thread. `normalizeStory` enforces that every
-   changed file appears in exactly one diff block; a deterministic fallback
-   story covers agent failure and `--no-narrate`.
-4. `walkthrough` renders self-contained HTML (inline CSS, no external assets)
-   and writes it to `--out`. Diffs are rendered with `@pierre/diffs` (syntax
-   highlighting, word-level diffs, line numbers, unified or `--split` view);
-   diagrams render via an inlined Mermaid runtime (only included when the
-   story has diagrams); the header shows a deterministic change-overview SVG
-   chart of additions/deletions by area.
+### Secrets
 
-Review findings never change the exit code; smithers review reports, humans
-decide.
+| Secret | Required | What it does |
+| --- | --- | --- |
+| `CLAUDE_CODE_OAUTH_TOKEN` | yes (or `ANTHROPIC_API_KEY`) | authenticates the review and narrator agents; mint one with `claude setup-token` |
+| `SMITHERS_REVIEW_PUBLISH_TOKEN` | no | adds a hosted walkthrough link to the posted review; without it the review still posts |
 
-## Reviewing GitHub PRs
-
-`--pr <number|url>` resolves the PR via the `gh` CLI, defaults the review
-range to `origin/<base>..<headSha>`, and after the run posts one PR review:
-the narrative summary (headline, synopsis, reading order, walkthrough link
-when `--publish` ran) as the body, and every anchorable finding as an inline
-comment with a ` ```suggestion ` fence when replacement code exists. If
-GitHub rejects the inline batch, the findings are folded into the body and
-the review still posts. The PR's head must exist locally (check out the
-branch or fetch it first).
-
-## CI
-
-`.github/workflows/pr-review.yml` runs `--pr <number> --publish` on every
-non-draft PR from a branch in this repo and posts the review onto it. The job
-is scoped to `contents: read` + `pull-requests: write` and stays on the
-`pull_request` event (never `pull_request_target`), so fork PRs run without
-secrets and are skipped. Repo secrets: `CLAUDE_CODE_OAUTH_TOKEN` (from
-`claude setup-token`; `ANTHROPIC_API_KEY` also works) for the agents, and
-`SMITHERS_REVIEW_PUBLISH_TOKEN` for the hosted walkthrough link. Missing agent
-credentials skip the job; a missing publish token posts the review without the
-link. The walkthrough HTML is also uploaded as a run artifact.
-
-## Rendering diffs anywhere else
-
-The diff renderer is exported as `@smithers-orchestrator/review/diffs` so
-humans and agents can embed the same diffs in any artifact (reports, custom
-workflow UIs, dashboards):
-
-```ts
-import { renderPierreFileDiff, extractDiffAssets } from "@smithers-orchestrator/review/diffs";
-
-const html = await renderPierreFileDiff({ diff: gitPatchForOneFile });
-// embedding many diffs in one page? hoist the shared assets once:
-const { sprite, styles, body } = extractDiffAssets(html);
-```
-
-The Pierre reference clone lives at `reference/pierre/` (gitignored).
-
-## Publish service
-
-`--publish` uploads the walkthrough to a Cloudflare Worker (R2-backed,
-deployed with Alchemy from `alchemy.run.ts`) and prints an unlisted share
-URL. Live at `https://review.jjhub.tech`; the target domain
-`review.smithers.sh` is pre-wired but blocked on credentials (see the spec's
-"Publishing" section). Credentials come from `SMITHERS_REVIEW_PUBLISH_URL` /
-`SMITHERS_REVIEW_PUBLISH_TOKEN` or `~/.smithers-review.json`.
+Set them with the `gh` CLI:
 
 ```sh
-REVIEW_PUBLISH_TOKEN=... pnpm -C apps/review deploy   # alchemy deploy
-SMITHERS_REVIEW_E2E=1 pnpm -C apps/review test        # includes live publish e2e
+claude setup-token   # prints a long-lived token
+gh secret set CLAUDE_CODE_OAUTH_TOKEN
 ```
 
-Agents default to ClaudeCode subscription providers (opus primary, sonnet
-failover). Override with `SMITHERS_REVIEW_MODEL` /
-`SMITHERS_REVIEW_FALLBACK_MODEL`.
+If neither agent credential is configured the job skips with a notice
+instead of failing.
 
-## Tests
+### In this repository
 
-```sh
-pnpm -C apps/review test        # bun test: real git fixtures + agentless engine e2e
-pnpm -C apps/review typecheck
+Already installed: `.github/workflows/pr-review.yml` runs on every non-draft
+PR from a branch in this repo. Adding the secrets above is the entire setup.
+
+### In any other repository
+
+Copy this workflow into `.github/workflows/pr-review.yml`. It checks out
+your PR, checks out smithers next to it, and runs the review against your
+repo:
+
+```yaml
+name: PR review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Fork PRs have no secrets and a read-only token; drafts are not ready.
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read       # checkout + fetching the PR head sha
+      pull-requests: write # post the review (summary + inline findings)
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0 # the review diffs origin/<base>..<head>; merge-base needs history
+      - uses: actions/checkout@v6.0.2
+        with:
+          repository: smithersai/smithers
+          path: .smithers-review-tool
+      - uses: pnpm/action-setup@v6.0.8
+        with:
+          version: 10.10.0
+          run_install: false
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: 1.3.13
+      - run: pnpm -C .smithers-review-tool install --frozen-lockfile
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Review the PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: >
+          bun .smithers-review-tool/apps/review/src/cli/main.ts .
+          --pr ${{ github.event.pull_request.number }}
+      - if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: walkthrough
+          path: .smithers-review/walkthrough.html
+          if-no-files-found: ignore
 ```
+
+Keep the workflow on the `pull_request` event. Never switch it to
+`pull_request_target`: the review agents execute with the PR's code checked
+out, and `pull_request_target` would hand that code your secrets.
+
+## Publishing walkthroughs
+
+`--publish` uploads the walkthrough to the share service and prints an
+unlisted URL. The service lives at `https://review.jjhub.tech`. Credentials
+come from `SMITHERS_REVIEW_PUBLISH_URL` / `SMITHERS_REVIEW_PUBLISH_TOKEN`
+or `~/.smithers-review.json`.
+
+## Status
+
+- Published as: this repo's GitHub Actions workflow plus the CLI above.
+- Not yet: an installable GitHub App, or a standalone npm package
+  (`@smithers-orchestrator/review` is private; it depends on the
+  unpublished `smithers-workflows` workspace package).
+
+## Contributing
+
+Architecture, the publish service, diff rendering exports, and the test
+suites are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
