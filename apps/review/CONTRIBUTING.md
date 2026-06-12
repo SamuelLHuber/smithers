@@ -3,7 +3,9 @@
 Internals, architecture, and development workflow for `apps/review`. For
 what the tool does and how to set it up, read the [README](README.md).
 
-Spec: `.smithers/specs/smithers-review-walkthrough.md`.
+Specs: `.smithers/specs/smithers-review-walkthrough.md` (review + walkthrough
+pipeline) and `.smithers/specs/smithers-review-cloud.md` (hosted service:
+OIDC repo auth, metered inference proxy, quota, metrics).
 
 ## How it works
 
@@ -55,6 +57,60 @@ secrets and are skipped. Repo secrets: `CLAUDE_CODE_OAUTH_TOKEN` (from
 `SMITHERS_REVIEW_PUBLISH_TOKEN` for the hosted walkthrough link. Missing agent
 credentials skip the job; a missing publish token posts the review without the
 link. The walkthrough HTML is also uploaded as a run artifact.
+
+## Self-hosted CI (your own credentials)
+
+To run reviews in another repo's CI without the hosted service, bring your
+own Claude credentials and check out smithers next to the repo:
+
+```yaml
+name: PR review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  review:
+    # Fork PRs have no secrets and a read-only token; drafts are not ready.
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0 # the review diffs origin/<base>..<head>; merge-base needs history
+      - uses: actions/checkout@v6.0.2
+        with:
+          repository: smithersai/smithers
+          path: .smithers-review-tool
+      - uses: pnpm/action-setup@v6.0.8
+        with:
+          version: 10.10.0
+          run_install: false
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: 1.3.13
+      - run: pnpm -C .smithers-review-tool install --frozen-lockfile
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Review the PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: >
+          bun .smithers-review-tool/apps/review/src/cli/main.ts .
+          --pr ${{ github.event.pull_request.number }}
+```
+
+`CLAUDE_CODE_OAUTH_TOKEN` comes from `claude setup-token`
+(`ANTHROPIC_API_KEY` also works). Never use `pull_request_target` here.
 
 ## Rendering diffs anywhere else
 

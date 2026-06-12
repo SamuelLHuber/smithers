@@ -6,8 +6,8 @@ Agent code review that reads like a story.
 agent writes a walkthrough of the whole change: chapters in logical reading
 order, prose explaining why each group of files changed, diffs embedded at
 the right point in the narrative, and Mermaid diagrams wherever structure
-changed. The output is a single self-contained HTML file you can open, share,
-or publish to a hosted URL.
+changed. The output is a single self-contained HTML file you can open,
+share, or publish to a hosted URL.
 
 Pointed at a GitHub pull request, it also posts the review onto the PR: the
 narrative summary as the review body, and every finding as an inline comment
@@ -15,17 +15,72 @@ with a ` ```suggestion ` block when there is replacement code to apply.
 
 Findings never fail the build. smithers review reports; humans decide.
 
-## Requirements
+## Add it to your repo
 
-- [Bun](https://bun.sh) 1.3+
-- `git`, and the [`gh` CLI](https://cli.github.com) for PR mode
-- Claude credentials: a logged-in `claude` CLI, a `CLAUDE_CODE_OAUTH_TOKEN`
-  (from `claude setup-token`), or an `ANTHROPIC_API_KEY`
+One workflow file. No secrets, no Anthropic account, no smithers checkout.
+The service authenticates your repo through GitHub OIDC, runs the agents on
+our metered inference, posts the review, and hosts the walkthrough.
 
-## Use it from the terminal
+1. **Register your repo.** v0 accounts are operator-issued while billing is
+   built out (early repos are subsidized). Open an issue titled
+   `review access: <org>/<repo>` on
+   [smithersai/smithers](https://github.com/smithersai/smithers/issues) or
+   contact the maintainers.
 
-The CLI runs from a checkout of this repository and can review any repo on
-your machine:
+2. **Add `.github/workflows/smithers-review.yml`:**
+
+```yaml
+name: smithers review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  id-token: write       # proves your repo's identity to the review service
+  contents: read        # check out the PR
+  pull-requests: write  # post the review
+
+concurrency:
+  group: smithers-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: smithersai/smithers/apps/review/action@main
+```
+
+Keep the workflow on `pull_request`. Never switch it to
+`pull_request_target`: the review agents execute the PR's code, and
+`pull_request_target` would hand that code elevated credentials.
+
+3. **Trigger a review.** Comment on any PR:
+
+```
+@smithers review
+```
+
+Only owners, members, and collaborators can trigger reviews. Repos
+registered in `auto` mode skip the comment and review every non-draft PR
+push; `comment` mode is the default. The mode is a server-side setting on
+your registration, so switching never touches your workflow file.
+
+### Plans and quota
+
+Subscriptions meter reviewed PRs, N per repo per calendar month.
+Re-reviewing a PR that already counted this month is free. When the quota
+is spent, the action skips with a notice instead of failing your checks.
+
+## Run it from the terminal
+
+The CLI runs from a checkout of this repository against any repo on your
+machine, with your own Claude credentials (a logged-in `claude` CLI, a
+`CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, or an
+`ANTHROPIC_API_KEY`):
 
 ```sh
 git clone https://github.com/smithersai/smithers
@@ -53,117 +108,22 @@ bun apps/review/src/cli/main.ts /path/to/repo --no-review --no-narrate
 ```
 
 The repo path defaults to the current directory. Run `--help` for all
-options.
+options. `--publish` needs an API key (`srk_…`, operator-issued) in
+`SMITHERS_REVIEW_PUBLISH_TOKEN` or `~/.smithers-review.json`.
 
-## Set up automatic PR reviews (GitHub Actions)
+## The service
 
-There is no GitHub App to install yet; reviews run as a GitHub Actions
-workflow inside your repo. The job posts one review per PR push and uploads
-the walkthrough HTML as a run artifact.
+The hosted side is a Cloudflare Worker at `https://review.jjhub.tech`:
+session minting from GitHub OIDC tokens, an Anthropic-compatible metered
+inference proxy, walkthrough hosting on R2, usage accounting in D1, and a
+Prometheus `/metrics` endpoint feeding Grafana Cloud spend dashboards.
+Design: `.smithers/specs/smithers-review-cloud.md`.
 
-### Secrets
-
-| Secret | Required | What it does |
-| --- | --- | --- |
-| `CLAUDE_CODE_OAUTH_TOKEN` | yes (or `ANTHROPIC_API_KEY`) | authenticates the review and narrator agents; mint one with `claude setup-token` |
-| `SMITHERS_REVIEW_PUBLISH_TOKEN` | no | adds a hosted walkthrough link to the posted review; without it the review still posts |
-
-Set them with the `gh` CLI:
-
-```sh
-claude setup-token   # prints a long-lived token
-gh secret set CLAUDE_CODE_OAUTH_TOKEN
-```
-
-If neither agent credential is configured the job skips with a notice
-instead of failing.
-
-### In this repository
-
-Already installed: `.github/workflows/pr-review.yml` runs on every non-draft
-PR from a branch in this repo. Adding the secrets above is the entire setup.
-
-### In any other repository
-
-Copy this workflow into `.github/workflows/pr-review.yml`. It checks out
-your PR, checks out smithers next to it, and runs the review against your
-repo:
-
-```yaml
-name: PR review
-on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-
-permissions: {}
-
-concurrency:
-  group: pr-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
-jobs:
-  review:
-    # Fork PRs have no secrets and a read-only token; drafts are not ready.
-    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read       # checkout + fetching the PR head sha
-      pull-requests: write # post the review (summary + inline findings)
-    steps:
-      - uses: actions/checkout@v6.0.2
-        with:
-          fetch-depth: 0 # the review diffs origin/<base>..<head>; merge-base needs history
-      - uses: actions/checkout@v6.0.2
-        with:
-          repository: smithersai/smithers
-          path: .smithers-review-tool
-      - uses: pnpm/action-setup@v6.0.8
-        with:
-          version: 10.10.0
-          run_install: false
-      - uses: actions/setup-node@v6.4.0
-        with:
-          node-version: 22
-      - uses: oven-sh/setup-bun@v2.2.0
-        with:
-          bun-version: 1.3.13
-      - run: pnpm -C .smithers-review-tool install --frozen-lockfile
-      - run: npm install -g @anthropic-ai/claude-code
-      - name: Review the PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: >
-          bun .smithers-review-tool/apps/review/src/cli/main.ts .
-          --pr ${{ github.event.pull_request.number }}
-      - if: always()
-        uses: actions/upload-artifact@v4.6.2
-        with:
-          name: walkthrough
-          path: .smithers-review/walkthrough.html
-          if-no-files-found: ignore
-```
-
-Keep the workflow on the `pull_request` event. Never switch it to
-`pull_request_target`: the review agents execute with the PR's code checked
-out, and `pull_request_target` would hand that code your secrets.
-
-## Publishing walkthroughs
-
-`--publish` uploads the walkthrough to the share service and prints an
-unlisted URL. The service lives at `https://review.jjhub.tech`. Credentials
-come from `SMITHERS_REVIEW_PUBLISH_URL` / `SMITHERS_REVIEW_PUBLISH_TOKEN`
-or `~/.smithers-review.json`.
-
-## Status
-
-- Published as: this repo's GitHub Actions workflow plus the CLI above.
-- Not yet: an installable GitHub App, or a standalone npm package
-  (`@smithers-orchestrator/review` is private; it depends on the
-  unpublished `smithers-workflows` workspace package).
+Not built yet, tracked as issues: Stripe subscriptions, self-serve signup
+and key management, the `review.smithers.sh` domain.
 
 ## Contributing
 
-Architecture, the publish service, diff rendering exports, and the test
-suites are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+Architecture, the publish service, self-hosted CI setup with your own
+credentials, diff rendering exports, and the test suites are documented in
+[CONTRIBUTING.md](CONTRIBUTING.md).
