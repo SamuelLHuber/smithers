@@ -23,5 +23,5 @@
       "smithers-workflows/*": ["../../.smithers/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*", "alchemy.run.ts"]
+  "include": ["src/**/*", "tests/**/*", "action/src/**/*", "alchemy.run.ts"]
 }
