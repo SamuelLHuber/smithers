@@ -1,6 +1,6 @@
 ---
 title: "0.23.2"
-description: "Patch: parallel Loop advancement, out-of-process event bridge, gateway command, default agent scaffolding, workflow inspect schema, observability assets, budgets docs, and CI gate restoration."
+description: "Patch: parallel Loop advancement, out-of-process event bridge, gateway command, default agent scaffolding, workflow inspect schema, observability assets, budgets docs, CI gate restoration, stdout-truncation survival, camelCase output tables, and dts build fix."
 ---
 
 Eight targeted fixes from engine correctness work, Gateway coverage, and CLI scaffolding.
@@ -70,6 +70,33 @@ Two CI failures on main are resolved:
 
 - A typecheck error in the `.smithers/` workspace used by the real-stack-e2e workflow blocked the CI test job (commit `ad0b69a4`).
 - Bare CLI invocations in the 0.23.1 changelog (without the `bunx smithers-orchestrator` prefix) failed the `normalize-bunx` docs gate (commit `d7747b15`).
+
+## Fix: CLI agent answers survive captured-stdout truncation
+
+Long CLI agent runs overflow the 200 KB captured-stdout cap. The capture kept the head of the stream-JSON output, dropping the terminal result event, so text extraction fell back to tool-result fragments and the engine's context-free JSON repair persisted schema-valid but amnesiac rows. This surfaced live as investigation outputs claiming the task "was not present in the available context."
+
+Four changes land together:
+
+- The capture now keeps the stream tail for CLI agents and reports truncation in its result.
+- The agent prefers the live interpreter's completed answer, parsed before the cap applies, whenever stdout was truncated.
+- Token usage falls back to the completed event when the per-message usage lines were cut.
+- A warning event fires on truncation, and the JSON-repair prompt includes the original task.
+
+Fixes [#277](https://github.com/smithersai/smithers/issues/277). Commit `291a99157e`.
+
+## Fix: `bunx smithers-orchestrator output` resolves camelCase output tables
+
+`bunx smithers-orchestrator output RUN_ID NODE_ID` printed `null` for nodes whose output table schema key is camelCase. Node state stores the schema key verbatim while the physical table is snake_case, so the raw JSON lookup found nothing.
+
+The lookup now tries the stored name first and falls back to the snake_case translation only when no physical table with the stored name exists. A real camelCase physical table with a missing row still returns `null` rather than another table's row.
+
+Fixes [#276](https://github.com/smithersai/smithers/issues/276). Commit `61fbf19edd`.
+
+## Fix: observability package dts build
+
+`apps/observability`'s `tsup --dts-only` build failed because four metric names (`snapshotsCaptured`, `runForksCreated`, `replaysStarted`, `snapshotDuration`) were listed in the d.ts export block without declarations, keeping the repo's faults CI job red on every branch. The declarations now exist and `pnpm -r build` passes.
+
+Fixes [#275](https://github.com/smithersai/smithers/issues/275). Commit `1b3ccb8e73`.
 
 ## Docs: agent-operated CLI framing and reference additions
 
