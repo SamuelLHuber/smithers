@@ -190,7 +190,7 @@ Same shape works for branching, parallel groups, and loops:
 
 ## 5. An approval gate
 
-Pause for a human. The runtime persists the pending decision and exits cleanly; an operator approves or denies through the CLI; resume picks up from the gate.
+Pause for a human. The runtime persists the pending decision and exits cleanly; the operating agent relays the question to the human, then approves or denies through the CLI; resume picks up from the gate.
 
 ```tsx
 import { Approval } from "smithers-orchestrator";
@@ -216,7 +216,7 @@ import { Approval } from "smithers-orchestrator";
 ) : null}
 ```
 
-Operator side:
+Operator side (you, the agent, run these on the human's behalf; never hand them to the human):
 
 ```bash
 bunx smithers-orchestrator ps --status waiting-approval     # find paused runs
