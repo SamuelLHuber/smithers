@@ -41,8 +41,10 @@ describe("generateAgentsTs (account-driven)", () => {
         // pools group by engine family
         expect(generated).toContain("claude: [providers.claudeWork, providers.claudePersonal]");
         expect(generated).toContain("codex: [providers.codexWork]");
-        // smart pool combines all
+        // Smart pools are role-ordered: Claude/Fable first for planning/review,
+        // Codex/GPT first for implementation/tooling.
         expect(generated).toContain("smart: [providers.claudeWork, providers.claudePersonal, providers.codexWork]");
+        expect(generated).toContain("smartTool: [providers.codexWork, providers.claudeWork, providers.claudePersonal]");
     });
 
     test("path.join(homedir(), ...) is used for paths under $HOME", () => {
@@ -104,6 +106,7 @@ describe("generateAgentsTs (account-driven)", () => {
             preserveProviderIds: extractGeneratedDetectionProviderIds(initial),
         });
         expect(regenerated).toContain("claude: ClaudeCodeAgent");
+        expect(regenerated).toContain("claudeOpus: new SmithersClaudeCodeAgent(");
         expect(regenerated).toContain("claudeSonnet: new SmithersClaudeCodeAgent(");
         expect(regenerated).toContain("codexProd: new SmithersCodexAgent(");
     });
@@ -131,7 +134,8 @@ describe("generateAgentsTs (account-driven)", () => {
             "// smithers-source: generated",
             "export const providers = {",
             "  claude: ClaudeCodeAgent,",
-            "  claudeSonnet: new SmithersClaudeCodeAgent({ model: \"claude-sonnet-4-7\", cwd: process.cwd() }),",
+            "  claudeOpus: new SmithersClaudeCodeAgent({ model: \"claude-opus-4-8\", cwd: process.cwd() }),",
+            "  claudeSonnet: new SmithersClaudeCodeAgent({ model: \"claude-sonnet-4-6\", cwd: process.cwd() }),",
             "} as const;",
             "",
         ].join("\n");
@@ -139,6 +143,7 @@ describe("generateAgentsTs (account-driven)", () => {
             preserveProviderIds: extractGeneratedDetectionProviderIds(previous),
         });
         expect(generated).toContain("claude: ClaudeCodeAgent");
+        expect(generated).toContain("claudeOpus: new SmithersClaudeCodeAgent(");
         expect(generated).toContain("claudeSonnet: new SmithersClaudeCodeAgent(");
         expect(generated).toContain("codexProd: new SmithersCodexAgent(");
     });

@@ -31,8 +31,8 @@ test("smithers init prefers Claude when only a Claude CLI signal is available", 
     expect(agentsSource).toContain('export { ClaudeCodeAgent } from "./agents/claude-code";');
     expect(agentsSource).toContain("claude: ClaudeCodeAgent");
     expect(agentsSource).toContain("cheapFast: [providers.claudeSonnet]");
-    expect(agentsSource).toContain("smart: [providers.claude]");
-    expect(agentsSource).toContain("smartTool: [providers.claude]");
+    expect(agentsSource).toContain("smart: [providers.claude, providers.claudeOpus]");
+    expect(agentsSource).toContain("smartTool: [providers.claude, providers.claudeOpus]");
     expect(agentsSource).not.toContain("providers.codex");
 });
 test("smithers init includes Codex implementation roles when Codex plus OPENAI_API_KEY are available", () => {
@@ -53,7 +53,7 @@ test("smithers init includes Codex implementation roles when Codex plus OPENAI_A
     expect(agentsSource).toContain("cheapFast: [providers.codex]");
     expect(agentsSource).toContain("smart: [providers.codex]");
     expect(agentsSource).toContain("smartTool: [providers.codex]");
-    expect(agentsSource).toContain("smartTool: Smithers would normally suggest Claude Code here");
+    expect(agentsSource).toContain("smart: Smithers would normally suggest Claude Code here");
     expect(agentsSource).toContain("cheapFast: Smithers would normally suggest Kimi here");
 });
 test("smithers init includes OpenCode roles when OpenCode CLI credentials are available", () => {
@@ -96,8 +96,8 @@ test("smithers init orders role chains correctly when multiple local agent CLIs 
     expect(result.exitCode).toBe(0);
     const agentsSource = repo.read(".smithers/agents.ts");
     expect(agentsSource).toContain("cheapFast: [providers.claudeSonnet, providers.antigravity]");
-    expect(agentsSource).toContain("smart: [providers.codex, providers.opencode, providers.claude]");
-    expect(agentsSource).toContain("smartTool: [providers.claude, providers.codex, providers.opencode]");
+    expect(agentsSource).toContain("smart: [providers.claude, providers.claudeOpus, providers.codex]");
+    expect(agentsSource).toContain("smartTool: [providers.codex, providers.opencode, providers.claude]");
     expect(agentsSource).not.toContain("providers.gemini");
 });
 test("smithers init exits with a typed error when no usable agents are detected", () => {

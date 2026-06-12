@@ -121,7 +121,7 @@ const DETECTORS = [
 const ROLE_PREFERENCES = {
     spec: ["claude", "codex", "opencode"],
     research: ["antigravity", "kimi", "opencode", "codex", "claude"],
-    plan: ["antigravity", "codex", "opencode", "claude", "kimi"],
+    plan: ["claude", "codex", "opencode", "antigravity", "kimi"],
     implement: ["codex", "opencode", "amp", "antigravity", "claude", "kimi"],
     validate: ["codex", "opencode", "amp", "antigravity"],
     review: ["claude", "amp", "codex", "opencode"],
@@ -129,11 +129,20 @@ const ROLE_PREFERENCES = {
 const AGENT_VARIANTS = [
     {
         derivedFrom: "claude",
+        variantId: "claudeOpus",
+        displayName: "Claude Opus",
+        constructor: {
+            importName: "ClaudeCodeAgent",
+            expr: 'new SmithersClaudeCodeAgent({ model: "claude-opus-4-8", cwd: process.cwd() })',
+        },
+    },
+    {
+        derivedFrom: "claude",
         variantId: "claudeSonnet",
         displayName: "Claude Sonnet",
         constructor: {
             importName: "ClaudeCodeAgent",
-            expr: 'new SmithersClaudeCodeAgent({ model: "claude-sonnet-4-7", cwd: process.cwd() })',
+            expr: 'new SmithersClaudeCodeAgent({ model: "claude-sonnet-4-6", cwd: process.cwd() })',
         },
     },
 ];
@@ -161,22 +170,22 @@ const LOCAL_SCAFFOLDED_PROVIDER_FILES = {
     gemini: "gemini",
 };
 const TIER_PREFERENCES = {
-    cheapFast: { order: ["kimi", "vibe", "claudeSonnet", "antigravity", "pi"], maxSize: 2 },
-    smart: { order: ["codex", "opencode", "claude", "kimi", "antigravity", "amp"], maxSize: 3 },
-    smartTool: { order: ["claude", "codex", "opencode", "kimi", "antigravity", "amp"], maxSize: 3 },
+    cheapFast: { order: ["claudeSonnet", "kimi", "vibe", "antigravity", "pi"], maxSize: 2 },
+    smart: { order: ["claude", "claudeOpus", "codex", "opencode", "kimi", "antigravity", "amp"], maxSize: 3 },
+    smartTool: { order: ["codex", "opencode", "claude", "claudeOpus", "kimi", "antigravity", "amp"], maxSize: 3 },
 };
 const CONSTRUCTORS = {
     claude: {
         importName: "ClaudeCodeAgent",
-        expr: 'new SmithersClaudeCodeAgent({ model: "claude-opus-4-7", cwd: process.cwd() })',
+        expr: 'new SmithersClaudeCodeAgent({ model: "claude-fable-5", cwd: process.cwd() })',
     },
     codex: {
         importName: "CodexAgent",
-        expr: 'new SmithersCodexAgent({ model: "gpt-5.3-codex", cwd: process.cwd(), skipGitRepoCheck: true })',
+        expr: 'new SmithersCodexAgent({ model: "gpt-5.5", cwd: process.cwd(), skipGitRepoCheck: true })',
     },
     opencode: {
         importName: "OpenCodeAgent",
-        expr: 'new SmithersOpenCodeAgent({ model: "anthropic/claude-opus-4-20250514", cwd: process.cwd() })',
+        expr: 'new SmithersOpenCodeAgent({ model: "anthropic/claude-fable-5", cwd: process.cwd() })',
     },
     antigravity: {
         importName: "AntigravityAgent",
@@ -188,11 +197,11 @@ const CONSTRUCTORS = {
     },
     pi: {
         importName: "PiAgent",
-        expr: 'new SmithersPiAgent({ provider: "openai", model: "gpt-5.3-codex" })',
+        expr: 'new SmithersPiAgent({ provider: "openai", model: "gpt-5.5" })',
     },
     kimi: {
         importName: "KimiAgent",
-        expr: 'new SmithersKimiAgent({ model: "kimi-latest" })',
+        expr: 'new SmithersKimiAgent({ model: "kimi-k2.6" })',
     },
     amp: {
         importName: "AmpAgent",
@@ -522,14 +531,14 @@ const ACCOUNT_PROVIDER_POOL = {
  * @type {Record<string, string>}
  */
 const ACCOUNT_PROVIDER_DEFAULT_MODEL = {
-    "claude-code": "claude-opus-4-7",
-    "anthropic-api": "claude-opus-4-7",
+    "claude-code": "claude-fable-5",
+    "anthropic-api": "claude-fable-5",
     "antigravity": undefined,
-    "codex": "gpt-5.4-codex",
-    "openai-api": "gpt-5.4-codex",
+    "codex": "gpt-5.5",
+    "openai-api": "gpt-5.5",
     "gemini": "gemini-3.1-pro-preview",
     "gemini-api": "gemini-3.1-pro-preview",
-    "kimi": "kimi-latest",
+    "kimi": "kimi-k2.6",
 };
 
 /**
@@ -600,7 +609,26 @@ function generateAccountsAgentsTs(accounts, env) {
         `  ${family}: [${members.map((m) => `providers.${m}`).join(", ")}],`,
     );
     const allLabels = accounts.map((a) => labelToCamel(a.label));
-    poolLines.push(`  smart: [${allLabels.map((m) => `providers.${m}`).join(", ")}],`);
+    const membersForFamilies = (...families) => {
+        const seen = new Set();
+        const members = [];
+        for (const family of families) {
+            for (const member of poolMembers.get(family) ?? []) {
+                if (seen.has(member)) continue;
+                seen.add(member);
+                members.push(member);
+            }
+        }
+        for (const member of allLabels) {
+            if (seen.has(member)) continue;
+            seen.add(member);
+            members.push(member);
+        }
+        return members;
+    };
+    poolLines.push(`  smart: [${membersForFamilies("claude", "codex").map((m) => `providers.${m}`).join(", ")}],`);
+    poolLines.push(`  smartTool: [${membersForFamilies("codex", "claude").map((m) => `providers.${m}`).join(", ")}],`);
+    poolLines.push(`  cheapFast: [${membersForFamilies("kimi", "gemini", "codex", "claude").slice(0, 2).map((m) => `providers.${m}`).join(", ")}],`);
     return [
         "// smithers-source: generated",
         "// Source of truth: ~/.smithers/accounts.json (managed via `smithers agent add|list|remove`)",
