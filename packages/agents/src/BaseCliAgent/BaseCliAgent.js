@@ -452,6 +452,27 @@ function buildStreamResult(result) {
     };
 }
 /**
+ * Fallback when truncated stdout lost the per-message usage events: the
+ * interpreter's completed event carries the harness usage summary (#277).
+ * @param {{ usage?: unknown } | null} completedEvent
+ * @returns {CliUsageInfo | undefined}
+ */
+function usageFromCompletedEvent(completedEvent) {
+    const u = completedEvent?.usage;
+    if (!u || typeof u !== "object" || Array.isArray(u))
+        return undefined;
+    const num = (value) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+    const usage = {
+        inputTokens: num(u.input_tokens) ?? num(u.inputTokens),
+        outputTokens: num(u.output_tokens) ?? num(u.outputTokens),
+        cacheReadTokens: num(u.cache_read_input_tokens) ?? num(u.cacheReadTokens),
+        cacheWriteTokens: num(u.cache_creation_input_tokens) ?? num(u.cacheWriteTokens),
+        reasoningTokens: num(u.reasoning_tokens) ?? num(u.reasoningTokens),
+        totalTokens: num(u.total_tokens) ?? num(u.totalTokens),
+    };
+    return Object.values(usage).some((value) => value !== undefined) ? usage : undefined;
+}
+/**
  * @param {string} raw
  * @returns {CliUsageInfo | undefined}
  */
@@ -851,6 +872,10 @@ export class BaseCliAgent {
                     idleTimeoutMs: callTimeouts.idleMs,
                     signal: options?.abortSignal,
                     maxOutputBytes: this.maxOutputBytes ?? options?.maxOutputBytes,
+                    // CLI harnesses emit their final result event at the END of
+                    // the stream; if the capture cap trips, the tail is the part
+                    // that must survive (#277).
+                    truncateKeep: "tail",
                     onStdout: (chunk) => {
                         stdoutEmitter?.push(chunk);
                         handleInterpreterChunk("stdout", chunk);
@@ -863,6 +888,23 @@ export class BaseCliAgent {
                 flushBufferedLines("stdout", true);
                 flushBufferedLines("stderr", true);
                 emitEvents(interpreter?.onExit?.(result));
+                if (result.stdoutTruncated) {
+                    emitEvents({
+                        type: "action",
+                        engine: commandSpec.command,
+                        phase: "completed",
+                        entryType: "thought",
+                        action: {
+                            id: `stdout-truncated-${randomUUID()}`,
+                            kind: "warning",
+                            title: "captured stdout truncated",
+                            detail: {},
+                        },
+                        message: "Captured stdout exceeded maxOutputBytes; kept the stream tail. The streamed interpreter answer is used as the result text.",
+                        ok: true,
+                        level: "warning",
+                    });
+                }
                 const stdout = commandSpec.outputFile
                     ? yield* Effect.tryPromise({
                         try: () => fs.readFile(commandSpec.outputFile, "utf8"),
@@ -934,13 +976,24 @@ export class BaseCliAgent {
                         }
                     }
                 }
-                const extractedText = outputFormat === "json" || outputFormat === "stream-json"
-                    ? (extractTextFromJsonPayload(rawText) ?? rawText)
+                const extractedFromStdout = outputFormat === "json" || outputFormat === "stream-json"
+                    ? extractTextFromJsonPayload(rawText)
                     : rawText;
+                // The interpreter parses the live stream line-by-line BEFORE the
+                // capture cap applies, so its completed answer survives stdout
+                // truncation. Prefer it whenever the captured stdout was
+                // truncated or yields no final message; otherwise keep the
+                // historical extraction so intact runs are unchanged (#277).
+                const streamedAnswer = typeof completedEvent?.answer === "string" && completedEvent.answer.trim().length > 0
+                    ? completedEvent.answer
+                    : undefined;
+                const extractedText = result.stdoutTruncated || extractedFromStdout == null || extractedFromStdout.trim() === ""
+                    ? (streamedAnswer ?? extractedFromStdout ?? rawText)
+                    : extractedFromStdout;
                 const output = tryParseJson(extractedText);
                 // Extract token usage from raw stdout before text extraction strips it.
                 // Each CLI harness embeds usage differently (NDJSON events, JSON stats, etc.)
-                const cliUsage = extractUsageFromOutput(stdout);
+                const cliUsage = extractUsageFromOutput(stdout) ?? usageFromCompletedEvent(completedEvent);
                 const usage = cliUsage ? {
                     inputTokens: cliUsage.inputTokens,
                     inputTokenDetails: {

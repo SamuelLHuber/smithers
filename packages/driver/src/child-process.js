@@ -13,11 +13,13 @@ import { logDebug, logWarning } from "@smithers-orchestrator/observability/loggi
  * @param {number} maxBytes
  * @returns {string}
  */
-function truncateToBytes(text, maxBytes) {
+function truncateToBytes(text, maxBytes, keep = "head") {
     const buf = Buffer.from(text, "utf8");
     if (buf.length <= maxBytes)
         return text;
-    return buf.subarray(0, maxBytes).toString("utf8");
+    return keep === "tail"
+        ? buf.subarray(buf.length - maxBytes).toString("utf8")
+        : buf.subarray(0, maxBytes).toString("utf8");
 }
 /**
  * @param {string} command
@@ -26,7 +28,7 @@ function truncateToBytes(text, maxBytes) {
  * @returns {Effect.Effect<SpawnCaptureResult, SmithersError>}
  */
 export function spawnCaptureEffect(command, args, options) {
-    const { cwd, env, input, signal, timeoutMs, idleTimeoutMs, maxOutputBytes = 200_000, detached = false, onStdout, onStderr, } = options;
+    const { cwd, env, input, signal, timeoutMs, idleTimeoutMs, maxOutputBytes = 200_000, truncateKeep = "head", detached = false, onStdout, onStderr, } = options;
     const errorDetails = {
         command,
         args,
@@ -160,7 +162,7 @@ export function spawnCaptureEffect(command, args, options) {
                     stream: "stdout",
                 }, span);
             }
-            stdout = truncateToBytes(nextStdout, maxOutputBytes);
+            stdout = truncateToBytes(nextStdout, maxOutputBytes, truncateKeep);
             onStdout?.(text);
         });
         child.stderr?.on("data", (chunk) => {
@@ -197,7 +199,7 @@ export function spawnCaptureEffect(command, args, options) {
             }
         });
         child.on("close", (code) => {
-            finalize({ stdout, stderr, exitCode: code ?? null });
+            finalize({ stdout, stderr, exitCode: code ?? null, stdoutTruncated, stderrTruncated });
         });
         child.stdin?.on("error", (error) => {
             logWarning("child process stdin error", {

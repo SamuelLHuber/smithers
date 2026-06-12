@@ -3549,8 +3549,26 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                         const responseSummary = text.length > 2000
                             ? text.slice(0, 1000) + "\n...[truncated]...\n" + text.slice(-1000)
                             : text;
+                        // Include the ORIGINAL task so this context-free repair
+                        // session knows what the work was about. Without it the
+                        // model honestly reports the task as missing and emits
+                        // schema-valid but amnesiac values (#277).
+                        const originalPrompt = typeof desc.prompt === "string" ? desc.prompt.trim() : "";
+                        const originalTask = originalPrompt.length === 0
+                            ? undefined
+                            : originalPrompt.length > 8000
+                                ? originalPrompt.slice(0, 6000) + "\n...[task truncated]...\n" + originalPrompt.slice(-2000)
+                                : originalPrompt;
                         const jsonPrompt = [
-                            `You previously completed a task and produced this response (possibly truncated):`,
+                            ...(originalTask
+                                ? [
+                                    `You were given this task:`,
+                                    ``,
+                                    originalTask,
+                                    ``,
+                                ]
+                                : []),
+                            `You previously completed ${originalTask ? "it" : "a task"} and produced this response (possibly truncated):`,
                             ``,
                             responseSummary,
                             ``,

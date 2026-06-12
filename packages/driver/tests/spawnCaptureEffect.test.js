@@ -387,3 +387,52 @@ describe("spawnCaptureEffect — onStdout / onStderr callbacks", () => {
     expect(chunks.join("")).toBe("e1e2");
   });
 });
+
+describe("spawnCaptureEffect — truncation policy (issue #277)", () => {
+  const emitter =
+    "process.stdout.write('HEAD-SENTINEL-' + 'x'.repeat(30000) + '-TAIL-SENTINEL')";
+
+  test("keeps the head by default and sets stdoutTruncated", async () => {
+    const result = await run("node", ["-e", emitter], {
+      maxOutputBytes: 5_000,
+    });
+    expect(result.stdoutTruncated).toBe(true);
+    expect(result.stdout.startsWith("HEAD-SENTINEL-")).toBe(true);
+    expect(result.stdout).not.toContain("TAIL-SENTINEL");
+  });
+
+  test("truncateKeep tail keeps the end of the stream", async () => {
+    const result = await run("node", ["-e", emitter], {
+      maxOutputBytes: 5_000,
+      truncateKeep: "tail",
+    });
+    expect(result.stdoutTruncated).toBe(true);
+    expect(result.stdout.endsWith("-TAIL-SENTINEL")).toBe(true);
+    expect(result.stdout).not.toContain("HEAD-SENTINEL");
+  });
+
+  test("flags stay false when output fits the cap", async () => {
+    const result = await run(
+      "node",
+      ["-e", "process.stdout.write('small')"],
+      { maxOutputBytes: 5_000 },
+    );
+    expect(result.stdoutTruncated).toBe(false);
+    expect(result.stderrTruncated).toBe(false);
+    expect(result.stdout).toBe("small");
+  });
+
+  test("truncateKeep tail applies to stdout only; stderr keeps its head", async () => {
+    const result = await run(
+      "node",
+      [
+        "-e",
+        "process.stderr.write('ERR-HEAD-' + 'e'.repeat(30000) + '-ERR-TAIL')",
+      ],
+      { maxOutputBytes: 5_000, truncateKeep: "tail" },
+    );
+    expect(result.stderrTruncated).toBe(true);
+    expect(result.stderr.startsWith("ERR-HEAD-")).toBe(true);
+    expect(result.stderr).not.toContain("-ERR-TAIL");
+  });
+});
