@@ -27,8 +27,12 @@ export async function runReview(input: RunReviewInput): Promise<number> {
   const args = [cliPath, input.workspace, "--pr", String(input.prNumber), "--publish"];
 
   return new Promise<number>((resolve, reject) => {
+    // cwd must be the smithers checkout, never the workspace: bun reads
+    // bunfig.toml from its cwd, and a workspace bunfig (preload) would make
+    // bun auto-install workspace deps that are not installed there. The
+    // workspace is passed as the CLI's positional repo argument instead.
     const child = spawn(input.bunPath ?? "bun", args, {
-      cwd: input.workspace,
+      cwd: input.smithersRoot,
       stdio: "inherit",
       env: {
         ...process.env,
