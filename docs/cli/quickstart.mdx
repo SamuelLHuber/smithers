@@ -5,6 +5,12 @@ description: Short operational cheatsheet. The full catalog lives in CLI.
 
 **Prerequisites:** `bun` installed, and a project directory where you want to run Smithers.
 
+<Note>
+  This cheatsheet is for the agent operating Smithers. You, the agent, run every
+  command on this page for the human; never hand them to the human. The human
+  states outcomes and answers questions; you operate the CLI.
+</Note>
+
 **Set up**
 
 ```bash
@@ -70,7 +76,7 @@ bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true   # res
 [12:00:40] ✓ Run finished
 ```
 
-`✓ Run finished` means the run completed. `⏸ <node> waiting for approval` means it paused for you (clear it with `approve`, then resume). `✗ Run failed: …` reports the error. The CLI prints the run id and suggested next commands (`logs`, `inspect`) after launch; pass that id to every command below.
+`✓ Run finished` means the run completed. `⏸ <node> waiting for approval` means it paused for a human decision (relay the question to the human, then clear it with `approve` and resume). `✗ Run failed: …` reports the error. The CLI prints the run id and suggested next commands (`logs`, `inspect`) after launch; pass that id to every command below.
 
 **Observe & control**
 

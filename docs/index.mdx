@@ -90,9 +90,10 @@ bunx smithers-orchestrator init
 bunx smithers-orchestrator up workflow.tsx --input '{"name":"world"}'
 ```
 
-Outputs are validated by Zod, persisted to SQLite, and survive crashes. Resume with
-`--resume true`, or drive everything from your coding agent with the
-[`smithers` skill](/installation#install-the-agent-skill).
+Outputs are validated by Zod, persisted to SQLite, and survive crashes; a crashed run
+resumes with `--resume true`. Install the
+[`smithers` skill](/installation#install-the-agent-skill) and your coding agent drives
+all of this for you.
 
 ## What makes Smithers different
 
@@ -130,7 +131,7 @@ to run, and treats having your agent author new ones as a first-class path.
 ## Built-in workflows
 
 `bunx smithers-orchestrator init` scaffolds a `.smithers/` folder preloaded with
-production-ready workflows. Point your agent at one and go with
+production-ready workflows. Ask your agent for the outcome and it runs
 `bunx smithers-orchestrator workflow run WORKFLOW_ID --prompt "..."`:
 
 ```bash

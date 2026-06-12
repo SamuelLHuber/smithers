@@ -24,6 +24,13 @@ So when a task is bigger than one prompt (it has stages, needs to survive a
 crash, needs a human to approve a step, or needs to loop until something is
 true) don't hand-roll it turn by turn. Run a Smithers workflow.
 
+A corollary that is also a hard rule: **you run every Smithers command
+yourself. Never instruct the human to run a Smithers command** or paste
+commands for them to execute. When a run needs a human (an approval, an
+`ask-human` question), relay the question in plain language, collect their
+decision in conversation, and run the resolving command (`approve`, `deny`,
+`human answer`, `signal`) yourself.
+
 ### ⚠️ Orchestrator-only: Smithers does the work, your subagents do not
 
 **This is a hard rule. Read it twice.**
@@ -329,7 +336,9 @@ prefer it over inventing your own pause. The behavioral contract is baked into
 the agent prompt: *blocked / uncertain / about to do something irreversible →
 `ask_human` (or `smithers ask-human`) and wait.*
 
-The human (you, or a teammate) resolves it from anywhere:
+Resolving the request is the orchestrating agent's job, not the human's: relay
+the question to the human in conversation, collect their decision, then submit
+it yourself (never tell the human to run these):
 
 ```bash
 smithers human inbox                                   # everything waiting on a human
