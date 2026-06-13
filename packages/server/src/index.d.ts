@@ -478,6 +478,8 @@ declare class Gateway {
     maxPayload: number;
     maxConnections: number;
     eventWindowSize: number;
+    outOfProcessEventBridge: boolean;
+    outOfProcessEventBridgePollMs: number;
     headersTimeout: number;
     requestTimeout: number;
     auth: GatewayAuthConfig$1 | undefined;
@@ -529,6 +531,10 @@ declare class Gateway {
     server: null;
     wsServer: null;
     schedulerTimer: null;
+    outOfProcessEventBridgeTimer: null;
+    outOfProcessEventBridgeStopped: boolean;
+    outOfProcessEventBridgeLastFedSeq: Map<any, any>;
+    outOfProcessEventBridgeDrainedRuns: Set<any>;
     stateVersion: number;
     startedAtMs: number;
     /**
@@ -811,8 +817,31 @@ declare class Gateway {
     }): Promise<node_http.Server<typeof node_http.IncomingMessage, typeof node_http.ServerResponse>>;
     close(): Promise<void>;
     startScheduler(): void;
+    startOutOfProcessEventBridge(): void;
+    stopOutOfProcessEventBridge(): void;
+    pollOutOfProcessRunEvents(): Promise<void>;
+    feedOutOfProcessRunEvents(adapter: any, runId: any, terminal: any): Promise<void>;
     syncRegisteredSchedules(): Promise<void>;
     processDueCrons(): Promise<void>;
+    /**
+   * Earliest fire time across a run's still-pending timer nodes, or null when the
+   * run has no timer waiting to fire. Lets the scheduler tick decide when a
+   * torn-down `waiting-timer` run is due to resume without re-driving it blindly.
+   * @param {SmithersDb} adapter
+   * @param {string} runId
+   * @returns {Promise<number | null>}
+   */
+    runTimerDueAtMs(adapter: SmithersDb$4, runId: string): Promise<number | null>;
+    /**
+   * Wake suspended timer runs whose fire time has passed. The engine releases the
+   * worker when a `<Timer>` starts waiting, persisting only the fire time, so this
+   * sweep is what resumes the run on its own without a live process holding CPU.
+   * Mirrors `processDueCrons`: one pass per shared DB, attribute each run to its
+   * true workflow key, and let `resumeRunIfNeeded` re-acquire the durable lease.
+   * @returns {Promise<void>}
+   */
+    processDueTimers(): Promise<void>;
+    timerSweepInFlight: boolean | undefined;
     /**
    * @param {string} workflowKey
    * @param {Record<string, unknown>} input
