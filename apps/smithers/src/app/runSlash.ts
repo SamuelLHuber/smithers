@@ -60,7 +60,11 @@ export function runSlash(name: string, arg: string): boolean {
       chat.postCard({ kind: "landings" }, "Here are the landings.");
       return true;
     case "logs":
-      chat.postCard({ kind: "logs", runId: latest ?? launchRun() }, "Here are the logs.");
+      {
+        const runId = latest ?? launchRun();
+        chat.postCard({ kind: "logs", runId }, "Here are the logs.");
+        openSurface({ kind: "logs", runId });
+      }
       return true;
     case "timeline":
     case "fork":
