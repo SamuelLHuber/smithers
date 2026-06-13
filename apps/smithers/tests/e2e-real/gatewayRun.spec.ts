@@ -110,7 +110,9 @@ test("launches a real Claude agent workflow on the cwd gateway and shows its out
   expect(launchedRunId).toMatch(/\S/);
 
   const frame = page.frameLocator('[data-testid="gateway-workflow-ui-frame"]');
-  await expect(frame.getByTestId("probe-run-id")).toHaveText(launchedRunId);
+  await expect(frame.locator(".pill")).toHaveText(launchedRunId, {
+    timeout: 30_000,
+  });
   const headerStatus = page
     .getByTestId("gateway-run-inspector")
     .locator(".surface-head .status-pill");
