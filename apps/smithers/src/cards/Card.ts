@@ -8,6 +8,7 @@ export type Card =
   | { kind: "run"; runId: string }
   | { kind: "approval"; runId: string }
   | { kind: "diff"; runId: string; diffId: string }
+  | { kind: "logs"; runId: string }
   | { kind: "launch"; workflowId: string }
   | { kind: "agents" }
   | { kind: "memory"; query: string }

@@ -2,6 +2,7 @@ import { AgentsCard } from "../agents/AgentsCard";
 import { ApprovalCard } from "../approvals/ApprovalCard";
 import { CronsCard } from "../crons/CronsCard";
 import { DiffCard } from "../diff/DiffCard";
+import { LogsCard } from "../logs/LogsCard";
 import { HumanCard } from "../human/HumanCard";
 import { SignalCard } from "../human/SignalCard";
 import { IssuesCard } from "../issues/IssuesCard";
@@ -34,6 +35,8 @@ export function CardView({ card }: { card: Card }) {
       return <ApprovalCard runId={card.runId} />;
     case "diff":
       return <DiffCard runId={card.runId} />;
+    case "logs":
+      return <LogsCard runId={card.runId} />;
     case "launch":
       return <LaunchCard workflowId={card.workflowId} />;
     case "agents":
