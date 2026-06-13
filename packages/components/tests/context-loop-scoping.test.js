@@ -36,7 +36,9 @@ describe("context loop scoping", () => {
             input: {},
             outputs: { tbl: [exactRow, scopedRow] },
         });
-        expect(ctx.output("tbl", { nodeId: "task1" })).toBe(exactRow);
+        // output() strips harness metadata (runId/nodeId/iteration), so assert on
+        // the user-visible payload: the exact match wins over the scoped row.
+        expect(ctx.output("tbl", { nodeId: "task1" }).value).toBe("exact");
     });
     test("returns empty/undefined for unmatched scoped lookup", () => {
         const rows = [

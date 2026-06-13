@@ -48,9 +48,8 @@ describe("ReactWorkflowDriver", () => {
             build(ctx) {
                 renderedIterations.push(ctx.iteration);
                 if (ctx.iteration === 1) {
+                    // outputMaybe() strips harness metadata (runId/nodeId/iteration).
                     expect(ctx.outputMaybe("out", { nodeId: "task-a", iteration: 0 })).toEqual({
-                        nodeId: "task-a",
-                        iteration: 0,
                         value: "done",
                     });
                 }
