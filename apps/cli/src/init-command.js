@@ -57,6 +57,7 @@ function buildInitCta(templateResult) {
                 { command: "starters", description: "Browse templates by outcome" },
                 { command: "workflow list", description: "View all available workflows" },
             ],
+        tip: "New here? Point your coding agent at https://smithers.sh/llms-full.txt, then just tell it what you want to build.",
     };
 }
 
