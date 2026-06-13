@@ -3,3 +3,7 @@
 
 # Real-stack e2e secrets (real-stack-e2e workflow)
 .env.e2e.local
+
+# Real-stack e2e capture output
+capture-results/
+capture-report/

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test("real stack exposes app, gateway, and Plue through Vite", async ({ page, request }) => {
+test("real stack exposes app, gateway, and Plue through Vite @nogif", async ({ page, request }) => {
   const health = await request.get("/health");
   await expect(health).toBeOK();
   expect(health.headers()["content-type"]).toContain("application/json");
