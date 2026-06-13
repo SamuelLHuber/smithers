@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -12,33 +13,37 @@ const artifactRoot = resolve(repoRoot, "artifacts/feature-gifs");
 const manifestPath = resolve(artifactRoot, "manifest.json");
 const slideshowUrl = pathToFileURL(resolve(artifactRoot, "index.html")).toString();
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as ManifestEntry[];
+const totalSlides = manifest.length + 1;
+
+async function expectCurrentSlide(page: Page, index: number) {
+  await expect(page.getByText(`${index + 1} / ${totalSlides}`)).toBeVisible();
+  await expect(page.getByTestId("slideshow-dots").locator("button").nth(index)).toHaveAttribute("aria-current", "true");
+}
 
 test("slideshow renders generated feature gifs and navigates from file url", async ({ page }) => {
   await page.goto(slideshowUrl);
 
   const slides = page.getByTestId("slideshow-slide");
-  await expect(slides).toHaveCount(manifest.length + 1);
-  await expect(slides.nth(0)).toBeVisible();
-  await expect(page.getByText(`1 / ${manifest.length + 1}`)).toBeVisible();
+  const dots = page.getByTestId("slideshow-dots").locator("button");
+  await expect(slides).toHaveCount(totalSlides);
+  await expect(dots).toHaveCount(totalSlides);
+  await expectCurrentSlide(page, 0);
 
   await page.keyboard.press("ArrowRight");
-  await expect(slides.nth(1)).toBeVisible();
-  await expect(page.getByText(`2 / ${manifest.length + 1}`)).toBeVisible();
+  await expectCurrentSlide(page, 1);
 
   await page.keyboard.press("ArrowLeft");
-  await expect(slides.nth(0)).toBeVisible();
+  await expectCurrentSlide(page, 0);
 
   await page.getByTestId("slideshow-next").click();
-  await expect(slides.nth(1)).toBeVisible();
+  await expectCurrentSlide(page, 1);
 
   await page.getByTestId("slideshow-prev").click();
-  await expect(slides.nth(0)).toBeVisible();
-
-  await expect(page.getByTestId("slideshow-dots").locator("button")).toHaveCount(manifest.length + 1);
+  await expectCurrentSlide(page, 0);
 
   for (let index = 0; index < manifest.length; index += 1) {
-    await page.getByTestId("slideshow-dots").locator("button").nth(index + 1).click();
-    await expect(slides.nth(index + 1)).toBeVisible();
+    await dots.nth(index + 1).click();
+    await expectCurrentSlide(page, index + 1);
     const image = slides.nth(index + 1).locator("img");
     await expect(image).toHaveJSProperty("complete", true);
     await expect
