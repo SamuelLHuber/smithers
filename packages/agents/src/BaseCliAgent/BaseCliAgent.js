@@ -905,12 +905,13 @@ export class BaseCliAgent {
                         level: "warning",
                     });
                 }
-                const stdout = commandSpec.outputFile
+                const outputFileText = commandSpec.outputFile
                     ? yield* Effect.tryPromise({
                         try: () => fs.readFile(commandSpec.outputFile, "utf8"),
                         catch: (cause) => toSmithersError(cause, "read output file"),
-                    }).pipe(Effect.catchAll(() => Effect.succeed(result.stdout)))
-                    : result.stdout;
+                    }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+                    : null;
+                const stdout = typeof outputFileText === "string" ? outputFileText : result.stdout;
                 if (result.exitCode && result.exitCode !== 0) {
                     const filteredStderr = filterBenignStderr(result.stderr, commandSpec.benignStderrPatterns);
                     if (!(commandSpec.command === "codex" && filteredStderr.length === 0)) {
@@ -987,10 +988,21 @@ export class BaseCliAgent {
                 const streamedAnswer = typeof completedEvent?.answer === "string" && completedEvent.answer.trim().length > 0
                     ? completedEvent.answer
                     : undefined;
-                const extractedText = result.stdoutTruncated || extractedFromStdout == null || extractedFromStdout.trim() === ""
-                    ? (streamedAnswer ?? extractedFromStdout ?? rawText)
-                    : extractedFromStdout;
-                const output = tryParseJson(extractedText);
+                // A dedicated final-message file (e.g. codex --output-last-message)
+                // is the CLI's authoritative output channel: it holds the complete
+                // final message and is immune to the stdout byte cap and to
+                // line-by-line stream interpretation. When it parsed as JSON, trust
+                // it over the truncation/stream fallbacks, which otherwise surface a
+                // short `message` field instead of the full structured object.
+                const outputFileJson = typeof outputFileText === "string" && outputFileText.trim() !== ""
+                    ? tryParseJson(outputFileText)
+                    : null;
+                const extractedText = outputFileJson != null
+                    ? outputFileText
+                    : result.stdoutTruncated || extractedFromStdout == null || extractedFromStdout.trim() === ""
+                        ? (streamedAnswer ?? extractedFromStdout ?? rawText)
+                        : extractedFromStdout;
+                const output = outputFileJson ?? tryParseJson(extractedText);
                 // Extract token usage from raw stdout before text extraction strips it.
                 // Each CLI harness embeds usage differently (NDJSON events, JSON stats, etc.)
                 const cliUsage = extractUsageFromOutput(stdout) ?? usageFromCompletedEvent(completedEvent);
