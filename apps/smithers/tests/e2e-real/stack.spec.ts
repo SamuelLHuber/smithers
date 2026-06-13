@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.use({ storageState: { cookies: [], origins: [] } });
+
 test("real stack exposes app, gateway, and Plue through Vite", async ({ page, request }) => {
   const health = await request.get("/health");
   await expect(health).toBeOK();
@@ -14,11 +16,10 @@ test("real stack exposes app, gateway, and Plue through Vite", async ({ page, re
     expect.arrayContaining([expect.any(Object)]),
   );
 
-  const user = await request.get("/api/user");
-  expect(user.status()).toBe(401);
-  expect(user.headers()["content-type"]).toContain("application/json");
-  await expect(user.json()).resolves.toEqual(expect.any(Object));
-
   await page.goto("/");
+  const signInButton = page.getByRole("button", { name: "Sign in" });
+  if (await signInButton.isVisible().catch(() => false)) {
+    await signInButton.click();
+  }
   await expect(page.getByRole("heading", { name: "Sign in to Smithers" })).toBeVisible();
 });

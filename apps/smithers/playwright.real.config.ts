@@ -74,7 +74,7 @@ export default defineConfig({
   testMatch: "**/*.spec.ts",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: 0,
   workers: 1,
   expect: { timeout: 10_000 },
   reporter: process.env.CI ? "line" : "html",

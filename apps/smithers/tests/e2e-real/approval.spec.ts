@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
-import type { APIRequestContext } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 const SEEDED_PLUE_TOKEN = "smithers_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 const WORKFLOW_KEY = "e2e-approval-probe";
 const APPROVAL_NODE_ID = "approve-probe";
 const GATED_NODE_ID = "gated-task";
+
+test.use({ storageState: { cookies: [], origins: [] } });
 
 async function gatewayRpc(
   request: APIRequestContext,
@@ -61,6 +63,20 @@ async function waitForGatedOutput(request: APIRequestContext, runId: string) {
   throw new Error(`Gated task output not found for ${runId}: ${JSON.stringify(lastPayload)}`);
 }
 
+async function signIn(page: Page) {
+  await page.goto("/");
+  const tokenInput = page.locator("#login-token").or(page.getByRole("textbox", { name: "Token" }));
+  if (!(await tokenInput.isVisible().catch(() => false))) {
+    const signInButton = page.getByRole("button", { name: "Sign in" });
+    if (await signInButton.isVisible().catch(() => false)) {
+      await signInButton.click();
+    }
+  }
+  await tokenInput.fill(SEEDED_PLUE_TOKEN);
+  await page.getByRole("button", { name: "Connect" }).click();
+  await expect(page.getByTestId("auth-status").locator(".auth-name")).toHaveText("Alice Dev");
+}
+
 test("approves a real gateway approval request from the UI and resumes the run", async ({
   page,
   request,
@@ -79,10 +95,7 @@ test("approves a real gateway approval request from the UI and resumes the run",
     ]),
   );
 
-  await page.goto("/");
-  await page.locator("#login-token").fill(SEEDED_PLUE_TOKEN);
-  await page.getByRole("button", { name: "Connect" }).click();
-  await expect(page.getByTestId("auth-status").locator(".auth-name")).toHaveText("Alice Dev");
+  await signIn(page);
 
   const input = page.getByRole("textbox", { name: "Message Smithers" });
   await input.fill("store");

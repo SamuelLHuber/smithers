@@ -1,6 +1,24 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const SEEDED_PLUE_TOKEN = "smithers_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+
+test.use({ storageState: { cookies: [], origins: [] } });
+
+async function signIn(page: Page) {
+  await page.goto("/");
+  const tokenInput = page.locator("#login-token").or(page.getByRole("textbox", { name: "Token" }));
+  if (!(await tokenInput.isVisible().catch(() => false))) {
+    const signInButton = page.getByRole("button", { name: "Sign in" });
+    if (await signInButton.isVisible().catch(() => false)) {
+      await signInButton.click();
+    }
+  }
+  await tokenInput.fill(SEEDED_PLUE_TOKEN);
+  await page.getByRole("button", { name: "Connect" }).click();
+  await expect(
+    page.getByTestId("auth-status").locator(".auth-name"),
+  ).toHaveText("Alice Dev");
+}
 
 test("streams a real assistant reply through the real Worker", async ({
   page,
@@ -24,12 +42,7 @@ test("streams a real assistant reply through the real Worker", async ({
     };
   });
 
-  await page.goto("/");
-  await page.locator("#login-token").fill(SEEDED_PLUE_TOKEN);
-  await page.getByRole("button", { name: "Connect" }).click();
-  await expect(
-    page.getByTestId("auth-status").locator(".auth-name"),
-  ).toHaveText("Alice Dev");
+  await signIn(page);
 
   await page
     .getByRole("textbox", { name: "Message Smithers" })

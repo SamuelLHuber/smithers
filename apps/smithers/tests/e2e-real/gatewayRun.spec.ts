@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
-import type { APIRequestContext } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 const SEEDED_PLUE_TOKEN = "smithers_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 const WORKFLOW_KEY = "e2e-probe";
+
+test.use({ storageState: { cookies: [], origins: [] } });
 
 async function gatewayRpc(
   request: APIRequestContext,
@@ -53,6 +55,22 @@ async function waitForRunToFinish(request: APIRequestContext, runId: string) {
   throw new Error(`Gateway run ${runId} did not finish; last status was ${lastStatus}`);
 }
 
+async function signIn(page: Page) {
+  await page.goto("/");
+  const tokenInput = page.locator("#login-token").or(page.getByRole("textbox", { name: "Token" }));
+  if (!(await tokenInput.isVisible().catch(() => false))) {
+    const signInButton = page.getByRole("button", { name: "Sign in" });
+    if (await signInButton.isVisible().catch(() => false)) {
+      await signInButton.click();
+    }
+  }
+  await tokenInput.fill(SEEDED_PLUE_TOKEN);
+  await page.getByRole("button", { name: "Connect" }).click();
+  await expect(
+    page.getByTestId("auth-status").locator(".auth-name"),
+  ).toHaveText("Alice Dev");
+}
+
 test("launches a real Claude agent workflow on the cwd gateway and shows its output", async ({
   page,
   request,
@@ -71,12 +89,7 @@ test("launches a real Claude agent workflow on the cwd gateway and shows its out
     ]),
   );
 
-  await page.goto("/");
-  await page.locator("#login-token").fill(SEEDED_PLUE_TOKEN);
-  await page.getByRole("button", { name: "Connect" }).click();
-  await expect(
-    page.getByTestId("auth-status").locator(".auth-name"),
-  ).toHaveText("Alice Dev");
+  await signIn(page);
 
   const input = page.getByRole("textbox", { name: "Message Smithers" });
   await input.fill("store");
