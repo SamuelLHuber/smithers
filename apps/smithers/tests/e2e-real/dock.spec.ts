@@ -3,7 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 const SEEDED_PLUE_TOKEN = "smithers_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 
 async function signIn(page: Page) {
-  await page.goto("/");
+  if (page.url() === "about:blank") {
+    await page.goto("/");
+  }
   const authName = page.getByTestId("auth-status").locator(".auth-name");
   const tokenInput = page.locator("#login-token");
   await expect(authName.or(tokenInput).first()).toBeVisible();
@@ -34,6 +36,8 @@ test.describe("real app dock", () => {
     await expect(page.getByTestId("runs-canvas")).toBeVisible();
 
     await page.reload();
+    await signIn(page);
+    await page.waitForURL(/\/runs$/);
     await trigger.hover();
     await expect(dock.getByRole("button", { name: "Runs", exact: true })).toBeVisible();
     await expect(page.getByTestId("runs-canvas")).toBeVisible();
