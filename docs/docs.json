@@ -109,6 +109,7 @@
               "workflows/create-skill",
               "workflows/context-engineer",
               "workflows/route-task",
+              "workflows/smithering",
               "workflows/extract-skill",
               "workflows/vcs",
               "workflows/catalog"

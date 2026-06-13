@@ -168,10 +168,14 @@ test("seeded workflow docs cover current init workflow pack", () => {
     }
 
     // Generator-seeded workflows (emitted by scripts/generate-workflow-pack.ts and
-    // spliced in via GENERATED_SEEDED_FILES) must satisfy the same docs invariant —
-    // otherwise the generator becomes a way to bypass docs coverage.
+    // spliced in via GENERATED_SEEDED_FILES) must satisfy the same docs invariant,
+    // otherwise the generator becomes a way to bypass docs coverage. Match only the
+    // quoted seeded file paths ("path": ".smithers/workflows/<id>.tsx"); a loose
+    // match also catches `.smithers/workflows/...` inside the embedded workflow
+    // SOURCE (comments, runtime-generated child paths like smithering-impl) and
+    // manufactures workflow ids that were never seeded.
     const generatedSeeds = readRepoFile("apps/cli/src/seeded-workflow-pack.generated.js");
-    for (const match of generatedSeeds.matchAll(/\.smithers\/workflows\/([^"]+)\.tsx/g)) {
+    for (const match of generatedSeeds.matchAll(/"\.smithers\/workflows\/([a-z0-9-]+)\.tsx"/g)) {
         seededWorkflowIds.add(match[1]);
     }
 
