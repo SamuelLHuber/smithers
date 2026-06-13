@@ -127,5 +127,5 @@ describe("Cerebras debate e2e workflow", () => {
 
     expect(result.finalResult.length).toBeGreaterThan(20);
     expect(result.transcript.at(-1)?.role).toBe("judge-final");
-  });
+  }, 120_000); // a real Cerebras debate + judge round-trip exceeds vitest's 5s default
 });
