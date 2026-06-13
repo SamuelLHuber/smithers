@@ -75,6 +75,42 @@ Subscriptions meter reviewed PRs, N per repo per calendar month.
 Re-reviewing a PR that already counted this month is free. When the quota
 is spent, the action skips with a notice instead of failing your checks.
 
+### Use your own subscription (optional)
+
+If you own the repo and have a Claude or ChatGPT subscription, the review
+agents can run on your subscription instead of the service's metered
+inference. Repo registration, quota counting, and walkthrough hosting work
+exactly as before; only the inference moves to your seat, so your metered
+spend on the service stays zero.
+
+**ChatGPT (Codex) — recommended.** Log in once on any machine and copy the
+credential into a repo secret:
+
+```sh
+codex login                      # opens the ChatGPT device-auth flow
+gh secret set CODEX_AUTH_JSON < ~/.codex/auth.json
+```
+
+Then pass it through in the job:
+
+```yaml
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+    steps:
+      - uses: smithersai/smithers/apps/review/action@main
+```
+
+**Claude.** Mint a token with `claude setup-token` and set it as the
+`CLAUDE_CODE_OAUTH_TOKEN` repo secret, passed through the same way. The
+action prefers Codex when both secrets are present.
+
+Use this only for repos you own. A personal subscription must not serve
+other people's repos: both providers' consumer terms forbid backing a
+multi-tenant service from one seat. For that, fund the platform API key.
+
 ## Run it from the terminal
 
 The CLI runs from a checkout of this repository against any repo on your

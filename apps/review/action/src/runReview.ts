@@ -14,8 +14,8 @@ export interface RunReviewInput {
   smithersRoot: string;
   workspace: string;
   prNumber: number;
-  anthropicBaseUrl: string;
-  anthropicApiKey: string;
+  /** ANTHROPIC_* overrides for proxy mode; empty for subscription mode. */
+  inferenceEnv: Record<string, string>;
   publishUrl: string;
   publishToken: string;
   ghToken?: string;
@@ -36,8 +36,7 @@ export async function runReview(input: RunReviewInput): Promise<number> {
       stdio: "inherit",
       env: {
         ...process.env,
-        ANTHROPIC_BASE_URL: input.anthropicBaseUrl,
-        ANTHROPIC_API_KEY: input.anthropicApiKey,
+        ...input.inferenceEnv,
         SMITHERS_REVIEW_PUBLISH_URL: input.publishUrl,
         SMITHERS_REVIEW_PUBLISH_TOKEN: input.publishToken,
         GH_TOKEN: input.ghToken ?? process.env.GH_TOKEN ?? "",

@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { createSession } from "./createSession";
 import { fetchOidcToken } from "./fetchOidcToken";
 import { gateEvent } from "./gateEvent";
+import { resolveInferenceEnv } from "./resolveInferenceEnv";
 import { runReview } from "./runReview";
 
 /**
@@ -77,12 +78,20 @@ async function main(): Promise<void> {
     });
   }
 
+  const inference = resolveInferenceEnv({
+    anthropicBaseUrl: session.anthropicBaseUrl,
+    sessionToken: session.token,
+    claudeCodeOauthToken: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+  });
+  if (inference.mode === "subscription") {
+    console.log("::notice::smithers review: inference runs on this repo's own Claude subscription (CLAUDE_CODE_OAUTH_TOKEN is set).");
+  }
+
   const exitCode = await runReview({
     smithersRoot,
     workspace,
     prNumber: decision.prNumber,
-    anthropicBaseUrl: session.anthropicBaseUrl,
-    anthropicApiKey: session.token,
+    inferenceEnv: inference.env,
     publishUrl: session.publishUrl,
     publishToken: session.token,
     ghToken: process.env.GH_TOKEN,

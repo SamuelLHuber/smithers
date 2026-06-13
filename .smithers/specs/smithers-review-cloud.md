@@ -81,6 +81,35 @@ Steps, in order:
 Action inputs: `service-url` (default `https://review.jjhub.tech`). Nothing
 else; everything behavioral is server-side.
 
+**Bring your own subscription (the default for self-owned repos).** A repo
+owned by a subscription holder can run the review agents on that
+subscription instead of the metered proxy. Two engines:
+
+- **Codex / ChatGPT (recommended).** The job carries a `CODEX_AUTH_JSON`
+  secret holding the contents of `~/.codex/auth.json` from a local
+  `codex login` (`auth_mode: "chatgpt"`, OAuth `tokens`, null
+  `OPENAI_API_KEY`). The action writes it to `$CODEX_HOME/auth.json`,
+  installs the `codex` CLI, sets `SMITHERS_REVIEW_ENGINE=codex`, and the
+  review runs `CodexAgent` on `gpt-5.5` (note: `gpt-5.5-codex` is rejected
+  for ChatGPT-account auth; plain `gpt-5.5` is required). ChatGPT's device
+  flow makes this credential easy to mint off a CI box.
+- **Claude / setup-token.** A `CLAUDE_CODE_OAUTH_TOKEN` secret (from
+  `claude setup-token`) keeps the engine on Claude with no `ANTHROPIC_*`
+  overrides, so `ClaudeCodeAgent` uses subscription auth.
+
+In both cases the OIDC session is still minted, the PR still counts against
+quota, and the walkthrough still publishes through the session token; only
+inference leaves the proxy, so metered platform spend stays zero. This is
+strictly for repos the subscription holder owns. A personal Claude or
+ChatGPT subscription must not back the hosted service for third parties:
+consumer terms on both providers forbid powering a multi-tenant service
+from one personal seat. The funded platform API key is the only licensed
+path for serving other people's repos.
+
+Engine selection lives in `createReviewAgents`, keyed on
+`SMITHERS_REVIEW_ENGINE` (`codex` | `claude`, default `claude`). The action
+sets it from which subscription secret is present.
+
 The README documents the two-trigger workflow template
 (`pull_request` + `issue_comment`) that covers both modes. It must stay on
 `pull_request`, never `pull_request_target`, because review agents execute

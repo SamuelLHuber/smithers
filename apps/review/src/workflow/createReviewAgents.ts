@@ -1,21 +1,52 @@
-import { ClaudeCodeAgent, type AgentLike } from "smithers-orchestrator";
+import { ClaudeCodeAgent, CodexAgent, type AgentLike } from "smithers-orchestrator";
+import { nativeReviewAgentOutputSchema } from "smithers-workflows/lib/open-code-review";
+import { storySchema } from "../walkthrough/storySchema";
+import { writeOpenAiSchemaFile } from "./writeOpenAiSchemaFile";
 
 /**
- * Default agent arrays for review and narration. Mirrors .smithers/agents.ts:
- * the ClaudeCode subscription providers are the reliable ones locally
- * (issue #236); Fable primary, Opus failover.
+ * Default agent arrays for review and narration.
  *
- * Auth selection: when both `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY` are
- * set in the environment, build the agents in API-key mode. This is the path
- * the cloud composite action takes — the service mints a session-scoped key
- * and points the CLI at the metered proxy, and ClaudeCodeAgent must forward
- * that key to the spawned `claude` binary (its default behaviour is to
- * *clear* `ANTHROPIC_API_KEY` so subscription auth wins). Without the
- * `apiKey` option, that clear would route CI traffic at the user's empty
- * subscription instead of the proxy. Otherwise (local dev, the in-repo CI
- * that uses CLAUDE_CODE_OAUTH_TOKEN) keep subscription mode.
+ * Engine selection is keyed on `SMITHERS_REVIEW_ENGINE`:
+ *
+ * - `codex`: run `CodexAgent` on a ChatGPT subscription. The model must be
+ *   `gpt-5.5` — `gpt-5.5-codex` is rejected with HTTP 400 under ChatGPT-account
+ *   auth. Auth comes from `~/.codex/auth.json` (or `$CODEX_HOME`), which the
+ *   cloud action writes from a `CODEX_AUTH_JSON` secret. This is the BYO path
+ *   for repos owned by the subscription holder.
+ * - `claude` (default): `ClaudeCodeAgent`, Fable primary, Opus failover
+ *   (mirrors .smithers/agents.ts; the ClaudeCode subscription providers are the
+ *   reliable ones locally, issue #236).
+ *
+ * Claude auth selection: when both `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY`
+ * are set, build the agents in API-key mode. This is the metered-proxy path the
+ * cloud action takes — the service mints a session-scoped key and points the
+ * CLI at the proxy, and ClaudeCodeAgent must forward that key to the spawned
+ * `claude` binary (its default is to *clear* `ANTHROPIC_API_KEY` so subscription
+ * auth wins). Otherwise (local dev, BYO Claude via CLAUDE_CODE_OAUTH_TOKEN) keep
+ * subscription mode.
  */
 export function createReviewAgents(repoDir: string): { review: AgentLike[]; narrate: AgentLike[] } {
+  const engine = process.env.SMITHERS_REVIEW_ENGINE?.trim().toLowerCase();
+
+  if (engine === "codex") {
+    const model = process.env.SMITHERS_REVIEW_MODEL ?? "gpt-5.5";
+    const configDir = process.env.CODEX_HOME?.trim() || undefined;
+    // Codex's `--json` event stream is verbose (reasoning, tool, token events).
+    // On a real diff it blows past the default stdout cap, which sets
+    // `stdoutTruncated` and makes the engine fall back to the streamed
+    // interpreter answer (the model's short `message`) instead of the complete
+    // `--output-last-message` JSON. Raise the cap so the structured output
+    // survives. (#277-adjacent.)
+    const maxOutputBytes = 64 * 1024 * 1024;
+    const base = { model, cwd: repoDir, skipGitRepoCheck: true, maxOutputBytes, ...(configDir ? { configDir } : {}) };
+    // Per-task --output-schema: the review and narrate tasks have different
+    // shapes, and codex enforces the schema file so gpt-5.5 returns the JSON
+    // the pipeline needs instead of a prose summary.
+    const review = new CodexAgent({ ...base, outputSchema: writeOpenAiSchemaFile(nativeReviewAgentOutputSchema) });
+    const narrate = new CodexAgent({ ...base, outputSchema: writeOpenAiSchemaFile(storySchema) });
+    return { review: [review], narrate: [narrate] };
+  }
+
   const baseUrl = process.env.ANTHROPIC_BASE_URL?.trim();
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   const proxyMode = Boolean(baseUrl && apiKey);
