@@ -50,9 +50,14 @@ runs:
       run: pnpm -C "$SMITHERS_ACTION_PATH/../../.." install --frozen-lockfile
 
     - name: Install Claude Code CLI
-      if: steps.gate.outputs.should-run == 'true'
+      if: steps.gate.outputs.should-run == 'true' && env.CODEX_AUTH_JSON == ''
       shell: bash
       run: npm install -g @anthropic-ai/claude-code
+
+    - name: Install Codex CLI
+      if: steps.gate.outputs.should-run == 'true' && env.CODEX_AUTH_JSON != ''
+      shell: bash
+      run: npm install -g @openai/codex
 
     - name: Check out the user's repository
       if: steps.gate.outputs.should-run == 'true'
@@ -71,4 +76,9 @@ runs:
         GITHUB_EVENT_PATH: ${{ github.event_path }}
         GITHUB_WORKSPACE: ${{ github.workspace }}
         GH_TOKEN: ${{ github.token }}
+        # Optional BYO-subscription secrets, passed straight through from the
+        # caller's job env. runAction picks the engine from whichever is set;
+        # absent, inference goes through the metered proxy.
+        CODEX_AUTH_JSON: ${{ env.CODEX_AUTH_JSON }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ env.CLAUDE_CODE_OAUTH_TOKEN }}
       run: bun "$SMITHERS_ACTION_PATH/src/runAction.ts"

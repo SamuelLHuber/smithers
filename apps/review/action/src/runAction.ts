@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { createSession } from "./createSession";
 import { fetchOidcToken } from "./fetchOidcToken";
 import { gateEvent } from "./gateEvent";
@@ -81,9 +81,18 @@ async function main(): Promise<void> {
   const inference = resolveInferenceEnv({
     anthropicBaseUrl: session.anthropicBaseUrl,
     sessionToken: session.token,
+    codexAuthJson: process.env.CODEX_AUTH_JSON,
     claudeCodeOauthToken: process.env.CLAUDE_CODE_OAUTH_TOKEN,
   });
-  if (inference.mode === "subscription") {
+  if (inference.mode === "codex-subscription") {
+    // Materialize the ChatGPT credential into an isolated CODEX_HOME the codex
+    // CLI reads, so the secret never has to be the user's real ~/.codex.
+    const codexHome = process.env.CODEX_HOME?.trim() || join(workspace, ".smithers-codex-home");
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(join(codexHome, "auth.json"), process.env.CODEX_AUTH_JSON ?? "", { mode: 0o600 });
+    process.env.CODEX_HOME = codexHome;
+    console.log("::notice::smithers review: inference runs on this repo's own ChatGPT (Codex) subscription.");
+  } else if (inference.mode === "claude-subscription") {
     console.log("::notice::smithers review: inference runs on this repo's own Claude subscription (CLAUDE_CODE_OAUTH_TOKEN is set).");
   }
 
