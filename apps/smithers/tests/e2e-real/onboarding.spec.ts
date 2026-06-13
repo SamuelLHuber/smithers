@@ -46,6 +46,14 @@ test.describe("real first-run onboarding", () => {
     );
 
     await page.reload();
+    const postReloadTokenInput = page.locator("#login-token");
+    if (await postReloadTokenInput.isVisible({ timeout: 3000 })) {
+      const authName = page.getByTestId("auth-status").locator(".auth-name");
+      await postReloadTokenInput.fill(SEEDED_PLUE_TOKEN);
+      await page.getByRole("button", { name: "Connect" }).click();
+      await expect(authName).not.toHaveText("");
+    }
+
     await expect(page.locator(".ob-overlay")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Get started" })).toHaveCount(0);
     await expect(page.getByRole("textbox", { name: "Message Smithers" })).toBeVisible();
