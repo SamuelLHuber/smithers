@@ -25,18 +25,24 @@
  *      completion against Cerebras or Gemini) / codex auth. Anything missing
  *      mounts a HumanTask that blocks the run; answers persist to
  *      apps/smithers/.env.e2e.local (gitignored) and the probe re-runs.
- *   2. Tickets — six subgoals, each defined as "this playwright spec passes
- *      against the full real stack". Written to .smithers/tickets/, executed
- *      sequentially (shared git index + shared ports).
- *   3. Per-ticket loop — implement (Codex) → verify (compute: actually runs
- *      the ticket's playwright command) → audit (deterministic no-mock grep)
- *      → review (Claude Fable). Loop until all pass, max 5, fail loudly.
+ *   2. Tickets — ten subgoals, each defined as "this command exits 0 against
+ *      the full real stack": stack boot → sign-in → chat LLM → gateway run →
+ *      approval → shell coverage → cards coverage → full gate → gif capture →
+ *      slideshow. Written to .smithers/tickets/, executed sequentially
+ *      (shared git index + shared ports).
+ *   3. Per-ticket loop — VERIFY-FIRST: when the ticket's probe artifact
+ *      already exists, run verify → audit → review before ever mounting an
+ *      implementer (already-landed tickets skim through). Implement (Codex)
+ *      mounts only when the artifact is missing or a gate produced feedback.
+ *      Loop until verify+audit+review all pass, max 6, fail loudly.
  *   4. Ralph quality loop — after the basics are green: plan (Fable) picks
  *      1-3 high-value items (code quality, missing unit tests, missing e2e
  *      coverage), implement (Codex), verify (FULL gate: typecheck + unit +
  *      real suite), audit, review (Fable), push per green iteration. Repeats
  *      until the planner declares done or 12 iterations.
- *   5. Finalize — push any remainder, then write an evidence report.
+ *   5. Finalize — re-record every spec into the feature-gif slideshow
+ *      (artifacts/feature-gifs/index.html), push any remainder, then write an
+ *      evidence report.
  */
 import {
   ClaudeCodeAgent,
@@ -182,7 +188,8 @@ const GROUND_RULES = `## Ground rules (non-negotiable)
 - Everything you build must be idempotent: re-running the stack boot with services already up is a no-op; playwright webServer entries use reuseExistingServer.
 - Asserting on LLM output: assert BEHAVIOR (a non-empty assistant message streamed, the run reached finished, structured output validated) — never exact model text.
 - The shell-exported ANTHROPIC_API_KEY on this machine has NO credits. Any script that spawns the claude CLI directly (probes, helpers) must \`unset ANTHROPIC_API_KEY\` first so the CLI uses subscription auth, unless apps/smithers/.env.e2e.local explicitly supplies a working key.
-- App code style (if you touch src/): zero useState/useEffect, state in zustand; one named export per file, filename = export name; index.ts is barrels only; colocate by domain.`;
+- App code style (if you touch src/): zero useState/useEffect, state in zustand; one named export per file, filename = export name; index.ts is barrels only; colocate by domain.
+- Generated capture output (artifacts/feature-gifs/**, apps/smithers/capture-results/, apps/smithers/capture-report/) is NEVER committed — keep it gitignored. Gif conversion uses the host ffmpeg (preflight-verified). Capture and slideshow scripts must be idempotent: re-running replaces prior output.`;
 
 const OPS_NOTES = `## When you are blocked
 If you are missing a credential, a human decision, or hit something destructive/irreversible, DO NOT guess and DO NOT fake it. Raise a blocking human request and wait:
@@ -202,12 +209,16 @@ type Ticket = {
   md: string;
   verifyCmd: string;
   verifyTimeoutMs: number;
+  /** Repo-relative path of the ticket's key deliverable. When it exists the
+   *  loop verifies FIRST and only mounts an implementer on failure feedback. */
+  probeFile: string;
 };
 
 const TICKETS: Ticket[] = [
   {
     id: "t1-real-stack-boot",
     title: "Real stack boots: plue compose + cwd gateway + real playwright config",
+    probeFile: "apps/smithers/playwright.real.config.ts",
     verifyCmd:
       "pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts tests/e2e-real/stack.spec.ts",
     verifyTimeoutMs: 45 * 60 * 1000,
@@ -238,6 +249,7 @@ Study apps/smithers/vite.config.ts for the exact proxy env var names, scripts/de
   {
     id: "t2-real-signin",
     title: "Sign-in against the REAL plue api with a real seeded token",
+    probeFile: "apps/smithers/tests/e2e-real/signin.spec.ts",
     verifyCmd:
       "pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts tests/e2e-real/signin.spec.ts",
     verifyTimeoutMs: 30 * 60 * 1000,
@@ -253,6 +265,7 @@ Success criteria:
   {
     id: "t3-real-chat-llm",
     title: "Chat streams a REAL LLM completion (Gemini Flash or Cerebras) through the real Worker",
+    probeFile: "apps/smithers/tests/e2e-real/chat.spec.ts",
     verifyCmd:
       "pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts tests/e2e-real/chat.spec.ts",
     verifyTimeoutMs: 30 * 60 * 1000,
@@ -273,6 +286,7 @@ Success criteria: verify command exits 0 with a REAL upstream (the workflow's pr
   {
     id: "t4-real-gateway-run",
     title: "Launch a gateway workflow run that makes a REAL Claude LLM call, watch it finish in the UI",
+    probeFile: "apps/smithers/tests/e2e-real/gatewayRun.spec.ts",
     verifyCmd:
       "bash scripts/e2e-real/probe-agent-cred.sh && pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts tests/e2e-real/gatewayRun.spec.ts",
     verifyTimeoutMs: 40 * 60 * 1000,
@@ -288,6 +302,7 @@ Success criteria: probe script + spec both green via the verify command. The LLM
   {
     id: "t5-real-approval",
     title: "Human approval round-trip through the real gateway UI",
+    probeFile: "apps/smithers/tests/e2e-real/approval.spec.ts",
     verifyCmd:
       "pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts tests/e2e-real/approval.spec.ts",
     verifyTimeoutMs: 30 * 60 * 1000,
@@ -297,8 +312,45 @@ Success criteria: probe script + spec both green via the verify command. The LLM
 Success criteria: the whole round-trip is driven through the real gateway RPC path (no direct DB pokes, no CLI approve in the spec), and the verify command exits 0.`,
   },
   {
-    id: "t6-real-suite-green",
+    id: "t6-shell-coverage",
+    title: "App-shell feature coverage on the real stack: onboarding, surfaces, palette, theme, dock",
+    probeFile: "apps/smithers/tests/e2e-real/surfaces.spec.ts",
+    verifyCmd:
+      "pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts tests/e2e-real/onboarding.spec.ts tests/e2e-real/surfaces.spec.ts tests/e2e-real/palette.spec.ts tests/e2e-real/theme.spec.ts tests/e2e-real/dock.spec.ts",
+    verifyTimeoutMs: 45 * 60 * 1000,
+    md: `Port the core app-shell user flows to the real stack as zero-mock specs. Five new spec files under apps/smithers/tests/e2e-real/. Study the fixture suite's equivalents (apps/smithers/tests/e2e/onboarding.spec.ts, surfaces.spec.ts, paletteCanvas.spec.ts, theme.spec.ts, dock.spec.ts) for flows and selectors, but import NOTHING from tests/fixtures/ — these flows run on the app's own local engine against the real stack and need no fabricated backend.
+
+1. \`onboarding.spec.ts\` — the first-run onboarding overlay: use a FRESH storage state (\`test.use({ storageState: { cookies: [], origins: [] } })\` to bypass the config's onboarding-completed seed), walk the onboarding phases to completion, assert the overlay dismisses and stays dismissed across a reload.
+2. \`surfaces.spec.ts\` — the canvas-surface sweep: through the composer, type each slash command (/runs, /approvals, /agents, /memory, /prompts, /scores, /crons, /workflow) and assert the surface it opens renders its heading/canvas. Drive it visibly (fill the textbox, press Enter) — these recordings become feature gifs later.
+3. \`palette.spec.ts\` — quick-open palette: open via /palette (plus the keyboard shortcut if one exists), type a query, navigate to a result, assert the navigation landed.
+4. \`theme.spec.ts\` — theme toggle: flip light↔dark, assert the document theme attribute flips and the choice persists across reload.
+5. \`dock.spec.ts\` — the right-edge app dock: open an app from the dock, assert its surface appears; assert dock state persists across reload.
+
+Success criteria:
+- All five specs pass via the verify command against the real stack.
+- Specs drive the UI like a user (type, click, keyboard) and assert on visible state — they must be visually meaningful when video-recorded.
+- Deterministic: rely on playwright auto-waiting, never on raw sleeps for animation timing.`,
+  },
+  {
+    id: "t7-cards-coverage",
+    title: "Chat cards + inspector + review surfaces + notifications on the real stack",
+    probeFile: "apps/smithers/tests/e2e-real/featureCards.spec.ts",
+    verifyCmd:
+      "pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts tests/e2e-real/featureCards.spec.ts tests/e2e-real/inspector.spec.ts tests/e2e-real/reviewSurfaces.spec.ts tests/e2e-real/notifications.spec.ts",
+    verifyTimeoutMs: 45 * 60 * 1000,
+    md: `Port the chat-card and inspector flows to the real stack. Four new spec files under apps/smithers/tests/e2e-real/ (same rules as t6: study the tests/e2e/ equivalents — featureCards.spec.ts, runsCanvas.spec.ts, reviewSurfaces.spec.ts, toasts.spec.ts/notifications.spec.ts — zero fixture imports).
+
+1. \`featureCards.spec.ts\` — chat feature cards: /run launches the local demo run and posts a run card that visibly progresses; the demo run's deploy gate posts an approval card — approve it FROM THE CARD and assert the run completes; /diff posts a diff card; /logs posts a logs card.
+2. \`inspector.spec.ts\` — run inspector surfaces: from a launched demo run, open the inspector (/runs/$runId), its logs view, its timeline, and a diff view; assert each renders that run's data.
+3. \`reviewSurfaces.spec.ts\` — /issues, /tickets, /landings each open their board surface.
+4. \`notifications.spec.ts\` — a run reaching its approval gate raises a toast/notification; assert it appears and can be acted on or dismissed.
+
+Success criteria: all four specs green via the verify command; UI-driven, deterministic, gif-worthy (visible state changes).`,
+  },
+  {
+    id: "t8-suite-green",
     title: "Full real suite + repo gates green in one shot",
+    probeFile: "apps/smithers/docs/e2e-real.md",
     verifyCmd:
       "pnpm -C apps/smithers typecheck && pnpm -C apps/smithers test:unit && pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts",
     verifyTimeoutMs: 60 * 60 * 1000,
@@ -308,20 +360,60 @@ Success criteria: the whole round-trip is driven through the real gateway RPC pa
 - \`pnpm -C apps/smithers test:unit\` green (including any assumption tests you added).
 - \`pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts\` green — all e2e-real specs in one run, sharing one stack boot, no inter-spec interference (workers: 1 already; specs assert on their own runIds).
 - Fix flakes by fixing root causes (readiness probes, generous-but-bounded timeouts), never by retry-spam or weakened assertions.
-- Update apps/smithers docs (e.g. a docs/e2e-real.md or README section) describing: required secrets in .env.e2e.local (chat upstream: CEREBRAS_API_KEY or GEMINI_API_KEY), plue-up.sh usage, the port map, the 7342-vs-7331 gateway rule, and how to run the suite.
+- Write apps/smithers/docs/e2e-real.md describing: required secrets in .env.e2e.local (chat upstream: CEREBRAS_API_KEY or GEMINI_API_KEY), plue-up.sh usage, the port map, the 7342-vs-7331 gateway rule, and how to run the suite. Link it from the apps/smithers README.
 - Ensure every piece of this work is committed (atomic, emoji conventional commits). Do not push — the workflow pushes after this gate.
 
 Success criteria: the verify command exits 0, run twice in a row (idempotency). git status shows no uncommitted files from this work.`,
   },
+  {
+    id: "t9-gif-capture",
+    title: "Record every real e2e spec as a feature gif (playwright video → ffmpeg)",
+    probeFile: "scripts/e2e-real/capture-gifs.ts",
+    verifyCmd: "bun scripts/e2e-real/capture-gifs.ts",
+    verifyTimeoutMs: 75 * 60 * 1000,
+    md: `Build the gif-capture pipeline that records the real e2e suite as feature gifs.
+
+1. \`apps/smithers/playwright.capture.config.ts\` — extends playwright.real.config.ts (import the base config object and spread it): video on for every test at a fixed viewport (\`use.video = { mode: "on", size: { width: 1280, height: 720 } }\`, viewport 1280x720), \`outputDir: "capture-results"\`, reporter \`[["json", { outputFile: "capture-report/report.json" }], ["line"]]\`, workers: 1, and the SAME webServer entries reused from the imported base config.
+2. Tag API-only tests that produce blank video (e.g. the request-only assertions in tests/e2e-real/stack.spec.ts) with "@nogif" in the test title; the capture script skips those.
+3. \`scripts/e2e-real/capture-gifs.ts\` — a bun script run from the repo root that:
+   - runs \`pnpm -C apps/smithers exec playwright test --config playwright.capture.config.ts\` (inheriting env; a nonzero playwright exit fails the capture);
+   - parses apps/smithers/capture-report/report.json; for every PASSED test whose title lacks @nogif, locates its video attachment (.webm);
+   - converts each webm → gif with the host ffmpeg using a two-pass palette (\`fps=10,scale=960:-1:flags=lanczos\` + palettegen/paletteuse) into \`artifacts/feature-gifs/gifs/<slug>.gif\`, slug = "<spec-file-basename>--<test-title>" kebab-cased;
+   - writes \`artifacts/feature-gifs/manifest.json\`: an array of { slug, title, spec, gif, bytes, durationMs } sorted by spec path;
+   - exits NONZERO with a clear message if the playwright run failed, any passed non-@nogif test has no video, any gif is under 20KB, or fewer than 8 gifs were produced. Log a per-test line as it converts (no silent skips).
+4. Gitignore the generated output: add \`artifacts/\` to the repo-root .gitignore and \`capture-results/\` + \`capture-report/\` to apps/smithers/.gitignore. Binaries are never committed; the scripts are.
+
+Success criteria: the verify command exits 0 against a warm stack, producing ≥8 gifs and a manifest that matches them. Running it twice is idempotent (prior output replaced).`,
+  },
+  {
+    id: "t10-slideshow",
+    title: "Self-contained HTML slideshow of the feature gifs, e2e-tested",
+    probeFile: "scripts/e2e-real/build-slideshow.ts",
+    verifyCmd:
+      "bun scripts/e2e-real/build-slideshow.ts && pnpm -C apps/smithers exec playwright test --config playwright.slideshow.config.ts",
+    verifyTimeoutMs: 20 * 60 * 1000,
+    md: `Build the feature slideshow from the captured gifs, and e2e-test the slideshow itself.
+
+1. \`scripts/e2e-real/build-slideshow.ts\` — a bun script that reads artifacts/feature-gifs/manifest.json and writes \`artifacts/feature-gifs/index.html\`: a SELF-CONTAINED slideshow (inline CSS+JS, zero external requests; gifs referenced by relative path gifs/<slug>.gif):
+   - title slide: "Smithers — features proven end-to-end", generation date, gif count, and the exact commands to regenerate (capture-gifs.ts then build-slideshow.ts);
+   - one slide per manifest entry: a humanized feature title, the gif, and a caption with the spec path that proved it;
+   - navigation: ←/→ keys, prev/next buttons, dot indicators, and a "n / total" counter. Stable hooks for the e2e spec: data-testid="slideshow-slide", "slideshow-title", "slideshow-next", "slideshow-prev", "slideshow-dots".
+2. \`apps/smithers/playwright.slideshow.config.ts\` — testDir tests/slideshow, chromium only, NO webServer (the slideshow must work from file://).
+3. \`apps/smithers/tests/slideshow/slideshow.spec.ts\` — page.goto the file:// URL of artifacts/feature-gifs/index.html; assert the slide count equals manifest length + 1 (the title slide); ArrowRight/ArrowLeft and the next/prev buttons navigate; on every gif slide the <img> actually decoded (naturalWidth > 0).
+
+Success criteria: the verify command exits 0, and opening index.html in a plain browser with no server shows the working slideshow.`,
+  },
 ];
 
-/** The ralph loop's gate is the full T6 command. */
+/** The ralph loop's gate is the full-suite stabilization command (t8). */
+const SUITE_GREEN_TICKET = TICKETS.find((t) => t.id === "t8-suite-green")!;
 const RALPH_GATE: Ticket = {
   id: "ralph",
   title: "Ralph quality loop full gate",
   md: "",
-  verifyCmd: TICKETS[TICKETS.length - 1].verifyCmd,
+  verifyCmd: SUITE_GREEN_TICKET.verifyCmd,
   verifyTimeoutMs: 60 * 60 * 1000,
+  probeFile: SUITE_GREEN_TICKET.probeFile,
 };
 
 // ---------------------------------------------------------------------------
@@ -335,6 +427,8 @@ async function runPreflight() {
   const docker = await sh("docker info >/dev/null 2>&1 && echo ok", { timeoutMs: 20_000 });
   const dockerOk = docker.exitCode === 0;
   const plueDirOk = existsSync(resolve(PLUE_DIR, "docker-compose.yml"));
+  const ffmpeg = await sh("ffmpeg -version", { timeoutMs: 20_000 });
+  const ffmpegOk = ffmpeg.exitCode === 0;
   const claude = await sh("claude --version", { timeoutMs: 20_000 });
   const claudeCliOk = claude.exitCode === 0;
 
@@ -405,15 +499,16 @@ async function runPreflight() {
         ? `chat upstream probe failed for ${chatProvider} — fix the key/model or supply a different one (cerebrasApiKey or geminiApiKey)`
         : "no chat upstream key: supply geminiApiKey (aistudio.google.com, powers Gemini Flash) or cerebrasApiKey (cloud.cerebras.ai) for real /api/chat completions",
     );
-  if (!codexSkipped && !codexOk)
-    missing.push(
-      `codex CLI cannot complete a prompt with model ${CODEX_MODEL} (ChatGPT auth) — run \`codex login\`, or answer skipCodex=true to fall back to Claude for implementation`,
-    );
+  if (!ffmpegOk)
+    missing.push("ffmpeg not on PATH (gif conversion in t9 needs it) — brew install ffmpeg");
+  // Codex unavailability is NOT blocking: the implementer list automatically
+  // falls back to Claude. The probe result is still surfaced in detail.
 
   return {
     ok: missing.length === 0,
     dockerOk,
     plueDirOk,
+    ffmpegOk,
     claudeCliOk,
     claudeAuthOk,
     chatUpstreamOk,
@@ -421,7 +516,7 @@ async function runPreflight() {
     codexOk,
     codexSkipped,
     missing: missing.join("; ") || "none",
-    detail: `env file: ${ENV_FILE} (${existsSync(ENV_FILE) ? "exists" : "absent"}); plue: ${PLUE_DIR}; chat: ${chatProvider}; codex: ${codexOk ? "ok" : codexSkipped ? "skipped by operator" : "unavailable"}`,
+    detail: `env file: ${ENV_FILE} (${existsSync(ENV_FILE) ? "exists" : "absent"}); plue: ${PLUE_DIR}; chat: ${chatProvider}; ffmpeg: ${ffmpegOk ? "ok" : "missing"}; codex: ${codexOk ? "ok" : codexSkipped ? "skipped by operator" : "unavailable -> Claude implements"}`,
   };
 }
 
@@ -479,6 +574,18 @@ async function runVerify(t: Ticket) {
     durationMs: r.durationMs,
   };
 }
+
+/** Finalize: re-record the (possibly ralph-grown) suite into fresh gifs and
+ *  rebuild the slideshow so the shipped artifact covers every spec. */
+const CAPTURE_REFRESH: Ticket = {
+  id: "finalize-capture",
+  title: "Re-record the full suite into the feature-gif slideshow",
+  md: "",
+  verifyCmd:
+    "bun scripts/e2e-real/capture-gifs.ts && bun scripts/e2e-real/build-slideshow.ts && pnpm -C apps/smithers exec playwright test --config playwright.slideshow.config.ts",
+  verifyTimeoutMs: 90 * 60 * 1000,
+  probeFile: "scripts/e2e-real/capture-gifs.ts",
+};
 
 const FORBIDDEN_PATTERNS = [
   "page.route(",
@@ -581,7 +688,7 @@ type RalphPrev = {
 function ralphPlanPrompt(iteration: number, prev: RalphPrev): string {
   const prevBlock =
     prev.planSummary === null
-      ? "This is the first ralph iteration. The six base tickets (real stack boot, sign-in, chat LLM, gateway run, approval, full gate) are green and pushed."
+      ? "This is the first ralph iteration. The ten base tickets (real stack boot, sign-in, chat LLM, gateway run, approval, shell coverage, cards coverage, full gate, gif capture, slideshow) are green and pushed."
       : [
           `## Previous iteration outcome`,
           `Plan was: ${prev.planSummary}`,
@@ -599,7 +706,9 @@ function ralphPlanPrompt(iteration: number, prev: RalphPrev): string {
 1. anything left red or rejected from the previous iteration (always first);
 2. missing e2e coverage — user-visible flows of apps/smithers that have NO spec in tests/e2e-real/ (real backends only; check what the fixture suite covers that the real suite does not, and which canvas/surfaces have zero coverage anywhere);
 3. missing unit tests — exported functions/stores in apps/smithers/src with no bun test (look at src/**/*.ts without a sibling .test.ts, untested zustand store actions, worker routes);
-4. code quality — dead code, duplicated logic, error paths that swallow failures, useState/useEffect violations of the repo style, type unsafety (any-casts), brittle selectors in specs.`,
+4. code quality — dead code, duplicated logic, error paths that swallow failures, useState/useEffect violations of the repo style, type unsafety (any-casts), brittle selectors in specs.
+
+Every new e2e spec must stay capture-friendly: it drives visible UI deterministically, because the finalize phase re-records the whole suite into the feature-gif slideshow (scripts/e2e-real/capture-gifs.ts + build-slideshow.ts).`,
     `Read the repo before planning: git log -15 --oneline, ls apps/smithers/tests/e2e-real, the coverage gaps above. Plan a batch of 1-3 items MAX, each small enough that implement+verify fits in one iteration. Every item needs a measurable acceptance check (a test that exists and passes, a command that exits 0).`,
     GROUND_RULES,
     prevBlock,
@@ -634,9 +743,9 @@ function ralphReviewPrompt(focus: string, items: string, verifyTail: string): st
 
 function reportPrompt(): string {
   return [
-    `The real-stack-e2e run is complete: six base tickets green, ralph quality loop finished, work pushed. Write the evidence report.`,
-    `Create artifacts/real-stack-e2e/report.md in the smithers repo (${REPO}) containing: what shipped (files, specs, compose usage), the ralph-loop iterations (read .smithers/tickets/real-stack-e2e/ and git log for what each added), the exact commands to boot the stack and run the suite, the port map, required secrets (NAMES only, never values: chat upstream = CEREBRAS_API_KEY or GEMINI_API_KEY), evidence (rerun "pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts --list" to enumerate specs), remaining risks/flakes, and follow-ups. Commit it (emoji conventional commit, Co-Authored-By trailer) and push to origin main.`,
-    `Output: path (the report path) and summary (5-10 line plain-English summary for the human).`,
+    `The real-stack-e2e run is complete: ten base tickets green, ralph quality loop finished, the suite re-recorded into the feature-gif slideshow, work pushed. Write the evidence report.`,
+    `Create .smithers/state/real-stack-e2e-report.md in the smithers repo (${REPO}) containing: what shipped (files, specs, compose usage), the ralph-loop iterations (read .smithers/tickets/real-stack-e2e/ and git log for what each added), the exact commands to boot the stack and run the suite, the port map, required secrets (NAMES only, never values: chat upstream = CEREBRAS_API_KEY or GEMINI_API_KEY), evidence (rerun "pnpm -C apps/smithers exec playwright test --config playwright.real.config.ts --list" to enumerate specs; read artifacts/feature-gifs/manifest.json for the gif count and list), the slideshow location (artifacts/feature-gifs/index.html — generated, not committed) and the regeneration commands (bun scripts/e2e-real/capture-gifs.ts && bun scripts/e2e-real/build-slideshow.ts), remaining risks/flakes, and follow-ups. Commit it (emoji conventional commit, Co-Authored-By trailer) and push to origin main.`,
+    `Output: path (the report path) and summary (5-10 line plain-English summary for the human, ending with where to open the slideshow).`,
   ].join("\n\n");
 }
 
@@ -650,6 +759,7 @@ const { Workflow, Task, smithers, outputs } = createSmithers({
     ok: z.boolean(),
     dockerOk: z.boolean(),
     plueDirOk: z.boolean(),
+    ffmpegOk: z.boolean(),
     claudeCliOk: z.boolean(),
     claudeAuthOk: z.boolean(),
     chatUpstreamOk: z.boolean(),
@@ -733,12 +843,20 @@ export default smithers((ctx) => {
     if (audit && !clean) feedbackParts.push(`NO-MOCK AUDIT FAILED:\n${audit.violations}`);
     if (review && !approved && review.feedback) feedbackParts.push(`REVIEWER REJECTED:\n${review.feedback}`);
 
+    // Verify-first: when the ticket's key deliverable already exists on disk
+    // and no gate has produced feedback yet, skip straight to verify — an
+    // already-landed ticket then costs verify+audit+review, not an
+    // implementation agent. Implement mounts once anything fails.
+    const probeExists = existsSync(resolve(REPO, t.probeFile));
+    const feedback = feedbackParts.length > 0 ? feedbackParts.join("\n\n") : null;
+
     return {
       verify,
       done: passed && clean && approved,
       passed,
       clean,
-      feedback: feedbackParts.length > 0 ? feedbackParts.join("\n\n") : null,
+      feedback,
+      shouldImplement: feedback !== null || !probeExists,
     };
   };
 
@@ -807,18 +925,20 @@ export default smithers((ctx) => {
         {TICKETS.map((t) => {
           const s = ticketState(t);
           return (
-            <Loop key={t.id} id={`${t.id}:loop`} until={s.done} maxIterations={5} onMaxReached="fail">
+            <Loop key={t.id} id={`${t.id}:loop`} until={s.done} maxIterations={6} onMaxReached="fail">
               <Sequence>
-                <Task
-                  id={`${t.id}:implement`}
-                  output={outputs.implement}
-                  agent={impl}
-                  retries={2}
-                  timeoutMs={90 * 60 * 1000}
-                  heartbeatTimeoutMs={90 * 60 * 1000}
-                >
-                  {implementPrompt(t, s.feedback)}
-                </Task>
+                {s.shouldImplement ? (
+                  <Task
+                    id={`${t.id}:implement`}
+                    output={outputs.implement}
+                    agent={impl}
+                    retries={2}
+                    timeoutMs={90 * 60 * 1000}
+                    heartbeatTimeoutMs={90 * 60 * 1000}
+                  >
+                    {implementPrompt(t, s.feedback)}
+                  </Task>
+                ) : null}
                 <Task
                   id={`${t.id}:verify`}
                   output={outputs.verify}
@@ -919,7 +1039,17 @@ export default smithers((ctx) => {
         </Sequence>
       </Loop>
 
-      {/* Phase 5: final push for any remainder, then the evidence report. */}
+      {/* Phase 5: re-record the final suite into the slideshow, push any
+          remainder, then the evidence report. */}
+      <Task
+        id="finalize:capture"
+        output={outputs.verify}
+        noRetry
+        timeoutMs={CAPTURE_REFRESH.verifyTimeoutMs + 60_000}
+        heartbeatTimeoutMs={CAPTURE_REFRESH.verifyTimeoutMs + 60_000}
+      >
+        {() => runVerify(CAPTURE_REFRESH)}
+      </Task>
       <Task id="finalize:push" output={outputs.push} noRetry timeoutMs={5 * 60 * 1000}>
         {() => pushMain()}
       </Task>
