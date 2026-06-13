@@ -93,7 +93,7 @@ export default defineConfig({
     },
     {
       command: "bash ../../scripts/e2e-real/gateway-up.sh",
-      url: `${gatewayOrigin}/workflows/e2e-probe`,
+      url: `${gatewayOrigin}/workflows/e2e-approval-probe`,
       reuseExistingServer: true,
       timeout: 60_000,
       env: {

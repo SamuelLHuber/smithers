@@ -32,6 +32,14 @@ type RunView = {
   loaded: boolean;
 };
 
+type PendingApproval = {
+  runId: string;
+  nodeId: string;
+  iteration: number;
+  requestTitle: string;
+  requestSummary: string;
+};
+
 type GatewayState = {
   status: GatewayStatus;
   /** Workflows that ship a custom UI (the only ones this app can embed). */
@@ -41,6 +49,8 @@ type GatewayState = {
   runViews: Record<string, RunView>;
   /** Node output rows, keyed `${runId}::${nodeId}`. `null` once fetched-but-empty. */
   outputs: Record<string, unknown>;
+  approvals: Record<string, PendingApproval | undefined>;
+  decidingApprovals: Record<string, boolean>;
 
   /** Lazily connect if we have not yet (or a previous attempt went offline). */
   ensureConnected: () => void;
@@ -60,6 +70,7 @@ type GatewayState = {
    */
   refreshSnapshot: (runId: string) => Promise<void>;
   fetchOutput: (runId: string, nodeId: string) => Promise<void>;
+  approve: (runId: string) => Promise<void>;
   launch: (workflowKey: string) => Promise<string | undefined>;
   uiPathFor: (workflowKey: string) => string | undefined;
 };
@@ -113,6 +124,20 @@ function parseRuns(payload: unknown): GatewayRun[] {
 
 function isTerminal(status: NodeStatus): boolean {
   return status === "ok" || status === "failed";
+}
+
+function parseApproval(raw: unknown): PendingApproval | undefined {
+  const record = asRecord(raw);
+  const runId = asString(record.runId);
+  const nodeId = asString(record.nodeId);
+  if (!runId || !nodeId) return undefined;
+  return {
+    runId,
+    nodeId,
+    iteration: asNumber(record.iteration),
+    requestTitle: asString(record.requestTitle),
+    requestSummary: asString(record.requestSummary),
+  };
 }
 
 /**
@@ -300,6 +325,8 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
     selectedRunId: undefined,
     runViews: {},
     outputs: {},
+    approvals: {},
+    decidingApprovals: {},
 
     ensureConnected: () => {
       const status = get().status;
@@ -344,6 +371,8 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
         selectedRunId: undefined,
         runViews: {},
         outputs: {},
+        approvals: {},
+        decidingApprovals: {},
       });
     },
 
@@ -443,6 +472,22 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
         if (isTerminal(nextRunStatus) && activeRunId === runId) {
           stopRunStreams();
         }
+        if (nextRunStatus === "waiting") {
+          const approvals = await client.listApprovals({ filter: { runId, limit: 20 } });
+          set((store) => ({
+            approvals: {
+              ...store.approvals,
+              [runId]: Array.isArray(approvals) ? approvals.map(parseApproval).find(Boolean) : undefined,
+            },
+          }));
+        } else {
+          set((store) => ({
+            approvals: {
+              ...store.approvals,
+              [runId]: undefined,
+            },
+          }));
+        }
         surfaceRefreshTotal.inc({
           surface: "snapshot",
           trigger: "poll",
@@ -478,6 +523,40 @@ export const useGatewayStore = create<GatewayState>((set, get) => {
           setStatusGauge("unauthorized");
         }
         set((store) => ({ outputs: { ...store.outputs, [key]: null } }));
+      }
+    },
+
+    approve: async (runId) => {
+      const approval = get().approvals[runId];
+      if (!approval || get().decidingApprovals[runId]) return;
+      const client = getGatewayClient();
+      set((store) => ({
+        decidingApprovals: { ...store.decidingApprovals, [runId]: true },
+      }));
+      try {
+        await client.submitApproval({
+          runId,
+          nodeId: approval.nodeId,
+          iteration: approval.iteration,
+          decision: {
+            approved: true,
+            note: "Approved from Smithers real e2e UI",
+          },
+        });
+        set((store) => ({
+          approvals: { ...store.approvals, [runId]: undefined },
+          decidingApprovals: { ...store.decidingApprovals, [runId]: false },
+        }));
+        void get().refreshSnapshot(runId);
+        void get().refreshRuns();
+      } catch (error) {
+        if (isAuthError(error)) {
+          set({ status: "unauthorized" });
+          setStatusGauge("unauthorized");
+        }
+        set((store) => ({
+          decidingApprovals: { ...store.decidingApprovals, [runId]: false },
+        }));
       }
     },
 

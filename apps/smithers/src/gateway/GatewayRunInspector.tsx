@@ -34,6 +34,9 @@ export function GatewayRunInspector({
       state.workflows.find((workflow) => workflow.key === workflowKey)
         ?.readableName ?? workflowKey,
   );
+  const approval = useGatewayStore((state) => state.approvals[runId]);
+  const decidingApproval = useGatewayStore((state) => state.decidingApprovals[runId] ?? false);
+  const approve = useGatewayStore((state) => state.approve);
   const fetchOutput = useGatewayStore((state) => state.fetchOutput);
   const storedView = useGatewayInspectorStore((state) => state.viewByRun[runId]);
   const selectedNodeId = useGatewayInspectorStore(
@@ -79,6 +82,26 @@ export function GatewayRunInspector({
           </button>
         </div>
       </header>
+
+      {approval ? (
+        <div className="gw-approval-banner" data-testid="gateway-approval-banner">
+          <div className="gw-approval-copy">
+            <span className="gw-approval-title">{approval.requestTitle || "Approval required"}</span>
+            {approval.requestSummary ? (
+              <span className="gw-approval-summary">{approval.requestSummary}</span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="gw-btn gw-btn-primary"
+            data-testid="gateway-approve-button"
+            disabled={decidingApproval}
+            onClick={() => void approve(runId)}
+          >
+            {decidingApproval ? "Approving" : "Approve"}
+          </button>
+        </div>
+      ) : null}
 
       {effectiveView === "flow" && uiPath ? (
         <WorkflowRunUi uiPath={uiPath} runId={runId} />
