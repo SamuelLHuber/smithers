@@ -227,6 +227,8 @@ Return JSON matching schema:
 
 `props.schema` is the JSON-schema description of the Task's `outputSchema`, auto-injected. Keeps the prompt and the validator in sync.
 
+In `.mdx` prompt files, prose that looks like JSX or HTML is parsed as JSX. Wrap examples such as `<Parallel maxConcurrency={N}>` in inline backticks or a fenced code block so the prompt module still compiles and exports its default prompt component.
+
 ## Custom hooks over `ctx`
 
 ```tsx

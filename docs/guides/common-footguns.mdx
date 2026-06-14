@@ -30,6 +30,10 @@ A workflow source change is a different workflow. Resume validates the source ha
 
 React state resets on every render, which here means every frame. Anything that must survive a crash belongs in a Task output read back through `ctx`, not in component state.
 
+### Evidence files must be run-scoped or cleaned
+
+If a workflow writes verdict files such as `artifacts/.../verify.json` and later reads them to decide whether work is done, include `ctx.runId` in the evidence path or delete the evidence directory at run start. A prior run's `verify.json` must never be able to satisfy a fresh run's done-check.
+
 ## Caching
 
 ### Do not cache side-effecting tasks

@@ -9,6 +9,14 @@ This guide covers the whole shape: vanilla SDK boot, React hooks, the boot confi
 
 For the underlying RPC and event protocol, see [Gateway](/integrations/gateway). For two compact end-to-end examples, see [Workflow UI (React)](/examples/workflow-ui-react) and [Workflow UI (Vanilla)](/examples/workflow-ui-vanilla).
 
+Local launch is one command:
+
+```sh
+bunx smithers-orchestrator ui <runId>
+```
+
+If no Gateway is reachable on the local port, `smithers ui` starts `smithers gateway` for the workspace and waits for it before opening the browser. `smithers gateway` automatically mounts any `.smithers/ui/<workflow>.tsx` file whose name matches a discovered workflow id, so a hand-written `.smithers/gateway.ts` is not required for local UI launch. Use `--no-autostart` to require an already-running Gateway, or `--gateway <url>` to point at a remote one.
+
 ## How a custom UI is wired
 
 Three pieces collaborate:

@@ -47,6 +47,9 @@ own `.mdx` file, one per prompt named in the design.
    REQUIRED OUTPUT:
    {props.schema}
    ```
+   `.mdx` prompt files are parsed as MDX modules. Wrap JSX/HTML-like prose examples
+   such as `<Parallel maxConcurrency={N}>` in inline backticks or fenced code blocks;
+   otherwise MDX treats the example as JSX and can break the default export.
 7. **Agents** — only add a new provider/pool to `../agents.ts` if the design
    truly needs one that doesn't exist; otherwise reuse the existing pools.
 8. **Skills** — if the design relies on a worker skill the provisioning step

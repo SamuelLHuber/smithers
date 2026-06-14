@@ -110,6 +110,8 @@ Smithers bundles jj. The optional `@smithers-orchestrator/jj-<platform>` package
 
 If no bundled binary installed (an unsupported platform, or `--no-optional`) and neither `jj` nor `git` is on `PATH`, runs that need a worktree fail with a message telling you to install one. Check what Smithers found with `bunx smithers-orchestrator workflow doctor` (the `vcs` section reports the resolved jj and git).
 
+If the bundled jj exists but fails with `EACCES`, its executable bit was stripped during packaging or install. Fix the local install with `chmod +x node_modules/@smithers-orchestrator/jj-*/bin/jj`, reinstall, or set `SMITHERS_JJ_PATH` to a known-good `jj` binary.
+
 ## After Installation
 
 <CardGroup cols={2}>

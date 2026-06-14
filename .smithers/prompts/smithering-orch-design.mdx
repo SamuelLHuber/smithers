@@ -14,8 +14,10 @@ record a DECISION for each field (not "considerations" — decisions):
 - modelAssignment: implementer/reviewer/verifier per ticket complexity. Hard rule: the
   reviewing model family ≠ implementing model family.
 - concurrency: max parallel workers and why.
-- observability: evidence each ticket must persist under artifacts/smithering/build/ (per
-  the matrix), and HTML decision logs for judgment calls.
+- observability: evidence each ticket must persist under a run-scoped path such as
+  artifacts/smithering/build/<runId>/<ticket>/ (per the matrix), or the workflow must clean
+  the evidence root before done-checks run, so a prior run's verify/review verdict can never
+  satisfy a fresh run. Include HTML decision logs for judgment calls.
 - contextManagement: every worker gets fresh context — what each prompt must carry
   (ticket JSON + doc paths), what it must never assume.
 

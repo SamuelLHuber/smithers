@@ -33,14 +33,17 @@ Hard contract for the generated workflow:
   first ticket end-to-end (including its verification) with NO approval gates, and must
   reach status finished.
 - Wires every blocking gate from docs/planning/04-backpressure.md into pre-merge checks;
-  evidence persisted under artifacts/smithering/build/ per ticket id. Red-before-green
-  for fixes.
+  evidence persisted under artifacts/smithering/build/ per ticket id. Evidence paths MUST be
+  run-scoped (include `ctx.runId`, e.g. `artifacts/smithering/build/${ctx.runId}/<ticket>/`)
+  OR the workflow must delete the whole evidence directory at run start before any done-check
+  can read it. A stale `verify.json` from a previous run must never satisfy a fresh run's
+  "is this ticket done?" check. Red-before-green for fixes.
 - Reviewer model family ≠ implementer model family on every ticket.
 - Every loop has maxIterations; side-effecting custom tools declare sideEffect +
   idempotency keys; no caching of side-effect tasks.
 - CAPTURE VERDICTS FROM DISK, NOT FROM AGENT RETURNS. The loop-exit / "is this ticket done?"
   check MUST read each ticket's verdict from the on-disk evidence bundle the agents write
-  (e.g. `verify.json.pass`, `review.json.approved` under artifacts/smithering/build/<id>/),
+  (e.g. `verify.json.pass`, `review.json.approved` under artifacts/smithering/build/<runId>/<id>/),
   NOT from the verify/review agents' structured task-return values. Agent structured returns
   are unreliable and frequently come back empty (they persist their verdict to the bundle and
   emit prose) — gating "done" on them deadlocks the loop: the ticket can NEVER reach done and
@@ -50,6 +53,9 @@ Hard contract for the generated workflow:
   the review ADVISORY — it must not hard-block a ticket the independent verifier proved green
   over evidence-log hygiene. Safety/security tickets additionally require the adversarial
   challenge verdict to pass.
+- `.mdx` prompt files are parsed as MDX modules. When writing prose examples that look like
+  JSX or HTML, wrap them in inline backticks or fenced code blocks (for example
+  `<Parallel maxConcurrency={N}>`) so the prompt module's default export still compiles.
 - NEVER merges to {props.baseBranch}, no exceptions: all work lands on an integration
   branch; merging that branch is a human act after delivery.
 - Workers persist HTML decision docs for judgment calls under

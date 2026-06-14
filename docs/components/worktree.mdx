@@ -40,5 +40,8 @@ type WorktreeProps = {
   downstream merge/land step has nothing to merge. Leave agent `cwd` unset and let
   `<Worktree>` supply it. Likewise, helpers that touch a worktree's files must resolve against
   the worktree path, not `process.cwd()`.
+- jj-backed worktrees include colocated git metadata, so git-native CLI agents such as Codex
+  resolve the worktree directory as their repository root. Do not compensate by setting an
+  agent `cwd`; that defeats the worktree isolation above.
 - Innermost `<Worktree>` wins when nested; duplicate ids are rejected.
 - Empty/whitespace `path` is rejected at render time.

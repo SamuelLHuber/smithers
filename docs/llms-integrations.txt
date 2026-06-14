@@ -161,6 +161,8 @@ export default smithers(() => (
 ));
 ```
 
+For ChatGPT-account Codex auth, use the ChatGPT model id such as `gpt-5.5`; `gpt-5.5-codex` is rejected by that auth surface.
+
 ### Authentication
 
 - Subscription login: run `codex login` once. For isolated accounts, pass `configDir`; Smithers sets `CODEX_HOME` for that invocation.

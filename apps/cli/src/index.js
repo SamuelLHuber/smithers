@@ -5779,7 +5779,10 @@ const cli = Cli.create({
             });
             const frame = await res.json().catch(() => null);
             if (!frame || frame.type !== "res") {
-                throw new Error(`Gateway returned an invalid RPC frame for ${method}.`);
+                const command = c.options.gateway
+                    ? "smithers gateway"
+                    : `smithers gateway --port ${c.options.port}`;
+                throw new Error(`Gateway at ${base} returned an invalid RPC frame for ${method}. Make sure this URL points at \`${command}\`, not \`smithers up --serve\` or an older per-run server.`);
             }
             if (!frame.ok) {
                 throw new Error(frame.error?.message ?? `Gateway RPC ${method} failed.`);

@@ -535,7 +535,7 @@ export class CodexAgent extends BaseCliAgent {
             args.push("--dangerously-bypass-approvals-and-sandbox");
         }
         if (!resumeSession)
-            pushFlag(args, "--cd", this.opts.cd ?? params.cwd);
+            pushFlag(args, "--cd", this.opts.cd);
         if (this.opts.skipGitRepoCheck)
             args.push("--skip-git-repo-check");
         if (!resumeSession)
