@@ -3718,6 +3718,21 @@ type WorktreeProps = {
 </Worktree>
 ```
 
+## Path Access
+
+Workflow code can read the same resolved absolute worktree path that Smithers uses for task
+execution:
+
+```tsx
+const root = ctx.worktreePath("build") ?? ctx.resolveWorktreePath("/tmp/smithers/wt-a");
+const verify = JSON.parse(readFileSync(join(root, "artifacts/build/verify.json"), "utf8"));
+```
+
+Use `ctx.worktreePath(taskOrWorktreeId)` when a task descriptor or explicit `<Worktree id>`
+has rendered. Use `ctx.resolveWorktreePath(pathProp)` for the same string passed to
+`<Worktree path={...}>`, including on the first render before descriptor lookups exist.
+Both APIs use the graph resolver, so they match the path Smithers gives worker tasks.
+
 ## Notes
 
 - Descendants inherit `worktreeId` and absolute `worktreePath` as `cwd`.
@@ -3726,8 +3741,9 @@ type WorktreeProps = {
   `new ClaudeCodeAgent({ cwd: process.cwd() })`) OVERRIDES the worktree — the agent then reads
   and writes the repo root instead of the isolated worktree. Its branch stays empty and a
   downstream merge/land step has nothing to merge. Leave agent `cwd` unset and let
-  `<Worktree>` supply it. Likewise, helpers that touch a worktree's files must resolve against
-  the worktree path, not `process.cwd()`.
+  `<Worktree>` supply it. Likewise, helpers that touch a worktree's files must use
+  `ctx.worktreePath(...)` or `ctx.resolveWorktreePath(...)`; never reconstruct paths with
+  `process.cwd()`, `import.meta.dir`, `../..`, or fallback candidate lists.
 - jj-backed worktrees include colocated git metadata, so git-native CLI agents such as Codex
   resolve the worktree directory as their repository root. Do not compensate by setting an
   agent `cwd`; that defeats the worktree isolation above.

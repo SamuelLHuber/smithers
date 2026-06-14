@@ -83,6 +83,7 @@ export { camelToSnake } from '@smithers-orchestrator/db/utils/camelToSnake';
 export { unwrapZodType } from '@smithers-orchestrator/db/unwrapZodType';
 export { zodSchemaToJsonExample } from '@smithers-orchestrator/components/zod-to-example';
 export { BuilderApi, BuiltSmithersWorkflow, Smithers, StepOptions, fragment, renderFrame, runWorkflow, workflow } from '@smithers-orchestrator/engine';
+export { resolveWorktreePath } from '@smithers-orchestrator/graph';
 
 type SerializedCtx$1 = {
     runId: string;

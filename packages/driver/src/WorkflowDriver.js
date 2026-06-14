@@ -66,6 +66,23 @@ function recordFromIterations(iterations) {
     return iterations;
 }
 /**
+ * @param {readonly TaskDescriptor[]} tasks
+ * @returns {Record<string, string>}
+ */
+function buildWorktreePathLookup(tasks) {
+    /** @type {Record<string, string>} */
+    const lookup = {};
+    for (const task of tasks) {
+        if (!task.worktreePath)
+            continue;
+        lookup[task.nodeId] = task.worktreePath;
+        if (task.worktreeId && lookup[task.worktreeId] === undefined) {
+            lookup[task.worktreeId] = task.worktreePath;
+        }
+    }
+    return lookup;
+}
+/**
  * @param {RenderContext} context
  * @param {ReadonlyMap<string, string>} [knownOutputTables]
  * @returns {OutputSnapshot}
@@ -225,6 +242,8 @@ export class WorkflowDriver {
     activeOptions;
     /** @type {import("@smithers-orchestrator/graph").WorkflowGraph | undefined} */
     lastGraph;
+    /** @type {Record<string, string>} */
+    worktreePathsById = {};
     /** @type {Map<string, string>} */
     outputTablesByNodeId = new Map();
     /** @type {OutputSnapshot} */
@@ -350,6 +369,8 @@ export class WorkflowDriver {
         }
         const iteration = typeof context.iteration === "number" ? context.iteration : 0;
         const iterations = recordFromIterations(context.iterations ?? context.ralphIterations);
+        const baseRootDir = this.activeOptions?.rootDir ?? this.rootDir;
+        const workflowPath = this.activeOptions?.workflowPath ?? this.workflowPath ?? null;
         const ctx = new SmithersCtx({
             runId: context.runId,
             iteration,
@@ -358,21 +379,27 @@ export class WorkflowDriver {
             auth: context.auth,
             outputs: mergeOutputSnapshots(this.baseOutputs, snapshotFromContext(context, this.outputTablesByNodeId)),
             zodToKeyName: this.workflow.zodToKeyName,
-            runtimeConfig: this.activeOptions?.cliAgentToolsDefault
-                ? { cliAgentToolsDefault: this.activeOptions.cliAgentToolsDefault }
-                : undefined,
+            runtimeConfig: {
+                ...(this.activeOptions?.cliAgentToolsDefault
+                    ? { cliAgentToolsDefault: this.activeOptions.cliAgentToolsDefault }
+                    : {}),
+                baseRootDir,
+                workflowPath,
+                worktreePaths: this.worktreePathsById,
+            },
         });
         const graph = await this.renderer.render(this.workflow.build(ctx), {
             ralphIterations: context.iterations ?? context.ralphIterations,
             defaultIteration: iteration,
-            baseRootDir: this.activeOptions?.rootDir ?? this.rootDir,
-            workflowPath: this.activeOptions?.workflowPath ?? this.workflowPath ?? null,
+            baseRootDir,
+            workflowPath,
         });
         for (const task of graph.tasks) {
             if (task.outputTableName) {
                 this.outputTablesByNodeId.set(task.nodeId, task.outputTableName);
             }
         }
+        this.worktreePathsById = buildWorktreePathLookup(graph.tasks);
         this.lastGraph = graph;
         return this.runEffect(this.session.submitGraph(graph));
     }

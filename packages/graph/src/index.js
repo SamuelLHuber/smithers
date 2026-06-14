@@ -30,3 +30,4 @@
 // @smithers-type-exports-end
 
 export * from "./extract.js";
+export * from "./worktree-path.js";

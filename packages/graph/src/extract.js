@@ -1,7 +1,7 @@
-import { isAbsolute, resolve as resolvePath } from "node:path";
 import { getTableName } from "drizzle-orm";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { validateForkSources } from "./validateForkSources.js";
+import { resolveWorktreePath } from "./worktree-path.js";
 /** @typedef {import("./TaskDescriptor.ts").TaskDescriptor} TaskDescriptor */
 /** @typedef {import("./XmlNode.ts").XmlNode} XmlNode */
 /** @typedef {import("./ExtractOptions.ts").ExtractOptions} ExtractOptions */
@@ -364,14 +364,11 @@ export function extractGraph(root, opts) {
             if (!pathVal) {
                 throw new SmithersError("WORKTREE_EMPTY_PATH", WORKTREE_EMPTY_PATH_ERROR);
             }
-            const base = typeof opts?.baseRootDir === "string" && opts.baseRootDir.length > 0
-                ? opts.baseRootDir
-                : process.cwd();
             nextWorktreeStack = [
                 ...ctx.worktreeStack,
                 {
                     id,
-                    path: isAbsolute(pathVal) ? resolvePath(pathVal) : resolvePath(base, pathVal),
+                    path: resolveWorktreePath(pathVal, opts),
                     ...(raw.branch ? { branch: String(raw.branch) } : {}),
                     ...(raw.baseBranch ? { baseBranch: String(raw.baseBranch) } : {}),
                 },

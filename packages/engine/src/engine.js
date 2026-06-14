@@ -246,6 +246,23 @@ function cloneJsonValue(value) {
     }
 }
 /**
+ * @param {readonly TaskDescriptor[]} tasks
+ * @returns {Record<string, string>}
+ */
+function buildWorktreePathLookup(tasks) {
+    /** @type {Record<string, string>} */
+    const lookup = {};
+    for (const task of tasks) {
+        if (!task.worktreePath)
+            continue;
+        lookup[task.nodeId] = task.worktreePath;
+        if (task.worktreeId && lookup[task.worktreeId] === undefined) {
+            lookup[task.worktreeId] = task.worktreePath;
+        }
+    }
+    return lookup;
+}
+/**
  * @param {string | null} [heartbeatDataJson]
  * @returns {unknown | null}
  */
@@ -6382,6 +6399,8 @@ async function runWorkflowBodyLegacy(workflow, opts) {
             await hotController.init();
             armHotReloadWakeup();
         }
+        /** @type {Record<string, string>} */
+        let worktreePaths = {};
         /**
      * @returns {Promise<SchedulerIterationAction>}
      */
@@ -6569,11 +6588,12 @@ async function runWorkflowBodyLegacy(workflow, opts) {
                 auth: runAuth,
                 outputs,
                 zodToKeyName: workflow.zodToKeyName,
-                runtimeConfig: cliAgentToolsDefault
-                    ? {
-                        cliAgentToolsDefault,
-                    }
-                    : undefined,
+                runtimeConfig: {
+                    ...(cliAgentToolsDefault ? { cliAgentToolsDefault } : {}),
+                    baseRootDir: rootDir,
+                    workflowPath: resolvedWorkflowPath,
+                    worktreePaths,
+                },
             });
             const renderedGraph = await withWorkflowVersioningRuntime(workflowVersioning, () => renderer.render(workflowRef.build(ctx), {
                 ralphIterations,
@@ -6583,6 +6603,7 @@ async function runWorkflowBodyLegacy(workflow, opts) {
             }));
             const { xml, mountedTaskIds } = renderedGraph;
             const tasks = renderedGraph.tasks;
+            worktreePaths = buildWorktreePathLookup(tasks);
             await workflowVersioning.flush();
             const sessionGraphDecision = await runWorkflowSessionShadow("submitGraph", () => workflowSessionShadow.submitGraph({
                 xml,
@@ -6755,6 +6776,11 @@ async function runWorkflowBodyLegacy(workflow, opts) {
                                 auth: runAuth,
                                 outputs: freshOutputs,
                                 zodToKeyName: workflow.zodToKeyName,
+                                runtimeConfig: {
+                                    baseRootDir: rootDir,
+                                    workflowPath: resolvedWorkflowPath,
+                                    worktreePaths,
+                                },
                             });
                             const { xml: freshXml } = await evalRenderer.render(workflowRef.build(perRalphCtx), {
                                 ralphIterations: ralphIterationsFromState(ralphState),

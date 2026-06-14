@@ -19,8 +19,11 @@ Hard contract for the generated workflow:
   lane lands nothing, and every ticket reports "finished" while 0% actually lands on
   integration. Leave agent `cwd` UNSET and let `<Worktree>` own the working dir (see how
   mission.tsx wires worktree workers — it passes no `cwd`). Helper functions that read/write
-  the evidence bundle or run git in a worktree must resolve paths against the actual worktree
-  path, never `process.cwd()`.
+  the evidence bundle or run git in a worktree must resolve paths through Smithers' first-class
+  worktree path API: use `ctx.worktreePath(taskOrWorktreeId)` when the worktree has already
+  rendered, or `ctx.resolveWorktreePath(worktreePathProp)` for the same string passed to
+  `<Worktree path={...}>`. NEVER guess worktree paths with `process.cwd()`, `import.meta.dir`,
+  `../..`, or candidate lists.
 - PARALLEL TRACKS ARE MANDATORY — the build must NOT be a linear ticket-by-ticket chain.
   Compute the ticket dependency DAG from each ticket's dependsOn, group tickets into
   topological waves, and run every wave as a `<Parallel maxConcurrency={N}>` of independent
@@ -52,7 +55,9 @@ Hard contract for the generated workflow:
   signal. Surface the cross-family reviewer's findings to the implementer as feedback, but keep
   the review ADVISORY — it must not hard-block a ticket the independent verifier proved green
   over evidence-log hygiene. Safety/security tickets additionally require the adversarial
-  challenge verdict to pass.
+  challenge verdict to pass. Resolve that on-disk bundle from the real worktree root:
+  `join(ctx.worktreePath(verifyTaskId) ?? ctx.resolveWorktreePath(worktreePathProp), "artifacts/...", "verify.json")`;
+  do not search guessed roots.
 - `.mdx` prompt files are parsed as MDX modules. When writing prose examples that look like
   JSX or HTML, wrap them in inline backticks or fenced code blocks (for example
   `<Parallel maxConcurrency={N}>`) so the prompt module's default export still compiles.

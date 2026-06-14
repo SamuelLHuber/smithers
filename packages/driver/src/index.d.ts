@@ -143,6 +143,9 @@ type OutputForTable<Schema, Table> = Table extends OutputSchemaKey<Schema> ? Inf
 
 type SmithersRuntimeConfig$1 = {
     cliAgentToolsDefault?: "all" | "explicit-only";
+    baseRootDir?: string;
+    workflowPath?: string | null;
+    worktreePaths?: Record<string, string>;
 };
 
 type OutputSnapshot$2<TFallback = unknown> = {
@@ -197,6 +200,8 @@ declare class SmithersCtx<Schema extends unknown = unknown> {
     auth: RunAuthContext$1 | null;
     /** @type {SmithersRuntimeConfig | null | undefined} */
     __smithersRuntime: SmithersRuntimeConfig | null | undefined;
+    /** @type {Record<string, string>} */
+    _worktreePaths: Record<string, string>;
     /** @type {OutputAccessor<Schema>} */
     outputs: OutputAccessor$1<Schema>;
     /** @type {import("./OutputSnapshot.ts").OutputSnapshot} */
@@ -205,6 +210,23 @@ declare class SmithersCtx<Schema extends unknown = unknown> {
     _zodToKeyName: Map<unknown, string> | undefined;
     /** @type {Set<string>} */
     _currentScopes: Set<string>;
+    /**
+     * Return the resolved absolute path for a rendered worktree or task id.
+     * The lookup is populated from task descriptors, so task node ids and
+     * explicit <Worktree id> values both work once the worktree has rendered.
+     *
+     * @param {string} id
+     * @returns {string | undefined}
+     */
+    worktreePath(id: string): string | undefined;
+    /**
+     * Resolve a <Worktree path> prop against the active workflow root using
+     * the same resolver graph extraction uses.
+     *
+     * @param {string} path
+     * @returns {string}
+     */
+    resolveWorktreePath(path: string): string;
     /**
      * @param {TableRef} table
      * @param {OutputKey} key

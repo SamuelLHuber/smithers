@@ -189,6 +189,16 @@ declare function extractGraph(root: HostNode$1 | null, opts?: ExtractOptions$1):
  * @returns {WorkflowGraph}
  */
 declare function extractFromHost(root: HostNode$1 | null, opts?: ExtractOptions$1): WorkflowGraph$1;
+/**
+ * Resolve a <Worktree path> prop exactly the way graph extraction resolves it.
+ *
+ * @param {unknown} path
+ * @param {{ baseRootDir?: string }} [opts]
+ * @returns {string}
+ */
+declare function resolveWorktreePath(path: unknown, opts?: {
+    baseRootDir?: string;
+}): string;
 type ExtractOptions$1 = ExtractOptions$2;
 type HostNode$1 = HostNode$2;
 type WorkflowGraph$1 = WorkflowGraph$2;
@@ -219,4 +229,4 @@ type XmlElement = XmlElement$1;
 type XmlNode = XmlNode$1;
 type XmlText = XmlText$1;
 
-export { type AgentLike, type ApprovalOption, type CachePolicy, type ExtractGraph, type ExtractOptions, type GraphSnapshot, type HostElement, type HostNode, type HostText, type MemoryNamespace, type MemoryNamespaceKind, type RetryPolicy, type SamplingConfig, type ScoreResult, type Scorer, type ScorerBinding, type ScorerFn, type ScorerInput, type ScorersMap, type TaskDescriptor, type TaskMemoryConfig, type WorkflowGraph, type XmlElement, type XmlNode, type XmlText, extractFromHost, extractGraph };
+export { type AgentLike, type ApprovalOption, type CachePolicy, type ExtractGraph, type ExtractOptions, type GraphSnapshot, type HostElement, type HostNode, type HostText, type MemoryNamespace, type MemoryNamespaceKind, type RetryPolicy, type SamplingConfig, type ScoreResult, type Scorer, type ScorerBinding, type ScorerFn, type ScorerInput, type ScorersMap, type TaskDescriptor, type TaskMemoryConfig, type WorkflowGraph, type XmlElement, type XmlNode, type XmlText, extractFromHost, extractGraph, resolveWorktreePath };

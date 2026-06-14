@@ -4,10 +4,10 @@
 // @smithers-type-exports-end
 
 import { resolveStableId } from "@smithers-orchestrator/graph/utils/tree-ids";
-import { isAbsolute, resolve as resolvePath } from "node:path";
 import { getTableName } from "drizzle-orm";
 import { DEFAULT_MERGE_QUEUE_CONCURRENCY, WORKTREE_EMPTY_PATH_ERROR, } from "@smithers-orchestrator/graph/constants";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
+import { resolveWorktreePath } from "@smithers-orchestrator/graph/worktree-path";
 
 /** @typedef {import("../ExtractOptions.ts").ExtractOptions} ExtractOptions */
 /** @typedef {import("../ExtractResult.ts").ExtractResult} ExtractResult */
@@ -251,13 +251,7 @@ export function extractFromHost(root, opts) {
             if (!pathVal) {
                 throw new SmithersError("WORKTREE_EMPTY_PATH", WORKTREE_EMPTY_PATH_ERROR);
             }
-            const baseRoot = opts?.baseRootDir;
-            const base = typeof baseRoot === "string" && baseRoot.length > 0
-                ? baseRoot
-                : process.cwd();
-            const normPath = isAbsolute(pathVal)
-                ? resolvePath(pathVal)
-                : resolvePath(base, pathVal);
+            const normPath = resolveWorktreePath(pathVal, { baseRootDir: opts?.baseRootDir });
             const branch = node.rawProps?.branch ? String(node.rawProps.branch) : undefined;
             const baseBranch = node.rawProps?.baseBranch ? String(node.rawProps.baseBranch) : undefined;
             nextWorktreeStack = [...worktreeStack, { id, path: normPath, branch, baseBranch }];

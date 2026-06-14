@@ -221,6 +221,31 @@ describe("SmithersCtx output access", () => {
     expect(ctx.input).toEqual({ ok: true });
   });
 
+  test("resolves Worktree path props against the runtime root", () => {
+    const ctx = makeCtx({
+      runtimeConfig: {
+        baseRootDir: "/repo/.smithers/workflows",
+      },
+    });
+
+    expect(ctx.resolveWorktreePath(".smithers/wt/t1")).toBe("/repo/.smithers/workflows/.smithers/wt/t1");
+  });
+
+  test("looks up resolved Worktree paths by task or worktree id", () => {
+    const ctx = makeCtx({
+      runtimeConfig: {
+        worktreePaths: {
+          "build:t1:verify": "/repo/.smithers/workflows/.smithers/wt/t1",
+          "ticket-t1": "/repo/.smithers/workflows/.smithers/wt/t1",
+        },
+      },
+    });
+
+    expect(ctx.worktreePath("build:t1:verify")).toBe("/repo/.smithers/workflows/.smithers/wt/t1");
+    expect(ctx.worktreePath("ticket-t1")).toBe("/repo/.smithers/workflows/.smithers/wt/t1");
+    expect(ctx.worktreePath("missing")).toBeUndefined();
+  });
+
   test("exposes outputs as callable accessor and named properties", () => {
     const rows = [{ nodeId: "a", iteration: 0, value: 1 }];
     const ctx = makeCtx({ outputs: { rows } });

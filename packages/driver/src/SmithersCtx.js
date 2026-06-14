@@ -4,6 +4,7 @@ import { buildCurrentScopes } from "./buildCurrentScopes.js";
 import { filterRowsByNodeId } from "./filterRowsByNodeId.js";
 import { normalizeInputRow } from "./normalizeInputRow.js";
 import { withLogicalIterationShortcuts } from "./withLogicalIterationShortcuts.js";
+import { resolveWorktreePath } from "@smithers-orchestrator/graph";
 /** @typedef {import("./OutputKey.ts").OutputKey} OutputKey */
 /** @typedef {import("./SafeParser.ts").SafeParser} SafeParser */
 /** @typedef {import("./SmithersCtxOptions.ts").SmithersCtxOptions} SmithersCtxOptions */
@@ -51,6 +52,8 @@ export class SmithersCtx {
     auth;
     /** @type {SmithersRuntimeConfig | null | undefined} */
     __smithersRuntime;
+    /** @type {Record<string, string>} */
+    _worktreePaths;
     /** @type {OutputAccessor<Schema>} */
     outputs;
     /** @type {import("./OutputSnapshot.ts").OutputSnapshot} */
@@ -69,6 +72,7 @@ export class SmithersCtx {
         this.input = /** @type {Schema extends { input: infer T } ? T : unknown} */ (normalizeInputRow(opts.input));
         this.auth = opts.auth ?? null;
         this.__smithersRuntime = opts.runtimeConfig ?? null;
+        this._worktreePaths = opts.runtimeConfig?.worktreePaths ?? {};
         this._outputs = opts.outputs;
         this._zodToKeyName = opts.zodToKeyName;
         this._currentScopes = buildCurrentScopes(this.iterations);
@@ -80,6 +84,29 @@ export class SmithersCtx {
             outputsFn[name] = rows;
         }
         this.outputs = /** @type {OutputAccessor<Schema>} */ (/** @type {unknown} */ (outputsFn));
+    }
+    /**
+     * Return the resolved absolute path for a rendered worktree or task id.
+     * The lookup is populated from task descriptors, so task node ids and
+     * explicit <Worktree id> values both work once the worktree has rendered.
+     *
+     * @param {string} id
+     * @returns {string | undefined}
+     */
+    worktreePath(id) {
+        return this._worktreePaths[id];
+    }
+    /**
+     * Resolve a <Worktree path> prop against the active workflow root using
+     * the same resolver graph extraction uses.
+     *
+     * @param {string} path
+     * @returns {string}
+     */
+    resolveWorktreePath(path) {
+        return resolveWorktreePath(path, {
+            baseRootDir: this.__smithersRuntime?.baseRootDir,
+        });
     }
     /**
      * @param {TableRef} table

@@ -191,6 +191,7 @@ export {
   Smithers,
   workflow,
 } from "@smithers-orchestrator/engine";
+export { resolveWorktreePath } from "@smithers-orchestrator/graph";
 export { signalRun } from "@smithers-orchestrator/engine/signals";
 export { usePatched } from "@smithers-orchestrator/engine/effect/versioning";
 // Tools
