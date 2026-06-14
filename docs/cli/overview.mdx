@@ -29,9 +29,9 @@ Always invoke as `bunx smithers-orchestrator <command>` (see [Installation](/ins
 
 ## Pauses, resume, and detached runs
 
-`smithers up` exits when a run reaches a durable wait state (`waiting-approval`, `waiting-event`, or `waiting-timer`), even in foreground mode. `smithers up --detach` starts a background owner and returns its `runId`, but that owner also exits when the run pauses. This is expected: the persisted run is waiting for an external decision, signal, or timer rather than burning a process.
+`bunx smithers-orchestrator up` exits when a run reaches a durable wait state (`waiting-approval`, `waiting-event`, or `waiting-timer`), even in foreground mode. `bunx smithers-orchestrator up --detach` starts a background owner and returns its `runId`, but that owner also exits when the run pauses. This is expected: the persisted run is waiting for an external decision, signal, or timer rather than burning a process.
 
-To drive a run to completion across pauses, use a keeper loop around the persisted run state: inspect with `smithers ps`, `smithers why <runId>`, `smithers inspect <runId>`, and `smithers logs <runId> -f`; clear gates with `smithers approve <runId>` or `smithers deny <runId>`; send signals with `smithers signal <runId> ...`; then resume the same run with `smithers up <workflow.tsx> --resume <runId>`. Use `--force` only after confirming the previous owner is gone or intentionally replacing it.
+To drive a run to completion across pauses, use a keeper loop around the persisted run state: inspect with `bunx smithers-orchestrator ps`, `bunx smithers-orchestrator why RUN_ID`, `bunx smithers-orchestrator inspect RUN_ID`, and `bunx smithers-orchestrator logs RUN_ID -f`; clear gates with `bunx smithers-orchestrator approve RUN_ID` or `bunx smithers-orchestrator deny RUN_ID`; send signals with `bunx smithers-orchestrator signal RUN_ID ...`; then resume the same run with `bunx smithers-orchestrator up <workflow.tsx> --resume RUN_ID`. Use `--force` only after confirming the previous owner is gone or intentionally replacing it.
 
 If resume fails with `RESUME_METADATA_MISMATCH`, the workflow file changed after the run started. Resume validates the original workflow metadata and source hash; it is not a hot-reload mechanism for stopped runs. Start a fresh run instead, for example with a new `--run-id`, or overwrite an existing planned id with `--force` when that command supports it. When iterating on a workflow definition, expect each edit to require a fresh run rather than `--resume`.
 
@@ -40,10 +40,10 @@ If resume fails with `RESUME_METADATA_MISMATCH`, the workflow file changed after
 Open a run's custom browser UI with:
 
 ```sh
-bunx smithers-orchestrator ui <runId>
+bunx smithers-orchestrator ui RUN_ID
 ```
 
-If no Gateway is reachable on the default local port, `smithers ui` starts `smithers gateway` automatically and then opens the UI. `smithers gateway` serves the workspace DB and auto-mounts `.smithers/ui/<workflow>.tsx` files for matching discovered workflow ids. Use `smithers ui <runId> --no-autostart` to fail fast when no Gateway is already running, or `--gateway <url>` for a remote Gateway.
+If no Gateway is reachable on the default local port, `bunx smithers-orchestrator ui` starts `smithers gateway` automatically and then opens the UI. `smithers gateway` serves the workspace DB and auto-mounts `.smithers/ui/<workflow>.tsx` files for matching discovered workflow ids. Use `bunx smithers-orchestrator ui RUN_ID --no-autostart` to fail fast when no Gateway is already running, or `--gateway <url>` for a remote Gateway.
 
 ## Troubleshooting
 
@@ -55,7 +55,7 @@ If no Gateway is reachable on the default local port, `smithers ui` starts `smit
 Commands listed by dotted name. `human` and `alerts` use an action positional instead of nested subcommands.
 
 ```toon
-commands[71]:
+commands[72]:
   - name: init
     purpose: Install the workflow pack into .smithers/ (local) or ~/.smithers/ (--global)
     flags[6]{name,short,type,default,desc}:
@@ -162,6 +162,15 @@ commands[71]:
     flags[2]{name,short,type,default,desc}:
       host,H,string,127.0.0.1,Gateway bind address
       port,p,number,7331,Gateway port
+  - name: monitor
+    purpose: Watch a single run, diagnose a stall or failure, and optionally apply the smallest safe self-fix behind an approval gate
+    args[1]{name,type,required,desc}:
+      runId,string,false,Run ID to monitor (default: the most recent active run)
+    flags[4]{name,short,type,default,desc}:
+      autofix,,boolean,false,Let the monitor apply the smallest safe self-fix and resume the run
+      require-approval,,boolean,true,"With --autofix, pause for a human approval gate before any fix"
+      stale-minutes,,number,15,Treat a non-terminal run idle past this many minutes as stuck
+      ui,,boolean,true,Auto-open the monitored run's own custom UI when its workflow has one (use --no-ui to skip)
   - name: ps
     purpose: List active, paused, and recently completed runs
     flags[5]{name,short,type,default,desc}:

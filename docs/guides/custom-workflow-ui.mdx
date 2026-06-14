@@ -12,10 +12,10 @@ For the underlying RPC and event protocol, see [Gateway](/integrations/gateway).
 Local launch is one command:
 
 ```sh
-bunx smithers-orchestrator ui <runId>
+bunx smithers-orchestrator ui RUN_ID
 ```
 
-If no Gateway is reachable on the local port, `smithers ui` starts `smithers gateway` for the workspace and waits for it before opening the browser. `smithers gateway` automatically mounts any `.smithers/ui/<workflow>.tsx` file whose name matches a discovered workflow id, so a hand-written `.smithers/gateway.ts` is not required for local UI launch. Use `--no-autostart` to require an already-running Gateway, or `--gateway <url>` to point at a remote one.
+If no Gateway is reachable on the local port, `bunx smithers-orchestrator ui` starts `smithers gateway` for the workspace and waits for it before opening the browser. `smithers gateway` automatically mounts any `.smithers/ui/<workflow>.tsx` file whose name matches a discovered workflow id, so a hand-written `.smithers/gateway.ts` is not required for local UI launch. Use `--no-autostart` to require an already-running Gateway, or `--gateway <url>` to point at a remote one.
 
 ## How a custom UI is wired
 
@@ -296,7 +296,7 @@ cd apps/smithers && bun dev
 # Visit http://localhost:5173/gw/<workflowKey>/<runId>
 ```
 
-The `bunx smithers-orchestrator ui` command resolves the most recent run when invoked without an id, prints the URL it opened, and exits. When no Gateway answers on the local port it **auto-starts one** (auto-mounting `.smithers/ui/<workflowKey>.tsx`); pass `--no-autostart` to disable that, or `--gateway <url>` to point at an existing one. Note: `up --serve` is a per-run HTTP server, **not** a full Gateway — `ui` needs a Gateway.
+The `bunx smithers-orchestrator ui` command resolves the most recent run when invoked without an id, prints the URL it opened, and exits. When no Gateway answers on the local port it **auto-starts one** (auto-mounting `.smithers/ui/<workflowKey>.tsx`); pass `--no-autostart` to disable that, or `--gateway <url>` to point at an existing one. Note: `up --serve` is a per-run HTTP server, **not** a full Gateway, so `ui` needs a Gateway.
 
 ## Sample tests
 

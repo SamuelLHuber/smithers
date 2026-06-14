@@ -12,7 +12,7 @@ There are two SDKs:
 
 Pick the client for plumbing, the React layer for views.
 
-For local workflow UIs, `bunx smithers-orchestrator ui <runId>` is the one-command launch path. If no Gateway is reachable on the local port, it starts `smithers gateway` for the workspace and waits before opening the browser. `smithers gateway` auto-mounts `.smithers/ui/<workflow>.tsx` files whose names match discovered workflow ids, so local UI launch does not require a hand-written `.smithers/gateway.ts`.
+For local workflow UIs, `bunx smithers-orchestrator ui RUN_ID` is the one-command launch path. If no Gateway is reachable on the local port, it starts `smithers gateway` for the workspace and waits before opening the browser. `smithers gateway` auto-mounts `.smithers/ui/<workflow>.tsx` files whose names match discovered workflow ids, so local UI launch does not require a hand-written `.smithers/gateway.ts`.
 
 ## Install
 

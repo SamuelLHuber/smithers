@@ -25,12 +25,12 @@ smithers monitor RUN_ID --no-ui        # do not auto-open the run's custom UI
 By default `smithers monitor` also **auto-opens the monitored run's own custom
 UI** in your browser when that workflow has one (monitoring a `vcs` run pops open
 the `vcs` UI, an `implement` run the `implement` UI, and so on). It reuses
-`smithers ui` under the hood, which starts a local Gateway automatically; a
+`bunx smithers-orchestrator ui` under the hood, which starts a local Gateway automatically; a
 workflow with no UI is simply skipped. Pass `--no-ui` to suppress it, and note it
 is skipped for machine output (`--format json`).
 
 `smithers monitor` runs the bundled `monitor` workflow. It accepts every
-[`smithers up`](/cli/overview#smithers-up) flag (`-d`, `--hot`, `--serve`,
+[`bunx smithers-orchestrator up`](/cli/overview#smithers-up) flag (`-d`, `--hot`, `--serve`,
 `--resume`, …) plus the monitor-specific knobs below.
 
 ## Inputs
@@ -57,7 +57,7 @@ is named `targetRunId`.
    health bucket plus the answers to the operator's standing questions and a list
    of concrete recommended actions. Diagnosis is read-only.
 3. **approve-fix** (`<Approval>`, only when `autofix` is on and a self-fix exists)
-   pauses for a human to authorize the repair. Clear it with `smithers approve`.
+   pauses for a human to authorize the repair. Clear it with `bunx smithers-orchestrator approve`.
 4. **fix** (`agents.smartTool`, only when authorized) applies the smallest safe
    repair (retry a flaky node, resume a stalled run, correct a bad input) and
    resumes the run. It never approves gates, answers questions, cancels, or takes
@@ -78,14 +78,14 @@ each as its own section. You can also read any of them directly:
 
 - **What was each question and its answer?** Every `HumanTask` / `ask-human` /
   `Signal` the run raised, with the answer and who gave it. Read it yourself with
-  `smithers why RUN_ID` (the pending prompt) and `smithers human inbox`.
+  `bunx smithers-orchestrator why RUN_ID` (the pending prompt) and `bunx smithers-orchestrator human inbox`.
 - **What did each approval gate decide?** Every `<Approval>` gate, its decision,
   the note, and who decided. Read it with
-  `smithers events RUN_ID --type approval --json` or the gate's
-  `smithers output RUN_ID <nodeId>`.
-- **What did a task output?** `smithers output RUN_ID <nodeId>` prints the
+  `bunx smithers-orchestrator events RUN_ID --type approval --json` or the gate's
+  `bunx smithers-orchestrator output RUN_ID NODE_ID`.
+- **What did a task output?** `bunx smithers-orchestrator output RUN_ID NODE_ID` prints the
   task's validated output row as JSON.
-- **What code did a task change?** `smithers diff RUN_ID <nodeId>` prints the
+- **What code did a task change?** `bunx smithers-orchestrator diff RUN_ID NODE_ID` prints the
   unified diff the task wrote to the workspace.
 
 ## Watch it live
@@ -94,12 +94,12 @@ The report is a point-in-time snapshot. For a live view, drive the run's own
 observability surface while the monitor (or the target run) executes:
 
 ```bash
-smithers ps                            # active / paused / recent runs
-smithers inspect RUN_ID --watch        # live run state, nodes, gates
-smithers logs RUN_ID -f                # tail the event log
-smithers events RUN_ID --json          # full event history (NDJSON)
-smithers why RUN_ID                    # why it is paused / blocked / failed
-smithers scores RUN_ID                 # scorer results
+bunx smithers-orchestrator ps                            # active / paused / recent runs
+bunx smithers-orchestrator inspect RUN_ID --watch        # live run state, nodes, gates
+bunx smithers-orchestrator logs RUN_ID -f                # tail the event log
+bunx smithers-orchestrator events RUN_ID --json          # full event history (NDJSON)
+bunx smithers-orchestrator why RUN_ID                    # why it is paused / blocked / failed
+bunx smithers-orchestrator scores RUN_ID                 # scorer results
 ```
 
 ## Custom UI
@@ -113,7 +113,7 @@ id with:
 
 ```bash
 smithers gateway --port 7331           # serve every workflow + its UI
-smithers ui MONITOR_RUN_ID             # open the monitor's own UI
+bunx smithers-orchestrator ui MONITOR_RUN_ID             # open the monitor's own UI
 ```
 
 The UI is built with the `gateway-react` hooks (`useGatewayRunEvents`,
