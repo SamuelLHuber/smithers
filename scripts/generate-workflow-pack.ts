@@ -43,6 +43,7 @@ const SEEDED_WORKFLOW_IDS = [
   "create-skill",
   "extract-skill",
   "monitor-smithers",
+  "monitor",
   "triage-run",
   "context-doctor",
   "backpressure-plan",
