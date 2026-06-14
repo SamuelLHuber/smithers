@@ -8,6 +8,10 @@
  * overlay so it takes over the app shell.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+// Render above the app shell chrome (composer dock, onboarding overlays).
+const Z = 2147483000;
 
 type Row = Record<string, unknown>;
 type DocRow = { content?: string; version?: number; updated_by?: string };
@@ -113,9 +117,13 @@ const C = {
 function Gate({ error }: { error: boolean }) {
   const [val, setVal] = useState("");
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 60, background: C.root, color: C.primary, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: Z + 1, background: C.root, color: C.primary, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter, system-ui, sans-serif" }}>
       <form
-        onSubmit={(e) => { e.preventDefault(); window.location.href = `/?key=${encodeURIComponent(val)}`; }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          document.cookie = `pair_key=${encodeURIComponent(val)}; path=/; SameSite=Lax; Max-Age=86400`;
+          window.location.href = "/pair";
+        }}
         style={{ width: 340, padding: 28, border: `1px solid ${C.border}`, borderRadius: 14, background: C.panel }}
       >
         <div style={{ fontSize: 22 }}>✦</div>
@@ -133,14 +141,25 @@ function Gate({ error }: { error: boolean }) {
 export function PairPage() {
   const [gate, setGate] = useState<"checking" | "ok" | "need-key">("checking");
   useEffect(() => {
+    // Accept a key from a shared link (/pair?key=…) and persist it as a cookie,
+    // then drop it from the URL. `/sync/*` carries the cookie to the Worker.
+    const params = new URLSearchParams(window.location.search);
+    const urlKey = params.get("key");
+    if (urlKey) {
+      document.cookie = `pair_key=${encodeURIComponent(urlKey)}; path=/; SameSite=Lax; Max-Age=86400`;
+      params.delete("key");
+      window.history.replaceState(null, "", window.location.pathname + (params.toString() ? `?${params}` : ""));
+    }
     fetch("/sync/health", { credentials: "same-origin" })
       .then((r) => setGate(r.ok ? "ok" : "need-key"))
       .catch(() => setGate("need-key"));
   }, []);
 
-  if (gate === "checking") return <div style={{ position: "fixed", inset: 0, background: C.root }} />;
-  if (gate === "need-key") return <Gate error={false} />;
-  return <PairRoom />;
+  const content =
+    gate === "checking" ? <div style={{ position: "fixed", inset: 0, zIndex: Z, background: C.root }} />
+    : gate === "need-key" ? <Gate error={false} />
+    : <PairRoom />;
+  return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 
 function PairRoom() {
@@ -200,7 +219,7 @@ function PairRoom() {
   }, [prompt, sending, identity]);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", background: C.app, color: C.primary, fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: Z, display: "flex", flexDirection: "column", background: C.app, color: C.primary, fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* Header */}
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", borderBottom: `1px solid ${C.border}`, background: C.panel }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
