@@ -41,6 +41,11 @@ Hard contract for the generated workflow:
   OR the workflow must delete the whole evidence directory at run start before any done-check
   can read it. A stale `verify.json` from a previous run must never satisfy a fresh run's
   "is this ticket done?" check. Red-before-green for fixes.
+- Evidence filenames are contractual: every blocking gate's `redRunPath` and `greenRunPath`
+  in `gates.json` MUST equal the worktree-relative paths actually written. The independent
+  verifier MUST resolve each declared path from the real worker worktree and require a
+  real, non-empty file before writing `verify.json.pass=true`; no reconstructed names or
+  naming drift.
 - Reviewer model family ≠ implementer model family on every ticket.
 - Every loop has maxIterations; side-effecting custom tools declare sideEffect +
   idempotency keys; no caching of side-effect tasks.
