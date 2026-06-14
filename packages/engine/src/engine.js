@@ -3560,7 +3560,13 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                 // --- Track prompt/response sizes ---
                 const promptBytes = Buffer.byteLength(desc.prompt ?? "", "utf8");
                 void Effect.runPromise(Metric.update(promptSizeBytes, promptBytes));
-                responseText = result.text ?? null;
+                // Preserve the final answer captured from the `completed` event
+                // (above) when the agent returns no `result.text`. CLI agents
+                // such as CodexAgent deliver their answer via the event stream,
+                // not the generate() return value — without the `?? responseText`
+                // fallback a schema-conforming final message is discarded and the
+                // task finishes "succeeded" with an empty output row (NodeHasNoOutput).
+                responseText = result.text ?? responseText ?? null;
                 if (responseText) {
                     void Effect.runPromise(Metric.update(responseSizeBytes, Buffer.byteLength(responseText, "utf8")));
                 }
@@ -3606,9 +3612,12 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     structuredOutputAccessError = error;
                     // Structured output access threw; text parsing below may still recover.
                 }
-                // Fall back to parsing text/steps for JSON
+                // Fall back to parsing text/steps for JSON. Use `responseText`
+                // (which now also holds the `completed`-event answer for CLI
+                // agents) so structured output is recovered even when the agent
+                // exposes no `result.text`.
                 if (output === undefined) {
-                    const text = result.text ?? "";
+                    const text = result.text ?? responseText ?? "";
                     // Try to parse the whole text as JSON first. Strip a leading
                     // UTF-8 BOM and accept either object or array at the root,
                     // since Zod schemas occasionally validate arrays.
