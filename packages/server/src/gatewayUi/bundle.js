@@ -1,4 +1,17 @@
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const reactSpecifierRe = /^react(?:\/.*)?$/;
+
+function resolveReactPeer(specifier) {
+    try {
+        return require.resolve(specifier);
+    }
+    catch {
+        return null;
+    }
+}
 
 /**
  * @param {Record<string, unknown>} config
@@ -23,6 +36,17 @@ export async function bundleGatewayUiEntry(config, cache) {
             runtime: "automatic",
             importSource: "react",
         },
+        plugins: [
+            {
+                name: "smithers-react-peer-dedupe",
+                setup(build) {
+                    build.onResolve({ filter: reactSpecifierRe }, (args) => {
+                        const path = resolveReactPeer(args.path);
+                        return path ? { path } : undefined;
+                    });
+                },
+            },
+        ],
     });
     if (!result.success) {
         const message = result.logs?.map((entry) => entry.message).filter(Boolean).join("\n")

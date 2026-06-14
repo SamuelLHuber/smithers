@@ -3557,6 +3557,16 @@ export class Gateway {
    */
     mapEvent(event) {
         switch (event.type) {
+            case "NodePending":
+                return {
+                    event: "node.pending",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        state: "pending",
+                        iteration: event.iteration,
+                    },
+                };
             case "NodeStarted":
                 return {
                     event: "node.started",
@@ -3583,6 +3593,34 @@ export class Gateway {
                         nodeId: event.nodeId,
                         state: "failed",
                         error: event.error,
+                    },
+                };
+            case "NodeSkipped":
+                return {
+                    event: "node.skipped",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        state: "skipped",
+                    },
+                };
+            case "NodeCancelled":
+                return {
+                    event: "node.cancelled",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        state: "cancelled",
+                    },
+                };
+            case "NodeRetrying":
+                return {
+                    event: "node.retrying",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        state: "in-progress",
+                        attempt: event.attempt,
                     },
                 };
             case "NodeOutput":
@@ -3641,6 +3679,71 @@ export class Gateway {
                         nodeId: event.nodeId,
                         iteration: event.iteration,
                         attempt: event.attempt,
+                    },
+                };
+            case "NodeWaitingApproval":
+                return {
+                    event: "node.waiting_approval",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        state: "waiting",
+                        iteration: event.iteration,
+                    },
+                };
+            case "NodeWaitingTimer":
+                return {
+                    event: "node.waiting_timer",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        state: "waiting",
+                        iteration: event.iteration,
+                    },
+                };
+            case "AgentEvent":
+                return {
+                    event: "agent.event",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        iteration: event.iteration,
+                        attempt: event.attempt,
+                        engine: event.engine,
+                        event: event.event,
+                    },
+                };
+            case "AgentSessionEvent":
+                return {
+                    event: "agent.session",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        iteration: event.iteration,
+                        attempt: event.attempt,
+                        transcript: event.transcript,
+                    },
+                };
+            case "AgentTraceEvent":
+                return {
+                    event: "agent.trace",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        iteration: event.iteration,
+                        attempt: event.attempt,
+                        trace: event.trace,
+                    },
+                };
+            case "AgentTraceSummary":
+                return {
+                    event: "agent.trace_summary",
+                    payload: {
+                        runId: event.runId,
+                        nodeId: event.nodeId,
+                        iteration: event.iteration,
+                        attempt: event.attempt,
+                        summary: event.summary,
                     },
                 };
             case "TimeTravelJumped":
