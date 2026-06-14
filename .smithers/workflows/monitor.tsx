@@ -67,7 +67,7 @@ const gatherSchema = z.looseObject({
       failed: z.array(z.looseObject({})).default([]),
       recent: z.array(z.looseObject({})).default([]),
     })
-    .default({})
+    .default({ count: 0, approval: [], human: [], failed: [], recent: [] })
     .describe("Categorized slice of recent run events."),
   scoresRaw: z.string().default("").describe("Raw `smithers scores` output, truncated."),
   humanInboxRaw: z.string().default("").describe("Raw `smithers human inbox` output, truncated."),
