@@ -387,6 +387,55 @@ function proxyRequest(request: Request, base: URL): Promise<Response> {
   return proxyWithHeaders(request, base, proxyHeaders(request));
 }
 
+// --- Smithers Pair (multiplayer POC) ---------------------------------------
+// Reverse-proxies the realtime `/sync/*` API to the Pair backend (a Freestyle
+// sandbox running the ElectricSQL shape server + Codex), gated by an access key
+// carried as a `pair_key` cookie so the SPA needs no key handling of its own.
+
+function pairKeys(env: CloudflareEnv): string[] {
+  return (env.PAIR_KEYS ?? "").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+}
+function pairCookieValue(request: Request): string | null {
+  const raw = request.headers.get("cookie") ?? "";
+  for (const part of raw.split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+    if (name === "pair_key") return decodeURIComponent(rest.join("="));
+  }
+  return null;
+}
+function validPairKey(key: string | null | undefined, env: CloudflareEnv): boolean {
+  return !!key && pairKeys(env).includes(key);
+}
+/** A valid `?key=…` sets the cookie and lands on /pair. Invalid/absent: fall through. */
+function pairKeyRedirect(request: Request, env: CloudflareEnv): Response | null {
+  const provided = new URL(request.url).searchParams.get("key");
+  if (provided === null || pairKeys(env).length === 0 || !validPairKey(provided, env)) return null;
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location: "/pair",
+      "set-cookie": `pair_key=${encodeURIComponent(provided)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`,
+    },
+  });
+}
+function isPairSyncRoute(pathname: string): boolean {
+  return pathname === "/sync" || pathname.startsWith("/sync/");
+}
+async function proxyPairSync(request: Request, env: CloudflareEnv): Promise<Response> {
+  if (!env.PAIR_SYNC) return new Response("Pair sync not configured", { status: 404 });
+  const key = pairCookieValue(request) ?? request.headers.get("x-pair-key");
+  if (!validPairKey(key, env)) {
+    return new Response(JSON.stringify({ message: "access key required" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  // One shared room → one Durable Object instance (the stable, always-on sync
+  // backend). The DO calls Codex in the Freestyle sandbox on demand.
+  const id = env.PAIR_SYNC.idFromName("default-room");
+  return env.PAIR_SYNC.get(id).fetch(request);
+}
+
 async function proxyAuthRequest(request: Request, env: CloudflareEnv, base: URL): Promise<Response> {
   const response = await proxyWithHeaders(request, base, proxyHeaders(request));
   const headers = new Headers(response.headers);
@@ -644,6 +693,10 @@ async function routeRequest(
   const authBase = authBaseUrl(env);
   const gatewayBase = gatewayBaseUrl(env);
 
+  // A keyed Pair link (`/?key=…`) sets the access cookie and redirects to /pair.
+  const pairRedirect = pairKeyRedirect(request, env);
+  if (pairRedirect) return pairRedirect;
+
   if (url.pathname === "/metrics") {
     return handleMetrics(request);
   }
@@ -688,6 +741,11 @@ async function routeRequest(
       return authFailure;
     }
     return handleChat(request, env);
+  }
+
+  // Smithers Pair realtime API → Freestyle backend (gated by access key).
+  if (isPairSyncRoute(url.pathname)) {
+    return proxyPairSync(request, env);
   }
 
   // Static assets (and the SPA fallback) are served by the platform before a
@@ -739,4 +797,5 @@ export default {
   },
 };
 
+export { PairSync } from "./pair/pairSyncDO";
 export type { ProxyRouteKind };

@@ -16,7 +16,7 @@
  * GATEWAY_TRUSTED_PROXY_ROLE.
  */
 import alchemy from "alchemy";
-import { Website } from "alchemy/cloudflare";
+import { Website, DurableObjectNamespace } from "alchemy/cloudflare";
 
 const app = await alchemy("smithers");
 
@@ -36,6 +36,9 @@ const optionalBindingNames = [
   "AUTH_REQUIRED",
   "GATEWAY_TRUSTED_PROXY_SCOPES",
   "GATEWAY_TRUSTED_PROXY_ROLE",
+  "PAIR_KEYS",
+  "PAIR_VM_ID",
+  "PAIR_CODEX_WORKDIR",
 ] as const;
 
 const optionalBindings = Object.fromEntries(
@@ -46,6 +49,14 @@ const optionalBindings = Object.fromEntries(
 );
 
 const gatewayAuthToken = process.env.GATEWAY_AUTH_TOKEN?.trim();
+const pairFreestyleKey = process.env.PAIR_FREESTYLE_API_KEY?.trim();
+
+// Smithers Pair realtime backend: a single Durable Object hosts the shared
+// room (ElectricSQL shape sync); it calls Codex in a Freestyle sandbox.
+const pairSync = DurableObjectNamespace("pair-sync", {
+  className: "PairSync",
+  sqlite: true,
+});
 
 export const site = await Website("smithers", {
   // The Worker entry that serves /api/chat. Static assets come from `assets`.
@@ -61,6 +72,8 @@ export const site = await Website("smithers", {
   bindings: {
     CEREBRAS_API_KEY: alchemy.secret(cerebrasApiKey),
     ...(gatewayAuthToken ? { GATEWAY_AUTH_TOKEN: alchemy.secret(gatewayAuthToken) } : {}),
+    ...(pairFreestyleKey ? { PAIR_FREESTYLE_API_KEY: alchemy.secret(pairFreestyleKey) } : {}),
+    PAIR_SYNC: pairSync,
     ...optionalBindings,
   },
 });

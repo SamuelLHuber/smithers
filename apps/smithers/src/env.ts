@@ -54,5 +54,23 @@ export interface CloudflareEnv {
   GATEWAY_TRUSTED_PROXY_SCOPES?: string;
   /** Gateway trusted-proxy role to grant after Plue session validation. */
   GATEWAY_TRUSTED_PROXY_ROLE?: string;
+  /**
+   * Smithers Pair (multiplayer POC). The realtime sync backend lives in the
+   * `PairSync` Durable Object (stable, always-on); `/sync/*` is routed to it,
+   * gated by `PAIR_KEYS`. The DO calls Codex on a ChatGPT subscription inside
+   * the Freestyle sandbox (`PAIR_VM_ID`) via `exec-await`.
+   */
+  PAIR_SYNC?: {
+    idFromName(name: string): unknown;
+    get(id: unknown): { fetch(request: Request): Promise<Response> };
+  };
+  /** Comma/space-separated access keys that may join the Pair room. */
+  PAIR_KEYS?: string;
+  /** Freestyle API key (secret) used by the DO to run Codex via exec-await. */
+  PAIR_FREESTYLE_API_KEY?: string;
+  /** Freestyle VM id that has Codex + the ChatGPT auth installed. */
+  PAIR_VM_ID?: string;
+  /** Workspace dir inside the VM that holds shared.md (default /opt/pair/workspace). */
+  PAIR_CODEX_WORKDIR?: string;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
 }

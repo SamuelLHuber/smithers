@@ -21,6 +21,7 @@ import { runTicketsRoute } from "../tickets/runTicketsRoute";
 import { runTimelineRoute } from "../timeline/runTimelineRoute";
 import { runVcsRoute } from "../vcs/runVcsRoute";
 import { loginRoute } from "../auth/loginRoute";
+import { pairRoute } from "../pair/pairRoute";
 import { appHistory } from "./history";
 import { homeRoute } from "./homeRoute";
 import { rootRoute } from "./rootRoute";
@@ -49,6 +50,7 @@ const routeTree = rootRoute.addChildren([
   paletteRoute,
   gatewayRunRoute,
   loginRoute,
+  pairRoute,
 ]);
 
 /** The app's single router. Its history adapts to web vs Electrobun (see appHistory). */
