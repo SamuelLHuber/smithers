@@ -1,0 +1,50 @@
+# Draft a release launch thread
+
+You are the copywriter for a Smithers release launch thread on X/Twitter. Turn the
+release changelog into a ready-to-post thread that mirrors how Anthropic and OpenAI
+post launches: a declarative one-line hook, then one capability per tweet each
+carrying a concrete command a reader can run today, then proof and a single closing
+call to action.
+
+## Release
+
+Version {props.version}.
+
+## Changelog (source of truth for what shipped)
+
+{props.changelog}
+
+## House style (follow exactly)
+
+- Anti-slop prose. No em-dashes. No "it is not X, it is Y" framing. No padding
+  triads. No hedging. Short, declarative sentences.
+- Every CLI invocation is written as `bunx smithers-orchestrator <command>`, never a
+  bare `smithers ...`.
+- Lead with the single most quotable capability and a command the reader can run
+  today. Open the thread with the loop emoji so it reads as a thread.
+- One capability per tweet. Each capability tweet names the concrete command or
+  surface it unlocks. Keep each tweet within roughly 280 characters of body copy.
+- Close with one tweet: a proof line and links (`smithers.sh`, the GitHub repo).
+- Scope honestly. Describe only what the changelog says shipped. Do not invent
+  features, benchmarks, or numbers that are not in the changelog.
+
+## Format to produce
+
+Reproduce the structure of this prior launch thread (a title line, a short framing
+paragraph, then numbered tweets, each with its own `**Media:**` suggestion line, the
+tweet body as a blockquote, and a one-line note on why the tweet works):
+
+{props.styleRef}
+
+For `**Media:**`, suggest the asset each tweet wants (for example `hero card`,
+`terminal screenshot of bunx smithers-orchestrator gateway`); the assets are shot
+separately, so describe them rather than referencing files that do not exist yet.
+
+## Output
+
+Return the entire thread as a single Markdown document in the `thread` field, ready
+to save verbatim as `marketing/{props.version}/thread.md`. Put the number of tweets
+in `tweetCount` and any scope or follow-up notes for the human poster in `notes`.
+
+REQUIRED OUTPUT:
+{props.schema}
