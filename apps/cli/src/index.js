@@ -1452,6 +1452,7 @@ const hijackOptions = z.object({
 const graphOptions = z.object({
     runId: z.string().default("graph").describe("Run ID for context"),
     input: z.string().optional().describe("Input data as JSON"),
+    compact: z.boolean().default(false).describe("Omit task prompt/text bodies (structure only) — validate that a workflow compiles without flooding output with every prompt"),
 });
 const revertOptions = z.object({
     runId: z.string().describe("Run ID to revert"),
@@ -4930,9 +4931,12 @@ const cli = Cli.create({
                 workflowPath: resolvedWorkflowPath,
             }));
             const seen = new WeakSet();
-            return c.ok(JSON.parse(JSON.stringify(snap, (_key, value) => {
+            const stripPrompts = c.options.compact === true;
+            return c.ok(JSON.parse(JSON.stringify(snap, (key, value) => {
                 if (typeof value === "function")
                     return undefined;
+                if (stripPrompts && key === "text" && typeof value === "string")
+                    return `<text omitted: ${value.length} chars>`;
                 if (typeof value === "object" && value !== null) {
                     if (seen.has(value))
                         return undefined;
