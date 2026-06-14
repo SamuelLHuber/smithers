@@ -34,8 +34,8 @@ import { getTableColumns } from "drizzle-orm/utils";
 import { Cause, Chunk, Duration, Effect, Exit, Fiber, Metric, Queue, Schedule } from "effect";
 import { attemptDuration, cacheHits, cacheMisses, nodeDuration, promptSizeBytes, responseSizeBytes, runDuration, runsResumedTotal, schedulerConcurrencyUtilization, schedulerQueueDepth, schedulerWaitDuration, trackEvent, } from "@smithers-orchestrator/observability/metrics";
 import { runScorersAsync } from "@smithers-orchestrator/scorers/run-scorers";
-import { dirname, resolve } from "node:path";
-import { existsSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { logDebug, logError, logInfo, logWarning } from "@smithers-orchestrator/observability/logging";
 import { isPidAlive, parseRuntimeOwnerPid } from "./runtime-owner.js";
@@ -560,6 +560,124 @@ async function runGitCommand(cwd, args) {
     });
 }
 /**
+ * @param {string} filePath
+ * @returns {string | null}
+ */
+function readGitdirFile(filePath) {
+    try {
+        const raw = readFileSync(filePath, "utf8").trim();
+        const match = raw.match(/^gitdir:\s*(.+)$/);
+        return match?.[1]?.trim() || null;
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * @param {string} commonGitDir
+ */
+function ensureJjGitExclude(commonGitDir) {
+    const infoDir = join(commonGitDir, "info");
+    const excludePath = join(infoDir, "exclude");
+    mkdirSync(infoDir, { recursive: true });
+    let existing = "";
+    try {
+        existing = readFileSync(excludePath, "utf8");
+    }
+    catch { }
+    if (!existing.split(/\r?\n/).some((line) => line.trim() === ".jj/")) {
+        writeFileSync(excludePath, `${existing}${existing.endsWith("\n") || existing.length === 0 ? "" : "\n"}.jj/\n`, "utf8");
+    }
+}
+/**
+ * A jj workspace created below the main checkout has `.jj` but no `.git`.
+ * Git-aware child tools then walk past the jj workspace and discover the
+ * parent checkout. Attach real git-worktree metadata to the same directory so
+ * both `jj root` and `git rev-parse --show-toplevel` resolve to `worktreePath`.
+ *
+ * @param {string} gitRoot
+ * @param {string} worktreePath
+ * @param {string | undefined} branch
+ * @param {string | undefined} baseBranch
+ */
+async function ensureJjWorkspaceGitRoot(gitRoot, worktreePath, branch, baseBranch) {
+    const existingTop = await runGitCommand(worktreePath, ["rev-parse", "--show-toplevel"]);
+    if (existingTop.code === 0 && resolve(existingTop.stdout.trim()) === resolve(worktreePath)) {
+        const commonDir = await runGitCommand(worktreePath, ["rev-parse", "--git-common-dir"]);
+        if (commonDir.code === 0 && commonDir.stdout.trim()) {
+            ensureJjGitExclude(resolve(worktreePath, commonDir.stdout.trim()));
+        }
+        return;
+    }
+    if (existsSync(join(worktreePath, ".git"))) {
+        throw new SmithersError("WORKTREE_CREATE_FAILED", `JJ workspace at ${worktreePath} has .git metadata, but git does not resolve the workspace as its repository root. Refusing to overwrite existing Git metadata.`, { worktreePath, vcsType: "jj" });
+    }
+    const baseRefs = baseBranch
+        ? [baseBranch, `origin/${baseBranch}`, "HEAD"]
+        : ["main", "origin/main", "HEAD"];
+    const tempPath = join(dirname(worktreePath), `.git-adopt-${basename(worktreePath)}-${randomUUID()}`);
+    let gitdir = null;
+    let selectedRef = null;
+    const failures = [];
+    try {
+        for (const ref of baseRefs) {
+            const result = await runGitCommand(gitRoot, [
+                "worktree",
+                "add",
+                "--force",
+                "--detach",
+                "--no-checkout",
+                tempPath,
+                ref,
+            ]);
+            if (result.code === 0) {
+                gitdir = readGitdirFile(join(tempPath, ".git"));
+                if (gitdir) {
+                    selectedRef = ref;
+                    break;
+                }
+                failures.push(`${ref}: git worktree did not write a gitdir file`);
+            }
+            else {
+                failures.push(`${ref}: ${result.stderr || `exit ${result.code}`}`);
+            }
+            rmSync(tempPath, { recursive: true, force: true });
+        }
+        if (!gitdir) {
+            throw new SmithersError("WORKTREE_CREATE_FAILED", `Failed to attach git metadata to jj workspace at ${worktreePath}. Tried ${baseRefs.join(", ")}. ${failures.join(" | ")}`, { worktreePath, vcsType: "jj" });
+        }
+        rmSync(tempPath, { recursive: true, force: true });
+        writeFileSync(join(worktreePath, ".git"), `gitdir: ${gitdir}\n`, "utf8");
+        writeFileSync(join(gitdir, "gitdir"), `${join(worktreePath, ".git")}\n`, "utf8");
+        if (branch) {
+            const branchExists = await runGitCommand(gitRoot, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`]);
+            if (branchExists.code !== 0) {
+                const createBranch = await runGitCommand(gitRoot, ["branch", branch, selectedRef ?? "HEAD"]);
+                if (createBranch.code !== 0) {
+                    throw new SmithersError("WORKTREE_CREATE_FAILED", `Failed to create git branch ${branch} for jj workspace ${worktreePath}: ${createBranch.stderr || `exit ${createBranch.code}`}`, { worktreePath, branch, vcsType: "jj" });
+                }
+            }
+            writeFileSync(join(gitdir, "HEAD"), `ref: refs/heads/${branch}\n`, "utf8");
+        }
+        const commonDir = await runGitCommand(worktreePath, ["rev-parse", "--git-common-dir"]);
+        if (commonDir.code === 0 && commonDir.stdout.trim()) {
+            ensureJjGitExclude(resolve(worktreePath, commonDir.stdout.trim()));
+        }
+        const reset = await runGitCommand(worktreePath, ["reset", "--mixed", "-q", "HEAD"]);
+        if (reset.code !== 0) {
+            throw new SmithersError("WORKTREE_CREATE_FAILED", `Failed to initialize git index for jj workspace ${worktreePath}: ${reset.stderr || `exit ${reset.code}`}`, { worktreePath, vcsType: "jj" });
+        }
+        const verified = await runGitCommand(worktreePath, ["rev-parse", "--show-toplevel"]);
+        if (verified.code !== 0 || resolve(verified.stdout.trim()) !== resolve(worktreePath)) {
+            throw new SmithersError("WORKTREE_CREATE_FAILED", `Git metadata for jj workspace ${worktreePath} does not resolve back to the workspace root.`, { worktreePath, vcsType: "jj", gitTopLevel: verified.stdout.trim() || null });
+        }
+    }
+    catch (error) {
+        rmSync(tempPath, { recursive: true, force: true });
+        throw error;
+    }
+}
+/**
  * Ensure a worktree exists at `worktreePath`, creating it from `rootDir`
  * if necessary. When `branch` is provided, a jj bookmark or git branch is
  * created/updated in the new worktree. Safe to call multiple times for the
@@ -576,6 +694,7 @@ async function ensureWorktree(rootDir, worktreePath, branch, baseBranch) {
             if (rebaseRes.code !== 0) {
                 console.warn(`[smithers] worktree sync: jj rebase -d ${base} failed (exit ${rebaseRes.code}): ${rebaseRes.stderr || "unknown error"}`);
             }
+            await ensureJjWorkspaceGitRoot(vcs.root, worktreePath, branch, baseBranch);
         }
         else if (vcs?.type === "git") {
             await runGitCommand(worktreePath, ["fetch", "origin"]);
@@ -620,6 +739,7 @@ async function ensureWorktree(rootDir, worktreePath, branch, baseBranch) {
                 throw new SmithersError("WORKTREE_CREATE_FAILED", `Failed to set jj bookmark ${branch} in ${worktreePath}: ${setRes.stderr || `exit ${setRes.code}`}`, { worktreePath, branch, vcsType: "jj" });
             }
         }
+        await ensureJjWorkspaceGitRoot(vcs.root, worktreePath, branch, baseBranch);
     }
     else {
         const baseRefs = baseBranch
