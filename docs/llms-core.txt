@@ -1213,6 +1213,24 @@ And one more rule that is just as important:
 > build/fix/research this in the background," that is the signal to run a
 > workflow instead.
 
+And a rule about how hard to push before involving the human:
+
+> **Drive workflows to completion; fix what you can yourself.** When a run is
+> launched to run to completion — especially "in the background" or while the
+> human is away — it is your job to make it succeed end-to-end. Try your hardest.
+> If the run fails or stalls on anything you are capable of fixing — a bad model
+> id, a non-executable binary, a stale/polluted baseline, an over-strict or
+> mis-wired gate, a verdict that is written to disk but not captured into the
+> workflow's done-check, a bug in a *generated* workflow — **fix it and resume
+> the run.** Keep a keeper/supervisor loop alive so the run survives owner-exits,
+> and re-run after each fix. Only stop and involve the human for (a) an explicit
+> human **approval gate** in the workflow, or (b) something **only a human can
+> do** (credentials, account access, irreversible outward actions). **Do not hand
+> a self-fixable issue back to the human and wait.** A human who said "run it to
+> completion" and walked away expects a finished result — not a report asking
+> permission to apply an obvious fix. Diagnosing the problem is not the finish
+> line; a working run is.
+
 ## The operating loop
 
 Use this loop for broad, ambiguous, risky, long-running, or multi-agent work:
@@ -3678,6 +3696,13 @@ type WorktreeProps = {
 ## Notes
 
 - Descendants inherit `worktreeId` and absolute `worktreePath` as `cwd`.
+- **Do not pin a `cwd` on an agent used inside a `<Worktree>`.** A worker agent's working
+  directory resolves as `agent.cwd ?? worktreePath ?? repoRoot`, so an explicit `cwd` (e.g.
+  `new ClaudeCodeAgent({ cwd: process.cwd() })`) OVERRIDES the worktree — the agent then reads
+  and writes the repo root instead of the isolated worktree. Its branch stays empty and a
+  downstream merge/land step has nothing to merge. Leave agent `cwd` unset and let
+  `<Worktree>` supply it. Likewise, helpers that touch a worktree's files must resolve against
+  the worktree path, not `process.cwd()`.
 - Innermost `<Worktree>` wins when nested; duplicate ids are rejected.
 - Empty/whitespace `path` is rejected at render time.
 
