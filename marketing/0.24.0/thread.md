@@ -1,10 +1,10 @@
 # Smithers 0.24.0 launch thread
 
-Ready-to-post X/Twitter thread for the 0.24.0 release. Each tweet lists its media attachment. Shape: hook, then one capability per tweet with a concrete command, then proof and CTA.
+Ready-to-post X/Twitter thread for the 0.24.0 release. Each tweet lists its media attachment. Shape: hook, then one capability per tweet with a concrete command, then proof and CTA. This mirrors how Anthropic and OpenAI post launches: a declarative one-line hook, plain-language capability tweets each carrying their own media, and a single link to close.
 
-Copy follows an anti-slop pass: no em-dashes, no "it's not X, it's Y" framing, no padding triads, no hedging. CLI invocations use `bunx smithers-orchestrator` throughout.
+Title and diagram cards are rendered from the Smithers design tokens. Copy follows an anti-slop pass: no em-dashes, no "it's not X, it's Y" framing, no padding triads, no hedging.
 
-Scope note for whoever posts this: the camelCase output fix and stdout-truncation fix are bundled into one correctness-sweep tweet. Aspects budget fields and the agent-operated CLI docs framing appear in the proof tweet only.
+Scope note for whoever posts this: the Aspects budget fields (costBudget, tokenBudget, latencySlo) shipped as declarative scaffolding only and are not yet enforced by the engine, so they are left out of the thread. The dts build fix and CI gate restoration are correctness items rolled into the proof tweet.
 
 ---
 
@@ -13,103 +13,107 @@ Scope note for whoever posts this: the camelCase output fix and stdout-truncatio
 
 > Smithers 0.24.0 is here.
 >
-> `bunx smithers-orchestrator gateway` starts the full multi-run control plane headlessly: listRuns, streamRunEvents, streamDevTools, backed by the workspace database. No workflow run required. 🧵
-
-Leads with the new command surface that most concretely unlocks the platform. A reader can run it today.
-
----
-
-### 2. Workflow input schemas in inspect
-**Media:** terminal screenshot of `bunx smithers-orchestrator inspect` showing a JSON schema block alongside the run summary
-
-> `bunx smithers-orchestrator inspect` now returns the JSON schema for each workflow's input alongside the run summary.
+> A headless Gateway command, workflow input schemas in inspect, parallel Loop that actually runs in parallel, and an event bridge so detached runs stream live.
 >
-> Generated skill docs surface real field names, types, defaults, enums, and descriptions. No more generic placeholders.
+> `bunx smithers-orchestrator gateway` 🧵
 
-Concrete before/after: old placeholder versus real field names. Every agent integrating a workflow benefits.
+Leads with the most concrete new command and gives a reader something to run today. The 🧵 opens the thread.
 
 ---
 
-### 3. Parallel loops, unblocked
-**Media:** terminal capture showing parallel loop iterations advancing without waiting for the full run to go quiet
+### 2. Headless Gateway
+**Media:** terminal screenshot of `bunx smithers-orchestrator gateway` startup output showing workspace and DB paths
 
-> Parallel `<Loop>` iterations stalled until the entire run graph went quiet. Fixed.
+> New: `bunx smithers-orchestrator gateway`.
 >
-> The engine now advances ready loops whenever a loop node completes, without waiting for unrelated in-flight tasks to settle. Three scheduling paths changed together.
-
-Names the exact failure mode, then the fix. Engine correctness is a trust signal.
-
----
-
-### 4. Gateway streams detached runs
-**Media:** terminal showing `bunx smithers-orchestrator up -d` followed by a Gateway client receiving real event frames
-
-> `bunx smithers-orchestrator up -d` runs a workflow detached. Now the Gateway streams real events from those runs.
+> Starts the full `/v1/rpc/*` control plane headlessly, backed by the workspace database. Exposes `listRuns`, `streamRunEvents`, and `streamDevTools`. Prints the workspace and DB paths on startup.
 >
-> A built-in out-of-process event bridge tails the events table for runs the Gateway host did not execute. No changes to your workflow or your detached runner.
+> Distinct from `up --serve`, which runs one workflow. Use `gateway` when you need the control plane without launching a run.
 
-Closes the gap between detached execution and Gateway observability. The last sentence handles the migration worry.
+Names the command, lists what it exposes, and draws the line between gateway and up --serve so readers know which to reach for.
 
 ---
 
-### 5. Init that works out of the box
-**Media:** diff card showing old generated agents.ts (non-functional provider first) versus new agents.ts (Claude subscription provider first)
+### 3. Inspect knows your schema
+**Media:** terminal screenshot of `bunx smithers-orchestrator inspect` output showing input schema fields alongside a run summary
 
-> `bunx smithers-orchestrator init` now generates a working agents.ts.
+> `bunx smithers-orchestrator inspect` now returns the JSON schema for each workflow's input.
 >
-> The previous default led with non-functional providers. The generated file now leads with a working Claude subscription provider. If no usable provider is found, init fails with NO_USABLE_AGENTS.
+> Real field names, types, defaults, enums, and descriptions. The same schema surfaces in generated skill docs instead of a generic placeholder.
 
-Names what broke, names the fix, names the new failure mode. Fails loud instead of halfway.
+Pairs the inspect surface with the generated-skill benefit. One fix, two places it shows up.
 
 ---
 
-### 6. Observability command, fixed
+### 4. Parallel Loop runs in parallel
+**Media:** diagram card showing before/after loop scheduling
+
+> Parallel `<Loop>` iterations stalled until the entire run graph went quiet.
+>
+> Fixed. The engine now advances ready loops as each loop node completes. WorkflowDriver processes completions incrementally. No waiting for unrelated tasks to settle.
+
+"Fixed." after a one-sentence bug description. No mechanics, no hedging.
+
+---
+
+### 5. Detached runs stream live
+**Media:** terminal screenshot showing a detached run's events arriving in a connected Gateway client
+
+> `bunx smithers-orchestrator up -d` runs now deliver real event frames to connected clients.
+>
+> A built-in out-of-process event bridge tails `_smithers_events` for runs the Gateway host didn't execute. On by default. Configurable via `outOfProcessEventBridge` and `outOfProcessEventBridgePollMs`.
+
+"On by default" is the line that matters most: zero config change required for existing setups.
+
+---
+
+### 6. Init generates working agents
+**Media:** terminal screenshot of `bunx smithers-orchestrator init` completing without errors
+
+> `bunx smithers-orchestrator init` no longer generates a broken `agents.ts`.
+>
+> The default `smart` and `smartTool` pools now lead with a working Claude subscription provider. If no usable provider is found, init fails with `NO_USABLE_AGENTS` instead of writing a config that can't run.
+
+Frames the fix as a DX guarantee: fail loud with a clear error, not cryptically mid-run.
+
+---
+
+### 7. Observability works out of the box
 **Media:** terminal screenshot of `bunx smithers-orchestrator observability` starting the Docker Compose stack
 
-> `bunx smithers-orchestrator observability` now ships its Docker Compose stack assets.
+> `bunx smithers-orchestrator observability` now ships with its Docker Compose stack files.
 >
-> The package was missing the stack files the CLI expected. The command finds them now, names Docker Compose explicitly in the prerequisite message, and the docs match.
+> The assets the command resolves at a known path were missing from the published package. They're included now. The prerequisite error names Docker Compose explicitly when it's absent.
 
-Short. The fix is the news.
-
----
-
-### 7. CLI correctness sweep
-**Media:** terminal showing `bunx smithers-orchestrator output RUN_ID NODE_ID` returning a camelCase-keyed result correctly
-
-> Two CLI fixes in 0.24.0:
->
-> `bunx smithers-orchestrator output` now resolves camelCase output table keys instead of returning null.
->
-> CLI agents overflowing the 200 KB stdout cap no longer return amnesiac results. The engine keeps the stream tail and prefers the completed answer.
-
-Bundles two correctness fixes. Both affect anyone running the CLI against real workflows.
+Short. The fix is concrete and the improved error message is worth naming.
 
 ---
 
 ### 8. Proof and CTA
-**Media:** hero card with version and changelog link
+**Media:** changelog card
 
-> Also in 0.24.0: CI gates restored, observability dts build fixed, Aspect budget fields marked declarative (not yet enforced), and the agent-operated CLI model documented across the guide and quickstart.
+> 0.24.0: two new surfaces and seven targeted fixes.
+>
+> Also inside: CLI agent answers that survive stdout truncation, camelCase output table resolution in `bunx smithers-orchestrator output`, observability dts build passing, CI gates back to green on main.
 >
 > Full changelog: https://smithers.sh/changelogs/0.24.0
-> github.com/smithersai/smithers
+> GitHub: https://github.com/smithersai/smithers
 
-Puts the housekeeping items where they belong. Closes with one link.
+Lists the remaining correctness fixes so nothing is buried. One link per destination.
 
 ---
 
 ## Media manifest
 
-| Tweet | Description | Source |
-|-------|-------------|--------|
+| Tweet | Asset | Source |
+|-------|-------|--------|
 | 1 Hook | hero card | generated (design tokens) |
-| 2 Inspect schemas | terminal screenshot of `bunx smithers-orchestrator inspect` with JSON schema visible | captured |
-| 3 Parallel loops | terminal capture showing loop iterations advancing mid-run | captured |
-| 4 Detached events | terminal: detached run start + Gateway client receiving event frames | captured |
-| 5 Init fix | diff card: old agents.ts vs new agents.ts | generated (design tokens) |
-| 6 Observability | terminal screenshot of `bunx smithers-orchestrator observability` | captured |
-| 7 CLI output | terminal showing `bunx smithers-orchestrator output` returning a camelCase-keyed result | captured |
-| 8 Proof/CTA | hero card with version and changelog link | generated (design tokens) |
+| 2 Gateway | terminal screenshot of `bunx smithers-orchestrator gateway` | terminal capture |
+| 3 Inspect schemas | terminal screenshot of `bunx smithers-orchestrator inspect` with schema output | terminal capture |
+| 4 Parallel Loop | before/after loop scheduling diagram card | generated (design tokens) |
+| 5 Detached runs | terminal screenshot of detached run events in a Gateway client | terminal capture |
+| 6 Init fix | terminal screenshot of `bunx smithers-orchestrator init` completing | terminal capture |
+| 7 Observability | terminal screenshot of `bunx smithers-orchestrator observability` starting | terminal capture |
+| 8 Proof/CTA | changelog card | generated (design tokens) |
 
 **Regenerate cards:** edit `assets/_cards.html`, then run `node marketing/0.24.0/assets/_shoot.mjs` (Chromium screenshots each card at 2x).
