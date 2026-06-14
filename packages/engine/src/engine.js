@@ -2743,6 +2743,28 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
         }
         if (desc.worktreePath) {
             await ensureWorktree(toolConfig.rootDir, desc.worktreePath, desc.worktreeBranch, desc.worktreeBaseBranch);
+            // Safety net for a silent, expensive footgun: a worker's working dir resolves as
+            // `agent.cwd ?? worktreePath ?? repoRoot`, so an agent constructed with a pinned
+            // `cwd` (e.g. `cwd: process.cwd()`) OVERRIDES this <Worktree>. The worker then
+            // writes to the pinned dir (usually the repo root) instead of its isolated
+            // worktree, its branch comes up empty, and any downstream merge/land step merges
+            // nothing — while the task still reports "finished". Warn loudly.
+            const cwdCheckAgents = Array.isArray(desc.agent)
+                ? desc.agent
+                : (desc.agent ? [desc.agent] : []);
+            for (const a of cwdCheckAgents) {
+                const pinned = a?.cwd;
+                if (typeof pinned === "string" && pinned !== "" && resolve(pinned) !== resolve(desc.worktreePath)) {
+                    logWarning("agent has a pinned `cwd` that overrides its <Worktree>: the worker will read/write the pinned dir, not the worktree, so its branch may land nothing. Remove the agent's `cwd` and let <Worktree> control it.", {
+                        runId,
+                        nodeId: desc.nodeId,
+                        iteration: desc.iteration,
+                        agentId: a?.id,
+                        pinnedCwd: pinned,
+                        worktreePath: desc.worktreePath,
+                    }, "engine:worktree");
+                }
+            }
         }
         if (stepCacheEnabled) {
             const schemaSig = schemaSignature(desc.outputTable);
