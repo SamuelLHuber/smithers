@@ -5,15 +5,16 @@ import path from "node:path";
 import { type AgentLike, ClaudeCodeAgent as SmithersClaudeCodeAgent, CodexAgent as SmithersCodexAgent, OpenCodeAgent as SmithersOpenCodeAgent, PiAgent as SmithersPiAgent, KimiAgent as SmithersKimiAgent, AmpAgent as SmithersAmpAgent, GeminiAgent as SmithersGeminiAgent } from "smithers-orchestrator";
 
 export const providers = {
-  claude: new SmithersClaudeCodeAgent({ model: "claude-opus-4-7", cwd: process.cwd() }),
-  codex: new SmithersCodexAgent({ model: "gpt-5.3", cwd: process.cwd(), skipGitRepoCheck: true }),
-  opencode: new SmithersOpenCodeAgent({ model: "anthropic/claude-opus-4-20250514", cwd: process.cwd() }),
-  pi: new SmithersPiAgent({ provider: "openai", model: "gpt-5.3" }),
+  claude: new SmithersClaudeCodeAgent({ model: "claude-fable-5", cwd: process.cwd() }),
+  codex: new SmithersCodexAgent({ model: "gpt-5.5", cwd: process.cwd(), skipGitRepoCheck: true }),
+  opencode: new SmithersOpenCodeAgent({ model: "anthropic/claude-fable-5", cwd: process.cwd() }),
+  pi: new SmithersPiAgent({ provider: "openai", model: "gpt-5.5" }),
   kimi: new SmithersKimiAgent({ model: "kimi-latest" }),
   amp: new SmithersAmpAgent(),
+  claudeOpus: new SmithersClaudeCodeAgent({ model: "claude-opus-4-8", cwd: process.cwd() }),
   claudeSonnet: new SmithersClaudeCodeAgent({ model: "claude-sonnet-4-6", cwd: process.cwd() }),
   kimi1: new SmithersKimiAgent({ model: "kimi-latest", configDir: path.join(homedir(), ".smithers/accounts/kimi-1"), cwd: process.cwd() }),
-  codex1: new SmithersCodexAgent({ model: "gpt-5.3", configDir: path.join(homedir(), ".codex"), skipGitRepoCheck: true, cwd: process.cwd() }),
+  codex1: new SmithersCodexAgent({ model: "gpt-5.5", configDir: path.join(homedir(), ".codex"), skipGitRepoCheck: true, cwd: process.cwd() }),
   gemini1: new SmithersGeminiAgent({ model: "gemini-3.1-pro-preview", configDir: path.join(homedir(), ".gemini"), cwd: process.cwd() }),
 } as const;
 
