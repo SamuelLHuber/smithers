@@ -51,6 +51,14 @@ primitive that enforces it:
 Loop until the gate passes (`<Loop>` / `<Ralph until={…}>`) rather than running once
 and hoping.
 
+Command gates should classify the failure evidence before they mark work red. A
+typecheck is a code failure when `tsc --noEmit` reports TypeScript diagnostics such
+as `error TS...`; a nonzero exit, signal, OOM, or timeout with no diagnostics is an
+infrastructure failure and should be retried with more headroom before surfacing as
+retryable. Test gates follow the same rule: failed tests are red, but a crashed or
+timed-out runner with no failed-test report is transient infrastructure, not proof
+the patch is bad.
+
 ```mermaid
 flowchart LR
   S[Success criterion] --> V[Verification signal<br/>schema · test · eval · review · approval]
