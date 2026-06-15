@@ -1,3 +1,4 @@
+import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { SmithersCtx } from "./SmithersCtx.js";
 import { defaultTaskExecutor } from "./defaultTaskExecutor.js";
 import { withAbort } from "./withAbort.js";
@@ -171,6 +172,29 @@ async function loadCreateSession() {
     return null;
 }
 /**
+ * Build a diagnostic for tasks that declared `deps` they could never resolve, so
+ * they deferred (returned null) instead of mounting and the run reached
+ * quiescence without them. Left undetected this is a silent skip — the run
+ * "finishes" without ever running the task.
+ * @param {{ nodeId: string; waitingOn: string[] }[]} deferred
+ * @returns {string}
+ */
+function describeDeferredDeadlock(deferred) {
+    const lines = deferred.map(({ nodeId, waitingOn }) => {
+        const detail = waitingOn.length === 0
+            ? "its deps never resolved"
+            : `waiting on ${waitingOn.map((id) => `'${id}'`).join(", ")}`;
+        return `  - '${nodeId}' never ran (${detail})`;
+    });
+    return [
+        "Workflow has task(s) that can never run: their deps reference outputs no task produces.",
+        ...lines,
+        "",
+        "A deps={{ <key>: ... }} entry resolves <key> as the upstream task's id unless you remap it. " +
+            "Add needs={{ <key>: '<upstream task id>' }} (or rename the upstream task to match the key) so the dependency points at a real task.",
+    ].join("\n");
+}
+/**
  * @param {unknown} error
  * @returns {boolean}
  */
@@ -242,6 +266,8 @@ export class WorkflowDriver {
     activeOptions;
     /** @type {import("@smithers-orchestrator/graph").WorkflowGraph | undefined} */
     lastGraph;
+    /** @type {{ nodeId: string; waitingOn: string[] }[]} Tasks that deferred on unresolved deps in the latest render. */
+    lastDeferredDeps = [];
     /** @type {Record<string, string>} */
     worktreePathsById = {};
     /** @type {Map<string, string>} */
@@ -323,8 +349,17 @@ export class WorkflowDriver {
                 case "ContinueAsNew":
                     await this.drainInflight();
                     return this.continueAsNew(decision.transition);
-                case "Finished":
+                case "Finished": {
+                    if (this.lastDeferredDeps.length > 0) {
+                        await this.drainInflight();
+                        return {
+                            runId,
+                            status: "failed",
+                            error: new SmithersError("DEPENDENCY_DEADLOCK", describeDeferredDeadlock(this.lastDeferredDeps)),
+                        };
+                    }
                     return decision.result;
+                }
                 case "Failed":
                     await this.drainInflight();
                     return { runId, status: "failed", error: decision.error };
@@ -394,6 +429,10 @@ export class WorkflowDriver {
             baseRootDir,
             workflowPath,
         });
+        // Capture tasks that deferred on unresolved deps this render so the run
+        // loop can fail loudly if any survive to a Finished decision instead of
+        // silently skipping them.
+        this.lastDeferredDeps = ctx._deferredDeps ?? [];
         for (const task of graph.tasks) {
             if (task.outputTableName) {
                 this.outputTablesByNodeId.set(task.nodeId, task.outputTableName);

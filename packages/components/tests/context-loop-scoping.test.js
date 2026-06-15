@@ -40,6 +40,50 @@ describe("context loop scoping", () => {
         // the user-visible payload: the exact match wins over the scoped row.
         expect(ctx.output("tbl", { nodeId: "task1" }).value).toBe("exact");
     });
+    test("resolves an out-of-loop upstream from inside a loop iteration", () => {
+        // The upstream task ran OUTSIDE the loop: unscoped nodeId, iteration 0.
+        // A task INSIDE the loop renders at iteration 2 and depends on it via
+        // deps/needs (outputMaybe with no explicit iteration). Before the
+        // cross-loop-boundary fix this returned undefined (0 !== 2), so the
+        // dependent task unmounted on every iteration >= 1 and the run livelocked.
+        const rows = [{ nodeId: "fetchConfig", iteration: 0, value: "cfg" }];
+        const ctx = new SmithersCtx({
+            runId: "r1",
+            iteration: 2, // depender is inside the loop at iteration 2
+            iterations: { loop: 2 },
+            input: {},
+            outputs: { tbl: rows },
+        });
+        const result = ctx.outputMaybe("tbl", { nodeId: "fetchConfig" });
+        expect(result).toBeDefined();
+        expect(result.value).toBe("cfg");
+    });
+    test("in-loop upstream still defers when its current iteration is missing", () => {
+        // Regression guard for the cross-boundary relaxation: it must NOT resolve
+        // stale in-loop data. The upstream produced iteration 0 only (scoped), and
+        // the depender at iteration 1 must still get undefined — not the stale row.
+        const rows = [{ nodeId: "step@@loop=0", iteration: 0, value: "stale" }];
+        const ctx = new SmithersCtx({
+            runId: "r1",
+            iteration: 1,
+            iterations: { loop: 1, "step@@loop=0": 0 },
+            input: {},
+            outputs: { tbl: rows },
+        });
+        expect(ctx.outputMaybe("tbl", { nodeId: "step" })).toBeUndefined();
+    });
+    test("explicit iteration pin is respected (no cross-boundary fallback)", () => {
+        // An explicit iteration request must keep strict matching: asking for an
+        // iteration that does not exist must not fall back to the unscoped row.
+        const rows = [{ nodeId: "fetchConfig", iteration: 0, value: "cfg" }];
+        const ctx = new SmithersCtx({
+            runId: "r1",
+            iteration: 0,
+            input: {},
+            outputs: { tbl: rows },
+        });
+        expect(ctx.outputMaybe("tbl", { nodeId: "fetchConfig", iteration: 3 })).toBeUndefined();
+    });
     test("returns empty/undefined for unmatched scoped lookup", () => {
         const rows = [
             { nodeId: "task@@loop=0", iteration: 0, value: "old" },

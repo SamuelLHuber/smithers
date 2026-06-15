@@ -77,6 +77,16 @@ export class SmithersCtx {
         this._zodToKeyName = opts.zodToKeyName;
         this._currentScopes = buildCurrentScopes(this.iterations);
         /**
+         * Tasks that declared `deps` but could not resolve them this render, so
+         * they deferred (returned null) instead of mounting. The engine reads this
+         * after each render: a deferral is normal while an upstream is still
+         * producing, but one that survives to quiescence means the dependency can
+         * never resolve (e.g. a deps/needs key that maps to a node id no task
+         * produces) and the run would otherwise finish silently without it.
+         * @type {{ nodeId: string; waitingOn: string[] }[]}
+         */
+        this._deferredDeps = [];
+        /**
          * @param {string} table
          */
         const outputsFn = (table) => opts.outputs[table] ?? [];
@@ -209,6 +219,21 @@ export class SmithersCtx {
         return resolveDrizzleName(table) ?? String(table);
     }
     /**
+     * Record that a task with `deps` deferred this render because its
+     * dependencies were not resolvable. Called by the Task component before it
+     * returns null. The engine inspects these at quiescence to turn a permanent
+     * deferral (a never-satisfiable dependency) into a loud error instead of a
+     * silent skip.
+     * @param {string} nodeId
+     * @param {string[]} waitingOn
+     * @returns {void}
+     */
+    recordDeferredDep(nodeId, waitingOn) {
+        if (typeof nodeId !== "string" || nodeId.length === 0)
+            return;
+        this._deferredDeps.push({ nodeId, waitingOn: Array.isArray(waitingOn) ? waitingOn : [] });
+    }
+    /**
      * @param {TableRef} table
      * @param {OutputKey} key
      * @returns {OutputRow | undefined}
@@ -217,8 +242,26 @@ export class SmithersCtx {
         const tableName = this.resolveTableName(table);
         const rows = this._outputs[tableName] ?? [];
         const matching = filterRowsByNodeId(rows, key.nodeId, this._currentScopes);
-        return matching.find((row) => {
-            return (row.iteration ?? 0) === (key.iteration ?? this.iteration);
-        });
+        const targetIteration = key.iteration ?? this.iteration;
+        const exact = matching.find((row) => (row.iteration ?? 0) === targetIteration);
+        if (exact)
+            return exact;
+        // Cross-loop-boundary resolution: a task INSIDE a loop (this.iteration >= 1)
+        // that depends — via deps/needs — on a task OUTSIDE the loop never matched
+        // the strict equality above, because the upstream wrote its row with an
+        // unscoped nodeId at its own iteration (typically 0) while the depender
+        // renders at the loop iteration. That mismatch made the dependent task
+        // resolve `undefined` and unmount forever. Resolve an unscoped producer
+        // (one that ran outside any loop) at its own iteration instead.
+        //
+        // The relaxation is deliberately narrow: it only applies when the caller
+        // did not pin an explicit iteration, and only to rows whose nodeId carries
+        // no loop scope (`@@`). An in-loop producer always writes scoped rows, so it
+        // keeps the strict gate above — a not-yet-produced iteration still defers
+        // instead of resolving stale data from an earlier pass.
+        if (key.iteration === undefined) {
+            return matching.find((row) => typeof row.nodeId === "string" && !row.nodeId.includes("@@"));
+        }
+        return undefined;
     }
 }

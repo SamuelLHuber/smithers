@@ -181,6 +181,67 @@ function isRetryableFailure(descriptor, error) {
 }
 /**
  * @param {unknown} error
+ * @returns {boolean}
+ */
+function isTransientSessionFailure(error) {
+    const normalized = toSmithersError(error);
+    const code = error && typeof error === "object" && typeof error.code === "string"
+        ? error.code
+        : normalized.code;
+    return code === "SESSION_ERROR" ||
+        code === "TASK_TIMEOUT" ||
+        code === "TASK_HEARTBEAT_TIMEOUT" ||
+        code === "TASK_ABORTED" ||
+        normalized.details?.failureRetryable === true;
+}
+/**
+ * Build a human-readable diagnostic for a dependency deadlock: pending tasks
+ * that can never run because their `dependsOn` edges point at tasks missing from
+ * the graph or themselves permanently blocked. The most common cause is a
+ * `deps`/`needs` mismatch — a `deps={{ key: ... }}` whose key is not the upstream
+ * task's id and was not remapped with `needs={{ key: '<id>' }}`, which the Task
+ * component (deriveDepNodeIds) turns into a dependency on a non-existent node id.
+ * @param {SessionState} state
+ * @returns {string}
+ */
+function describeDeadlock(state) {
+    const blocked = [];
+    let sawMissing = false;
+    for (const descriptor of state.descriptors.values()) {
+        const taskState = state.states.get(stateKeyFor(descriptor)) ?? "pending";
+        if (taskState !== "pending" && taskState !== "cancelled")
+            continue;
+        const unmet = [];
+        for (const depId of descriptor.dependsOn ?? []) {
+            const dep = state.descriptors.get(depId);
+            if (!dep) {
+                sawMissing = true;
+                unmet.push(`'${depId}' (no such task)`);
+            }
+            else {
+                const depState = state.states.get(stateKeyFor(dep)) ?? "pending";
+                unmet.push(`'${depId}' (${depState})`);
+            }
+        }
+        if (unmet.length > 0) {
+            blocked.push(`  - '${descriptor.nodeId}' is blocked on ${unmet.join(", ")}`);
+        }
+    }
+    const lines = [
+        "Workflow deadlocked: no task can run, and none is waiting on an approval, event, timer, or retry.",
+    ];
+    if (blocked.length > 0) {
+        lines.push("Pending tasks and their unsatisfied dependencies:", ...blocked);
+    }
+    if (sawMissing) {
+        lines.push("", "A dependency marked '(no such task)' references a node id that is not a mounted task. " +
+            "If it came from deps={{ <key>: ... }}, the key is treated as the upstream task's id unless you remap it: " +
+            "add needs={{ <key>: '<upstream task id>' }} (or rename the upstream task to match the key).");
+    }
+    return lines.join("\n");
+}
+/**
+ * @param {unknown} error
  * @param {string} label
  * @returns {EngineDecision}
  */
@@ -204,6 +265,7 @@ export function makeWorkflowSession(options = {}) {
         states: new Map(),
         outputs: new Map(),
         failures: new Map(),
+        failureDescriptors: new Map(),
         retryCounts: new Map(),
         retryWait: new Map(),
         approvals: new Set(),
@@ -211,6 +273,7 @@ export function makeWorkflowSession(options = {}) {
         schedule: null,
         cancelled: false,
         lastMountedSignature: null,
+        lastDeadlockSignature: null,
     };
     /**
    * @param {Pick<TaskOutput, "nodeId" | "iteration">} output
@@ -268,6 +331,7 @@ export function makeWorkflowSession(options = {}) {
                 state.retryWait.delete(key);
                 state.approvals.delete(key);
                 state.retryCounts.delete(key);
+                state.failureDescriptors.delete(key);
             }
         }
         for (const ralph of ralphs) {
@@ -297,6 +361,7 @@ export function makeWorkflowSession(options = {}) {
         state.states.set(key, "finished");
         state.outputs.set(key, output);
         state.retryWait.delete(key);
+        state.failureDescriptors.delete(key);
     }
     /**
    * @param {number} [iteration]
@@ -359,6 +424,7 @@ export function makeWorkflowSession(options = {}) {
         }
         state.states.set(key, "failed");
         state.failures.set(key, error);
+        state.failureDescriptors.set(key, descriptor);
         return decide();
     }
     /**
@@ -367,9 +433,13 @@ export function makeWorkflowSession(options = {}) {
     function unhandledFailureDecision(recoveryKeys = new Set()) {
         for (const [key, taskState] of state.states) {
             const parsed = parseStateKey(key);
-            const descriptor = findDescriptor(state, parsed.nodeId, parsed.iteration);
+            const descriptor = findDescriptor(state, parsed.nodeId, parsed.iteration) ??
+                state.failureDescriptors.get(key);
             if (taskState === "failed" && !descriptor?.continueOnFail) {
                 if (recoveryKeys.has(key)) {
+                    continue;
+                }
+                if (descriptor?.agent && isTransientSessionFailure(state.failures.get(key))) {
                     continue;
                 }
                 return {
@@ -542,6 +612,27 @@ export function makeWorkflowSession(options = {}) {
                         _tag: "RetryBackoff",
                         waitMs: Math.max(0, schedule.nextRetryAtMs - nowMs()),
                     },
+                };
+            }
+            // Nothing is runnable, in flight, or waiting on an approval, event, or
+            // timer, yet tasks remain pending. They are blocked on dependencies
+            // nothing will ever satisfy — most often a deps/needs key that maps to
+            // a node id no task produces, which becomes a dependsOn on a missing
+            // node. Returning Wait here suspends the run forever with no error.
+            // Give a reactive re-render one chance to mount a producer (the mounted
+            // signature changes), then fail loudly with a diagnostic.
+            const noInProgress = ![...state.states.values()].some((taskState) => taskState === "in-progress");
+            if (noInProgress) {
+                if (options.requireStableFinish && state.graph) {
+                    const signature = mountedSignature(state.graph);
+                    if (state.lastDeadlockSignature !== signature) {
+                        state.lastDeadlockSignature = signature;
+                        return { _tag: "ReRender", context: renderContext(state) };
+                    }
+                }
+                return {
+                    _tag: "Failed",
+                    error: new SmithersError("DEPENDENCY_DEADLOCK", describeDeadlock(state)),
                 };
             }
             return { _tag: "Wait", reason: { _tag: "ExternalTrigger" } };

@@ -215,7 +215,12 @@ export function Task(props) {
     const resolvedDeps = deps ? resolveDeps(ctx, deps, rest.needs) : undefined;
     if (deps && resolvedDeps == null) {
         // Deps not yet available — component defers until upstream tasks complete.
-        // This is normal reactive behavior; the task will re-render once deps are ready.
+        // This is normal reactive behavior; the task will re-render once deps are
+        // ready. Record the deferral so the engine can distinguish a transient wait
+        // from a permanent one: a deferral that survives to quiescence means a
+        // dependency that can never resolve (e.g. a deps key that maps to a node id
+        // no task produces), which would otherwise be a silent skip.
+        ctx?.recordDeferredDep?.(props.id, depNodeIds ?? []);
         return null;
     }
     // Build aspect metadata to attach to the task element. Budget metadata is
