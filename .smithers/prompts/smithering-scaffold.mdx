@@ -2,7 +2,7 @@
 
 Author the bespoke implementation workflow at .smithers/workflows/smithering-impl.tsx.
 
-First, ground yourself in the real API — run "bunx smithers-orchestrator docs", read the
+First, ground yourself in the real API: run "bunx smithers-orchestrator docs", read the
 relevant fragments, and study the closest seeded examples in .smithers/workflows/
 (implement.tsx, mission.tsx, kanban.tsx, research-plan-implement.tsx). Copy structure from
 the closest one, then adapt. Do not invent API.
@@ -18,19 +18,19 @@ Hard contract for the generated workflow:
   repo root instead of its ticket's worktree branch. The branch then comes up EMPTY, the merge
   lane lands nothing, and every ticket reports "finished" while 0% actually lands on
   integration. Leave agent `cwd` UNSET and let `<Worktree>` own the working dir (see how
-  mission.tsx wires worktree workers — it passes no `cwd`). Helper functions that read/write
+  mission.tsx wires worktree workers; it passes no `cwd`). Helper functions that read/write
   the evidence bundle or run git in a worktree must resolve paths through Smithers' first-class
   worktree path API: use `ctx.worktreePath(taskOrWorktreeId)` when the worktree has already
   rendered, or `ctx.resolveWorktreePath(worktreePathProp)` for the same string passed to
   `<Worktree path={...}>`. NEVER guess worktree paths with `process.cwd()`, `import.meta.dir`,
   `../..`, or candidate lists.
-- PARALLEL TRACKS ARE MANDATORY — the build must NOT be a linear ticket-by-ticket chain.
+- PARALLEL TRACKS ARE MANDATORY: the build must NOT be a linear ticket-by-ticket chain.
   Compute the ticket dependency DAG from each ticket's dependsOn, group tickets into
   topological waves for stable ordering, and run every ready antichain as parallel independent
   tickets (each ticket = its own worker in its own git worktree so concurrent file writes
   never collide). Only a real dependsOn edge may force sequencing; the wall-clock critical
   path should be the DAG depth, not the ticket count.
-- LANDING IS CONTINUOUS AND PER-TICKET — do NOT put a land lane after each whole wave.
+- LANDING IS CONTINUOUS AND PER-TICKET: do NOT put a land lane after each whole wave.
   A ticket becomes eligible to land as soon as its own on-disk gates are green
   (`verify.json.pass === true`, rebased/merged-tip proof is true, and for safety/security
   tickets `challenge.json.approved === true`) AND every ticket in its dependsOn list is
@@ -40,7 +40,7 @@ Hard contract for the generated workflow:
   depend on it; unrelated same-wave siblings that are done and whose deps are landed must
   still land.
 - Imports tickets from artifacts/smithering/tickets.json at module load; task ids derive
-  from ticket ids (stable across resume — never indexes/timestamps).
+  from ticket ids (stable across resume, never indexes/timestamps).
 - Input schema includes a boolean "smoke" (default false): smoke=true processes ONLY the
   first ticket end-to-end (including its verification) with NO approval gates, and must
   reach status finished.
@@ -54,6 +54,16 @@ Hard contract for the generated workflow:
   worktree onto the current integration branch, run the pre-merge gates on that rebased tip,
   and write any conflict/tsc/test failure back as implementer feedback. A real merged-tip
   failure must reopen the worker loop until maxIterations, not permanently dead-block the DAG.
+- Pre-merge command gates MUST distinguish real failures from infrastructure crashes. `tsc
+  --noEmit` is red only when it completed far enough to emit `error TS` diagnostics; a
+  nonzero exit, SIGABRT/OOM, signal kill, or timeout with zero `error TS` lines is
+  INFRA/transient, not a type error. `bun test` is red only when tests actually ran and
+  reported failed tests; a crash/OOM/signal/timeout with no failed-test report is
+  INFRA/transient, not a test failure. Infra cases must be retried up to 3 attempts with
+  `NODE_OPTIONS=--max-old-space-size=6144` (or higher), short backoff, and no concurrent
+  heavy gate work where feasible. If retries still cannot complete, surface a clear
+  retryable infra/transient gate error and never write a red verdict or land-bounce that
+  blames the ticket code.
 - Evidence filenames are contractual: every blocking gate's `redRunPath` and `greenRunPath`
   in `gates.json` MUST equal the worktree-relative paths actually written. The independent
   verifier MUST resolve each declared path from the real worker worktree and require a
@@ -67,11 +77,11 @@ Hard contract for the generated workflow:
   (e.g. `verify.json.pass`, advisory `review.json`, and safety `challenge.json.approved` under artifacts/smithering/build/<runId>/<id>/),
   NOT from the verify/review agents' structured task-return values. Agent structured returns
   are unreliable and frequently come back empty (they persist their verdict to the bundle and
-  emit prose) — gating "done" on them deadlocks the loop: the ticket can NEVER reach done and
+  emit prose); gating "done" on them deadlocks the loop: the ticket can NEVER reach done and
   every ticket blocks. Treat the INDEPENDENT test-authority verifier's on-disk `pass` (it
   re-runs every pre-merge gate LIVE and confirms red-before-green) as the AUTHORITATIVE landing
   signal. Surface the cross-family reviewer's findings to the implementer as feedback, but keep
-  the review ADVISORY — it must not hard-block a ticket the independent verifier proved green
+  the review ADVISORY; it must not hard-block a ticket the independent verifier proved green
   over evidence-log hygiene. Safety/security tickets additionally require the adversarial
   challenge verdict to pass. Resolve that on-disk bundle from the real worktree root:
   `join(ctx.worktreePath(verifyTaskId) ?? ctx.resolveWorktreePath(worktreePathProp), "artifacts/...", "verify.json")`;
