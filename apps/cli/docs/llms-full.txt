@@ -6593,11 +6593,11 @@ For canonical, machine-checked types, install `smithers-orchestrator` and use ed
 `SmithersErrorInstance` is a typed, code-bearing `Error` subclass used throughout Smithers internals. It surfaces when `runWorkflow` throws, in `NodeFailed` events emitted during execution, and as JSON in HTTP API error responses. The imports below are the full error utility surface.
 
 <Note>
-**`build agent command: undefined is not an object (evaluating 'schema._zod.def')`** —
+**`build agent command: undefined is not an object (evaluating 'schema._zod.def')`**:
 your task `output` schema is a **Zod v3** object. Smithers reads schema metadata
 via Zod v4 internals (`_zod.def`). Install Zod v4 (`bun add zod@^4`) and import
-`z` from it. This is a deterministic configuration error, not a transient one —
-re-running will not fix it.
+`z` from it. This is a deterministic configuration error; re-running will not fix
+it.
 </Note>
 
 ```ts
