@@ -57,6 +57,11 @@ must be true after checking the ticket rebased onto the current integration tip.
 `review.json` findings are advisory feedback, not a hard landing veto; safety/security
 tickets additionally require an approved adversarial `challenge.json`.
 
+Landing is continuous and per-ticket, not a per-wave barrier. Topological waves may still
+be used for stable ordering, but a ticket enters the serialized merge queue as soon as its
+own verifier/challenge is green and all of its `dependsOn` tickets have landed. A blocked
+ticket only blocks its transitive dependents; unrelated siblings continue to build and land.
+
 If a conflict, typecheck, or test failure appears only on the merged integration tip, the
 failure is fed back to that ticket's implementer loop and retried up to its iteration budget
 instead of permanently blocking dependents. Fresh runs are idempotent: tickets whose land
