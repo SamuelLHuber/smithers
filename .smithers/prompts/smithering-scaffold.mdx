@@ -41,6 +41,10 @@ Hard contract for the generated workflow:
   OR the workflow must delete the whole evidence directory at run start before any done-check
   can read it. A stale `verify.json` from a previous run must never satisfy a fresh run's
   "is this ticket done?" check. Red-before-green for fixes.
+- The verifier and merge lane MUST validate the ticket as it will land: rebase the ticket
+  worktree onto the current integration branch, run the pre-merge gates on that rebased tip,
+  and write any conflict/tsc/test failure back as implementer feedback. A real merged-tip
+  failure must reopen the worker loop until maxIterations, not permanently dead-block the DAG.
 - Evidence filenames are contractual: every blocking gate's `redRunPath` and `greenRunPath`
   in `gates.json` MUST equal the worktree-relative paths actually written. The independent
   verifier MUST resolve each declared path from the real worker worktree and require a
@@ -51,7 +55,7 @@ Hard contract for the generated workflow:
   idempotency keys; no caching of side-effect tasks.
 - CAPTURE VERDICTS FROM DISK, NOT FROM AGENT RETURNS. The loop-exit / "is this ticket done?"
   check MUST read each ticket's verdict from the on-disk evidence bundle the agents write
-  (e.g. `verify.json.pass`, `review.json.approved` under artifacts/smithering/build/<runId>/<id>/),
+  (e.g. `verify.json.pass`, advisory `review.json`, and safety `challenge.json.approved` under artifacts/smithering/build/<runId>/<id>/),
   NOT from the verify/review agents' structured task-return values. Agent structured returns
   are unreliable and frequently come back empty (they persist their verdict to the bundle and
   emit prose) — gating "done" on them deadlocks the loop: the ticket can NEVER reach done and
@@ -63,6 +67,9 @@ Hard contract for the generated workflow:
   challenge verdict to pass. Resolve that on-disk bundle from the real worktree root:
   `join(ctx.worktreePath(verifyTaskId) ?? ctx.resolveWorktreePath(worktreePathProp), "artifacts/...", "verify.json")`;
   do not search guessed roots.
+- Fresh runs MUST be idempotent: if `ticketLanded(ctx,id)` or `git log <base>..integration`
+  shows the ticket's land commit is already on the integration branch, treat it as DONE and
+  skip its worker. Do not rebuild already-landed tickets; only schedule remaining work.
 - `.mdx` prompt files are parsed as MDX modules. When writing prose examples that look like
   JSX or HTML, wrap them in inline backticks or fenced code blocks (for example
   `<Parallel maxConcurrency={N}>`) so the prompt module's default export still compiles.

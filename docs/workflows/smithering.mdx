@@ -49,6 +49,19 @@ leave it `auto` to let the workflow decide.
 15. **polish**: a scan, fix, and verify pass over the result.
 16. **deliver**: gather an evidence report and hand off at `gate:delivery`.
 
+## Full-build merge policy
+
+The generated implementation workflow lands ticket branches only onto the integration
+branch. The independent verifier is the authoritative pre-merge signal: `verify.json.pass`
+must be true after checking the ticket rebased onto the current integration tip. Cross-family
+`review.json` findings are advisory feedback, not a hard landing veto; safety/security
+tickets additionally require an approved adversarial `challenge.json`.
+
+If a conflict, typecheck, or test failure appears only on the merged integration tip, the
+failure is fed back to that ticket's implementer loop and retried up to its iteration budget
+instead of permanently blocking dependents. Fresh runs are idempotent: tickets whose land
+commits already appear in `git log <base>..integration` are treated as done and skipped.
+
 ## Inputs
 
 | Input | Type | Default |
