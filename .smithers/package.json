@@ -10,6 +10,13 @@
     "workflow:list": "smithers workflow list",
     "workflow:run": "smithers workflow run",
     "workflow:implement": "smithers workflow run implement",
+    "release:content": "cd .. && pnpm release:content",
+    "release:content:approve": "cd .. && pnpm release:content:approve",
+    "release:content:publish": "cd .. && pnpm release:content:publish",
+    "release:workflow": "cd .. && pnpm release:workflow",
+    "release:workflow:gated": "cd .. && pnpm release:workflow:gated",
+    "marketing:thread": "cd .. && pnpm marketing:thread",
+    "marketing:thread:write": "cd .. && pnpm marketing:thread:write",
     "test:open-code-review": "bun test ./tests/open-code-review.test.ts ./tests/open-code-review-ui.e2e.test.ts"
   },
   "dependencies": {

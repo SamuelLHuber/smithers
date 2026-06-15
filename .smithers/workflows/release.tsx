@@ -17,6 +17,14 @@ const inputSchema = z.object({
     .boolean()
     .default(false)
     .describe("Forward --skip-checks to `pnpm release` (skip lint/typecheck/test)."),
+  requireMarketingContent: z
+    .boolean()
+    .default(false)
+    .describe("Require an approved release-content marker before bumping/publishing."),
+  marketingArtifactDir: z
+    .string()
+    .default(".smithers/executions/release-content")
+    .describe("Directory containing release-content approved-<version>.json markers."),
 });
 
 const probeSchema = z.object({
@@ -29,6 +37,12 @@ const probeSchema = z.object({
 const changelogSchema = z.object({
   changelogPath: z.string(),
   ok: z.boolean(),
+});
+
+const marketingContentSchema = z.object({
+  ok: z.boolean(),
+  markerPath: z.string(),
+  message: z.string(),
 });
 
 const bumpResultSchema = z.object({
@@ -51,6 +65,7 @@ const { Workflow, Task, Approval, smithers, outputs } = createSmithers({
   input: inputSchema,
   probe: probeSchema,
   changelog: changelogSchema,
+  marketingContent: marketingContentSchema,
   majorApproval: majorApprovalSchema,
   bumpResult: bumpResultSchema,
   publishResult: publishResultSchema,
@@ -109,6 +124,29 @@ export default smithers((ctx) => {
               );
             }
             return { changelogPath: probe.changelogPath, ok: true };
+          }}
+        </Task>
+
+        <Task
+          id="marketing-content-check"
+          output={outputs.marketingContent}
+          skipIf={!ctx.input.requireMarketingContent}
+        >
+          {async () => {
+            const probe = ctx.outputMaybe(outputs.probe, { nodeId: "probe" });
+            if (!probe) throw new Error("probe did not complete");
+            const { hasApprovedMarketingContent } = await import("../lib/release-content/files");
+            const result = hasApprovedMarketingContent(
+              probe.nextVersion,
+              ctx.input.marketingArtifactDir,
+            );
+            if (!result.ok) {
+              throw new Error(
+                `${result.message}\n` +
+                  `Run the release-content workflow with dryRun=false, review the previews, approve the gate, then re-run release.`,
+              );
+            }
+            return result;
           }}
         </Task>
 
