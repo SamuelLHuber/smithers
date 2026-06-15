@@ -9,12 +9,19 @@ A code-review workflow built one capability at a time. Each step is a diff again
 
 ```bash
 bunx smithers-orchestrator init
-bun add smithers-orchestrator ai @ai-sdk/anthropic zod
+bun add smithers-orchestrator ai @ai-sdk/anthropic zod@^4
 bun add -d typescript @types/bun
 export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
 `init` creates `.smithers/` with seeded workflows, prompts, and components. The bun deps add the AI SDK, Anthropic provider, and Zod (schemas).
+
+<Note>
+**Zod v4 is required.** Smithers introspects your output schemas via Zod v4
+internals, so pin `zod@^4`. A Zod **v3** schema fails when building an agent
+command with the cryptic error `undefined is not an object (evaluating
+'schema._zod.def')`.
+</Note>
 
 A minimal `tsconfig.json`:
 
