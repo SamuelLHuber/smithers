@@ -3,7 +3,7 @@ title: "0.24.1"
 description: "Aspects budgets are now enforced at dispatch, plus a PiAgent JSON-mode reliability fix and regenerated TypeScript declarations."
 ---
 
-Smithers 0.24.1 makes Aspects budgets enforce at runtime, fixes a PiAgent reliability bug where JSON-mode runs could time out instead of completing, and regenerates the stale `packages/smithers/src/index.d.ts`. There are no breaking changes and no public API symbols were removed.
+Smithers 0.24.1 makes Aspects budgets enforce at runtime, fixes a PiAgent reliability bug where JSON-mode runs could time out instead of completing, gives the workflow CLI a consistent sandbox root, and regenerates the stale `packages/smithers/src/index.d.ts`. There are no breaking changes and no public API symbols were removed.
 
 ---
 
@@ -23,6 +23,14 @@ Smithers 0.24.1 makes Aspects budgets enforce at runtime, fixes a PiAgent reliab
 - `agent_end` is treated as a terminal event: the final assistant answer is harvested and a `completed` event is emitted during streaming, with `onExit` deduping so a run completes exactly once.
 - pi token usage (per-message, `turn_end`, and `agent_end`) is attached to the completed event, so usage telemetry is reported instead of always reading zero.
 - pi diagnostics are now provider-aware. Google, OpenAI, or Anthropic auth and rate-limit checks are selected from the effective `--provider`, a `provider/model` prefix, or a bare model id, and an explicit `apiKey` maps to the right provider environment variable.
+
+## CLI
+
+Workflow commands resolved the tool sandbox root inconsistently, so a run launched from a subdirectory could read and write files from a different root than the one its run database used.
+
+- `up`, `workflow run`, `graph`, `eval`, and `resume` now resolve the launch root the same way, anchored to the nearest `.smithers/` directory (the same anchor used to locate the run database).
+- `graph` gains a `--root` flag to set the sandbox root explicitly.
+- `resume` preserves the root persisted with the original run.
 
 ## Type declarations
 
