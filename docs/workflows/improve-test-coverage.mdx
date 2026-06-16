@@ -29,3 +29,5 @@ bunx smithers-orchestrator workflow run improve-test-coverage --prompt "Add regr
 ## Resume & retry
 
 Runs the shared validation loop (up to 3 iterations) and commits to the working tree. Runs are durable and resume with `up --resume`.
+
+Transient session/infra errors such as `SESSION_ERROR`, stream disconnects, rate limits, OOMs, and timeouts must never fail a whole run; retry the affected node and let unrelated verified work continue.
