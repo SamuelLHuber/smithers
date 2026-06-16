@@ -8509,8 +8509,8 @@ Gateway client exports:
 
 | Package | Exports |
 |---|---|
-| `smithers-orchestrator/gateway-client` | `SmithersGatewayClient`, `SmithersGatewayConnection`, `GatewayRpcError`, `gatewayBackoffDelay`, RPC frame/type-map types, extension envelope helpers/types, `GatewayUiBootConfig`, `SmithersGatewayClientOptions`, `SyncCache`, `SyncClient`, `SyncSubscriptionHub`, `syncBackoffDelay`, `syncKeyFingerprint`, `syncKeyMatches`, `gatewayKeys`, `createSmithersGatewayTransport` |
-| `smithers-orchestrator/gateway-react` | `SmithersGatewayProvider`, `createGatewayReactRoot`, `useGatewayRun`, `useGatewayRuns`, `useGatewayWorkflows`, `useGatewayApprovals`, `useGatewayNodeOutput`, `useGatewayRunEvents`, `useGatewayActions`, `useGatewayRpc`, `useSmithersGateway`, `useGatewayExtensionResource`, `useGatewayExtensionAction`, `useGatewayExtensionStream`, `SyncProvider`, `useSyncClient`, `useSyncQuery`, `useSyncMutation`, `useSyncSubscription`, `useGatewayQuery`, `useGatewayMutation`, `useGatewayRunStream` |
+| `smithers-orchestrator/gateway-client` | `SmithersGatewayClient`, `SmithersGatewayConnection`, `GatewayRpcError`, `gatewayBackoffDelay`, RPC frame/type-map types, extension envelope helpers/types, `GatewayUiBootConfig`, `SmithersGatewayClientOptions`, `createGatewayCollection`, `gatewayCollectionDefs`, `flattenGatewayRunNode`, `snapshotToGatewayRunNode`, `reconcileSnapshotNodes`, collection row types, `syncBackoffDelay`, `syncKeyFingerprint`, `syncKeyMatches`, `gatewayKeys`, `createSmithersGatewayTransport` |
+| `smithers-orchestrator/gateway-react` | `SmithersGatewayProvider`, `createGatewayReactRoot`, `useGatewayRun`, `useGatewayRuns`, `useGatewayWorkflows`, `useGatewayApprovals`, `useGatewayNodeOutput`, `useGatewayRunEvents`, `useGatewayActions`, `useGatewayRpc`, `useSmithersGateway`, `useGatewayExtensionResource`, `useGatewayExtensionAction`, `useGatewayExtensionStream`, `SyncProvider`, `createGatewayCollections`, `useSyncClient`, `useSyncQuery`, `useSyncMutation`, `useSyncSubscription`, `useGatewayQuery`, `useGatewayMutation`, `useGatewayRunStream`, `useGatewayRunTree`, `useGatewayConnectionStatus` |
 
 ## RPC methods (TOON)
 
