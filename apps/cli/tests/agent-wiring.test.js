@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { parse } from "yaml";
 
 import { linkPiSkills } from "../src/agent-wiring/linkPiSkills.js";
+import { mcpAddFallbackMessage } from "../src/agent-wiring/mcpAddFallbackMessage.js";
 import { parseAgentWiringArgv } from "../src/agent-wiring/parseAgentWiringArgv.js";
 import { registerHermesMcp } from "../src/agent-wiring/registerHermesMcp.js";
 import { registerOpenClawMcp } from "../src/agent-wiring/registerOpenClawMcp.js";
@@ -45,6 +46,29 @@ describe("parseAgentWiringArgv", () => {
       .toEqual({ kind: "mcp", global: true, command: "pnpm", args: ["smithers", "--mcp"] });
     expect(parseAgentWiringArgv(["skills", "add", "--depth", "2"]))
       .toEqual({ kind: "skills", global: true });
+  });
+});
+
+describe("mcpAddFallbackMessage", () => {
+  test("shows the `--` separated manual command for the common agents", () => {
+    const msg = mcpAddFallbackMessage();
+    expect(msg).toContain("codex mcp add smithers -- bunx smithers-orchestrator --mcp");
+    expect(msg).toContain("claude mcp add smithers -- bunx smithers-orchestrator --mcp");
+    // The hand-written config must split command from args correctly.
+    expect(msg).toContain('"command": "bunx", "args": ["smithers-orchestrator", "--mcp"]');
+    expect(msg).toContain("smithers.sh/integrations/mcp-server");
+  });
+
+  test("targets the agents the user asked for", () => {
+    const msg = mcpAddFallbackMessage({ agents: ["cursor"] });
+    expect(msg).toContain("cursor mcp add smithers -- bunx smithers-orchestrator --mcp");
+    expect(msg).not.toContain("codex mcp add");
+  });
+
+  test("honors a custom launch command", () => {
+    const msg = mcpAddFallbackMessage({ launchCommand: "pnpm smithers --mcp", agents: ["codex"] });
+    expect(msg).toContain("codex mcp add smithers -- pnpm smithers --mcp");
+    expect(msg).toContain('"command": "pnpm", "args": ["smithers", "--mcp"]');
   });
 });
 

@@ -33,6 +33,7 @@ import { findAndOpenDb, findSmithersDb } from "./find-db.js";
 import { buildAskKindFields, buildAskPromptText, buildAskUniqueToken, formatAskHumanResolveHelp, parseChoices, resolveAskHumanContext, } from "./ask-human.js";
 import { chatAttemptKey, formatChatAttemptHeader, formatChatBlock, parseAgentEvent, parseChatAttemptMeta, parseNodeOutputEvent, selectChatAttempts, } from "./chat.js";
 import { buildHijackLaunchSpec, isNativeHijackCandidate, launchHijackSession, resolveHijackCandidate, waitForHijackCandidate, } from "./hijack.js";
+import { mcpAddFallbackMessage } from "./agent-wiring/mcpAddFallbackMessage.js";
 import { parseAgentWiringArgv } from "./agent-wiring/parseAgentWiringArgv.js";
 import { EXTRA_MCP_AGENTS, EXTRA_SKILL_AGENTS, wireExtraAgents } from "./agent-wiring/wireExtraAgents.js";
 import { launchConversationHijackSession, persistConversationHijackHandoff, } from "./hijack-session.js";
@@ -6416,6 +6417,14 @@ async function main() {
         catch (err) {
             console.error(`⚠ Smithers agent wiring skipped: ${err?.message ?? String(err)}`);
         }
+    }
+    // `mcp add` failed inside the registration helper and we did not recover it
+    // via supplementary wiring. The usual cause is a runner that word-split the
+    // `bunx smithers-orchestrator --mcp` launch command, leaving the helper to
+    // choke on the bare `--mcp` flag. Point the user at the reliable manual path.
+    if (wiring?.kind === "mcp" && !serveSucceeded && !targetsOnlyExtra) {
+        console.error("");
+        console.error(mcpAddFallbackMessage({ agents: wiring.agents }));
     }
     if (exitCodeFromServe !== undefined) {
         const commandIndex = findFirstPositionalIndex(argv);
