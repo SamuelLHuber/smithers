@@ -1,0 +1,24 @@
+---
+title: "0.24.1"
+description: "Patch release that regenerates the stale TypeScript declarations shipped in 0.24.0."
+---
+
+Smithers 0.24.1 is a focused maintenance release. The only change is a regenerated `packages/smithers/src/index.d.ts`. The declaration file that shipped in 0.24.0 was stale and did not reflect the current `tsup --dts-only` output. No runtime behavior changed and no public API symbols were added or removed.
+
+---
+
+## Type declarations
+
+The published `@smithers-orchestrator/smithers` package now ships a declaration file that matches the actual dts build output.
+
+- Regenerated `packages/smithers/src/index.d.ts` so type consumers get accurate declarations without a local rebuild.
+- Corrected the export ordering on the `@smithers-orchestrator/engine` re-export line that shipped out of date in 0.24.0.
+- All exported symbols are identical to 0.24.0; only the generated file was refreshed.
+
+## Upgrade
+
+```sh
+bunx smithers-orchestrator@0.24.1
+```
+
+No configuration changes required. Drop-in replacement for 0.24.0.
