@@ -36,6 +36,8 @@ const OUTPUT_FILE = resolve(REPO_ROOT, "apps/cli/src/seeded-workflow-pack.genera
  * here yet — they can be migrated incrementally.
  */
 const SEEDED_WORKFLOW_IDS = [
+  // The smallest possible workflow — the first thing a new user runs/edits.
+  "hello",
   "create-workflow",
   // Concierge suite (generated from canonical .smithers sources).
   "context-engineer",
