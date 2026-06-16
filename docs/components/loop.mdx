@@ -8,7 +8,7 @@ import { Loop } from "smithers-orchestrator";
 
 type LoopProps = {
   key?: string;
-  id?: string; // auto-generated from tree position
+  id?: string; // give an explicit id; auto-generated from tree position otherwise
   until?: boolean;
   maxIterations?: number; // default 5
   onMaxReached?: "fail" | "return-last"; // default "return-last"
@@ -43,6 +43,7 @@ export default smithers((ctx) => {
 
 ## Notes
 
+- Give every `<Loop>` an explicit `id`. Without one the loop id is derived from its position in the tree, so a sibling that conditionally mounts or unmounts shifts the path and re-keys the loop, stranding its iteration state and restarting it from 0. An explicit `id` pins identity and makes the loop immune to sibling churn.
 - `ctx.latest(table, nodeId)` reads the highest-iteration output; `until` must use `ctx.outputMaybe()` since output is absent on iter 0.
 - Direct nesting of `<Loop>` in `<Loop>` throws; wrap the inner loop in `<Sequence>`.
 - Custom Drizzle tables for loop tasks require `iteration` in the primary key.

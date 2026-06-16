@@ -2467,6 +2467,45 @@ const codeAgent = new Agent({
 </Task>
 ```
 
+## Dependencies: dependsOn, needs, deps
+
+Three props express upstream dependencies. They compose.
+
+- **`dependsOn: string[]`**: ordering only. The task waits until every listed task id is terminal. No values are passed in.
+- **`needs: Record<string, string>`**: named dependencies. Each value is an upstream task id; each key is the name that value is looked up under.
+- **`deps: Record<string, OutputTarget>`**: typed render-time outputs. The task gates on each dependency and passes the resolved rows to a `children` callback via `{(deps) => ...}`.
+
+The detail that bites people: **a `deps` key is treated as the upstream task's id.** `deps={{ analyze: outputs.analysis }}` depends on a task whose id is `analyze`. If your dep name differs from the upstream id, remap it with `needs`:
+
+```tsx
+// Upstream task id is "parse-summary", but you want to call it `summary` locally.
+<Task id="parse-summary" output={outputs.summary}>{/* ... */}</Task>
+
+<Task id="report" output={outputs.report}
+  needs={{ summary: "parse-summary" }}   // map the key to the real task id
+  deps={{ summary: outputs.summary }}>
+  {(deps) => deps.summary.text}
+</Task>
+```
+
+Without the `needs` remap, `deps={{ summary: ... }}` depends on a node id `summary` that no task produces. The dependency can never resolve, and the run fails with `DEPENDENCY_DEADLOCK` naming the stuck task. (Previously this hung or finished while silently skipping the task.) `needs` alone works too when you don't need the typed `children` callback.
+
+### Across a loop boundary
+
+A task inside a `<Loop>` can depend on a task outside the loop. The upstream is resolved at its own iteration, not the loop's, so `deps`/`needs` reach it from any iteration:
+
+```tsx
+<Task id="config" output={outputs.config}>{/* runs once, outside the loop */}</Task>
+
+<Loop id="work" until={done}>
+  <Task id="step" output={outputs.step}
+    needs={{ config: "config" }}
+    deps={{ config: outputs.config }}>
+    {(deps) => useRegion(deps.config.region)}
+  </Task>
+</Loop>
+```
+
 ## Fork
 
 Every agent task produces a reusable session snapshot. Use `fork` to start a new task from any previous task's context.
@@ -2670,7 +2709,7 @@ import { Loop } from "smithers-orchestrator";
 
 type LoopProps = {
   key?: string;
-  id?: string; // auto-generated from tree position
+  id?: string; // give an explicit id; auto-generated from tree position otherwise
   until?: boolean;
   maxIterations?: number; // default 5
   onMaxReached?: "fail" | "return-last"; // default "return-last"
@@ -2705,6 +2744,7 @@ export default smithers((ctx) => {
 
 ## Notes
 
+- Give every `<Loop>` an explicit `id`. Without one the loop id is derived from its position in the tree, so a sibling that conditionally mounts or unmounts shifts the path and re-keys the loop, stranding its iteration state and restarting it from 0. An explicit `id` pins identity and makes the loop immune to sibling churn.
 - `ctx.latest(table, nodeId)` reads the highest-iteration output; `until` must use `ctx.outputMaybe()` since output is absent on iter 0.
 - Direct nesting of `<Loop>` in `<Loop>` throws; wrap the inner loop in `<Sequence>`.
 - Custom Drizzle tables for loop tasks require `iteration` in the primary key.
@@ -3067,6 +3107,8 @@ export default smithers(() => (
 
 - Renders `<WaitForEvent event={id} output={schema}>` internally.
 - Async waits show in `smithers_external_wait_async_pending{kind="event"}`.
+- Delivering a signal does not resume a suspended run on its own. From the CLI, send the payload with `bunx smithers-orchestrator signal RUN_ID user-feedback --data '{...}'` (the second argument is the signal name, which equals the `<Signal>` id), then resume the run with `bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true`. This is the keeper-loop pattern from the [CLI overview](/cli/overview).
+- Run both commands from the workspace root, the directory that holds `.smithers/`. The CLI resolves the run database (`smithers.db`) from the nearest `.smithers/` anchor walking up from the current directory, so a different working directory points at a different (or missing) database.
 
 ---
 
@@ -3119,6 +3161,7 @@ type WaitForEventProps = {
 - Push-based; for poll-based checks use `<Task>` with a compute function.
 - With `async`, dependents via `dependsOn`/`needs` still block until payload arrives.
 - Async waits are tracked by the `smithers_external_wait_async_pending{kind="event"}` gauge while pending (it rises on start, falls on completion).
+- A run suspended on `<WaitForEvent>` (status `waiting-event`) does not resume itself when the event is delivered out of process. Deliver it, then resume with `bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true`. Run the CLI from the workspace root (the directory holding `.smithers/`) so it resolves the same `smithers.db` the run wrote. See the keeper-loop pattern in the [CLI overview](/cli/overview).
 
 ---
 

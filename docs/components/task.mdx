@@ -66,6 +66,45 @@ const codeAgent = new Agent({
 </Task>
 ```
 
+## Dependencies: dependsOn, needs, deps
+
+Three props express upstream dependencies. They compose.
+
+- **`dependsOn: string[]`**: ordering only. The task waits until every listed task id is terminal. No values are passed in.
+- **`needs: Record<string, string>`**: named dependencies. Each value is an upstream task id; each key is the name that value is looked up under.
+- **`deps: Record<string, OutputTarget>`**: typed render-time outputs. The task gates on each dependency and passes the resolved rows to a `children` callback via `{(deps) => ...}`.
+
+The detail that bites people: **a `deps` key is treated as the upstream task's id.** `deps={{ analyze: outputs.analysis }}` depends on a task whose id is `analyze`. If your dep name differs from the upstream id, remap it with `needs`:
+
+```tsx
+// Upstream task id is "parse-summary", but you want to call it `summary` locally.
+<Task id="parse-summary" output={outputs.summary}>{/* ... */}</Task>
+
+<Task id="report" output={outputs.report}
+  needs={{ summary: "parse-summary" }}   // map the key to the real task id
+  deps={{ summary: outputs.summary }}>
+  {(deps) => deps.summary.text}
+</Task>
+```
+
+Without the `needs` remap, `deps={{ summary: ... }}` depends on a node id `summary` that no task produces. The dependency can never resolve, and the run fails with `DEPENDENCY_DEADLOCK` naming the stuck task. (Previously this hung or finished while silently skipping the task.) `needs` alone works too when you don't need the typed `children` callback.
+
+### Across a loop boundary
+
+A task inside a `<Loop>` can depend on a task outside the loop. The upstream is resolved at its own iteration, not the loop's, so `deps`/`needs` reach it from any iteration:
+
+```tsx
+<Task id="config" output={outputs.config}>{/* runs once, outside the loop */}</Task>
+
+<Loop id="work" until={done}>
+  <Task id="step" output={outputs.step}
+    needs={{ config: "config" }}
+    deps={{ config: outputs.config }}>
+    {(deps) => useRegion(deps.config.region)}
+  </Task>
+</Loop>
+```
+
 ## Fork
 
 Every agent task produces a reusable session snapshot. Use `fork` to start a new task from any previous task's context.
