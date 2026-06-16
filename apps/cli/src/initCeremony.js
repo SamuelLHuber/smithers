@@ -12,13 +12,14 @@ import { initWorkflowPack } from "./workflow-pack.js";
  * Only call this in interactive TTY mode; piped/agent callers should use
  * {@link initWorkflowPack} directly so structured output is preserved.
  *
- * @param {{ force?: boolean; agentsOnly?: boolean; install?: boolean; global?: boolean; env?: NodeJS.ProcessEnv }} opts
+ * @param {{ force?: boolean; agentsOnly?: boolean; install?: boolean; global?: boolean; installSkill?: boolean; env?: NodeJS.ProcessEnv }} opts
  * @returns {import("./workflow-pack.js").InitResult}
  */
 export function runInitCeremony(opts = {}) {
     const env = opts.env ?? process.env;
     const agentsOnly = Boolean(opts.agentsOnly);
     const global = Boolean(opts.global);
+    const installSkill = opts.installSkill !== false;
 
     intro(`${pc.bgCyan(pc.black(" smithers "))} ${pc.dim(global ? "init --global" : "init")}`);
 
@@ -32,6 +33,12 @@ export function runInitCeremony(opts = {}) {
             if (skippedCount > 0) parts.push(`${pc.bold(String(skippedCount))} ${pc.dim("preserved")}`);
             log.message(parts.length > 0 ? parts.join(pc.dim("  ·  ")) : pc.dim("nothing to write (pack already present)"));
             renderAgents(env);
+        },
+        skillInstalled(result) {
+            if (result.installed.length === 0) return;
+            const agents = result.installed.map((entry) => entry.agent).join(", ");
+            log.success(`Installed the ${pc.cyan(result.skill)} skill into ${agents}`);
+            log.message(pc.dim("Your agent can now drive Smithers — no mkdir or curl needed."));
         },
         installStart() {
             log.step("Installing dependencies " + pc.dim("(bun install)"));
@@ -51,6 +58,7 @@ export function runInitCeremony(opts = {}) {
         force: opts.force,
         agentsOnly,
         global,
+        installSkill,
         skipInstall: agentsOnly || opts.install === false,
         reporter,
     });

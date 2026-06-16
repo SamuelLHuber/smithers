@@ -16,6 +16,7 @@ export const initOptions = z.object({
     agentsOnly: z.boolean().default(false).describe("Only create .smithers/agents/ and leave the rest of the workflow pack untouched"),
     install: z.boolean().default(true).describe("Run `bun install` inside .smithers/ after scaffolding (--no-install to skip)"),
     addAgents: z.boolean().default(false).describe("After scaffolding, launch the interactive `agents add` wizard to register one or more accounts."),
+    skill: z.boolean().default(true).describe("Install the curated `smithers` skill into your detected coding agents (Claude Code, Pi). Use --no-skill to skip."),
     global: z.boolean().default(false).describe("Scaffold the global pack in ~/.smithers (honors SMITHERS_HOME) instead of ./.smithers. Global workflows run from any repo; a repo's local pack takes precedence."),
     template: initTemplateOption,
 });
@@ -53,11 +54,11 @@ function buildInitCta(templateResult) {
                 { command: "workflow list", description: "View all available workflows" },
             ]
             : [
-                { command: "init --template <id>", description: "Start from a guided template" },
+                { command: "workflow run hello", description: "Run your first workflow (edit .smithers/prompts/hello.mdx to change it)" },
                 { command: "starters", description: "Browse templates by outcome" },
                 { command: "workflow list", description: "View all available workflows" },
             ],
-        tip: "New here? Point your coding agent at https://smithers.sh/llms-full.txt, then just tell it what you want to build.",
+        tip: "New here? Your coding agent now has the smithers skill — just tell it what you want built (e.g. \"add rate limiting and keep iterating until the tests pass\").",
     };
 }
 
@@ -75,12 +76,14 @@ export async function runInitCommand(c, fail) {
                 agentsOnly: c.options.agentsOnly,
                 install: c.options.install,
                 global: c.options.global,
+                installSkill: c.options.skill,
             })
             : initWorkflowPack({
                 force: c.options.force,
                 agentsOnly: c.options.agentsOnly,
                 skipInstall: c.options.agentsOnly || !c.options.install,
                 global: c.options.global,
+                installSkill: c.options.skill,
             });
         const templateResult = selectedTemplate
             ? buildStarterGallery({ id: selectedTemplate.id }).selected

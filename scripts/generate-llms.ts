@@ -295,6 +295,12 @@ for (const b of builds) {
   mkdirSync(CLI_DOCS_DIR, { recursive: true });
   writeFileSync(resolve(CLI_DOCS_DIR, "llms-full.txt"), fullContent);
   console.log(`\n→ apps/cli/docs/llms-full.txt (packaged CLI copy)`);
+
+  // Bundle the curated `smithers` SKILL.md alongside the docs so `smithers init`
+  // can install the skill from the published tarball (no network, no curl).
+  const skillMd = readFileSync(resolve(SKILL_DIR, "SKILL.md"), "utf8");
+  writeFileSync(resolve(CLI_DOCS_DIR, "SKILL.md"), skillMd);
+  console.log(`\n→ apps/cli/docs/SKILL.md (packaged CLI copy)`);
 }
 
 // -----------------------------------------------------------------------------

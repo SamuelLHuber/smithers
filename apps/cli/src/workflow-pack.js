@@ -5,21 +5,22 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { accountsRoot } from "@smithers-orchestrator/accounts";
 import { generateAgentsTs } from "./agent-detection.js";
+import { installCuratedSkill } from "./installCuratedSkill.js";
 import { WORKFLOW_UI_SOURCES } from "./workflowUiSources.js";
 // Seeded workflows authored as canonical files in .smithers/ and emitted by
 // scripts/generate-workflow-pack.ts (single source of truth — no hand-embedding).
 import { GENERATED_SEEDED_FILES } from "./seeded-workflow-pack.generated.js";
 /**
- * @typedef {{ onSkip?: (relPath: string) => void; scaffolded?: (counts: { writtenCount: number; skippedCount: number; preservedCount: number }) => void; installStart?: () => void; installDone?: (result: InitInstallResult, captured?: { stdout: string; stderr: string }) => void; }} InitReporter
+ * @typedef {{ onSkip?: (relPath: string) => void; scaffolded?: (counts: { writtenCount: number; skippedCount: number; preservedCount: number }) => void; skillInstalled?: (result: import("./installCuratedSkill.js").CuratedSkillResult) => void; installStart?: () => void; installDone?: (result: InitInstallResult, captured?: { stdout: string; stderr: string }) => void; }} InitReporter
  */
 /**
- * @typedef {{ force?: boolean; rootDir?: string; skipInstall?: boolean; agentsOnly?: boolean; global?: boolean; reporter?: InitReporter; }} InitOptions
+ * @typedef {{ force?: boolean; rootDir?: string; skipInstall?: boolean; agentsOnly?: boolean; global?: boolean; installSkill?: boolean; skillOptions?: Parameters<typeof installCuratedSkill>[0]; reporter?: InitReporter; }} InitOptions
  */
 /**
  * @typedef {{ status: "ok" | "skipped" | "failed"; reason?: string; }} InitInstallResult
  */
 /**
- * @typedef {{ rootDir: string; writtenFiles: string[]; skippedFiles: string[]; preservedPaths: string[]; install: InitInstallResult; }} InitResult
+ * @typedef {{ rootDir: string; writtenFiles: string[]; skippedFiles: string[]; preservedPaths: string[]; install: InitInstallResult; skill?: import("./installCuratedSkill.js").CuratedSkillResult; }} InitResult
  */
 /**
  * @typedef {{ command: string; description: string; }} WorkflowCta
@@ -4297,6 +4298,14 @@ export function initWorkflowPack(options = {}) {
         skippedCount: skippedFiles.length,
         preservedCount: preservedPaths.length,
     });
+    // Drop the curated `smithers` skill into each detected coding agent so the
+    // user never hand-runs mkdir + curl. Opt-in (the CLI `init` command sets it):
+    // direct callers and tests default to off so they don't write to ~/.
+    let skill;
+    if (options.installSkill && !options.agentsOnly) {
+        skill = installCuratedSkill(options.skillOptions);
+        options.reporter?.skillInstalled?.(skill);
+    }
     const install = options.agentsOnly
         ? { status: "skipped", reason: "agents-only" }
         : runBunInstall(rootDir, options.skipInstall ?? false, options.reporter);
@@ -4306,6 +4315,7 @@ export function initWorkflowPack(options = {}) {
         skippedFiles,
         preservedPaths,
         install,
+        ...(skill ? { skill } : {}),
     };
 }
 /**

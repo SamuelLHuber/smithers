@@ -79,7 +79,13 @@ function buildFakeInstallTree() {
     cpSync(join(CLI_SRC, "workflow-pack.js"), join(cliDir, "src/workflow-pack.js"));
     cpSync(join(CLI_SRC, "workflowUiSources.js"), join(cliDir, "src/workflowUiSources.js"));
     cpSync(join(CLI_SRC, "agent-detection.js"), join(cliDir, "src/agent-detection.js"));
+    cpSync(join(CLI_SRC, "installCuratedSkill.js"), join(cliDir, "src/installCuratedSkill.js"));
     cpSync(join(CLI_SRC, "seeded-workflow-pack.generated.js"), join(cliDir, "src/seeded-workflow-pack.generated.js"));
+
+    // Packaged curated-skill source (apps/cli/docs) so init can install the
+    // skill straight from the tarball with no network access.
+    writeFile(join(cliDir, "docs/SKILL.md"), "# Smithers skill\n");
+    writeFile(join(cliDir, "docs/llms-full.txt"), "FULL DOCS BUNDLE\n");
 
     // Stub out the errors package so agent-detection.js can import it.
     writeFile(
@@ -164,11 +170,12 @@ test("initWorkflowPack succeeds when run from a published install layout", () =>
             "-e",
             `
             import { initWorkflowPack } from ${JSON.stringify(tree.cliWorkflowPack)};
-            const result = initWorkflowPack({});
+            const result = initWorkflowPack({ installSkill: true });
             process.stdout.write(JSON.stringify({
                 ok: true,
                 writtenCount: result.writtenFiles.length,
                 rootDir: result.rootDir,
+                skillInstalledInto: (result.skill?.installed ?? []).map((entry) => entry.agent),
             }));
             `,
         ],
@@ -198,4 +205,12 @@ test("initWorkflowPack succeeds when run from a published install layout", () =>
     // And installed dep versions should be picked up via createRequire.
     expect(generated.dependencies.zod).toBe("4.99.0");
     expect(generated.devDependencies.typescript).toBe("5.99.0");
+
+    // init also installed the curated skill into the detected agent (Claude Code,
+    // present via the faked ~/.claude credentials) straight from the packaged
+    // docs — no mkdir/curl by the user.
+    expect(summary.skillInstalledInto).toContain("Claude Code");
+    const skillDir = join(tree.home, ".claude", "skills", "smithers");
+    expect(readFileSync(join(skillDir, "SKILL.md"), "utf8")).toBe("# Smithers skill\n");
+    expect(readFileSync(join(skillDir, "llms-full.txt"), "utf8")).toBe("FULL DOCS BUNDLE\n");
 });
