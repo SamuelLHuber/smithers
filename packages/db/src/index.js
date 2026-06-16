@@ -3,9 +3,11 @@
 // @smithers-type-exports-end
 
 export * from "./adapter.js";
+export * from "./dialect.js";
 export * from "./ensure.js";
 export * from "./input-bounds.js";
 export * from "./frame-codec.js";
+export * from "./getSmithersSchemaSignature.js";
 export * from "./input.js";
 export * from "./internal-schema.js";
 export * from "./output.js";

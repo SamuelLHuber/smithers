@@ -12,6 +12,7 @@
 
 import { getTableName } from "drizzle-orm";
 import { getTableColumns } from "drizzle-orm/utils";
+import { createHash } from "node:crypto";
 import { Effect, Exit, FiberId, Metric } from "effect";
 import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { getSqlMessageStorage } from "./sql-message-storage.js";
@@ -51,6 +52,9 @@ import { camelToSnake } from "./utils/camelToSnake.js";
 /**
  * @typedef {{ cacheKey: string; createdAtMs?: number; nodeId: string; outputTable: string }} CacheRowLike
  */
+/**
+ * @typedef {{ path: string; kind: string; content: string; contentHash: string; updatedAtMs: number; deletedAtMs?: number | null }} DocRow
+ */
 
 
 export const DB_ALERT_ID_MAX_LENGTH = 256;
@@ -68,6 +72,7 @@ export const DB_ALERT_ALLOWED_STATUSES = [
     "silenced",
 ];
 const FRAME_XML_CACHE_MAX = 512;
+const DOC_CONFLICT_KIND = "conflict";
 export const DB_RUN_ID_MAX_LENGTH = 256;
 export const DB_RUN_WORKFLOW_NAME_MAX_LENGTH = 256;
 export const DB_RUN_ALLOWED_STATUSES = [
@@ -88,6 +93,71 @@ const ACTIVE_ALERT_STATUSES = new Set([
     "acknowledged",
     "silenced",
 ]);
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function sha256Hex(value) {
+    return createHash("sha256").update(value).digest("hex");
+}
+/**
+ * @param {string} path
+ * @param {number} updatedAtMs
+ * @returns {string}
+ */
+function docConflictPath(path, updatedAtMs) {
+    const key = createHash("sha1").update(path).digest("hex").slice(0, 16);
+    return `conflicts/${key}-${updatedAtMs}.json`;
+}
+/**
+ * Decide whether an incoming doc write diverges from the row already on record.
+ *
+ * The single writer (`syncDocsFromDisk`) re-reads and re-upserts a file on every
+ * watcher settle, so a plain "the content hash changed" rule would mint a marker
+ * on every ordinary sequential save and turn the conflict feature into an
+ * unbounded per-save change-log. A real conflict is a divergent write: the
+ * content differs AND the incoming write does not strictly advance past the row
+ * we already hold (its `updatedAtMs` is the same or older — a stale or
+ * out-of-order writer). A strict forward edit (`row.updatedAtMs >
+ * existing.updatedAtMs`) is the happy path and records no marker.
+ *
+ * @param {DocRow} row
+ * @param {DocRow} existing
+ * @returns {DocRow | null}
+ */
+function buildDocConflictRow(row, existing) {
+    if (row.kind === DOC_CONFLICT_KIND || existing.kind === DOC_CONFLICT_KIND) {
+        return null;
+    }
+    if (row.deletedAtMs != null || existing.deletedAtMs != null) {
+        return null;
+    }
+    if (row.contentHash === existing.contentHash) {
+        return null;
+    }
+    if (row.updatedAtMs > existing.updatedAtMs) {
+        return null;
+    }
+    const updatedAtMs = row.updatedAtMs;
+    const content = JSON.stringify({
+        path: row.path,
+        kind: row.kind,
+        previousHash: existing.contentHash,
+        incomingHash: row.contentHash,
+        previousUpdatedAtMs: existing.updatedAtMs,
+        incomingUpdatedAtMs: row.updatedAtMs,
+        resolution: "last-write-wins",
+        recordedAtMs: updatedAtMs,
+    }, null, 2);
+    return {
+        path: docConflictPath(row.path, updatedAtMs),
+        kind: DOC_CONFLICT_KIND,
+        content,
+        contentHash: sha256Hex(content),
+        updatedAtMs,
+        deletedAtMs: null,
+    };
+}
 /**
  * @param {string} queryString
  * @returns {string}
@@ -2059,6 +2129,25 @@ export class SmithersDb {
            ) sub WHERE rn <= ?)`, [runId, runId, keep]));
     }
     /**
+   * Upsert a DB-backed markdown artifact. When an existing live row has a
+   * different content hash, last-write-wins still applies, but a conflict marker
+   * row is inserted so the UI can surface the mismatch.
+   * @param {DocRow} row
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    upsertDocRow(row) {
+        return this.write(`upsert doc ${row.path}`, async () => {
+            const existing = /** @type {DocRow | undefined} */ (await this.internalStorage.queryOne(`SELECT *
+             FROM _smithers_docs
+             WHERE path = ?`, [row.path]));
+            const conflict = existing ? buildDocConflictRow(row, existing) : null;
+            if (conflict) {
+                await this.internalStorage.upsert("_smithers_docs", conflict, ["path"], ["kind", "content", "contentHash", "updatedAtMs", "deletedAtMs"]);
+            }
+            await this.internalStorage.upsert("_smithers_docs", row, ["path"], ["kind", "content", "contentHash", "updatedAtMs", "deletedAtMs"]);
+        });
+    }
+    /**
    * @param {Record<string, unknown>} row
    * @returns {RunnableEffect<void, SmithersError>}
    */
@@ -2534,15 +2623,34 @@ export class SmithersDb {
    * gateway's `listTickets` RPC and the file-watcher's reconcile read. Columns
    * are snake→camel cased by the storage layer (`content_hash → contentHash`,
    * etc.); newest-updated first so the surface shows recent edits on top.
-   * @param {string | null} [kind]
+   * @param {string | null | { kind?: string; includeDeleted?: boolean; updatedAfterMs?: number; limit?: number }} [arg]
+   *   Either a positional `kind` filter (string) or an options object.
    * @returns {RunnableEffect<Array<Record<string, unknown>>, SmithersError>}
    */
-    listDocs(kind = null) {
-        const k = kind ?? null;
+    listDocs(arg = null) {
+        const options = typeof arg === "string" ? { kind: arg } : (arg ?? {});
+        const clauses = [];
+        const params = [];
+        if (!options.includeDeleted) {
+            clauses.push("deleted_at_ms IS NULL");
+        }
+        if (options.kind) {
+            clauses.push("kind = ?");
+            params.push(options.kind);
+        }
+        if (typeof options.updatedAfterMs === "number" && Number.isFinite(options.updatedAfterMs)) {
+            clauses.push("updated_at_ms > ?");
+            params.push(Math.floor(options.updatedAfterMs));
+        }
+        const whereSql = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+        const limit = Math.max(1, Math.min(10_000, Math.floor(options.limit ?? 4_096)));
+        // Newest-updated first so when the doc set exceeds the cap the LIMIT keeps
+        // the most recent edits (the gateway re-sorts before serving).
         return this.read("list docs", () => this.internalStorage.queryAll(`SELECT path, kind, content, content_hash, status, updated_at_ms, deleted_at_ms
          FROM _smithers_docs
-         WHERE deleted_at_ms IS NULL AND (? IS NULL OR kind = ?)
-         ORDER BY updated_at_ms DESC, path ASC`, [k, k]));
+         ${whereSql}
+         ORDER BY updated_at_ms DESC, path ASC
+         LIMIT ?`, [...params, limit]));
     }
     /**
    * Read a single doc row by path (INCLUDING a tombstone, so the watcher's
@@ -2551,10 +2659,13 @@ export class SmithersDb {
    * @param {string} path
    * @returns {RunnableEffect<Record<string, unknown> | undefined, SmithersError>}
    */
-    getDoc(path) {
+    getDoc(path, options = {}) {
+        // Returns a tombstone by default (the watcher's last-write-wins compares
+        // against soft-deleted rows). Pass `includeDeleted: false` to hide them.
+        const filter = options.includeDeleted === false ? " AND deleted_at_ms IS NULL" : "";
         return this.read(`get doc ${path}`, () => this.internalStorage.queryOne(`SELECT path, kind, content, content_hash, status, updated_at_ms, deleted_at_ms
          FROM _smithers_docs
-         WHERE path = ?`, [path]));
+         WHERE path = ?${filter}`, [path]));
     }
     /**
    * Upsert a doc row (insert-or-replace by `path`). The caller supplies the

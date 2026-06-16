@@ -15,6 +15,21 @@ type SchemaRegistryEntry$1 = {
     zodSchema: zod.ZodObject;
 };
 
+type Dialect = "sqlite" | "postgres";
+declare const SQLITE: "sqlite";
+declare const POSTGRES: "postgres";
+declare function isDialect(value: unknown): value is Dialect;
+declare function quoteIdentifier(identifier: string): string;
+declare function translatePlaceholders(dialect: Dialect, sql: string): string;
+declare function columnType(dialect: Dialect, sqliteType: string): string;
+declare function translateDdl(dialect: Dialect, ddl: string): string;
+declare function tableColumnsSql(dialect: Dialect, table: string): {
+    sql: string;
+    params: ReadonlyArray<string>;
+};
+declare function beginTransactionSql(dialect: Dialect): string;
+declare function jsonExtractText(dialect: Dialect, columnSql: string, jsonPath: string): string;
+
 type SignalQuery$1 = {
     signalName?: string;
     correlationId?: string | null;
@@ -384,6 +399,9 @@ type SqliteParam = string | number | bigint | boolean | Uint8Array | null | unde
  */
 /**
  * @typedef {{ cacheKey: string; createdAtMs?: number; nodeId: string; outputTable: string }} CacheRowLike
+ */
+/**
+ * @typedef {{ path: string; kind: string; content: string; contentHash: string; updatedAtMs: number; deletedAtMs?: number | null }} DocRow
  */
 declare const DB_ALERT_ID_MAX_LENGTH: 256;
 declare const DB_ALERT_POLICY_NAME_MAX_LENGTH: 256;
@@ -891,6 +909,29 @@ declare class SmithersDb {
    */
     listToolCalls(runId: string, nodeId: string, iteration: number): RunnableEffect<Array<Record<string, unknown>>, SmithersError$1>;
     /**
+   * @param {DocRow} row
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    upsertDocRow(row: DocRow): RunnableEffect<void, SmithersError$1>;
+    /**
+   * @param {string} path
+   * @param {{ includeDeleted?: boolean }} [options]
+   * @returns {RunnableEffect<DocRow | undefined, SmithersError>}
+   */
+    getDoc(path: string, options?: {
+        includeDeleted?: boolean;
+    }): RunnableEffect<DocRow | undefined, SmithersError$1>;
+    /**
+   * @param {{ kind?: string; includeDeleted?: boolean; updatedAfterMs?: number; limit?: number }} [options]
+   * @returns {RunnableEffect<DocRow[], SmithersError>}
+   */
+    listDocs(options?: {
+        kind?: string;
+        includeDeleted?: boolean;
+        updatedAfterMs?: number;
+        limit?: number;
+    }): RunnableEffect<DocRow[], SmithersError$1>;
+    /**
    * @param {Record<string, unknown>} row
    * @returns {RunnableEffect<void, SmithersError>}
    */
@@ -1272,6 +1313,14 @@ type CacheRowLike = {
     createdAtMs?: number;
     nodeId: string;
     outputTable: string;
+};
+type DocRow = {
+    path: string;
+    kind: string;
+    content: string;
+    contentHash: string;
+    updatedAtMs: number;
+    deletedAtMs?: number | null;
 };
 
 /** @typedef {import("drizzle-orm/bun-sqlite").BunSQLiteDatabase} _BunSQLiteDatabase */
@@ -4891,6 +4940,7 @@ declare const smithersCron: drizzle_orm_sqlite_core.SQLiteTableWithColumns<{
     };
     dialect: "sqlite";
 }>;
+declare const smithersDocs: any;
 
 /** @typedef {import("drizzle-orm").AnyColumn} AnyColumn */
 /** @typedef {import("./output/OutputKey.ts").OutputKey} _OutputKey */
@@ -5000,6 +5050,12 @@ type BunSQLiteDatabase$1 = drizzle_orm_bun_sqlite.BunSQLiteDatabase;
  */
 declare function schemaSignature(table: _Table$1): string;
 type _Table$1 = drizzle_orm.Table;
+
+declare function getSmithersSchemaSignature(adapterOrStorage: unknown): Promise<{
+    schemaVersion: string;
+    signature: string;
+    components: Record<string, string>;
+}>;
 
 /**
  * @param {BunSQLiteDatabase<Record<string, unknown>>} db
@@ -5218,4 +5274,4 @@ declare function camelToSnake(str: any): any;
 
 type SchemaRegistryEntry = SchemaRegistryEntry$1;
 
-export { type AlertRow, type AlertSeverity, type AlertStatus, type AnyColumn, type ApprovalRow, type AttemptRow, type CacheRow, type CacheRowLike, type CountRow, DB_ALERT_ALLOWED_SEVERITIES, DB_ALERT_ALLOWED_STATUSES, DB_ALERT_ID_MAX_LENGTH, DB_ALERT_MESSAGE_MAX_LENGTH, DB_ALERT_POLICY_NAME_MAX_LENGTH, DB_RUN_ALLOWED_STATUSES, DB_RUN_ID_MAX_LENGTH, DB_RUN_WORKFLOW_NAME_MAX_LENGTH, type EventHistoryQuery, FRAME_KEYFRAME_INTERVAL, type FrameDelta, type FrameDeltaOp, type FrameEncoding, type FrameRow, type HumanRequestRow, type JsonBounds, type JsonPath, type JsonPathSegment, NODE_DIFF_MAX_BYTES, NodeDiffCache, type NodeDiffCacheResult, type NodeDiffCacheRow$1 as NodeDiffCacheRow, NodeDiffTooLargeError, type NodeRow, type OutputKey, type OutputSnapshot, type PendingHumanRequestRow, type RalphRow, type RunAncestryRow, type RunRow, type RunnableEffect, type SchemaRegistryEntry, type SignalQuery, type SignalRow, SmithersDb, type SmithersError$1 as SmithersError, SqlMessageStorage, type SqlMessageStorageEventHistoryQuery, type SqliteParam, type SqliteWriteRetryOptions, type StaleRunRecord, type _BunSQLiteDatabase, type _NodeDiffCacheRow, type _OutputKey, type _SmithersDb, type _SmithersError, applyFrameDelta, applyFrameDeltaJson, assertJsonPayloadWithinBounds, assertMaxBytes, assertMaxJsonDepth, assertMaxStringLength, assertOptionalArrayMaxLength, assertOptionalStringMaxLength, assertPositiveFiniteInteger, assertPositiveFiniteNumber, buildKeyWhere, buildOutputRow, camelToSnake, describeSchemaShape, encodeFrameDelta, ensureSmithersTables, ensureSmithersTablesEffect, ensureSqlMessageStorage, ensureSqlMessageStorageEffect, getAgentOutputSchema, getKeyColumns, getSqlMessageStorage, isRetryableSqliteWriteError, loadInput, loadInputEffect, loadOutputs, loadOutputsEffect, normalizeFrameEncoding, parseFrameDelta, schemaSignature, selectOutputRow, selectOutputRowEffect, serializeFrameDelta, smithersAlerts, smithersApprovals, smithersAttempts, smithersCache, smithersCron, smithersEvents, smithersFrames, smithersHumanRequests, smithersNodeDiffs, smithersNodes, smithersRalph, smithersRuns, smithersSandboxes, smithersSignals, smithersTimeTravelAudit, smithersToolCalls, smithersVectors, stripAutoColumns, syncZodTableSchema, unwrapZodType, upsertOutputRow, upsertOutputRowEffect, validateExistingOutput, validateInput, validateOutput, withSqliteWriteRetry, withSqliteWriteRetryEffect, zodSchemaColumns, zodToCreateTableSQL, zodToTable };
+export { type AlertRow, type AlertSeverity, type AlertStatus, type AnyColumn, type ApprovalRow, type AttemptRow, type CacheRow, type CacheRowLike, type CountRow, DB_ALERT_ALLOWED_SEVERITIES, DB_ALERT_ALLOWED_STATUSES, DB_ALERT_ID_MAX_LENGTH, DB_ALERT_MESSAGE_MAX_LENGTH, DB_ALERT_POLICY_NAME_MAX_LENGTH, DB_RUN_ALLOWED_STATUSES, DB_RUN_ID_MAX_LENGTH, DB_RUN_WORKFLOW_NAME_MAX_LENGTH, type Dialect, type DocRow, type EventHistoryQuery, FRAME_KEYFRAME_INTERVAL, type FrameDelta, type FrameDeltaOp, type FrameEncoding, type FrameRow, type HumanRequestRow, type JsonBounds, type JsonPath, type JsonPathSegment, NODE_DIFF_MAX_BYTES, NodeDiffCache, type NodeDiffCacheResult, type NodeDiffCacheRow$1 as NodeDiffCacheRow, NodeDiffTooLargeError, type NodeRow, type OutputKey, type OutputSnapshot, POSTGRES, type PendingHumanRequestRow, type RalphRow, type RunAncestryRow, type RunRow, type RunnableEffect, SQLITE, type SchemaRegistryEntry, type SignalQuery, type SignalRow, SmithersDb, type SmithersError$1 as SmithersError, SqlMessageStorage, type SqlMessageStorageEventHistoryQuery, type SqliteParam, type SqliteWriteRetryOptions, type StaleRunRecord, type _BunSQLiteDatabase, type _NodeDiffCacheRow, type _OutputKey, type _SmithersDb, type _SmithersError, applyFrameDelta, applyFrameDeltaJson, assertJsonPayloadWithinBounds, assertMaxBytes, assertMaxJsonDepth, assertMaxStringLength, assertOptionalArrayMaxLength, assertOptionalStringMaxLength, assertPositiveFiniteInteger, assertPositiveFiniteNumber, beginTransactionSql, buildKeyWhere, buildOutputRow, camelToSnake, columnType, describeSchemaShape, encodeFrameDelta, ensureSmithersTables, ensureSmithersTablesEffect, ensureSqlMessageStorage, ensureSqlMessageStorageEffect, getAgentOutputSchema, getKeyColumns, getSmithersSchemaSignature, getSqlMessageStorage, isDialect, isRetryableSqliteWriteError, jsonExtractText, loadInput, loadInputEffect, loadOutputs, loadOutputsEffect, normalizeFrameEncoding, parseFrameDelta, quoteIdentifier, schemaSignature, selectOutputRow, selectOutputRowEffect, serializeFrameDelta, smithersAlerts, smithersApprovals, smithersAttempts, smithersCache, smithersCron, smithersDocs, smithersEvents, smithersFrames, smithersHumanRequests, smithersNodeDiffs, smithersNodes, smithersRalph, smithersRuns, smithersSandboxes, smithersSignals, smithersTimeTravelAudit, smithersToolCalls, smithersVectors, stripAutoColumns, syncZodTableSchema, tableColumnsSql, translateDdl, translatePlaceholders, unwrapZodType, upsertOutputRow, upsertOutputRowEffect, validateExistingOutput, validateInput, validateOutput, withSqliteWriteRetry, withSqliteWriteRetryEffect, zodSchemaColumns, zodToCreateTableSQL, zodToTable };

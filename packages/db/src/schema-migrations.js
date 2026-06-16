@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
+import { Effect } from "effect";
 import { POSTGRES, translateDdl } from "./dialect.js";
 import { smithersSchemaMigrations } from "./internal-schema/smithersSchemaMigrations.js";
 
@@ -152,6 +153,21 @@ function tableExists(sqlite, table) {
 }
 
 /**
+ * Extract the target table name from a `CREATE INDEX ... ON <table> (...)`
+ * statement so the "current indexes" migration can skip an index whose table a
+ * later migration has not created yet (e.g. a store upgrading from a ledger that
+ * predates `_smithers_docs`). Returns null when no table can be parsed, in which
+ * case the statement runs unguarded.
+ *
+ * @param {string} statement
+ * @returns {string | null}
+ */
+function indexTargetTable(statement) {
+    const match = /\bON\s+"?([A-Za-z0-9_]+)"?/i.exec(statement);
+    return match ? match[1] : null;
+}
+
+/**
  * @param {import("bun:sqlite").Database} sqlite
  * @param {string} table
  */
@@ -162,6 +178,35 @@ function tableColumnNames(sqlite, table) {
     return new Set(sqlite
         .query(`PRAGMA table_info(${quoteIdentifier(table)})`)
         .all()
+        .map((row) => row.name)
+        .filter((name) => typeof name === "string"));
+}
+
+/**
+ * @param {{ query: (config: { text: string; values?: readonly unknown[] }) => Promise<{ rows?: readonly Record<string, unknown>[] }> }} pgConn
+ * @param {string} table
+ */
+async function tableExistsPostgres(pgConn, table) {
+    const result = await pgConn.query({
+        text: "SELECT 1 AS ok FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = $1 LIMIT 1",
+        values: [table],
+    });
+    return Boolean(result.rows?.[0]);
+}
+
+/**
+ * @param {{ query: (config: { text: string; values?: readonly unknown[] }) => Promise<{ rows?: readonly Record<string, unknown>[] }> }} pgConn
+ * @param {string} table
+ */
+async function tableColumnNamesPostgres(pgConn, table) {
+    if (!(await tableExistsPostgres(pgConn, table))) {
+        return new Set();
+    }
+    const result = await pgConn.query({
+        text: "SELECT column_name AS name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1",
+        values: [table],
+    });
+    return new Set((result.rows ?? [])
         .map((row) => row.name)
         .filter((name) => typeof name === "string"));
 }
@@ -223,6 +268,15 @@ function createTableStatementFor(table, createTableStatements) {
 }
 
 /**
+ * @param {readonly string[]} createTableStatements
+ */
+function currentTableNames(createTableStatements) {
+    return createTableStatements
+        .map((statement) => statement.match(/CREATE TABLE IF NOT EXISTS\s+("?[_a-zA-Z0-9]+"?)\s*\(/i)?.[1]?.replace(/^"|"$/g, ""))
+        .filter((name) => typeof name === "string" && name.length > 0);
+}
+
+/**
  * @param {import("bun:sqlite").Database} sqlite
  * @param {string} table
  * @param {string} column
@@ -234,6 +288,21 @@ function addColumnIfMissing(sqlite, table, column, definition) {
         return false;
     }
     sqlite.run(`ALTER TABLE ${quoteIdentifier(table)} ADD COLUMN ${definition}`);
+    return true;
+}
+
+/**
+ * @param {{ query: (config: { text: string; values?: readonly unknown[] }) => Promise<unknown> }} pgConn
+ * @param {string} table
+ * @param {string} column
+ * @param {string} definition
+ */
+async function addColumnIfMissingPostgres(pgConn, table, column, definition) {
+    const columns = await tableColumnNamesPostgres(pgConn, table);
+    if (columns.has(column)) {
+        return false;
+    }
+    await pgConn.query({ text: `ALTER TABLE ${quoteIdentifier(table)} ADD COLUMN ${translateDdl(POSTGRES, definition)}` });
     return true;
 }
 
@@ -328,6 +397,16 @@ function loadAppliedMigrationIds(sqlite) {
 }
 
 /**
+ * @param {{ query: (config: { text: string; values?: readonly unknown[] }) => Promise<{ rows?: readonly Record<string, unknown>[] }> }} pgConn
+ */
+async function loadAppliedMigrationIdsPostgres(pgConn) {
+    const result = await pgConn.query({ text: "SELECT id FROM _smithers_schema_migrations" });
+    return new Set((result.rows ?? [])
+        .map((row) => row.id)
+        .filter((id) => typeof id === "string"));
+}
+
+/**
  * @param {import("bun:sqlite").Database} sqlite
  * @param {{ id: string; name: string; checksum?: string; destructive?: boolean; }} migration
  * @param {unknown} details
@@ -348,6 +427,28 @@ function recordMigration(sqlite, migration, details) {
 }
 
 /**
+ * @param {{ query: (config: { text: string; values?: readonly unknown[] }) => Promise<unknown> }} pgConn
+ * @param {{ id: string; name: string; checksum?: string; destructive?: boolean; }} migration
+ * @param {unknown} details
+ */
+async function recordMigrationPostgres(pgConn, migration, details) {
+    await pgConn.query({
+        text: `INSERT INTO _smithers_schema_migrations
+          (id, name, applied_at_ms, checksum, destructive, details_json)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (id) DO NOTHING`,
+        values: [
+            migration.id,
+            migration.name,
+            Date.now(),
+            migration.checksum ?? null,
+            migration.destructive ? 1 : 0,
+            details === undefined ? null : JSON.stringify(details),
+        ],
+    });
+}
+
+/**
  * @param {{ id: string; destructive?: boolean; }} migration
  * @param {any} details
  */
@@ -360,6 +461,39 @@ function logDestructiveMigration(migration, details) {
         return;
     }
     console.warn(`[smithers-db] migration ${migration.id} dropped ${droppedCount} orphan run-owned rows`, details.tables);
+}
+
+/**
+ * Run one SQLite schema migration inside an Effect span while preserving the
+ * existing synchronous migration API.
+ *
+ * @param {{
+ *   id: string;
+ *   name: string;
+ *   checksum?: string;
+ *   destructive?: boolean;
+ *   isApplied: (sqlite: import("bun:sqlite").Database) => boolean;
+ *   up: (sqlite: import("bun:sqlite").Database) => unknown;
+ * }} migration
+ * @param {() => unknown} run
+ */
+function runSqliteMigrationSpan(migration, run) {
+    const start = Date.now();
+    return Effect.runSync(Effect.sync(() => {
+        const details = run();
+        const durationMs = Date.now() - start;
+        Effect.runSync(Effect.logDebug("db.schema_migration.applied").pipe(Effect.annotateLogs({
+            dbDialect: "sqlite",
+            migrationId: migration.id,
+            migrationName: migration.name,
+            durationMs,
+        })));
+        return details;
+    }).pipe(Effect.annotateLogs({
+        dbDialect: "sqlite",
+        migrationId: migration.id,
+        migrationName: migration.name,
+    }), Effect.withLogSpan("db:schema-migration")));
 }
 
 /**
@@ -377,10 +511,23 @@ function buildMigrations(context) {
             const columns = tableColumnNames(sqlite, config.table);
             return config.columns.every(([column]) => columns.has(column));
         },
+        isAppliedPostgres: async (pgConn) => {
+            const columns = await tableColumnNamesPostgres(pgConn, config.table);
+            return config.columns.every(([column]) => columns.has(column));
+        },
         up: (sqlite) => {
             const addedColumns = [];
             for (const [column, definition] of config.columns) {
                 if (addColumnIfMissing(sqlite, config.table, column, definition)) {
+                    addedColumns.push(column);
+                }
+            }
+            return { table: config.table, addedColumns };
+        },
+        upPostgres: async (pgConn) => {
+            const addedColumns = [];
+            for (const [column, definition] of config.columns) {
+                if (await addColumnIfMissingPostgres(pgConn, config.table, column, definition)) {
                     addedColumns.push(column);
                 }
             }
@@ -393,9 +540,24 @@ function buildMigrations(context) {
             name: "Create current Smithers tables",
             checksum: checksumForStatements(context.createTableStatements),
             isApplied: () => false,
+            isAppliedPostgres: async (pgConn) => {
+                const names = currentTableNames(context.createTableStatements);
+                for (const name of names) {
+                    if (!(await tableExistsPostgres(pgConn, name))) {
+                        return false;
+                    }
+                }
+                return true;
+            },
             up: (sqlite) => {
                 for (const statement of context.createTableStatements) {
                     sqlite.run(statement);
+                }
+                return { statementCount: context.createTableStatements.length };
+            },
+            upPostgres: async (pgConn) => {
+                for (const statement of context.createTableStatements) {
+                    await pgConn.query({ text: translateDdl(POSTGRES, statement) });
                 }
                 return { statementCount: context.createTableStatements.length };
             },
@@ -406,8 +568,13 @@ function buildMigrations(context) {
             name: "Add node diff cache table",
             checksum: "packages/db/migrations/0011_add_node_diffs.sql",
             isApplied: (sqlite) => tableExists(sqlite, "_smithers_node_diffs"),
+            isAppliedPostgres: (pgConn) => tableExistsPostgres(pgConn, "_smithers_node_diffs"),
             up: (sqlite) => {
                 sqlite.run(createTableStatementFor("_smithers_node_diffs", context.createTableStatements));
+                return { table: "_smithers_node_diffs" };
+            },
+            upPostgres: async (pgConn) => {
+                await pgConn.query({ text: translateDdl(POSTGRES, createTableStatementFor("_smithers_node_diffs", context.createTableStatements)) });
                 return { table: "_smithers_node_diffs" };
             },
         },
@@ -417,6 +584,8 @@ function buildMigrations(context) {
             checksum: "packages/db/migrations/0012_add_time_travel_audit.sql",
             isApplied: (sqlite) => tableExists(sqlite, "_smithers_time_travel_audit") &&
                 tableColumnNames(sqlite, "_smithers_time_travel_audit").has("duration_ms"),
+            isAppliedPostgres: async (pgConn) => (await tableExistsPostgres(pgConn, "_smithers_time_travel_audit")) &&
+                (await tableColumnNamesPostgres(pgConn, "_smithers_time_travel_audit")).has("duration_ms"),
             up: (sqlite) => {
                 if (!tableExists(sqlite, "_smithers_time_travel_audit")) {
                     sqlite.run(createTableStatementFor("_smithers_time_travel_audit", context.createTableStatements));
@@ -425,6 +594,14 @@ function buildMigrations(context) {
                 addColumnIfMissing(sqlite, "_smithers_time_travel_audit", "duration_ms", "duration_ms INTEGER");
                 return { table: "_smithers_time_travel_audit", addedColumns: ["duration_ms"] };
             },
+            upPostgres: async (pgConn) => {
+                if (!(await tableExistsPostgres(pgConn, "_smithers_time_travel_audit"))) {
+                    await pgConn.query({ text: translateDdl(POSTGRES, createTableStatementFor("_smithers_time_travel_audit", context.createTableStatements)) });
+                    return { table: "_smithers_time_travel_audit", created: true };
+                }
+                const added = await addColumnIfMissingPostgres(pgConn, "_smithers_time_travel_audit", "duration_ms", "duration_ms INTEGER");
+                return { table: "_smithers_time_travel_audit", addedColumns: added ? ["duration_ms"] : [] };
+            },
         },
         {
             id: "0013_run_owned_foreign_keys",
@@ -432,6 +609,7 @@ function buildMigrations(context) {
             checksum: checksumForStatements(RUN_OWNED_FOREIGN_KEY_TABLES.map((config) => config.table)),
             destructive: true,
             isApplied: (sqlite) => RUN_OWNED_FOREIGN_KEY_TABLES.every((config) => tableHasRunForeignKey(sqlite, config.table)),
+            isAppliedPostgres: () => true,
             up: (sqlite) => {
                 const tables = RUN_OWNED_FOREIGN_KEY_TABLES.map((config) => rebuildRunOwnedForeignKeyTable(sqlite, config, context.createTableStatements));
                 const violations = sqlite.query("PRAGMA foreign_key_check").all();
@@ -440,17 +618,44 @@ function buildMigrations(context) {
                 }
                 return { tables };
             },
+            upPostgres: async () => ({ skipped: "sqlite_only" }),
         },
         {
             id: "0014_current_indexes",
             name: "Create current Smithers indexes",
             checksum: checksumForStatements([...context.createIndexStatements, ...EXTRA_INDEX_STATEMENTS]),
             isApplied: () => false,
+            isAppliedPostgres: () => false,
             up: (sqlite) => {
+                let applied = 0;
+                let skipped = 0;
                 for (const statement of [...context.createIndexStatements, ...EXTRA_INDEX_STATEMENTS]) {
+                    const target = indexTargetTable(statement);
+                    // Skip indexes whose table a later migration creates; running
+                    // them here would throw "no such table" on a store whose
+                    // ledger predates that table (e.g. `_smithers_docs`).
+                    if (target && !tableExists(sqlite, target)) {
+                        skipped += 1;
+                        continue;
+                    }
                     sqlite.run(statement);
+                    applied += 1;
                 }
-                return { statementCount: context.createIndexStatements.length + EXTRA_INDEX_STATEMENTS.length };
+                return { statementCount: applied, skipped };
+            },
+            upPostgres: async (pgConn) => {
+                let applied = 0;
+                let skipped = 0;
+                for (const statement of [...context.createIndexStatements, ...EXTRA_INDEX_STATEMENTS]) {
+                    const target = indexTargetTable(statement);
+                    if (target && !(await tableExistsPostgres(pgConn, target))) {
+                        skipped += 1;
+                        continue;
+                    }
+                    await pgConn.query({ text: translateDdl(POSTGRES, statement) });
+                    applied += 1;
+                }
+                return { statementCount: applied, skipped };
             },
         },
         {
@@ -458,8 +663,13 @@ function buildMigrations(context) {
             name: "Add workspace snapshot states table",
             checksum: "packages/db/migrations/0015_add_workspace_states.sql",
             isApplied: (sqlite) => tableExists(sqlite, "_smithers_workspace_states"),
+            isAppliedPostgres: (pgConn) => tableExistsPostgres(pgConn, "_smithers_workspace_states"),
             up: (sqlite) => {
                 sqlite.run(createTableStatementFor("_smithers_workspace_states", context.createTableStatements));
+                return { table: "_smithers_workspace_states" };
+            },
+            upPostgres: async (pgConn) => {
+                await pgConn.query({ text: translateDdl(POSTGRES, createTableStatementFor("_smithers_workspace_states", context.createTableStatements)) });
                 return { table: "_smithers_workspace_states" };
             },
         },
@@ -468,8 +678,13 @@ function buildMigrations(context) {
             name: "Add workspace snapshot checkpoints table",
             checksum: "packages/db/migrations/0016_add_workspace_checkpoints.sql",
             isApplied: (sqlite) => tableExists(sqlite, "_smithers_workspace_checkpoints"),
+            isAppliedPostgres: (pgConn) => tableExistsPostgres(pgConn, "_smithers_workspace_checkpoints"),
             up: (sqlite) => {
                 sqlite.run(createTableStatementFor("_smithers_workspace_checkpoints", context.createTableStatements));
+                return { table: "_smithers_workspace_checkpoints" };
+            },
+            upPostgres: async (pgConn) => {
+                await pgConn.query({ text: translateDdl(POSTGRES, createTableStatementFor("_smithers_workspace_checkpoints", context.createTableStatements)) });
                 return { table: "_smithers_workspace_checkpoints" };
             },
         },
@@ -497,10 +712,17 @@ function buildMigrations(context) {
             name: "Add docs (tickets/plans/specs/proposals) table",
             checksum: "packages/db/migrations/0018_add_docs.sql",
             isApplied: (sqlite) => tableExists(sqlite, "_smithers_docs"),
+            isAppliedPostgres: (pgConn) => tableExistsPostgres(pgConn, "_smithers_docs"),
             up: (sqlite) => {
                 sqlite.run(createTableStatementFor("_smithers_docs", context.createTableStatements));
                 sqlite.run(`CREATE INDEX IF NOT EXISTS _smithers_docs_kind_live_idx
     ON _smithers_docs (kind, deleted_at_ms, updated_at_ms)`);
+                return { table: "_smithers_docs" };
+            },
+            upPostgres: async (pgConn) => {
+                await pgConn.query({ text: translateDdl(POSTGRES, createTableStatementFor("_smithers_docs", context.createTableStatements)) });
+                await pgConn.query({ text: translateDdl(POSTGRES, `CREATE INDEX IF NOT EXISTS _smithers_docs_kind_live_idx
+    ON _smithers_docs (kind, deleted_at_ms, updated_at_ms)`) });
                 return { table: "_smithers_docs" };
             },
         },
@@ -522,12 +744,99 @@ export function runSmithersSchemaMigrations(sqlite, context) {
         if (applied.has(migration.id) || hasMigrationRecord(sqlite, migration.id)) {
             continue;
         }
-        const alreadyApplied = migration.isApplied(sqlite);
-        const details = alreadyApplied
-            ? { skipped: "schema_already_matches" }
-            : migration.up(sqlite);
+        const details = runSqliteMigrationSpan(migration, () => {
+            const alreadyApplied = migration.isApplied(sqlite);
+            return alreadyApplied
+                ? { skipped: "schema_already_matches" }
+                : migration.up(sqlite);
+        });
         logDestructiveMigration(migration, details);
         recordMigration(sqlite, migration, details);
+        applied.add(migration.id);
+    }
+}
+
+/**
+ * Run one Postgres schema migration inside an Effect span so OTLP-backed
+ * runtimes can attribute long DDL steps and log-only runtimes still get a
+ * structured event.
+ *
+ * @param {{
+ *   id: string;
+ *   name: string;
+ *   checksum?: string;
+ *   destructive?: boolean;
+ *   isAppliedPostgres?: (pgConn: any) => Promise<boolean> | boolean;
+ *   upPostgres?: (pgConn: any) => Promise<unknown>;
+ * }} migration
+ * @param {() => Promise<unknown>} run
+ */
+async function runPostgresMigrationSpan(migration, run) {
+    const start = Date.now();
+    return Effect.runPromise(Effect.tryPromise({
+        try: async () => {
+            const details = await run();
+            const durationMs = Date.now() - start;
+            await Effect.runPromise(Effect.logDebug("db.schema_migration.applied").pipe(Effect.annotateLogs({
+                dbDialect: "postgres",
+                migrationId: migration.id,
+                migrationName: migration.name,
+                durationMs,
+            })));
+            return details;
+        },
+        catch: (cause) => cause,
+    }).pipe(Effect.annotateLogs({
+        dbDialect: "postgres",
+        migrationId: migration.id,
+        migrationName: migration.name,
+    }), Effect.withLogSpan("db:schema-migration")));
+}
+
+/**
+ * Versioned PostgreSQL schema migration runner. It shares the SQLite migration
+ * ledger ids so the current server schema head is available on both dialects.
+ * A fresh Postgres database applies the current DDL in 0001 and records the
+ * historical SQLite-only/additive steps as already satisfied.
+ *
+ * @param {{ query: (config: { text: string; values?: readonly unknown[] }) => Promise<{ rows?: readonly Record<string, unknown>[] } | unknown> }} pgConn
+ * @param {{
+ *   createTableStatements: readonly string[];
+ *   createIndexStatements: readonly string[];
+ * }} context
+ * @returns {Promise<void>}
+ */
+export async function runSmithersSchemaMigrationsPostgres(pgConn, context) {
+    await pgConn.query({ text: translateDdl(POSTGRES, MIGRATION_TABLE_SQL) });
+    const applied = await loadAppliedMigrationIdsPostgres(pgConn);
+    for (const migration of buildMigrations(context)) {
+        if (applied.has(migration.id)) {
+            continue;
+        }
+        const details = await runPostgresMigrationSpan(migration, async () => {
+            await pgConn.query({ text: "BEGIN" });
+            try {
+                const alreadyApplied = migration.isAppliedPostgres
+                    ? await migration.isAppliedPostgres(pgConn)
+                    : false;
+                const nextDetails = alreadyApplied
+                    ? { skipped: "schema_already_matches" }
+                    : await migration.upPostgres?.(pgConn);
+                await recordMigrationPostgres(pgConn, migration, nextDetails);
+                await pgConn.query({ text: "COMMIT" });
+                return nextDetails;
+            }
+            catch (error) {
+                try {
+                    await pgConn.query({ text: "ROLLBACK" });
+                }
+                catch {
+                    // Preserve the original migration failure.
+                }
+                throw error;
+            }
+        });
+        logDestructiveMigration(migration, details);
         applied.add(migration.id);
     }
 }
@@ -548,13 +857,5 @@ export function runSmithersSchemaMigrations(sqlite, context) {
  * @returns {Promise<void>}
  */
 export async function runSmithersSchemaInitPostgres(pgConn, context) {
-    const statements = [
-        MIGRATION_TABLE_SQL,
-        ...context.createTableStatements,
-        ...context.createIndexStatements,
-        ...EXTRA_INDEX_STATEMENTS,
-    ];
-    for (const statement of statements) {
-        await pgConn.query({ text: translateDdl(POSTGRES, statement) });
-    }
+    await runSmithersSchemaMigrationsPostgres(pgConn, context);
 }
