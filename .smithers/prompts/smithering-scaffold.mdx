@@ -39,6 +39,13 @@ Hard contract for the generated workflow:
   max-iteration ticket is an isolated blocker: it may block only tickets that transitively
   depend on it; unrelated same-wave siblings that are done and whose deps are landed must
   still land.
+- Tickets whose instructions explicitly require a specific external credential that is absent
+  from `process.env` MUST resolve to a clean `needs-credential:<KEY>` block: do not run
+  implement/verify, do not crash/retry, block only transitive dependents, and list the exact
+  env var(s) in the final report.
+- Transient session/infra errors (`SESSION_ERROR`, stream disconnects, rate limits, OOMs,
+  timeouts) must never fail the whole run; retry them as infra and, if exhausted, block only
+  that node/ticket so unrelated verified tickets can still land.
 - Imports tickets from artifacts/smithering/tickets.json at module load; task ids derive
   from ticket ids (stable across resume, never indexes/timestamps).
 - Input schema includes a boolean "smoke" (default false): smoke=true processes ONLY the
