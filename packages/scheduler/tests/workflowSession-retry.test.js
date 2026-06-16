@@ -91,6 +91,47 @@ describe("makeWorkflowSession retry classification", () => {
       },
     });
   });
+
+  test("exhausted SESSION_ERROR on an agent task does not fail unrelated parallel work", () => {
+    const session = makeWorkflowSession({ nowMs: () => 1_000 });
+    const flaky = makeAgentDescriptor({
+      nodeId: "flaky",
+      retries: 0,
+      retryPolicy: undefined,
+      parallelGroupId: "group",
+      parallelMaxConcurrency: 1,
+    });
+    const sibling = makeAgentDescriptor({
+      nodeId: "sibling",
+      retries: 0,
+      retryPolicy: undefined,
+      parallelGroupId: "group",
+      parallelMaxConcurrency: 1,
+    });
+    const graph = {
+      xml: el("smithers:workflow", {}, [
+        el("smithers:parallel", {}, [
+          el("smithers:task", { id: "flaky" }),
+          el("smithers:task", { id: "sibling" }),
+        ]),
+      ]),
+      tasks: [flaky, sibling],
+      mountedTaskIds: new Set(["flaky::0", "sibling::0"]),
+    };
+
+    const initial = Effect.runSync(session.submitGraph(graph));
+    expect(initial._tag).toBe("Execute");
+    expect(initial.tasks.map((task) => task.nodeId)).toEqual(["flaky"]);
+
+    const afterFailure = Effect.runSync(session.taskFailed({
+      nodeId: "flaky",
+      iteration: 0,
+      error: { code: "SESSION_ERROR", message: "stream disconnected" },
+    }));
+
+    expect(afterFailure._tag).toBe("Execute");
+    expect(afterFailure.tasks.map((task) => task.nodeId)).toEqual(["sibling"]);
+  });
 });
 
 describe("makeWorkflowSession failure control flow", () => {
@@ -333,5 +374,47 @@ describe("makeWorkflowSession failure control flow", () => {
       error: { message: "unhandled" },
     }));
     expect(afterUnrelatedFailure._tag).toBe("Failed");
+  });
+
+  test("failed continueOnFail task remains non-fatal after it unmounts on rerender", () => {
+    const session = makeWorkflowSession({ nowMs: () => 1_000 });
+    const flaky = makeAgentDescriptor({
+      nodeId: "flaky",
+      continueOnFail: true,
+      retries: 0,
+      retryPolicy: undefined,
+    });
+    const firstGraph = {
+      xml: el("smithers:workflow", {}, [
+        el("smithers:task", { id: "flaky" }),
+      ]),
+      tasks: [flaky],
+      mountedTaskIds: new Set(["flaky::0"]),
+    };
+    const secondGraph = {
+      xml: el("smithers:workflow", {}, [
+        el("smithers:task", { id: "after-rerender" }),
+      ]),
+      tasks: [
+        makeAgentDescriptor({
+          nodeId: "after-rerender",
+          retries: 0,
+          retryPolicy: undefined,
+        }),
+      ],
+      mountedTaskIds: new Set(["after-rerender::0"]),
+    };
+
+    expect(Effect.runSync(session.submitGraph(firstGraph))._tag).toBe("Execute");
+    const afterFailure = Effect.runSync(session.taskFailed({
+      nodeId: "flaky",
+      iteration: 0,
+      error: { code: "SESSION_ERROR", message: "stream disconnected" },
+    }));
+    expect(afterFailure._tag).toBe("Finished");
+
+    const afterRerender = Effect.runSync(session.submitGraph(secondGraph));
+    expect(afterRerender._tag).toBe("Execute");
+    expect(afterRerender.tasks.map((task) => task.nodeId)).toEqual(["after-rerender"]);
   });
 });
