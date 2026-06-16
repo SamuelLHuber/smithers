@@ -43,20 +43,24 @@ Smithers is the durable runtime for *coding-agent* work: when the unit of work i
 editing a real repository over many steps, and you need that work to be inspectable,
 approvable, and recoverable.
 
-## Prompt your agent
+## Get started
 
 Smithers is driven by your coding agent, **not** a GUI you click. Your agent runs Smithers
 on your behalf: it scaffolds workflows, kicks off runs, watches them, and handles
 approvals.
 
-The fastest way to make your agent fluent is two fan-out commands. They install the
-Smithers skill and register the MCP server into **every coding agent on your machine**
-(Claude Code, Codex, Cursor, Copilot, Pi, Hermes, OpenClaw, and ~20 more):
+One command sets everything up. From inside your project:
 
 ```bash
-bunx smithers-orchestrator skills add   # install the skill set into every detected agent
-bunx smithers-orchestrator mcp add      # register Smithers as an MCP server everywhere
+bunx smithers-orchestrator init
 ```
+
+`init` does everything:
+
+- **Installs the `smithers` skill** into the coding agents on your machine (Claude Code,
+  Pi, and more), so your agent knows how and when to use Smithers. No `mkdir`, no `curl`.
+- **Scaffolds `.smithers/`** with ready-made workflows (`hello`, `implement`, `plan`,
+  `review`, `debug`, and more) your agent can pick from.
 
 Then just ask:
 
@@ -65,36 +69,24 @@ Then just ask:
 Your agent picks the right workflow, starts the run, and keeps going through retries and
 review loops until the work is actually done.
 
-See [Agent Support](https://smithers.sh/agents/overview) for the per-agent setup (skill,
-MCP, instructions) for Claude Code, Codex, Cursor, Copilot, Pi, Hermes, and OpenClaw.
+To wire the MCP server into every detected agent too, run `bunx smithers-orchestrator mcp
+add`. See [Agent Support](https://smithers.sh/agents/overview) for the full per-agent
+matrix, and [`skills/smithers/`](./skills/smithers) for the onboarding skill itself.
 
-**Wire one agent by hand?** If you'd rather drop the curated onboarding skill into a single
-agent directly:
+## Drive it yourself
 
-```bash
-mkdir -p ~/.claude/skills/smithers
-curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
-  -o ~/.claude/skills/smithers/SKILL.md
-curl -fsSL https://smithers.sh/llms-full.txt \
-  -o ~/.claude/skills/smithers/llms-full.txt
-```
-
-See [`skills/smithers/`](./skills/smithers) for the onboarding skill.
-
-## Quick start
-
-Prefer to drive it yourself from the CLI? Start here.
+Prefer the CLI? The seeded `hello` workflow is the smallest possible run, and its entire
+prompt is an editable Markdown file at `.smithers/prompts/hello.mdx`:
 
 ```bash
-# scaffold the workflow pack into .smithers/
-bunx smithers-orchestrator init
+# run your first workflow (edit .smithers/prompts/hello.mdx to change it)
+bunx smithers-orchestrator workflow run hello
 
 # turn a request into a practical implementation plan
 bunx smithers-orchestrator workflow run plan --prompt "add rate limiting, audit logging, and API key rotation"
 ```
 
-`init` scaffolds a `.smithers/` folder preloaded with production-ready workflows. Once
-that's in place, you can chain a request from tickets to implementation:
+You can chain a request from tickets to implementation:
 
 ```bash
 # break a request into ticket files under .smithers/tickets/
@@ -173,8 +165,8 @@ to the workflow:
 | Kubernetes | your own cluster |
 | [Freestyle](https://freestyle.sh) · [Daytona](https://daytona.io) · [Cloudflare](https://workers.cloudflare.com) | managed remote sandboxes |
 
-To drive Smithers itself, the [`skills add` / `mcp add`](#prompt-your-agent) commands also
-wire Cursor, Copilot, Hermes, OpenClaw, and ~20 more coding agents.
+Beyond [`init`](#get-started), `bunx smithers-orchestrator mcp add` also wires the MCP
+server into Cursor, Copilot, Hermes, OpenClaw, and ~20 more coding agents.
 
 ## Built-in workflows
 
