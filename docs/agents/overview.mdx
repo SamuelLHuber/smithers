@@ -55,6 +55,22 @@ registers `bunx smithers-orchestrator --mcp` in each agent's MCP config. Overrid
 the launch command with `--command` if Smithers is a project dependency.
 </Note>
 
+<Warning>
+If `mcp add` exits with `MCP_ADD_FAILED` and `unknown option '--mcp'`, the
+underlying registration helper word-split the launch command and parsed `--mcp`
+as one of its own flags. Register with the agent's own CLI instead, with a `--`
+separator so the agent passes `--mcp` through to Smithers untouched:
+
+```bash
+codex mcp add smithers -- bunx smithers-orchestrator --mcp
+claude mcp add smithers -- bunx smithers-orchestrator --mcp
+```
+
+The CLI prints these commands for you when `mcp add` fails. See
+[MCP Server → If `mcp add` fails](/integrations/mcp-server#if-mcp-add-fails) for
+the hand-written config.
+</Warning>
+
 ## The onboarding skill
 
 The two commands above expose the CLI. The curated **`smithers` onboarding skill**
