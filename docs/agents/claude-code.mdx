@@ -113,4 +113,21 @@ import { ClaudeCodeAgent } from "smithers-orchestrator";
 const claude = new ClaudeCodeAgent({ model: "claude-fable-5" });
 ```
 
-See [CLI Agents → Claude Code](/integrations/cli-agents).
+By default this bills your Claude Pro/Max subscription: `ClaudeCodeAgent` clears
+`ANTHROPIC_API_KEY` from the spawned process so the CLI uses subscription auth,
+no API key required. To run multiple subscriptions side by side, set one up with
+`CLAUDE_CONFIG_DIR=<dir> claude` plus `/login`, then pass `configDir: "<dir>"`.
+Passing `apiKey` switches that invocation to Anthropic API billing.
+
+You can also call it once for a typed completion with no graph:
+
+```ts
+const { output } = await claude.generate({
+  prompt: 'Reply with JSON: {"ok": true}',
+  outputSchema: z.object({ ok: z.boolean() }),
+  timeout: { totalMs: 60_000, idleMs: 30_000 },
+});
+```
+
+See [CLI Agents → Claude Code](/integrations/cli-agents#claude-code-cli-agent)
+and [Subscription-mode structured completion](/integrations/cli-agents#subscription-mode-structured-completion).
