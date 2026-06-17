@@ -940,4 +940,20 @@ These recurred across many areas; fix the policy, not the symptom:
 7. **Move `observability` to `packages/`** — it's published as `./observability`, consumed by 14 published packages, but lives under `apps/` and forms a publish cycle with `agents`.
 8. **Refresh `examples/`** — 93 of 97 use a deprecated model ID (274 occurrences) and one references a nonexistent `claude-sonnet-4-7`; neither "examples smoke test" actually exercises the tree.
 
+---
+
+## Filed issues
+
+All 423 findings are tracked as 9 themed checklist epics in `smithersai/smithers`:
+
+- [#299](https://github.com/smithersai/smithers/issues/299) — 🔴 P0 critical blockers (4)
+- [#300](https://github.com/smithersai/smithers/issues/300) — 🏛️ CI enforcement, architecture & systemic policy (34)
+- [#301](https://github.com/smithersai/smithers/issues/301) — 🧹 Dead code cleanup (66)
+- [#302](https://github.com/smithersai/smithers/issues/302) — 🧩 Stubbed & missing features (17)
+- [#303](https://github.com/smithersai/smithers/issues/303) — 🐛 Bug fixes (50)
+- [#304](https://github.com/smithersai/smithers/issues/304) — 📝 Documentation & skills accuracy (47)
+- [#305](https://github.com/smithersai/smithers/issues/305) — ✅ Test coverage gaps — core library packages (67)
+- [#306](https://github.com/smithersai/smithers/issues/306) — ✅ Test coverage gaps — apps, gateway, UI, e2e, examples (90)
+- [#307](https://github.com/smithersai/smithers/issues/307) — ♻️ Code cleanup & refactors (48)
+
 *This document is generated from `audit/raw-findings-full.json` via `audit/generate-report.mjs`.*
