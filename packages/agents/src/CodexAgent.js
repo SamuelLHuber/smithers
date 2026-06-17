@@ -59,6 +59,15 @@ export class CodexAgent extends BaseCliAgent {
         super(opts);
         this.opts = opts;
         this.capabilities = createCodexCapabilityRegistry(opts);
+        // Native structured output (`codex exec --output-schema`) constrains the
+        // model to emit only final JSON and makes it refuse tool calls ("tool calls
+        // are constrained by a JSON response schema"), which breaks any agentic task
+        // (read/edit/run). It is therefore OPT-IN: by default Codex is treated like
+        // the other CLI engines (supportsNativeStructuredOutput=false), so the engine
+        // prompt-injects the schema and extracts JSON from the agent's final text,
+        // leaving tool use intact. Set nativeStructuredOutput:true for pure, tool-free
+        // extraction tasks that want strict schema enforcement.
+        this.supportsNativeStructuredOutput = opts.nativeStructuredOutput === true;
     }
     /**
    * @returns {CliOutputInterpreter}
@@ -548,10 +557,12 @@ export class CodexAgent extends BaseCliAgent {
         // turn.completed with token usage for metrics. extractUsageFromOutput
         // in BaseCliAgent will parse these automatically.
         args.push("--json");
-        // Auto-wire output schema from task context if not explicitly set.
+        // Auto-wire output schema from task context if not explicitly set — only when
+        // native structured output is opted in. Otherwise the engine handles the schema
+        // via prompt-injection and Codex keeps full tool access (see constructor note).
         // Skip when resuming — `codex exec resume` does not accept --output-schema.
         let schemaCleanupFile = null;
-        if (!resumeSession && !this.opts.outputSchema && params.options?.outputSchema) {
+        if (!resumeSession && this.opts.nativeStructuredOutput === true && !this.opts.outputSchema && params.options?.outputSchema) {
             const schema = params.options.outputSchema;
             const { z } = await import("zod");
             let jsonSchema = z.toJSONSchema(schema);

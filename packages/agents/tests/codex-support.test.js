@@ -21,8 +21,8 @@ afterEach(() => {
     delete process.env.CODEX_ARGS_FILE;
 });
 describe("Codex CLI agent", () => {
-    test("sanitizes z.looseObject outputSchema for Codex structured output", async () => {
-        const agent = new CodexAgent();
+    test("sanitizes z.looseObject outputSchema for Codex structured output when opted in", async () => {
+        const agent = new CodexAgent({ nativeStructuredOutput: true });
         const command = await agent.buildCommand({
             prompt: "extract the document",
             cwd: process.cwd(),
@@ -36,6 +36,26 @@ describe("Codex CLI agent", () => {
             expect(schema.type).toBe("object");
             expect(schema.additionalProperties).toBe(false);
             expect(schema.additionalProperties).not.toEqual({});
+        }
+        finally {
+            await command.cleanup?.();
+        }
+    });
+    test("does NOT pass --output-schema for a task schema by default (keeps tool use)", async () => {
+        // Native structured output (`--output-schema`) makes Codex refuse tool calls,
+        // breaking agentic fix/implement tasks. By default a task-provided schema must
+        // NOT reach the CLI — the engine prompt-injects it and Codex stays agentic.
+        const agent = new CodexAgent();
+        const command = await agent.buildCommand({
+            prompt: "fix the bug in the repo",
+            cwd: process.cwd(),
+            options: {
+                outputSchema: z.looseObject({ status: z.string() }),
+            },
+        });
+        try {
+            expect(command.args).not.toContain("--output-schema");
+            expect(agent.supportsNativeStructuredOutput).toBe(false);
         }
         finally {
             await command.cleanup?.();

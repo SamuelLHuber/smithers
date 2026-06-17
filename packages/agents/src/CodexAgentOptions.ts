@@ -17,6 +17,17 @@ export type CodexAgentOptions = BaseCliAgentOptions & {
   skipGitRepoCheck?: boolean;
   addDir?: string[];
   outputSchema?: string;
+  /**
+   * Opt in to Codex's native structured output (`codex exec --output-schema`).
+   *
+   * Defaults to `false`. Native structured output makes the model emit only the
+   * final JSON and refuse tool calls, so it BREAKS agentic tasks (read/edit/run) —
+   * Codex returns `blocked` with no changes. Left off, Smithers treats Codex like
+   * the other CLI engines: it prompt-injects the schema and extracts JSON from the
+   * agent's final message, so tool use stays intact. Enable only for pure, tool-free
+   * extraction tasks that need strict schema enforcement.
+   */
+  nativeStructuredOutput?: boolean;
   color?: "always" | "never" | "auto";
   json?: boolean;
   outputLastMessage?: string;
