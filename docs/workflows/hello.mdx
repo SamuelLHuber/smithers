@@ -1,12 +1,12 @@
 ---
 title: hello
-description: The smallest possible workflow — one agent task that runs a Markdown prompt.
+description: The smallest possible workflow, one agent task that runs a Markdown prompt.
 ---
 
 `hello` is the starter workflow: a single agent `<Task>` that runs the prompt in
 `.smithers/prompts/hello.mdx` and greets whoever you name. It is the smallest
 complete workflow in the init pack and the recommended starting point for
-authoring your own — edit the prompt (plain Markdown) to change what it does.
+authoring your own. Edit the prompt (plain Markdown) to change what it does.
 
 ```bash
 bunx smithers-orchestrator workflow run hello --name Ada
@@ -34,7 +34,7 @@ haiku instead of a greeting) and re-running.
 
 ## Output Shape
 
-`hello` returns the single task's text output — the generated greeting. The run
+`hello` returns the single task's text output (the generated greeting). The run
 log records the agent invocation and its result.
 
 ## Use it when
