@@ -193,6 +193,7 @@ describe("ControlPlaneStore", () => {
   test("stores secret manager references without storing secret values", () => {
     const { sqlite, store } = makeStore();
     try {
+      const plaintextSecret = "super-secret-value";
       store.createOrg({ orgId: "org_secure", slug: "secure", name: "Secure", createdAtMs: 1 });
       store.createProject({ orgId: "org_secure", projectId: "project_api", slug: "api", name: "API", createdAtMs: 2 });
       const ref = store.putSecretRef({
@@ -201,6 +202,7 @@ describe("ControlPlaneStore", () => {
         name: "deploy-token",
         provider: "aws-secrets-manager",
         ref: "arn:aws:secretsmanager:us-east-1:123:secret:deploy",
+        value: plaintextSecret,
         createdBy: "user_ops",
         createdAtMs: 3,
       });
@@ -210,6 +212,7 @@ describe("ControlPlaneStore", () => {
         name: "deploy-token",
         provider: "aws-secrets-manager",
         ref: "arn:aws:secretsmanager:us-east-1:123:secret:deploy-v2",
+        secretValue: plaintextSecret,
         createdBy: "user_ops",
         createdAtMs: 4,
       });
@@ -221,7 +224,14 @@ describe("ControlPlaneStore", () => {
       });
       const rawRows = sqlite.query("SELECT * FROM _smithers_cp_secret_refs").all();
       expect(rawRows).toHaveLength(1);
-      expect(JSON.stringify(rawRows)).not.toContain("super-secret-value");
+      const storedRows = sqlite
+        .query("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name LIKE '_smithers_cp_%' ORDER BY name")
+        .all()
+        .map((table) => ({
+          ...table,
+          rows: sqlite.query(`SELECT * FROM ${table.name}`).all(),
+        }));
+      expect(JSON.stringify(storedRows)).not.toContain(plaintextSecret);
       expect(store.listSecretRefs({ orgId: "org_secure", projectId: "project_api" })).toEqual([rotated]);
     }
     finally {
@@ -457,6 +467,62 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
     }
   });
 
+  test("usage limit periods are validated and define default quota windows", () => {
+    const { sqlite, store } = makeStore();
+    try {
+      store.createOrg({ orgId: "org_periods", slug: "periods", name: "Periods", createdAtMs: 1 });
+      expect(() =>
+        store.setUsageLimit({ orgId: "org_periods", metric: "runs", period: "forever", limitQuantity: 10, updatedAtMs: 2 }),
+      ).toThrow("period must be one of");
+
+      store.setUsageLimit({ orgId: "org_periods", metric: "runs", period: "monthly", limitQuantity: 10, updatedAtMs: 3 });
+      store.recordUsage({ orgId: "org_periods", metric: "runs", quantity: 8, observedAtMs: 1_000 });
+      store.recordUsage({ orgId: "org_periods", metric: "runs", quantity: 3, observedAtMs: 2_678_400_000 });
+
+      expect(store.checkUsageLimit({ orgId: "org_periods", metric: "runs", period: "monthly", untilMs: 2_678_400_000 })).toMatchObject({
+        usedQuantity: 3,
+        remainingQuantity: 7,
+        exceeded: false,
+      });
+      expect(() =>
+        store.checkUsageLimit({ orgId: "org_periods", metric: "runs", period: "forever" }),
+      ).toThrow("period must be one of");
+    }
+    finally {
+      sqlite.close();
+    }
+  });
+
+  test("usage and audit events reject missing projects with typed errors", () => {
+    const { sqlite, store } = makeStore();
+    try {
+      store.createOrg({ orgId: "org_missing_project", slug: "missing-project", name: "Missing Project", createdAtMs: 1 });
+
+      expect(() =>
+        store.recordUsage({
+          orgId: "org_missing_project",
+          projectId: "project_missing",
+          metric: "runs",
+          quantity: 1,
+          observedAtMs: 2,
+        }),
+      ).toThrow("Control-plane project not found");
+      expect(() =>
+        store.recordAuditEvent({
+          orgId: "org_missing_project",
+          projectId: "project_missing",
+          action: "run.create",
+          targetType: "run",
+          targetId: "run_1",
+          occurredAtMs: 3,
+        }),
+      ).toThrow("Control-plane project not found");
+    }
+    finally {
+      sqlite.close();
+    }
+  });
+
   test("foreign keys prevent orphan projects and cascade org deletion", () => {
     const { sqlite, store } = makeStore();
     try {
@@ -477,6 +543,52 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
       expect(sqlite.query("SELECT COUNT(*) AS count FROM _smithers_cp_projects").get().count).toBe(0);
       expect(sqlite.query("SELECT COUNT(*) AS count FROM _smithers_cp_usage_events").get().count).toBe(0);
       expect(sqlite.query("SELECT COUNT(*) AS count FROM _smithers_cp_audit_events").get().count).toBe(0);
+    }
+    finally {
+      sqlite.close();
+    }
+  });
+
+  test("unique constraints reject duplicate org and project identities", () => {
+    const { sqlite, store } = makeStore();
+    try {
+      store.createOrg({ orgId: "org_unique", slug: "unique", name: "Unique", createdAtMs: 1 });
+      expect(() =>
+        store.createOrg({ orgId: "org_unique", slug: "unique-id", name: "Duplicate ID", createdAtMs: 2 }),
+      ).toThrow("UNIQUE constraint failed");
+      expect(() =>
+        store.createOrg({ orgId: "org_unique_slug", slug: "unique", name: "Duplicate slug", createdAtMs: 3 }),
+      ).toThrow("UNIQUE constraint failed");
+
+      store.createProject({ orgId: "org_unique", projectId: "project_one", slug: "one", name: "One", createdAtMs: 4 });
+      expect(() =>
+        store.createProject({ orgId: "org_unique", projectId: "project_one", slug: "duplicate-id", name: "Duplicate ID", createdAtMs: 5 }),
+      ).toThrow("UNIQUE constraint failed");
+      expect(() =>
+        store.createProject({ orgId: "org_unique", projectId: "project_two", slug: "one", name: "Duplicate slug", createdAtMs: 6 }),
+      ).toThrow("UNIQUE constraint failed");
+    }
+    finally {
+      sqlite.close();
+    }
+  });
+
+  test("table constraints reject malformed rows outside the store validation layer", () => {
+    const { sqlite, store } = makeStore();
+    try {
+      store.createOrg({ orgId: "org_constraints", slug: "constraints", name: "Constraints", createdAtMs: 1 });
+      expect(() =>
+        sqlite.query(`
+INSERT INTO _smithers_cp_projects (org_id, project_id, slug, name, metadata_json, created_at_ms)
+VALUES (?, ?, ?, ?, ?, ?)
+`).run("org_constraints", "project_null_name", "null-name", null, "{}", 2),
+      ).toThrow("NOT NULL constraint failed");
+      expect(() =>
+        sqlite.query(`
+INSERT INTO _smithers_cp_team_members (org_id, team_id, user_id, role, created_at_ms)
+VALUES (?, ?, ?, ?, ?)
+`).run("org_constraints", "team_missing", "user_one", "member", 3),
+      ).toThrow("FOREIGN KEY constraint failed");
     }
     finally {
       sqlite.close();
