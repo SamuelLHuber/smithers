@@ -759,7 +759,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
       ).toThrow("UNIQUE constraint failed");
       expect(() =>
         store.createOrg({ orgId: "org_unique_slug", slug: "unique", name: "Duplicate slug", createdAtMs: 3 }),
-      ).toThrow("UNIQUE constraint failed");
+      ).toThrow("Duplicate control-plane org slug");
 
       store.createProject({ orgId: "org_unique", projectId: "project_one", slug: "one", name: "One", createdAtMs: 4 });
       expect(() =>
@@ -767,7 +767,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
       ).toThrow("UNIQUE constraint failed");
       expect(() =>
         store.createProject({ orgId: "org_unique", projectId: "project_two", slug: "one", name: "Duplicate slug", createdAtMs: 6 }),
-      ).toThrow("UNIQUE constraint failed");
+      ).toThrow("Duplicate control-plane project slug");
     }
     finally {
       sqlite.close();
