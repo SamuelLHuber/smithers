@@ -94,7 +94,7 @@ describe("network usage probes", () => {
     test("claudeOauthUsage reads credentials and parses OAuth usage fixtures", async () => {
         const configDir = tempDir();
         writeFileSync(join(configDir, ".credentials.json"), JSON.stringify({
-            claudeAiOauth: { accessToken: "claude-token", expiresAt: 123 },
+            claudeAiOauth: { accessToken: "claude-token", expiresAt: 99999999999999 },
         }));
         globalThis.fetch = mock(async (_url, init) => {
             expect(init.headers.Authorization).toBe("Bearer claude-token");
