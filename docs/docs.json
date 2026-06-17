@@ -119,6 +119,7 @@
           {
             "group": "Build",
             "pages": [
+              "workflows/hello",
               "workflows/implement",
               "workflows/research-plan-implement",
               "workflows/mission",

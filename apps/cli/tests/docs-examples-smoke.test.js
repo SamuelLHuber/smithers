@@ -30,7 +30,8 @@ const EXPECTED_SINGLE_FILE_WORKFLOW_DOCS = [
     "docs/components/human-task.mdx",
     "docs/components/signal.mdx",
     "docs/components/workflow.mdx",
-    "docs/index.mdx",
+    // docs/index.mdx is the marketing splash home page — it intentionally carries
+    // no standalone workflow snippet; the runnable examples live under docs/examples/*.
     "docs/integrations/cli-agents.mdx",
     "docs/integrations/server.mdx",
     "docs/integrations/tools.mdx",
