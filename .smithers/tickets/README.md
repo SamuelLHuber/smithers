@@ -44,6 +44,16 @@ ticket helper; issues + landings list-views wired to live Plue. Remaining:
 - [0037](smithers/0037-jjhub-runs-parity-and-sessions.md) — Runs parity + durable agent sessions
 - [0038](smithers/0038-jjhub-platform-breadth.md) — Settings, repo config, wiki/releases, search, integrations (umbrella)
 
+Onboarding feedback (2026-06-17, from X/Twitter replies asking for feedback):
+
+- [0039](smithers/0039-getstarted-routes-to-for-agents.md) — "Get started" CTA links into the "For Agents" tab instead of human onboarding
+- [0040](smithers/0040-no-manual-skill-install.md) — Onboarding must not require hand-installing skills (mkdir + curl); `skills` does it
+- [0041](smithers/0041-skills-step-wording-implies-manual-work.md) — Skills messaging reads as an extra manual step; keep it out of "Get started"
+- [0042](smithers/0042-cut-onboarding-volume.md) — Cut get-started ~75–80%: 1–3 steps, stop bombarding with choices
+- [0043](smithers/0043-one-command-helloworld-mdx-default.md) — Default first-run = 1 command + editable hello-world `.mdx` template
+- [0044](smithers/0044-default-to-mdx-deprioritize-sdk.md) — Default onboarding to MDX; keep TS SDK but not front-and-center
+- [0045](smithers/0045-onboarding-walkthrough-stream.md) — Produce a ~1-hour onboarding walkthrough/stream on a new project
+
 ## `jjhub/` — `/Users/williamcory/jjhub`
 
 Make JJHub the blessed Smithers runtime:
