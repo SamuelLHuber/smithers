@@ -24,15 +24,35 @@
         "tab": "For Humans",
         "groups": [
           {
-            "group": "Human Guide",
+            "group": "Start here",
             "pages": [
-              "index",
-              "guide/what-is-smithers",
-              "guide/what-you-can-do",
-              "guide/get-started",
+              "index"
+            ]
+          },
+          {
+            "group": "Tutorials",
+            "pages": [
+              "guide/get-started"
+            ]
+          },
+          {
+            "group": "How-to guides",
+            "pages": [
               "guide/talk-to-your-agent",
-              "guide/concepts",
               "guide/watch-and-steer"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "guide/what-you-can-do"
+            ]
+          },
+          {
+            "group": "Explanation",
+            "pages": [
+              "guide/what-is-smithers",
+              "guide/concepts"
             ]
           }
         ]
