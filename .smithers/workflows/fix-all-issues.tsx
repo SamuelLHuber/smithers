@@ -110,6 +110,7 @@ const inputSchema = z.object({
   // restricts to specific issue numbers; `excludeAuthors` drops issues by login.
   labels: z.array(z.string()).default([]),
   numbers: z.array(z.number().int()).default([]),
+  excludeNumbers: z.array(z.number().int()).default([]),
   excludeAuthors: z.array(z.string()).default([]),
   // 8 max concurrent work items (also pass the runner --max-concurrency 8 flag).
   maxConcurrency: z.number().int().min(1).max(8).default(8),
@@ -265,6 +266,7 @@ function fetchIssues(input: z.infer<typeof inputSchema>) {
     author: i.author?.login ?? "",
   }));
   if ((input.numbers ?? []).length) issues = issues.filter((i) => input.numbers.includes(i.number));
+  if ((input.excludeNumbers ?? []).length) issues = issues.filter((i) => !input.excludeNumbers.includes(i.number));
   if ((input.excludeAuthors ?? []).length) issues = issues.filter((i) => !input.excludeAuthors.includes(i.author));
   issues.sort((a, b) => a.number - b.number); // deterministic order → stable work-item ids
   return {
