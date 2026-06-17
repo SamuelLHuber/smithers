@@ -13,6 +13,8 @@ describe("argv-utils", () => {
             expect(parseMcpSurfaceArgv(argv)).toEqual({
                 surface: "semantic",
                 argv,
+                allowedTools: undefined,
+                readOnly: false,
             });
         });
 
@@ -20,11 +22,15 @@ describe("argv-utils", () => {
             expect(parseMcpSurfaceArgv(["mcp", "--surface", "raw", "--format", "json"])).toEqual({
                 surface: "raw",
                 argv: ["mcp", "--format", "json"],
+                allowedTools: undefined,
+                readOnly: false,
             });
 
             expect(parseMcpSurfaceArgv(["mcp", "--surface=both", "--verbose"])).toEqual({
                 surface: "both",
                 argv: ["mcp", "--verbose"],
+                allowedTools: undefined,
+                readOnly: false,
             });
         });
 
@@ -32,6 +38,8 @@ describe("argv-utils", () => {
             expect(parseMcpSurfaceArgv(["mcp", "--surface", " RAW ", "--surface=semantic"])).toEqual({
                 surface: "semantic",
                 argv: ["mcp"],
+                allowedTools: undefined,
+                readOnly: false,
             });
         });
 
