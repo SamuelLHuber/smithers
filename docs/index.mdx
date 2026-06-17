@@ -1,199 +1,529 @@
 ---
 title: Smithers
-description: Orchestrate agents at scale with composable workflows.
-icon: house
-mode: wide
+description: Tell your coding agent what to build. Smithers runs it durably.
+mode: "custom"
 ---
 
-<div style={{ fontSize: "1.35rem", fontWeight: 600, lineHeight: 1.4, marginBottom: "0.5rem" }}>
-  Tell your coding agent what to build. Smithers runs it durably.
+<div className="relative w-full overflow-hidden min-h-screen bg-slate-50 text-slate-800 dark:bg-[#030712] dark:text-slate-300 selection:bg-[#00D2A0]/30 selection:text-slate-900 dark:selection:text-white pb-32 font-sans font-medium">
+
+  {/* Ambient Background Grid & Subtle Glows */}
+  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <div className="hidden dark:block absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_100%,transparent_100%)]"></div>
+    <div className="block dark:hidden absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_0%,#000_100%,transparent_100%)]"></div>
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1200px] h-[600px] bg-[radial-gradient(ellipse_at_top,rgba(0,210,160,0.04)_0%,transparent_70%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(0,210,160,0.06)_0%,transparent_70%)]" />
+  </div>
+
+  {/* ── Hero Section ── */}
+  <section className="relative pt-24 pb-20 px-6 max-w-7xl mx-auto">
+    <div className="flex flex-col lg:flex-row gap-16 items-center">
+
+      {/* Hero Content */}
+      <div className="relative z-10 flex-1 flex flex-col items-start">
+
+        {/* Badge */}
+        <div className="group inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-slate-200/50 dark:border-white/5 bg-slate-100 dark:bg-white/[0.02] shadow-sm text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-[0.1em] mb-8 cursor-default transition-all hover:bg-slate-200 dark:hover:bg-white/[0.04]">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00D2A0] opacity-50"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00D2A0]"></span>
+          </span>
+          <span className="opacity-90">Durable runtime for coding agents</span>
+        </div>
+
+        {/* Headline */}
+        <h1 className="m-0 text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-[-0.02em] leading-[1.05] text-slate-900 dark:text-white drop-shadow-sm transition-colors duration-300">
+          Tell your coding agent <br className="hidden sm:block" />
+          what to build.{" "}
+          <span className="text-transparent bg-clip-text bg-gradient-to-br from-[#00D2A0] to-[#047857]">Smithers runs it durably.</span>
+        </h1>
+
+        {/* Subtitle */}
+        <p className="mt-8 text-lg sm:text-xl leading-relaxed text-slate-600 dark:text-slate-400 max-w-xl transition-colors duration-300 font-medium">
+          A durable runtime for long-running AI coding agents. Drive it through the agent you already use, then ask for an outcome. It runs for minutes or days with crash recovery, retries, human approvals, and full observability.
+        </p>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-wrap gap-4 mt-10">
+          <a href="/guide/get-started" className="group relative inline-flex items-center justify-center px-8 py-3.5 text-base font-bold text-white dark:text-[#030712] bg-[#000] dark:bg-[#00D2A0] rounded-xl overflow-hidden transition-all hover:scale-[1.02] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] dark:shadow-[0_10px_30px_-10px_rgba(0,210,160,0.3)]">
+            <span className="relative z-10">Get started</span>
+          </a>
+          <a href="/guide/what-you-can-do" className="group inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-white/[0.02] border border-transparent dark:border-white/5 rounded-xl transition-all hover:bg-slate-200 dark:hover:bg-white/[0.05]">
+            What you can ask for
+          </a>
+        </div>
+
+        {/* Quick Install Command */}
+        <div className="mt-14 relative group">
+          <div className="mb-3 flex items-center gap-2 ml-1">
+            <div className="w-1 h-1 rounded-full bg-[#00D2A0]"></div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+              Run this in your project
+            </span>
+          </div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#00D2A0] to-[#047857] rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-500"></div>
+          <div
+            className="relative flex items-center justify-between gap-4 px-5 py-3 bg-white dark:bg-[#0A0D15] border border-slate-200 dark:border-white/[0.08] rounded-xl cursor-pointer transition-all duration-300 active:scale-[0.98]"
+            onClick={() => {
+              navigator.clipboard.writeText('bunx smithers-orchestrator init');
+              const t = document.getElementById('copy-text');
+              const check = document.getElementById('copy-check');
+              if (t && check) {
+                t.classList.add('text-[#00D2A0]');
+                check.classList.remove('hidden');
+                setTimeout(() => {
+                  t.classList.remove('text-[#00D2A0]');
+                  check.classList.add('hidden');
+                }, 2000);
+              }
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-[#00D2A0] font-mono text-sm font-bold">$</span>
+              <code id="copy-text" className="text-sm sm:text-base font-mono font-medium text-slate-700 dark:text-slate-300 transition-colors">
+                bunx smithers-orchestrator init
+              </code>
+            </div>
+            <div id="copy-check" className="hidden text-[#00D2A0]">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+          <div className="mt-3 ml-1 text-xs text-slate-400 dark:text-slate-500">
+            Installs the <code className="text-[11px] bg-slate-100 dark:bg-white/[0.05] rounded px-1">smithers</code> skill into your agents and scaffolds ready-made workflows. No <code className="text-[11px] bg-slate-100 dark:bg-white/[0.05] rounded px-1">mkdir</code>, no <code className="text-[11px] bg-slate-100 dark:bg-white/[0.05] rounded px-1">curl</code>.
+          </div>
+        </div>
+      </div>
+
+      {/* Hero Visual: a live durable run */}
+      <div className="relative group flex-1 w-full min-w-0 lg:max-w-[50%] perspective-1000 mt-12 lg:mt-0">
+        <div className="absolute -inset-1 bg-[#00D2A0]/10 rounded-[2rem] blur-xl opacity-0 group-hover:opacity-40 transition duration-1000"></div>
+
+        <div className="relative rounded-2xl border border-slate-200/50 dark:border-white/[0.08] bg-[#F8FAFC] dark:bg-[#0A0D15] shadow-2xl dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-500 transform-gpu lg:rotate-y-[-2deg] lg:rotate-x-[1deg] group-hover:rotate-0">
+
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/50 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.01]">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 text-slate-500 dark:text-slate-500 text-xs font-mono font-medium">
+              implement · a7b93f2
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#00D2A0]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00D2A0] animate-pulse"></span> running
+            </span>
+          </div>
+
+          <div className="p-6 font-mono text-[13px] leading-[1.7]">
+            <div className="text-slate-500 dark:text-slate-500 mb-4">
+              <span className="text-[#00D2A0]">you</span> &gt; Add rate limiting and keep iterating until the tests pass.
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-3">
+                <span className="text-[#00D2A0]">✓</span>
+                <span className="text-slate-700 dark:text-slate-300 flex-1">research</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-600">persisted</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[#00D2A0]">✓</span>
+                <span className="text-slate-700 dark:text-slate-300 flex-1">implement</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-600">persisted</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[#00D2A0]">✓</span>
+                <span className="text-slate-700 dark:text-slate-300 flex-1">run tests</span>
+                <span className="text-[10px] uppercase tracking-wider text-[#F87171]">2 failed</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[#1F6FEB] animate-pulse">↻</span>
+                <span className="text-slate-900 dark:text-white flex-1">implement <span className="text-slate-400 dark:text-slate-500">(retry)</span></span>
+                <span className="text-[10px] uppercase tracking-wider text-[#1F6FEB]">running</span>
+              </div>
+              <div className="flex items-center gap-3 opacity-70">
+                <span className="text-[#FFBD2E]">⏸</span>
+                <span className="text-slate-700 dark:text-slate-300 flex-1">reviewer approval</span>
+                <span className="text-[10px] uppercase tracking-wider text-[#FFBD2E]">waiting</span>
+              </div>
+            </div>
+            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/[0.05] text-[11px] text-slate-400 dark:text-slate-600">
+              crash-safe · resumes from the last persisted step
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ── Any agent, any model ── */}
+  <section className="relative py-10 px-6 max-w-5xl mx-auto z-10 w-full text-center">
+    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+      Model and harness agnostic
+    </span>
+    <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+      {["Claude Code", "Codex", "Cursor", "Gemini", "Pi", "Antigravity", "Kimi", "+ any AI SDK model"].map((name) => (
+        <span key={name} className="px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.02] text-sm font-semibold text-slate-700 dark:text-slate-300">
+          {name}
+        </span>
+      ))}
+    </div>
+    <p className="mt-5 text-slate-500 dark:text-slate-400 max-w-xl mx-auto font-medium">
+      Point each task at whichever agent and model is best for the job. Swap the harness without rewriting the workflow.
+    </p>
+  </section>
+
+  {/* ── The problem ── */}
+  <section className="relative py-24 px-6 max-w-3xl mx-auto text-center">
+    <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-slate-200 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] text-slate-700 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-6">Why Smithers</div>
+    <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6 leading-[1.1]">
+      A chat window is a black box <br className="hidden sm:block" /> on a treadmill.
+    </h2>
+    <p className="text-lg text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+      A single agent in a chat window forgets what it decided ten steps ago, stalls halfway through a long job waiting for a nudge, and loses everything if the process crashes. The model is good. The problem is that nothing underneath it is durable, so there is nothing to resume from.
+    </p>
+    <p className="mt-6 text-lg text-slate-900 dark:text-white font-semibold leading-relaxed">
+      Smithers moves the work off the treadmill into a durable runtime. Every step is persisted the moment it finishes, so a crash becomes a resume point and a long job becomes a run you can walk away from.
+    </p>
+  </section>
+
+  {/* ── Feature Bento (the guarantees) ── */}
+  <section className="relative py-4 px-6 max-w-7xl mx-auto z-10 w-full">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
+
+      {/* Durable runs (large) */}
+      <div className="col-span-1 lg:col-span-2 group relative p-8 rounded-[2rem] bg-slate-100/50 dark:bg-[#0B1221]/50 border border-slate-200/50 dark:border-white/[0.04] hover:bg-slate-100 dark:hover:bg-[#0B1221]/80 transition-colors duration-500 overflow-hidden flex flex-col md:flex-row gap-8 items-center">
+        <div className="flex-1">
+          <div className="w-12 h-12 rounded-2xl bg-white dark:bg-white/[0.03] flex items-center justify-center mb-6 shadow-sm border border-slate-200 dark:border-transparent">
+             <svg className="w-6 h-6 text-slate-800 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+             </svg>
+          </div>
+          <strong className="block text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">Durable runs</strong>
+          <span className="text-slate-600 dark:text-slate-400 leading-relaxed block max-w-sm">Every completed step is checkpointed the moment it finishes. A crash, a closed laptop, or a flaky tool is a resume point, not lost work. Runs go for minutes or days.</span>
+        </div>
+
+        <div className="flex-shrink-0 w-full md:w-64">
+           <div className="flex flex-col gap-2 font-mono text-[11px] bg-white dark:bg-[#06090E] rounded-xl p-4 border border-slate-200 dark:border-white/[0.05] shadow-sm">
+             <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-white/[0.05]">
+                <span className="text-slate-400">runs.sqlite</span>
+                <span className="w-2 h-2 rounded-full bg-[#00D2A0] animate-pulse"></span>
+             </div>
+             <div className="flex items-center gap-3 mt-2">
+                <span className="text-[#00D2A0]">✓</span> <span className="text-slate-600 dark:text-slate-300 truncate">research</span>
+             </div>
+             <div className="flex items-center gap-3">
+                <span className="text-[#00D2A0]">✓</span> <span className="text-slate-600 dark:text-slate-300 truncate">implement</span>
+             </div>
+             <div className="flex items-center gap-3 opacity-50">
+                <span className="w-2 h-2 rounded-full border border-slate-400 ml-[2px]"></span> <span className="text-slate-600 dark:text-slate-300 truncate">run tests</span>
+             </div>
+           </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-6 col-span-1">
+        {/* Any agent, any model */}
+        <div className="flex-1 group relative p-8 rounded-[2rem] bg-slate-100/50 dark:bg-[#0B1221]/50 border border-slate-200/50 dark:border-white/[0.04] hover:bg-slate-100 dark:hover:bg-[#0B1221]/80 transition-colors duration-500">
+          <strong className="block text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Any agent, any model</strong>
+          <span className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">Point each task at Claude Code, Codex, or any AI SDK model. Swap the harness without rewriting the work.</span>
+        </div>
+
+        {/* Review loops & approvals */}
+        <div className="flex-1 group relative p-8 rounded-[2rem] bg-slate-100/50 dark:bg-[#0B1221]/50 border border-slate-200/50 dark:border-white/[0.04] hover:bg-slate-100 dark:hover:bg-[#0B1221]/80 transition-colors duration-500">
+          <strong className="block text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Review loops and approvals</strong>
+          <span className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">Tasks retry on failure, loops run until tests pass or a reviewer signs off, and runs pause for your approval on anything that matters.</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  {/* ── Render / Execute / Persist pipeline ── */}
+  <section className="relative py-28 px-6 max-w-7xl mx-auto mt-8">
+    <div className="flex flex-col items-center text-center">
+      <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-slate-200 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] text-slate-700 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-6">How it works</div>
+      <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6 leading-[1.1] max-w-3xl">
+        Render. Execute. Persist.
+      </h2>
+      <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl font-medium">
+        Smithers renders your workflow to a tree, executes the parts that are ready, and persists every result. That loop is what lets a run survive a crash and always know what to do next.
+      </p>
+    </div>
+
+    {/* Horizontal Data Flow Pipeline */}
+    <div className="mt-20 relative max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 md:gap-4">
+
+       {/* Node 1: Render */}
+       <div className="w-full md:w-64 p-6 rounded-2xl bg-white dark:bg-[#0B1221]/40 border border-slate-200 dark:border-white/[0.05] shadow-sm flex flex-col items-center text-center z-10 relative">
+          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/[0.05] flex items-center justify-center mb-4 text-slate-500">
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+          </div>
+          <span className="font-bold text-slate-900 dark:text-white block mb-1">Render</span>
+          <span className="text-xs text-slate-500">Your TSX workflow builds a tree of tasks</span>
+       </div>
+
+       <div className="hidden md:flex flex-1 h-[1px] bg-slate-300 dark:bg-white/[0.1] relative">
+          <div className="absolute w-2 h-2 rounded-full bg-[#00D2A0] top-1/2 -translate-y-1/2 -translate-x-1/2 shadow-[0_0_10px_#00D2A0] animate-[slide-right_3s_linear_infinite]"></div>
+       </div>
+
+       {/* Node 2: Execute */}
+       <div className="w-full md:w-64 p-6 rounded-2xl bg-white dark:bg-[#0B1221]/40 border border-slate-200 dark:border-white/[0.05] shadow-sm flex flex-col items-center text-center z-10 relative">
+          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/[0.05] flex items-center justify-center mb-4 text-[#1F6FEB]">
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          </div>
+          <span className="font-bold text-slate-900 dark:text-white block mb-1">Execute</span>
+          <span className="text-xs text-slate-500">Ready tasks run on the agents you chose</span>
+       </div>
+
+       <div className="hidden md:flex flex-1 h-[1px] bg-slate-300 dark:bg-white/[0.1] relative">
+          <div className="absolute w-2 h-2 rounded-full bg-[#00D2A0] top-1/2 -translate-y-1/2 -translate-x-1/2 shadow-[0_0_10px_#00D2A0] animate-[slide-right_3s_linear_infinite_1.5s]"></div>
+       </div>
+
+       {/* Node 3: Persist */}
+       <div className="w-full md:w-64 p-6 rounded-2xl bg-white dark:bg-[#00D2A0]/[0.02] border border-slate-200 dark:border-[#00D2A0]/20 shadow-sm flex flex-col items-center text-center z-10 relative">
+          <div className="w-10 h-10 rounded-full bg-[#00D2A0]/10 flex items-center justify-center mb-4 text-[#00D2A0]">
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" /></svg>
+          </div>
+          <span className="font-bold text-slate-900 dark:text-white block mb-1">Persist</span>
+          <span className="text-xs text-slate-500">Every result is checkpointed to SQLite</span>
+       </div>
+    </div>
+
+    <div className="mt-14 text-center">
+      <a href="/how-it-works" className="text-[#00D2A0] font-semibold hover:underline">Read how it works in depth →</a>
+    </div>
+  </section>
+
+  {/* ── Built-in workflows ── */}
+  <section className="relative py-24 px-6 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/[0.02]">
+    <div className="flex flex-col items-center text-center mb-16">
+      <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-slate-200 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] text-slate-700 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-6">Batteries included</div>
+      <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6 leading-[1.1] max-w-3xl">
+        Dozens of workflows ship in the box.
+      </h2>
+      <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl font-medium">
+        <code className="text-[15px] bg-slate-100 dark:bg-white/[0.05] rounded px-1.5 py-0.5">init</code> scaffolds a <code className="text-[15px] bg-slate-100 dark:bg-white/[0.05] rounded px-1.5 py-0.5">.smithers/</code> folder of production-ready workflows. Say the outcome you want, and your agent picks the right one and runs it.
+      </p>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Build */}
+      <div className="p-8 rounded-[2rem] bg-slate-100/50 dark:bg-[#0B1221]/50 border border-slate-200/50 dark:border-white/[0.04]">
+        <strong className="block text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">Build</strong>
+        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-5">Turn a request into validated, reviewed code, from a focused change to a long-horizon mission.</p>
+        <div className="flex flex-wrap gap-2">
+          {["implement", "research-plan-implement", "mission", "kanban", "ralph"].map((w) => (
+            <span key={w} className="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300">{w}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Plan */}
+      <div className="p-8 rounded-[2rem] bg-slate-100/50 dark:bg-[#0B1221]/50 border border-slate-200/50 dark:border-white/[0.04]">
+        <strong className="block text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">Plan</strong>
+        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-5">Gather context and shape the work before any code is written. Nothing touches the repo.</p>
+        <div className="flex flex-wrap gap-2">
+          {["research", "plan", "grill-me", "ticket-create", "tickets-create"].map((w) => (
+            <span key={w} className="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300">{w}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Quality */}
+      <div className="p-8 rounded-[2rem] bg-slate-100/50 dark:bg-[#0B1221]/50 border border-slate-200/50 dark:border-white/[0.04]">
+        <strong className="block text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-3">Quality</strong>
+        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-5">Review changes, fix bugs at the root, raise coverage, and audit the repo for gaps.</p>
+        <div className="flex flex-wrap gap-2">
+          {["review", "debug", "improve-test-coverage", "feature-enum", "audit"].map((w) => (
+            <span key={w} className="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] text-slate-700 dark:text-slate-300">{w}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div className="mt-12 text-center">
+      <a href="/workflows/overview" className="text-[#00D2A0] font-semibold hover:underline">Browse the full catalog →</a>
+    </div>
+  </section>
+
+  {/* ── CLI + observability ── */}
+  <section className="relative py-28 px-6 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/[0.02]">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-16 items-center">
+
+      <div className="order-2 lg:order-1 relative group w-full perspective-1000 mt-8 lg:mt-0">
+        <div className="relative rounded-xl border border-slate-800/50 bg-[#000000] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden font-mono text-[13px] leading-relaxed transform-gpu lg:rotate-y-[2deg] group-hover:rotate-0 transition-transform duration-500">
+          <div className="flex items-center gap-2 px-4 py-3 bg-[#000] border-b border-white/[0.05]">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#333]"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-[#333]"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-[#333]"></div>
+            <div className="flex-1 flex justify-center text-slate-600 font-medium tracking-wide text-[10px] items-center">
+              smithers
+            </div>
+          </div>
+
+          <div className="p-6 text-slate-300">
+            <div className="flex gap-2">
+              <span className="text-slate-500 select-none">~</span>
+              <span className="text-white">bunx smithers-orchestrator ps</span>
+            </div>
+            <div className="text-slate-600 mt-2 flex gap-5 text-[10px] font-bold">
+              <span className="w-16">RUN_ID</span>
+              <span className="w-20">WORKFLOW</span>
+              <span className="w-14">STATUS</span>
+              <span>STEP</span>
+            </div>
+            <div className="text-slate-300 flex gap-5 mt-1">
+              <span className="w-16 text-slate-500">a7b93f2</span>
+              <span className="w-20">implement</span>
+              <span className="w-14 text-[#FFBD2E]">PAUSED</span>
+              <span>reviewer approval</span>
+            </div>
+            <div className="text-slate-300 flex gap-5 mt-1 mb-6">
+              <span className="w-16 text-slate-500">x9m4210</span>
+              <span className="w-20">audit</span>
+              <span className="w-14 text-[#00D2A0]">DONE</span>
+              <span className="text-slate-600">-</span>
+            </div>
+
+            <div className="flex gap-2">
+              <span className="text-slate-500 select-none">~</span>
+              <span className="text-white">bunx smithers-orchestrator approve a7b93f2</span>
+            </div>
+            <div className="text-slate-400 mt-2">
+              <span className="text-[#00D2A0]">[+]</span> Approved reviewer approval. Resuming run.
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <span className="text-slate-500 select-none">~</span>
+              <div className="w-2 h-[15px] bg-[#fff] animate-[pulse_1.5s_step-end_infinite] shrink-0 mt-[2px]"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="order-1 lg:order-2 px-4">
+        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6 leading-tight">
+          A boring CLI that just works.
+        </h2>
+
+        <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-8">
+          You drive Smithers through your agent, and underneath is a plain, scriptable CLI. If you know <code className="text-[15px] bg-slate-100 dark:bg-white/[0.05] rounded px-1">docker compose</code>, you already know how to operate it.
+        </p>
+
+        <ul className="space-y-6 text-slate-700 dark:text-slate-300 font-medium">
+            <li className="flex gap-4 items-start">
+              <span className="text-[#00D2A0] font-mono text-xs mt-1 border border-slate-200 dark:border-white/10 px-1 rounded">01</span>
+              <span>Run workflows in the background or stream them straight to stdout.</span>
+            </li>
+            <li className="flex gap-4 items-start">
+              <span className="text-[#00D2A0] font-mono text-xs mt-1 border border-slate-200 dark:border-white/10 px-1 rounded">02</span>
+              <span>List runs, inspect any step, approve paused gates, and cancel a run that went sideways.</span>
+            </li>
+            <li className="flex gap-4 items-start">
+              <span className="text-[#00D2A0] font-mono text-xs mt-1 border border-slate-200 dark:border-white/10 px-1 rounded">03</span>
+              <span>Every run emits Prometheus metrics and OpenTelemetry traces, so token spend, latency, and retries are visible across thousands of runs.</span>
+            </li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  {/* ── Eval-driven + scale ── */}
+  <section className="relative py-12 px-6 max-w-7xl mx-auto z-10 w-full">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="p-8 rounded-[2rem] bg-slate-100/50 dark:bg-[#0B1221]/50 border border-slate-200/50 dark:border-white/[0.04]">
+        <strong className="block text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Eval-driven and self-improving</strong>
+        <span className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">Write a suite of input cases and expected results. Smithers runs your workflow across every case and writes a regression report, then <code className="text-[12px] bg-white dark:bg-white/[0.05] rounded px-1">optimize</code> rewrites the prompts with GEPA and keeps them only when they score higher.</span>
+      </div>
+      <div className="p-8 rounded-[2rem] bg-slate-100/50 dark:bg-[#0B1221]/50 border border-slate-200/50 dark:border-white/[0.04]">
+        <strong className="block text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Scale across machines</strong>
+        <span className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">Most workflows run on your laptop. When you need isolation or horizontal scale, the same <code className="text-[12px] bg-white dark:bg-white/[0.05] rounded px-1">Sandbox</code> primitive runs through a local or remote provider (gVisor, Kubernetes, freestyle.sh, Daytona, Cloudflare) with no change to the workflow.</span>
+      </div>
+    </div>
+  </section>
+
+  {/* ── Author your own (optional) ── */}
+  <section className="relative py-28 px-6 max-w-7xl mx-auto border-t border-slate-200 dark:border-white/[0.02]">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-16 items-center">
+      <div className="px-4">
+        <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-6 leading-tight">
+          Author your own, when you want to.
+        </h2>
+        <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-6">
+          You never write this by hand to use Smithers. Your agent does. But when you want to, a workflow is a small TypeScript tree. Outputs are validated by Zod, persisted to SQLite, and survive crashes.
+        </p>
+        <a href="/jsx/overview" className="text-[#00D2A0] font-semibold hover:underline">Explore the JSX surface →</a>
+      </div>
+
+      {/* Code window */}
+      <div className="relative group w-full min-w-0 perspective-1000 mt-8 lg:mt-0">
+        <div className="absolute -inset-1 bg-[#00D2A0]/10 rounded-[2rem] blur-xl opacity-0 group-hover:opacity-40 transition duration-1000"></div>
+        <div className="relative rounded-2xl border border-slate-200/50 dark:border-white/[0.08] bg-[#F8FAFC] dark:bg-[#0A0D15] shadow-2xl dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-500 transform-gpu lg:rotate-y-[-2deg] group-hover:rotate-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/50 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.01]">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 text-slate-500 dark:text-slate-500 text-xs font-mono font-medium">
+              hello.tsx
+            </div>
+          </div>
+          <div className="p-6 overflow-x-auto text-[13px] leading-[1.65] font-mono">
+            <div className="flex flex-col whitespace-pre">
+              <div><span className="text-slate-400 dark:text-slate-500">import</span> <span className="text-slate-800 dark:text-slate-300">&#123; createSmithers, Sequence, Task &#125;</span> <span className="text-slate-400 dark:text-slate-500">from</span> <span className="text-[#00D2A0]">"smithers-orchestrator"</span>;</div>
+              <div><span className="text-slate-400 dark:text-slate-500">import</span> <span className="text-slate-800 dark:text-slate-300">&#123; z &#125;</span> <span className="text-slate-400 dark:text-slate-500">from</span> <span className="text-[#00D2A0]">"zod"</span>;</div>
+              <div className="h-4"></div>
+              <div><span className="text-slate-400 dark:text-slate-500">const</span> &#123; Workflow, smithers, outputs &#125; = <span className="text-[#00D2A0]">createSmithers</span>(&#123;</div>
+              <div className="pl-4"><span className="text-slate-500">hello:</span> z.object(&#123; message: z.string() &#125;),</div>
+              <div>&#125;);</div>
+              <div className="h-4"></div>
+              <div><span className="text-slate-400 dark:text-slate-500">export default</span> <span className="text-[#00D2A0]">smithers</span>((ctx) <span className="text-[#00D2A0]">=&gt;</span> (</div>
+              <div className="pl-4"><span className="text-slate-300 dark:text-slate-600">&lt;</span><span className="text-slate-900 dark:text-white">Workflow</span> <span className="text-slate-400 dark:text-slate-500">name=</span><span className="text-[#00D2A0]">"hello"</span><span className="text-slate-300 dark:text-slate-600">&gt;</span></div>
+              <div className="pl-8"><span className="text-slate-300 dark:text-slate-600">&lt;</span><span className="text-slate-900 dark:text-white">Sequence</span><span className="text-slate-300 dark:text-slate-600">&gt;</span></div>
+              <div className="pl-12"><span className="text-slate-300 dark:text-slate-600">&lt;</span><span className="text-slate-900 dark:text-white">Task</span> <span className="text-slate-400 dark:text-slate-500">id=</span><span className="text-[#00D2A0]">"greet"</span> <span className="text-slate-400 dark:text-slate-500">output=</span>&#123;outputs.hello&#125;<span className="text-slate-300 dark:text-slate-600">&gt;</span></div>
+              <div className="pl-16">&#123;&#123; message: <span className="text-[#00D2A0]">`Hello, $&#123;ctx.input.name&#125;`</span> &#125;&#125;</div>
+              <div className="pl-12"><span className="text-slate-300 dark:text-slate-600">&lt;/</span><span className="text-slate-900 dark:text-white">Task</span><span className="text-slate-300 dark:text-slate-600">&gt;</span></div>
+              <div className="pl-8"><span className="text-slate-300 dark:text-slate-600">&lt;/</span><span className="text-slate-900 dark:text-white">Sequence</span><span className="text-slate-300 dark:text-slate-600">&gt;</span></div>
+              <div className="pl-4"><span className="text-slate-300 dark:text-slate-600">&lt;/</span><span className="text-slate-900 dark:text-white">Workflow</span><span className="text-slate-300 dark:text-slate-600">&gt;</span></div>
+              <div>));</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {/* ── Final CTA ── */}
+  <section className="relative py-32 px-6 max-w-7xl mx-auto z-10">
+    <div className="relative overflow-hidden rounded-[2rem] p-12 lg:p-24 flex flex-col items-center bg-slate-100 dark:bg-black border border-slate-200 dark:border-white/[0.05]">
+      <h2 className="relative z-10 text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white text-center leading-[1.1]">
+        Hand your agent real work.
+      </h2>
+
+      <p className="relative z-10 mt-6 text-lg text-slate-600 dark:text-slate-400 text-center font-medium max-w-xl">
+        One command sets everything up. Then just tell the agent you already use what you want built.
+      </p>
+
+      <div className="relative z-10 flex flex-col sm:flex-row items-center gap-4 mt-10">
+        <a href="/guide/get-started" className="inline-flex items-center justify-center px-10 py-3.5 text-base font-bold text-white dark:text-black bg-slate-900 dark:bg-white rounded-xl transition-all hover:scale-105 shadow-xl">
+          Get started
+        </a>
+        <code className="px-5 py-3 rounded-xl bg-white dark:bg-[#0A0D15] border border-slate-200 dark:border-white/[0.08] font-mono text-sm text-slate-700 dark:text-slate-300">
+          <span className="text-[#00D2A0] font-bold mr-2">$</span>bunx smithers-orchestrator init
+        </code>
+      </div>
+    </div>
+  </section>
+
+  {/* CSS Animations used in the page */}
+  <style dangerouslySetInnerHTML={{__html: `
+    @keyframes slide-right {
+      0% { left: 0%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { left: 100%; opacity: 0; }
+    }
+  `}} />
+
 </div>
-
-Smithers is a durable runtime for long-running AI coding agents. You drive it through the agent you already use (Claude Code, Codex, Cursor, and more): ask for an outcome, and it runs for minutes or days with crash recovery, retries, human approvals, replay, and full observability.
-
-## Quickstart
-
-One command sets everything up. From inside your project:
-
-```bash
-bunx smithers-orchestrator init
-```
-
-`init` installs the `smithers` skill into your coding agents (no `mkdir`, no `curl`) and scaffolds a `.smithers/` folder of ready-made workflows. Then just ask:
-
-> **You:** Add rate limiting and keep iterating until the tests pass.
-
-Your agent reaches for the right workflow, starts a durable run, and keeps going through retries and review loops until the work is actually done. A crash mid-run resumes from the last completed step.
-
-<CardGroup cols={2}>
-  <Card title="Get started" icon="play" href="/guide/get-started">
-    The one-command setup and your first run, start to finish.
-  </Card>
-  <Card title="What you can ask for" icon="sparkles" href="/guide/what-you-can-do">
-    Concrete outcomes, from a focused change to a long-horizon mission.
-  </Card>
-</CardGroup>
-
-<Note>
-Pick your path:
-
-- **Use Smithers through an agent** (you are a human): the [For Humans guide](/guide/what-is-smithers). Ask, and your agent operates Smithers for you.
-- **Operate Smithers as an agent** (you are Claude, Codex, or another harness): the [`llms.txt`](/llms.txt) index and the [Agent Operating Playbook](/guides/agent-operating-playbook).
-- **Author workflows** (you are a developer): the [JSX surface](/jsx/overview) and [Components](/components/workflow).
-</Note>
-
-## What makes Smithers different
-
-<CardGroup cols={3}>
-  <Card title="Composable workflows" icon="puzzle-piece">
-    Sequence, fan out, branch, and loop tasks into workflows shaped to your task and your
-    project, not one giant one-size-fits-all agent.
-  </Card>
-  <Card title="Model- & harness-agnostic" icon="plug">
-    Claude Code, Codex, Pi, Antigravity, and more, plus any model through the AI SDK.
-    Swap the harness without rewriting the workflow.
-  </Card>
-  <Card title="Robust by default" icon="shield-check">
-    Durable execution, retries, replay, time-travel, evals, human approvals, and
-    Prometheus metrics. Guarantees no single agent gives you.
-  </Card>
-</CardGroup>
-
-## Built-in workflows
-
-`bunx smithers-orchestrator init` scaffolds a `.smithers/` folder preloaded with
-production-ready workflows. Ask your agent for the outcome and it runs
-`bunx smithers-orchestrator workflow run WORKFLOW_ID --prompt "..."`:
-
-```bash
-# break a request into tickets, then implement them on a board
-bunx smithers-orchestrator workflow run tickets-create --prompt "add rate limiting and audit logging"
-bunx smithers-orchestrator workflow run kanban
-```
-
-<CardGroup cols={2}>
-  <Card title="Build" icon="hammer" href="/workflows/implement">
-    `implement` · `research-plan-implement` · `mission` · `kanban` · `ralph`. Turn a
-    request into validated, reviewed code, from a focused change to a long-horizon mission.
-  </Card>
-  <Card title="Plan" icon="map" href="/workflows/plan">
-    `research` · `plan` · `grill-me` · `ticket-create` · `tickets-create`.
-    Gather context and shape the work before any code is written.
-  </Card>
-  <Card title="Quality" icon="circle-check" href="/workflows/review">
-    `review` · `debug` · `improve-test-coverage` · `feature-enum` · `audit`. Review
-    changes, fix bugs, raise coverage, and audit for gaps.
-  </Card>
-  <Card title="Browse the catalog" icon="list" href="/workflows/overview">
-    Every bundled workflow is a normal Smithers TSX file: run it as-is, edit it for your
-    repo, or fork it as a starting point.
-  </Card>
-</CardGroup>
-
-## How it fits together
-
-<Frame caption="Models make stateless calls, harnesses manage the context window around them, topologies wire agents into patterns, and Smithers runs the whole stack as durable workflows. Everything above the orchestration layer churns; that bottom layer holds still.">
-  <img src="/images/why/agent-stack.svg" alt="Four stacked layers: a model layer of stateless calls, a harness layer that manages the context window, a topology layer of orchestration patterns, and a stable Smithers orchestration layer underneath" />
-</Frame>
-
-The **model layer** is stateless: a request goes in, tokens come out. The **harness layer** wraps a model and manages its context window (Claude Code, Codex, Pi, opencode). The **topology layer** is the pattern you arrange agents in (ReAct, crew, swarm, plan-execute, subagent fan-out). The **orchestration layer** at the bottom is Smithers: it wires humans, plain code, and harnesses into larger workflows and makes them durable. The layers above it change constantly. This one holds still.
-
-## Author your own (optional)
-
-You never write this by hand to use Smithers; your agent does. But when you want to, a workflow is a small TypeScript tree:
-
-```tsx
-/** @jsxImportSource smithers-orchestrator */
-import { createSmithers, Sequence, Task } from "smithers-orchestrator";
-import { z } from "zod";
-
-const { Workflow, smithers, outputs } = createSmithers({
-  hello: z.object({ message: z.string() }),
-});
-
-export default smithers((ctx) => (
-  <Workflow name="hello">
-    <Sequence>
-      <Task id="greet" output={outputs.hello}>
-        {{ message: `Hello, ${ctx.input.name}` }}
-      </Task>
-    </Sequence>
-  </Workflow>
-));
-```
-
-Outputs are validated by Zod, persisted to SQLite, and survive crashes. See the
-[JSX surface](/jsx/overview) and [Components](/components/workflow) for the full API.
-
-## Any agent, any model
-
-Smithers doesn't bet on one lab or one harness. Point each task at whichever agent is best
-for the job, and switch freely:
-
-- **CLI agents**: [Claude Code](/integrations/cli-agents), Codex,
-  [Pi](/integrations/pi-integration), Antigravity, Kimi, and more, driven through their
-  own runtimes.
-- **SDK agents**: any model the [AI SDK](/integrations/sdk-agents) supports, with tools,
-  structured output, and MCP.
-- **Mix them in one workflow**: a frontier model plans, a fast model fans out, a
-  specialized harness does the edits. The workflow doesn't change when the model does.
-
-## Durable and observable
-
-Runs survive crashes, restarts, and flaky tools. Every completed step is persisted the
-moment it finishes, so the runtime always knows what's done and what to run next, and you
-can rewind, fork, and replay any run.
-
-```bash
-bunx smithers-orchestrator up workflow.tsx --run-id abc123 --resume true   # resume after a crash
-bunx smithers-orchestrator rewind abc123 --frame 4                         # time-travel to an earlier frame
-bunx smithers-orchestrator observability --detach                          # Grafana + Prometheus + Tempo + OTLP
-```
-
-Every run emits Prometheus metrics and OpenTelemetry traces, so you can watch token spend,
-task latency, retries, and failures across thousands of runs. See
-[How It Works](/how-it-works) for the render, execute, persist loop.
-
-## Eval-driven and self-improving
-
-A workflow you cannot measure is a workflow you cannot trust. Write an eval suite of input
-cases and expected results, and Smithers runs your workflow across every case and writes a
-regression report:
-
-```bash
-bunx smithers-orchestrator eval workflow.tsx --cases evals/smoke.jsonl --suite smoke
-bunx smithers-orchestrator optimize workflow.tsx --cases evals/smoke.jsonl --suite smoke-gepa
-```
-
-`optimize` turns a workflow on itself: it runs your eval suite, uses GEPA to rewrite the
-prompts on your agent tasks, re-runs the suite, and keeps the new prompts only when they
-score higher. See [Eval Suites](/guides/evals-quickstart) and
-[Workflow Optimization](/guides/workflow-optimization).
-
-## Scale across machines
-
-Most workflows run fine on your laptop. When you need isolation, parallelism, or
-horizontal scale, the same [`<Sandbox>`](/components/sandbox) primitive runs a child
-workflow through an injectable provider (local or remote) with no change to the
-workflow:
-
-- **Local**: run agents in an isolated sandbox on your own machine.
-- **Remote**: gVisor, Kubernetes, [freestyle.sh](/examples/freestyle-sandbox-provider),
-  Daytona, and Cloudflare.
-
-## Read next
-
-<CardGroup cols={2}>
-  <Card title="For Humans" icon="compass" href="/guide/what-is-smithers">
-    The human-first introduction: what to ask your agent and what to expect back.
-  </Card>
-  <Card title="For Agents" icon="robot" href="/llms.txt">
-    The generated LLM docs index agents should consume before operating Smithers.
-  </Card>
-  <Card title="Tour" icon="route" href="/tour">
-    A 6-step worked example that introduces every core feature.
-  </Card>
-  <Card title="How It Works" icon="gears" href="/how-it-works">
-    The render, execute, persist loop that makes runs durable.
-  </Card>
-</CardGroup>

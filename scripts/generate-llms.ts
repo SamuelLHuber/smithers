@@ -32,8 +32,8 @@ const CLI_DOCS_DIR = resolve(import.meta.dir, "../apps/cli/docs");
 // -----------------------------------------------------------------------------
 
 const CORE_PAGES = [
-  // Hero
-  "index.mdx",
+  // Hero. The site root (index.mdx) is a custom marketing splash (JSX), not
+  // prose, so introduction.mdx leads the agent-facing bundle instead.
   "introduction.mdx",
   "installation.mdx",
   "quickstart.mdx",
