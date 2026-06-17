@@ -124,6 +124,16 @@ test("package configuration docs cover published workspace packages", () => {
     }
 });
 
+test("TUI removal guide does not point at the retired gui command", () => {
+    const tuiGuide = readRepoFile("docs/guides/tui.mdx");
+
+    expect(tuiGuide).not.toContain("[`gui`](/cli/overview)");
+    expect(tuiGuide).not.toMatch(/\bgui command\b/i);
+    expect(tuiGuide).toContain("| Local control plane |");
+    expect(tuiGuide).toContain("[`ps --watch`](/cli/overview)");
+    expect(tuiGuide).toContain("[`inspect --watch`](/cli/overview)");
+});
+
 test("MCP semantic tool docs cover current semantic tools", () => {
     const semanticToolsSource = readRepoFile("apps/cli/src/mcp/semantic-tools.js");
     const mcpDoc = readRepoFile("docs/integrations/mcp-server.mdx");
@@ -286,6 +296,46 @@ test("OpenAPI docs document current package limitations", () => {
     expect(docs).toContain("Swagger 2.0");
 });
 
+test("community connector spec documents the long-tail package contract", () => {
+    const docsConfig = readRepoFile("docs/docs.json");
+    expect(docsConfig).toContain("integrations/community-connectors");
+
+    const doc = readRepoFile("docs/integrations/community-connectors.mdx");
+    const requiredSections = [
+        "## Package Layout",
+        "## Manifest Format",
+        "## Loader Contract",
+        "## Tool Declarations",
+        "## Trigger Declarations",
+        "## Auth Requirements",
+        "## Tier 0 Integration Points",
+        "## Anti-Patterns",
+    ];
+    const manifestKeys = [
+        "smithers.connector.v1",
+        "tools",
+        "triggers",
+        "auth",
+        "surfaces",
+        "oauth",
+        "tokenBroker",
+        "mcp",
+        "openapi",
+        "webhooks",
+    ];
+    const loaderTerms = [
+        "validate the manifest",
+        "project tools",
+        "register triggers",
+        "resolve auth",
+        "enforce scopes",
+        "idempotency",
+    ];
+
+    for (const section of requiredSections) expect(doc).toContain(section);
+    for (const key of manifestKeys) expect(doc).toContain(key);
+    for (const term of loaderTerms) expect(doc).toContain(term);
+});
 test("community connector spec documents the long-tail package contract", () => {
     const docsConfig = readRepoFile("docs/docs.json");
     expect(docsConfig).toContain("integrations/community-connectors");
