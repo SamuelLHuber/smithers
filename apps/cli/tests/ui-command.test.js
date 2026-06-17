@@ -154,8 +154,32 @@ async function runSmithersAsync(args, options) {
         exitCode,
         stdout,
         stderr,
-        json: options.format === null ? undefined : JSON.parse(stdout.slice(stdout.indexOf("{"))),
+        json: options.format === null ? undefined : parseEnvelope(stdout),
     };
+}
+
+// In --format json the CLI prints the structured envelope as the final JSON
+// value on stdout (human-readable lines go to stderr). Parse the LAST balanced
+// JSON object on stdout rather than slicing from the first "{": that stays
+// correct even if a future change prints a leading log line on stdout, instead
+// of throwing an opaque "Unexpected EOF".
+function parseEnvelope(stdout) {
+    const trimmed = stdout.trim();
+    if (!trimmed) {
+        throw new Error(`Expected a JSON envelope on stdout but got nothing. stdout=${JSON.stringify(stdout)}`);
+    }
+    const candidates = [trimmed];
+    const lastObjectStart = trimmed.lastIndexOf("\n{");
+    if (lastObjectStart >= 0) candidates.push(trimmed.slice(lastObjectStart + 1));
+    const firstObjectStart = trimmed.indexOf("{");
+    if (firstObjectStart > 0) candidates.push(trimmed.slice(firstObjectStart));
+    for (const candidate of candidates) {
+        try {
+            return JSON.parse(candidate);
+        }
+        catch { }
+    }
+    throw new Error(`Could not parse a JSON envelope from stdout. stdout=${JSON.stringify(stdout)}`);
 }
 
 async function waitFor(predicate, timeoutMs = 20_000) {
@@ -292,7 +316,7 @@ describe("smithers ui", () => {
             expect(exitCode).toBe(0);
             expect(stderr).toContain(`No Gateway at http://127.0.0.1:${port}; starting one`);
             expect(stdout).toContain(`http://127.0.0.1:${port}/workflows/basic`);
-            const envelope = JSON.parse(stdout.slice(stdout.indexOf("{")));
+            const envelope = parseEnvelope(stdout);
             expect(envelope).toMatchObject({
                 opened: false,
                 url: `http://127.0.0.1:${port}/workflows/basic`,
