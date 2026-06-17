@@ -35,6 +35,9 @@ examples/run-*.log
 .cache
 *.tsbuildinfo
 
+# tsup transient bundled config (written during --dts builds, must never be committed)
+**/tsup.config.bundled_*.mjs
+
 # playwright
 playwright-report
 test-results
