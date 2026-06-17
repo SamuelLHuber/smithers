@@ -1130,6 +1130,7 @@ const implementer = new AnthropicAgent({ model, instructions: "...", tools: { re
 - **Stable task IDs.** `id="implement-${i}"` or `id={Math.random()}` breaks resume. Derive from data.
 - **`useState` is not durable.** Resets on every render. Persist via `ctx` and a Task.
 - **Input is immutable.** Resuming with different `--input` is an error; the input is persisted at first run.
+- **Adding a schema field auto-migrates (SQLite).** Adding a field to a typed input or output Zod schema does not require recreating `smithers.db`. On every boot the runtime runs `CREATE TABLE IF NOT EXISTS` and then `ALTER TABLE ... ADD COLUMN` for any column the schema introduced, so new fields are added in place. If you still see `SQLiteError: table input has no column named X`, you are on a build before this boot-time migration landed (or a Postgres-backed DB, which does not auto-add columns yet); upgrade with `bunx smithers-orchestrator --version` or start a fresh run. Renaming or removing a field, or changing a field's type, is not migrated and does need a fresh DB.
 - **Code changes block resume.** A workflow source change = a different workflow. Hot reload applies changes within a running frame; resume validates the source hash of the original run. If you stop a run and the source has changed, resume is blocked. Start a new run, don't resume across edits.
 - **Cached output is re-validated.** Schema drift after caching is caught (the validator rejects the stale row), so the cache misses safely.
 - **Side-effect tasks should not be cached.** Pure work only.
@@ -1563,6 +1564,7 @@ export default smithers((ctx) => (
 ## Reactivity
 
 The tree re-renders on every frame, so branching is a normal JSX conditional. Inside a workflow function, `ctx` exposes `ctx.input` and `ctx.outputMaybe(ref, { nodeId })`. The latter returns the output of a completed task, or `undefined` if it hasn't run yet:
+The `ctx` parameter is optional: it is just a normal function argument, so a workflow that never reads `ctx.input` or `ctx.outputMaybe` can drop it entirely and write `smithers(() => ( ... ))`. Add `(ctx)` only when you actually reference dynamic input or prior task output.
 
 ```tsx
 const analysis = ctx.outputMaybe(outputs.analysis, { nodeId: "analyze" });
@@ -2356,6 +2358,7 @@ export default smithers((ctx) => (
 ## Notes
 
 - Direct children run sequentially; `<Sequence>` is only needed inside other control-flow components.
+- **Two ways to get `<Workflow>`, both equivalent.** You can either `import { Workflow } from "smithers-orchestrator"` (top-level export) or destructure it from `createSmithers(...)`; they render the identical node. The factory's `Workflow` is a thin pass-through to the same component (it injects no schema or context), unlike `Task`/`Approval`/`Sandbox`/`Signal`, which the factory wires to the run's context and your output schemas. **Convention: destructure `Workflow` from `createSmithers` alongside `Task`, `smithers`, and `outputs`** so the workflow's components all come from one place; this is what the example above and ~95% of `examples/` do. Importing `Workflow` (or `Sequence`, `Branch`, `Loop`, `Parallel`, also pure structural components) directly from `"smithers-orchestrator"` is equally valid and handy in tiny single-file workflows.
 - Custom Drizzle tables require `runId`, `nodeId`, and `iteration` columns with a composite primary key `(run_id, node_id, iteration)`. Tasks outside a `<Loop>` write `iteration = 0`.
 
 ---
@@ -3769,6 +3772,7 @@ Both APIs use the graph resolver, so they match the path Smithers gives worker t
   than re-running `git add`/`git commit`.
 - Innermost `<Worktree>` wins when nested; duplicate ids are rejected.
 - Empty/whitespace `path` is rejected at render time.
+- A relative `path` resolves against the **launch root**, not the workflow file's directory. The launch root is `--root` (if given), else the nearest ancestor of the operator working directory that contains a `.smithers/` package, else the operator working directory. It is never `dirname(workflowFile)`, so a relative `path` like `wt-a` lands beside wherever you ran `bunx smithers-orchestrator up <path>` from, which can differ from where the workflow source lives. Pass an absolute `path` (for example `/tmp/smithers/wt-a`) when you need a deterministic location, and read back the resolved location with `ctx.worktreePath(...)` or `ctx.resolveWorktreePath(...)` rather than reconstructing it.
 
 ---
 
@@ -7007,6 +7011,7 @@ Defined in the root `package.json` for development:
 | `dev:studio` | `bun apps/smithers-studio-2/scripts/dev.ts` | Start the Smithers Studio 2 development script |
 | `typecheck` | `tsc --noEmit` | Type-check the `src/` and `tests/` trees against `tsconfig.json` |
 | `typecheck:examples` | `tsc -p examples/tsconfig.json --noEmit` | Type-check example files against a separate config that maps `smithers-orchestrator` to `examples-entry.js` |
+| `typecheck:evals` | `tsc -p evals/tsconfig.json --noEmit` | Type-check the agent-fluency eval suite under `evals/` against its own config |
 | `lint` | `oxlint --react-plugin --node-plugin --import-plugin --ignore-path .gitignore -A react/no-children-prop -A unicorn/no-thenable --ignore-pattern 'packages/*/src/**/*.d.ts' packages/*/src packages/*/tests` | Lint package source and tests with oxlint |
 | `lint:fix` | `oxlint --react-plugin --node-plugin --import-plugin --ignore-path .gitignore -A react/no-children-prop -A unicorn/no-thenable --ignore-pattern 'packages/*/src/**/*.d.ts' --fix --fix-suggestions packages/*/src packages/*/tests` | Apply supported oxlint fixes |
 | `cli` | `bun run apps/cli/src/index.js` | Run the local development CLI entrypoint |
@@ -7599,6 +7604,35 @@ The legacy run-row `status` column maps to `RunState` like this:
 | missing / unknown text  | `unknown`                      |
 
 `recovering` is reserved for the supervisor takeover window. As of this writing, it is defined but not yet emitted by the runtime.
+<Warning>
+**`waiting-event` is overloaded; do not assume it always means "send a signal."** The same status covers two situations that need opposite recovery:
+
+1. A genuine pause on a `<Signal>` or `<WaitForEvent>`. Recover by delivering the awaited signal: `bunx smithers-orchestrator signal RUN_ID SIGNAL_NAME --data '{}'`.
+2. A run parked with no live event node: an external-trigger / hot-reload / orphan-recovery wait, an aspect or alert human-request, or an approval decided while the run was detached. Here a signal does nothing; the run needs a resume (or `retry-task` / `fork` / answering the human request) after you fix the underlying cause.
+
+Do not guess between them. Ask the runtime, which already disambiguates:
+
+```bash
+bunx smithers-orchestrator why RUN_ID     # names the real blocker and prints the exact unblock command
+bunx smithers-orchestrator inspect RUN_ID # shows whether any node is actually in waiting-event state
+```
+
+`why` reports `waiting-event` (with a ready `signal` command) only when a node is truly awaiting an event. When the run row says `waiting-event` but no node is, it reports `approval-decided-resume-required`, `retries-exhausted`, or `dependency-failed` instead, each with the matching resume / `retry-task` action.
+</Warning>
+<Warning>
+**`succeeded`/`finished` can mask failed child agents.** Run-level status is binary; `finished` or `failed`; and a run is only `failed` when it has an *unhandled* task failure. Two large classes of failed children are deliberately not treated as run-level failures: tasks marked `continueOnFail`, and agent tasks that fail with a *transient* error (rate limits, timeouts, aborts; `SESSION_ERROR`, `TASK_TIMEOUT`, `TASK_HEARTBEAT_TIMEOUT`, `TASK_ABORTED`, or `failureRetryable`). A fan-out where most agents hit provider rate limits can therefore still report `finished` → `succeeded`.
+
+Never trust the top-level status alone to conclude a run truly succeeded. Inspect per-node/agent outcomes:
+
+```bash
+bunx smithers-orchestrator inspect RUN_ID   # top-level runState plus every node's state (look for failed nodes)
+bunx smithers-orchestrator node NODE_ID      # one node's failure/error, retries, and tool calls
+bunx smithers-orchestrator events --run RUN_ID  # the full event history, including per-task failures
+bunx smithers-orchestrator scores RUN_ID     # scorer results when you gate on judged output
+```
+
+To avoid the rate-limit failures in the first place, bound fan-out concurrency with `<Parallel maxConcurrency={N}>` so you don't burst past the provider's limit.
+</Warning>
 
 ## ReasonBlocked / ReasonUnhealthy
 
@@ -7890,6 +7924,31 @@ Pick the kind to match the lifetime: `workflow` is scoped to a workflow definiti
 ```
 
 `memory` is preserved on the task descriptor as metadata for runtimes and integrations that layer memory behavior onto task execution. The direct store APIs above are the current public memory read/write surface.
+## Imperative get/set/delete inside a workflow
+
+The `memory={{ recall, remember }}` block above is **declarative metadata**; it is preserved on the task descriptor for runtimes that layer memory onto task execution, not an imperative call. To actually get, set, or delete a fact **while a run is executing**, build a store with `createMemoryStore(db)` and call it from inside a compute `<Task>` (a function task with no `agent`). The compute callback receives `deps` only; there is no injected `store`, so you create one:
+
+```tsx
+import { createMemoryStore } from "smithers-orchestrator/memory";
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+
+const store = createMemoryStore(drizzle(new Database("smithers.db")));
+const ns = { kind: "workflow" as const, id: "code-review" };
+
+<Task id="remember-model" output={outputs.done}>
+  {async () => {
+    await store.setFact(ns, "model", "gpt-4");           // set
+    const fact = await store.getFact(ns, "model");        // get (MemoryFact | undefined)
+    const all  = await store.listFacts(ns);               // list
+    await store.deleteFact(ns, "stale-key");              // delete
+    return { done: true };
+  }}
+</Task>
+```
+
+Create the store once at module scope (outside the workflow) and reuse it across tasks rather than re-opening the SQLite handle in every task body. Under Effect, the same operations are available as `store.setFactEffect(ns, key, value, ttlMs?)`, `store.getFactEffect(ns, key)`, etc., or via `MemoryService` (`MemoryServiceApi`), which also exposes the underlying `.store`.
+
 
 ## Processors
 
@@ -10384,6 +10443,9 @@ Limits:
 | Billing | Provider subscription / local CLI | API billing |
 | Tools | Provider CLI tool ecosystem | Smithers tools sandbox |
 | Flexibility | Native CLI flags | AI SDK `providerOptions` |
+| Structured output | Prompt-injection + text JSON extraction | Native (`supportsNativeStructuredOutput`) |
+
+**Choosing an agent for typed/JSON-output tasks.** Only `AnthropicAgent` and `OpenAIAgent` declare `supportsNativeStructuredOutput = true`, so when a `<Task>` has an `output` schema they pass it through the AI SDK's native structured-output API (`Output.object({ schema })`) and the result is schema-constrained. CLI agents (`ClaudeCodeAgent`, `CodexAgent`, etc.) do **not** set this flag: the engine falls back to injecting JSON instructions into the prompt and extracting the object from the model's text, and emits a `console.warn` ("engine ... does not support native structured output. Falling back to prompt-injection + text JSON extraction"). Schema-validation retries still run, but valid JSON shape does not guarantee meaningful values. For tasks whose primary job is producing typed/JSON output, prefer `AnthropicAgent`/`OpenAIAgent` (or, for an OpenAI-compatible endpoint that honors JSON schema, an `OpenAIAgent` with `nativeStructuredOutput` left enabled). `CodexAgent` additionally forwards the task schema to the CLI via `--output-schema` for constrained decoding, but the engine still wraps it with the prompt-injection fallback because the flag is unset.
 
 Pass a raw `ToolLoopAgent` directly if you prefer; the wrappers are convenience, not a separate runtime.
 
