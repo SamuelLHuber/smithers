@@ -1766,6 +1766,7 @@ function checkControlPlaneDocsMatchStoreApi() {
     [CONTROL_PLANE_GUIDE, 'import { ControlPlaneStore } from "@smithers-orchestrator/control-plane";'],
     [CONTROL_PLANE_GUIDE, "Constructing `new ControlPlaneStore(sqlite)` calls `ensureControlPlaneTables(sqlite)`."],
     [CONTROL_PLANE_GUIDE, "`checkUsageLimit()` | Return the matching limit plus `usedQuantity`, `remainingQuantity`, and `exceeded`, or `null` when no limit is configured."],
+    [CONTROL_PLANE_GUIDE, "`period` is a label used to match a configured limit; `checkUsageLimit()` does not reset usage automatically for calendar periods."],
     [CONTROL_PLANE_GUIDE, "{ usedQuantity, remainingQuantity, exceeded, limitQuantity, ...limitMetadata }"],
   ];
   const forbidden = [
@@ -2671,6 +2672,32 @@ function checkWatchAndSteerDocsMatchCurrentUiSurface() {
     }
   } else {
     console.log("✓ watch-and-steer docs match current workflow UI surface");
+  }
+}
+
+function checkReadmeAvoidsDeprecatedRalphPromotion() {
+  const readme = readFileSync(README, "utf8");
+  const required = [
+    "![Live workflow runs: some succeeded, some running, some paused on an approval gate, every run resumable and rewindable.]",
+    "| `<Loop>`     | Repeat tasks until a condition is met  |",
+    "<Loop until={ctx.latest(\"validate\")?.approved} maxIterations={5}>",
+    "</Loop>",
+  ];
+  const forbidden = [
+    "![Live runs in Smithers Studio:",
+    "| `<Ralph>`    | Loop until a condition is met  |",
+    "<Ralph until=",
+    "</Ralph>",
+  ];
+  const missing = required.filter((needle) => !readme.includes(needle));
+  const stale = forbidden.filter((needle) => readme.includes(needle));
+  if (missing.length || stale.length) {
+    failed = true;
+    console.error("\n✗ README must avoid stale Studio alt text and deprecated Ralph promotion:");
+    if (missing.length) console.error(`    missing: ${missing.map((needle) => `README.md:${needle}`).join(", ")}`);
+    if (stale.length) console.error(`    stale: ${stale.map((needle) => `README.md:${needle}`).join(", ")}`);
+  } else {
+    console.log("✓ README uses current hero alt text and Loop primitive guidance");
   }
 }
 
