@@ -1,6 +1,7 @@
 node_modules/
 executions/
 runs/
+workflows/.worktrees/
 sandboxes/
 state/
 tmp/
