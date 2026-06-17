@@ -52,6 +52,10 @@
 /** @typedef {import("./http/HttpToolInput.ts").HttpToolInput} HttpToolInput */
 /** @typedef {import("./http/HttpToolOutput.ts").HttpToolOutput} HttpToolOutput */
 >>>>>>>>> 6e36814a (✨ feat(agents): expose generic HTTP tool)
+/** @typedef {import("./http/CreateHttpToolOptions.ts").CreateHttpToolOptions} CreateHttpToolOptions */
+/** @typedef {import("./http/HttpToolAuth.ts").HttpToolAuth} HttpToolAuth */
+/** @typedef {import("./http/HttpToolInput.ts").HttpToolInput} HttpToolInput */
+/** @typedef {import("./http/HttpToolOutput.ts").HttpToolOutput} HttpToolOutput */
 // @smithers-type-exports-end
 
 export { BaseCliAgent } from "./BaseCliAgent/index.js";
@@ -87,6 +91,7 @@ export { createHttpTool } from "./http/createHttpTool.js";
 =========
 export { createHttpTool } from "./http/createHttpTool.js";
 >>>>>>>>> 6e36814a (✨ feat(agents): expose generic HTTP tool)
+export { createHttpTool } from "./http/createHttpTool.js";
 export { zodToOpenAISchema } from "./zodToOpenAISchema.js";
 export { sanitizeForOpenAI } from "./sanitizeForOpenAI.js";
 export { createTranscriptionTool } from "./transcription/createTranscriptionTool.js";
@@ -97,3 +102,17 @@ export {
   createBraveSearchProvider,
   createSerperSearchProvider,
 } from "./web-search/index.js";
+
+
+export { createTranscriptionTool } from "./transcription/createTranscriptionTool.js";
+
+
+export {
+  createGroundedWebSearchToolset,
+  createExaSearchProvider,
+  createTavilySearchProvider,
+  createBraveSearchProvider,
+  createSerperSearchProvider,
+} from "./web-search/index.js";
+
+>>>>>>> ce5c4a6c (🔎 feat(agents): add resilient multi-provider grounded web search)
