@@ -4871,6 +4871,9 @@ type RunOptions = {
   auth?: RunAuthContext | null;
   config?: Record<string, unknown>;
   cliAgentToolsDefault?: "all" | "explicit-only";  // default "all"
+  initialOutputs?: OutputSnapshot;  // seed prior outputs (resume/fork)
+  initialIteration?: number;        // seed the starting loop iteration
+  initialIterations?: Record<string, number> | ReadonlyMap<string, number>;  // per-loop iteration seeds
   resumeClaim?: {                   // internal supervisor coordination
     claimOwnerId: string;
     claimHeartbeatAtMs: number;
