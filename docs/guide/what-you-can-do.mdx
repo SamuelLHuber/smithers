@@ -6,13 +6,13 @@ description: "Say the outcome you want. Your agent picks a proven Smithers workf
 
 Say the outcome you want. Your agent picks a proven recipe and runs it.
 
-You don't write workflows or run the CLI by hand. You talk to your coding agent. It reaches for one of the built-in Smithers workflows (durable, task-specific and project-specific recipes that render → execute → persist) and drives it through to a validated, reviewed result. Any agent, any model, any machine.
+You don't write workflows or run the CLI by hand. You talk to your coding agent, and it reaches for one of the built-in Smithers workflows (durable recipes that render → execute → persist) and drives it through to a validated, reviewed result. Any agent, any model, any machine.
 
-This page is the catalog of what's possible. Each row is an outcome you want, the exact words you say to your agent, and what Smithers does under the hood. Build, plan, raise quality, or run for hours while you're away.
+This page is the catalog. Each row is an outcome you want, the exact words you say to your agent, and what Smithers does under the hood.
 
 ## Build
 
-You know what you want shipped. These workflows turn a request into validated, reviewed code and won't hand you slop on the way out. They enforce a build-check-review loop instead.
+You know what you want shipped. These workflows turn a request into validated, reviewed code, enforcing a build-check-review loop instead of handing you a first draft.
 
 | You say | Smithers runs |
 | --- | --- |
@@ -21,19 +21,19 @@ You know what you want shipped. These workflows turn a request into validated, r
 | "Migrate the dashboard to the new gateway APIs. Show me the milestone plan before you start, then work through it." | [`mission`](/workflows/mission): milestone plan, your approval, then focused workers per milestone. |
 | "Take the tickets in my backlog and implement each one on its own branch, then merge the ones that pass." | [`kanban`](/workflows/kanban): one worktree branch per ticket, merge the ones that validate and pass review. |
 
-<Frame caption="implement runs a build → validate → review loop and feeds failures back in, so you get reviewed code, not a first draft.">
+<Frame caption="implement runs a build → validate → review loop and feeds failures back in, so you get reviewed code instead of a first draft.">
   <img src="/images/workflow-ui/implement.png" alt="Smithers workflow UI showing the implement workflow with implementation, validation, and reviewer nodes wired into a loop" />
 </Frame>
 
-<Frame caption="research-plan-implement gathers context and plans before touching code, the pipeline you reach for when the task is in unfamiliar territory.">
+<Frame caption="research-plan-implement gathers context and plans before touching code, the pipeline for work in unfamiliar territory.">
   <img src="/images/workflow-ui/research-plan-implement.png" alt="Smithers workflow UI showing research, plan, and validation-loop stages chained in sequence" />
 </Frame>
 
-<Frame caption="mission breaks long-horizon work into approved milestones with parallel workers, so a multi-day migration runs as scoped, reviewable chunks instead of one runaway agent.">
+<Frame caption="mission breaks long-horizon work into approved milestones with parallel workers, so a multi-day migration runs as scoped, reviewable chunks.">
   <img src="/images/workflow-ui/mission.png" alt="Smithers workflow UI showing a mission plan with milestones, parallel feature workers, integration, and validation" />
 </Frame>
 
-<Frame caption="kanban implements each ticket in its own worktree branch and merges only the ones that pass: isolated parallelism, not a tangled single branch.">
+<Frame caption="kanban implements each ticket in its own worktree branch and merges only the ones that pass: isolated parallelism on one board.">
   <img src="/images/workflow-ui/kanban.png" alt="Smithers workflow UI showing kanban fanning tickets out into separate worktree branches before a merge step" />
 </Frame>
 
@@ -52,7 +52,7 @@ Shape the work before any code is written. These produce plans, tickets, and sha
   <img src="/images/workflow-ui/plan.png" alt="Smithers workflow UI showing a single plan task that emits an ordered step list" />
 </Frame>
 
-<Frame caption="tickets-create splits one broad request into discrete tickets with acceptance criteria, then drop them in .smithers/tickets/ and hand them to kanban.">
+<Frame caption="tickets-create splits one broad request into discrete tickets with acceptance criteria; drop them in .smithers/tickets/ and hand them to kanban.">
   <img src="/images/workflow-ui/tickets-create.png" alt="Smithers workflow UI showing a request decomposed into multiple structured tickets" />
 </Frame>
 
@@ -66,7 +66,7 @@ Shape the work before any code is written. These produce plans, tickets, and sha
 
 ## Quality
 
-Make existing work stronger. Review it, fix bugs at the root, raise coverage, and audit the whole repo for gaps.
+Make existing work stronger: review it, fix bugs at the root, raise coverage, and audit the whole repo for gaps.
 
 | You say | Smithers runs |
 | --- | --- |
@@ -75,7 +75,7 @@ Make existing work stronger. Review it, fix bugs at the root, raise coverage, an
 | "Add regression coverage for webhook signature failures and make sure the tests actually pass." | [`improve-test-coverage`](/workflows/improve-test-coverage): find high-impact test gaps and validate the new tests. |
 | "Take an inventory of every feature in this repo, then audit each group for missing tests and error handling." | [`feature-enum`](/workflows/feature-enum) → [`audit`](/workflows/audit): build a code-backed feature map, then review each group in parallel for gaps. |
 
-<Frame caption="review returns approval status plus issues tagged by severity, so 'is this production-ready' gets a structured answer, not a vibe.">
+<Frame caption="review returns approval status plus issues tagged by severity, so 'is this production-ready' gets a structured answer.">
   <img src="/images/workflow-ui/review.png" alt="Smithers workflow UI showing reviewer agents producing approval status and structured issues" />
 </Frame>
 
@@ -83,7 +83,7 @@ Make existing work stronger. Review it, fix bugs at the root, raise coverage, an
   <img src="/images/workflow-ui/debug.png" alt="Smithers workflow UI showing debug reproducing, fixing, and validating a bug across fixed iterations" />
 </Frame>
 
-<Frame caption="improve-test-coverage fills high-impact gaps and validates that the new tests actually pass, coverage you can trust.">
+<Frame caption="improve-test-coverage fills high-impact gaps and validates that the new tests actually pass.">
   <img src="/images/workflow-ui/improve-test-coverage.png" alt="Smithers workflow UI showing improve-test-coverage adding and validating tests" />
 </Frame>
 
@@ -91,7 +91,7 @@ Make existing work stronger. Review it, fix bugs at the root, raise coverage, an
   <img src="/images/workflow-ui/feature-enum.png" alt="Smithers workflow UI showing feature-enum producing grouped feature names from a repo scan" />
 </Frame>
 
-<Frame caption="audit consumes the feature map and reviews each group for missing tests, docs, and error handling, for free across the whole inventory.">
+<Frame caption="audit consumes the feature map and reviews each group for missing tests, docs, and error handling across the whole inventory.">
   <img src="/images/workflow-ui/audit.png" alt="Smithers workflow UI showing audit fanning out across feature groups and merging a report" />
 </Frame>
 
@@ -103,9 +103,9 @@ Smithers runs are durable. They survive crashes, restarts, and flaky tools, and 
 
 > "Keep working on reducing our flaky tests and don't stop until I tell you to."
 
-Your agent runs [`ralph`](/workflows/ralph), an unbounded loop that re-runs the smart agent on your prompt over and over. When there's enough progress, tell your agent to stop it and it runs `bunx smithers-orchestrator cancel RUN_ID` for you.
+Your agent runs [`ralph`](/workflows/ralph), an unbounded loop that re-runs the smart agent on your prompt. When you've had enough progress, tell your agent to stop it and it runs `bunx smithers-orchestrator cancel RUN_ID`.
 
-<Frame caption="ralph loops the same prompt indefinitely, so a long-grind task keeps making progress while you're away instead of stalling after one pass.">
+<Frame caption="ralph loops the same prompt indefinitely, so a long-grind task keeps making progress while you're away.">
   <img src="/images/workflow-ui/ralph.png" alt="Smithers workflow UI showing ralph running a single agent task in an unbounded loop" />
 </Frame>
 
@@ -113,13 +113,13 @@ Your agent runs [`ralph`](/workflows/ralph), an unbounded loop that re-runs the 
 
 > "Every morning, scan the repo for stale TODOs and broken doc examples and open fixes."
 
-Your agent registers a cron schedule (`bunx smithers-orchestrator cron add`) that kicks off a workflow on its own, a repo janitor that runs without you in the loop. Ask your agent what's scheduled and it runs `bunx smithers-orchestrator cron list`.
+Your agent registers a cron schedule (`bunx smithers-orchestrator cron add`) that kicks off the workflow on its own. Ask what's scheduled and it runs `bunx smithers-orchestrator cron list`.
 
 **Gate on your approval.** Say:
 
 > "Draft the release blog post, but don't publish until I approve it."
 
-The workflow pauses at an approval gate and durably suspends. It waits for your decision: say "approve it" and your agent runs `bunx smithers-orchestrator approve`, and the run resumes exactly where it left off. The work happens while you're away; the irreversible step waits for you. The same gate is what `mission` uses to hold its milestone plan until you sign off.
+The workflow durably suspends at an approval gate. Say "approve it," your agent runs `bunx smithers-orchestrator approve`, and the run resumes exactly where it left off. The work happens while you're away; the irreversible step waits for you. This is the same gate `mission` uses to hold its milestone plan until you sign off.
 
 ## Make your own workflows discoverable
 
@@ -127,9 +127,9 @@ Smithers treats having your agent author new workflows as a first-class path. On
 
 > "Write skill docs for all the Smithers workflows in this repo so any agent can find and run them."
 
-Your agent runs [`workflow-skill`](/workflows/workflow-skill). It reads every local workflow's metadata and source, then writes concise agent-facing skill docs under `.smithers/skills/`. After that, any coding agent on the project can discover and operate your workflows without reading the source first.
+Your agent runs [`workflow-skill`](/workflows/workflow-skill): it reads every local workflow's metadata and source, then writes concise agent-facing skill docs under `.smithers/skills/`. After that, any coding agent on the project can discover and operate your workflows without reading the source first.
 
-<Frame caption="workflow-skill turns your local workflows into agent-facing skill docs, so the next agent on the repo can drive them by name, with no source-reading required.">
+<Frame caption="workflow-skill turns your local workflows into agent-facing skill docs, so the next agent on the repo can drive them by name without reading the source.">
   <img src="/images/workflow-ui/workflow-skill.png" alt="Smithers workflow UI showing workflow-skill reading local workflows and emitting skill documentation" />
 </Frame>
 

@@ -6,19 +6,19 @@ description: "Hand your coding agent real, multi-step work and trust it to finis
 
 Smithers lets you hand your coding agent real, multi-step work and trust it to finish, surviving crashes, retries, and review loops.
 
-You already talk to a coding agent. You ask for a change, it works for a few minutes, you read the result. That loop is great for small, synchronous edits. It falls apart the moment the work gets long.
+You already talk to a coding agent: ask for a change, it works for a few minutes, you read the result. That loop is great for small, synchronous edits. It falls apart the moment the work gets long.
 
 ## The treadmill
 
-A single agent in a chat window is a black box on a treadmill. It forgets what it decided ten steps ago. It stalls halfway through a long job and waits for you to nudge it. And if the process crashes, whether a closed laptop, a dropped connection, or a flaky tool, the work is gone. You start over.
+A single agent in a chat window is a black box on a treadmill. It forgets what it decided ten steps ago, stalls halfway through a long job waiting for a nudge, and loses everything if the process crashes. You start over.
 
-The problem isn't the model. The model is good. The problem is that nothing underneath it is durable. There's no record of what finished, so there's nothing to resume from.
+The model isn't the problem; the model is good. The problem is that nothing underneath it is durable. There's no record of what finished, so there's nothing to resume from.
 
-## The shift: from chat to durable background work
+## From chat to durable background work
 
-Smithers moves the work off the treadmill and into a durable runtime. Instead of one agent grinding synchronously while you watch, you describe a real job and it runs in the background, for minutes or for days.
+Smithers moves the work off the treadmill and into a durable runtime. You describe a real job and it runs in the background, for minutes or for days.
 
-Every step that finishes is persisted the moment it completes. So the runtime always knows what's done and what to run next. A crash isn't lost work; it's a resume point. A long job isn't a stall; it's a run you can walk away from. And the whole thing is observable, so you're never staring at a black box.
+Every step is persisted the moment it finishes, so the runtime always knows what's done and what to run next. A crash becomes a resume point. A long job becomes a run you can walk away from. And it's observable throughout, so you're never staring at a black box.
 
 <Frame caption="Smithers is the durable layer between you and the models, the part that doesn't change when the agent topology does.">
   <img src="/images/why/three-layer-stack.svg" alt="Three-layer diagram: your prompt on top, Smithers as the durable orchestration layer in the middle, and interchangeable agents and models at the bottom" />
@@ -26,15 +26,13 @@ Every step that finishes is persisted the moment it completes. So the runtime al
 
 ## You don't write workflows. You talk to your agent.
 
-Here's the part that matters: you don't click a GUI, and you don't write code.
-
-You install the `smithers` skill into your coding agent, and from then on **you drive it through your agent.** You say what you want in plain language. Your agent picks the right workflow, starts the run, watches it, and brings you back the result, or pauses to ask when it needs a decision. Smithers is the engine; your agent is the driver; you stay in the chat you already use.
+You don't click a GUI and you don't write code. Install the `smithers` skill into your coding agent, and from then on **you drive it through your agent.** Say what you want in plain language; your agent picks the right workflow, starts the run, watches it, and brings back the result, or pauses to ask when it needs a decision. Smithers is the engine, your agent is the driver, you stay in the chat you already use.
 
 The TSX workflows and the CLI exist, and you can read them. But the primary path is a sentence to your agent.
 
 ## What you get
 
-Four guarantees a single agent in a chat window can't give you. You get all of them for free, on any agent, any model, any machine.
+Four guarantees a chat-window agent can't give you, on any agent, any model, any machine.
 
 | You get | What it means for you |
 | --- | --- |
@@ -49,11 +47,11 @@ Four guarantees a single agent in a chat window can't give you. You get all of t
 
 ## The magic moment
 
-Try this. Open your coding agent and say:
+Open your coding agent and say:
 
 > "Add rate limiting to the API and don't stop until it builds, validates, and a reviewer signs off."
 
-Your agent starts a durable run that writes the code, runs the build and tests, loops back to fix what fails, and only finishes once a reviewer approves, pausing for your sign-off at the gate.
+A durable run writes the code, runs the build and tests, loops back to fix what fails, and finishes only once a reviewer approves, pausing for your sign-off at the gate.
 
 A few more things you can just say:
 
@@ -63,13 +61,13 @@ A long-horizon run that grinds on test flakiness in the background and keeps goi
 
 > "Migrate the dashboard to the new gateway APIs. Show me the milestone plan before you start, then work through it."
 
-Plans the migration, pauses so you can approve the plan, then executes it milestone by milestone, resuming exactly where it left off if anything interrupts it.
+Plans the migration, pauses for your approval, then executes milestone by milestone, resuming exactly where it left off if anything interrupts it.
 
 <Frame caption="A run survives a hard crash mid-task and picks up exactly where it left off, with no lost work and no restart from scratch.">
   <img src="/images/why/crash-resume.gif" alt="A Smithers run is killed partway through, then resumes from the last persisted step instead of starting over" />
 </Frame>
 
-None of these need you to write a workflow or touch a terminal. You ask. Smithers runs it durably. You get higher-quality output than a one-shot prompt, with the structure real work demands.
+None of these need a workflow file or a terminal. You ask, Smithers runs it durably, and you get higher-quality output than a one-shot prompt, with the structure real work demands.
 
 ## Read next
 

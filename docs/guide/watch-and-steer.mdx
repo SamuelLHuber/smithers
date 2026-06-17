@@ -6,11 +6,11 @@ description: "See what your agent set running, follow it live, inspect what each
 
 You can watch everything your agent set running. Nothing is a black box.
 
-You kicked off a run by talking to your agent: "implement the reviewer's feedback on the auth PR." Now you want to see it work. You do that the same way: you ask. "What's running?" "Show me what step 3 produced." Your agent runs the read commands under the hood and reports back. Every run is durable, so the state is always on disk to inspect, even after a crash, even hours later.
+You started the run by asking, and you watch it by asking: "What's running?" "Show me what step 3 produced." Your agent runs the read commands under the hood and reports back. Every run is durable, so its state is on disk to inspect, even after a crash, even hours later.
 
 ## The observe loop
 
-Watching a run is three moves. List what's active. Follow one live. Inspect what a step produced.
+Three moves: list what's active, follow one live, inspect what a step produced.
 
 | You ask your agent | Smithers runs under the hood | You get back |
 | --- | --- | --- |
@@ -18,16 +18,7 @@ Watching a run is three moves. List what's active. Follow one live. Inspect what
 | "Follow the implement run." | `bunx smithers-orchestrator chat --follow` / `bunx smithers-orchestrator inspect --watch` | Live agent output and step-by-step progress, streaming |
 | "Show me what step 3 produced." | `bunx smithers-orchestrator inspect` / `bunx smithers-orchestrator output` / `bunx smithers-orchestrator diff` | The structured output, the diff, the exact tool calls |
 
-You never have to memorize the commands. You drive it through your agent.
-
-**You:** "What runs are active right now, and which are waiting on me?"
-Smithers lists every run with its status. Anything `waiting-approval` is flagged; that's a run paused at a gate, waiting for your decision.
-
-**You:** "Follow the implement run and tell me when it finishes or needs approval."
-Smithers streams the agent's chat and step transitions live, and surfaces the moment the run either lands or pauses for you.
-
-**You:** "Show me exactly what the reviewer flagged in the last run."
-Smithers pulls the reviewer step's output and reads you the findings: the structured result, not a wall of logs.
+You never memorize the commands; you drive it through your agent. Anything `waiting-approval` is flagged as a run paused at a gate.
 
 <Frame caption="Run state streams in live as each step transitions, proof that a long agent run is observable end to end, not a spinner you wait on blind.">
   <img src="/images/why/runs-live.gif" alt="A Smithers run streaming live step transitions into a tree as each task starts and finishes" />
@@ -35,27 +26,25 @@ Smithers pulls the reviewer step's output and reads you the findings: the struct
 
 ## Studio: the visual console
 
-When you want eyes on it instead of a transcript, Studio is the Smithers operations console: one window for watching runs and workspaces. In this repo, `pnpm dev:studio` starts the Studio 2 dev stack.
-
-You open it the same way you do everything else, by asking. "Open Studio so I can watch the kanban board." Smithers opens the workspace in Studio, where you browse runs and workspaces, watch them update live, and drop into an embedded terminal, all in one window.
+For eyes-on instead of a transcript, Studio is the Smithers operations console: one window for watching runs and workspaces. In this repo, `pnpm dev:studio` starts the Studio 2 dev stack. Open it by asking ("Open Studio so I can watch the kanban board"), then browse runs and workspaces, watch them update live, and drop into an embedded terminal, all in one window.
 
 <Frame caption="Studio's home surface lists your workspaces and a live operations strip, so you start every session knowing exactly what is in flight.">
   <img src="/images/studio-2/home.png" alt="Smithers Studio home screen showing recent workspaces and a live operations strip" />
 </Frame>
 
-The Runs surface is the live view. Each run streams its step tree and inspector as the agent works, with no refresh and no polling.
+The Runs surface is the live view: each run streams its step tree and inspector as the agent works, with no refresh and no polling.
 
 <Frame caption="The Runs surface streams live run events into a tree and inspector, so you can follow a run's every step visually as it happens.">
   <img src="/images/studio-2/runs-live.gif" alt="Studio Runs surface streaming live run events into a step tree with a node inspector" />
 </Frame>
 
-Color only ever means run state, so what is running, paused, or failed reads at a glance. A command palette jumps you to any run, workspace, or surface.
+Color only ever means run state, so running, paused, and failed read at a glance. A command palette jumps you to any run, workspace, or surface.
 
 <Frame caption="The Cmd-K command palette jumps to any run or surface, so the console scales from one run to dozens without a hunt.">
   <img src="/images/studio-2/command-palette.gif" alt="Opening the Studio command palette and navigating to a surface" />
 </Frame>
 
-When you need to get hands-on inside a run's workspace, Studio gives you a real embedded terminal, a live shell in the same window you are watching from.
+Need to get hands-on inside a run's workspace? Studio embeds a real terminal, a live shell in the same window you are watching from.
 
 <Frame caption="A real shell embedded in the workspace surface, so you can inspect or intervene inside a run without leaving the console.">
   <img src="/images/studio-2/workspace-terminal.png" alt="Studio in-app workspace terminal running a live shell" />
@@ -67,9 +56,9 @@ The CLI watch loop (`ps`, `chat --follow`, `inspect --watch`) and the installabl
 
 ## A browser and remote view
 
-You do not have to be at the machine that started the run. Ask your agent to serve the run, and you get an HTTP control plane you can reach from a browser: your laptop watching a run on a remote box, or a teammate following along.
+You do not have to be at the machine that started the run. Ask your agent to serve it and you get an HTTP control plane you can reach from a browser: your laptop watching a run on a remote box, or a teammate following along.
 
-The installable Smithers web app gives you that browser-native surface: open it, install it like any PWA, and talk to it the same way you talk to your agent in the terminal.
+The installable Smithers web app is that browser-native surface: open it, install it like any PWA, and talk to it the same way you talk to your agent in the terminal.
 
 <Frame caption="The installable Smithers web app: a browser-native, install-to-home-screen surface for talking to Smithers from anywhere, not just the terminal.">
   <img src="/images/0.23.0/smithers-pwa.png" alt="The installable Smithers web app in dark mode showing the welcome hero and composer" />
@@ -79,7 +68,7 @@ For programmatic and multi-user access (bots, dashboards, schedulers authenticat
 
 ## Steering from here
 
-Watching is half of it. The other half is steering, and it is the same loop. You see something, you tell your agent what to do about it.
+Watching is half of it; steering is the other half, and it's the same loop. You see something, you tell your agent what to do about it.
 
 | You see | You ask your agent | Smithers does |
 | --- | --- | --- |
@@ -88,7 +77,7 @@ Watching is half of it. The other half is steering, and it is the same loop. You
 | Everything needs to stop | "Cancel everything that's running." | Tears down every active run, like `docker compose down` |
 | A step that went wrong | "Redo the reviewer step on the last run." | Retries that task and resumes the workflow from there |
 
-Because every run is durable (render → execute → persist), steering is never lossy. You can approve a gate, cancel a run, or redirect a step without losing the work already on disk. Pick up exactly where it was.
+Because every run is durable (render → execute → persist), steering is never lossy: approve a gate, cancel a run, or redirect a step without losing the work already on disk.
 
 ## Read next
 
