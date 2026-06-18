@@ -859,7 +859,7 @@ function checkRunStateDocsMatchDerivationContract() {
     [runStateDoc, "`ReasonBlocked` and `ReasonUnhealthy` are optional reason payloads"],
     [runStateDoc, "A `waiting-*` state can be returned without"],
     [runStateDoc, "Current `computeRunState` / `deriveRunState`"],
-    [runStateDoc, "emits `approval`, `event`, and `timer` blocked reasons"],
+    [runStateDoc, "emits `approval`, `event`, `timer`,"],
     [runStateDoc, "view.blocked;     // present for waiting-* only when backing context is found"],
     [runStateDoc, "view.unhealthy;   // present for stale/orphaned heartbeat expiry"],
     [deriveSource, ': { ...base, state: "waiting-approval" };'],
