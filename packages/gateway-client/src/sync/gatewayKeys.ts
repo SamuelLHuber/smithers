@@ -23,6 +23,7 @@ export const gatewayKeys = {
   ],
   cronList: (params?: Record<string, unknown>): SyncKey => ["gateway:cronList", params ?? {}],
   memoryFacts: (params?: Record<string, unknown>): SyncKey => ["gateway:listMemoryFacts", params ?? {}],
+  prompts: (params?: Record<string, unknown>): SyncKey => ["gateway:listPrompts", params ?? {}],
   scores: (params?: Record<string, unknown>): SyncKey => ["gateway:listScores", params ?? {}],
   tickets: (params?: Record<string, unknown>): SyncKey => ["gateway:listTickets", params ?? {}],
   runEvents: (runId: string): SyncKey => ["gateway:streamRunEvents", { runId }],

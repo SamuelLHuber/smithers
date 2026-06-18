@@ -9,7 +9,8 @@
 
 import { createServer } from "node:http";
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { extname, join, relative, resolve, sep } from "node:path";
 import { CronExpressionParser } from "cron-parser";
 import { Effect, Metric } from "effect";
 import { WebSocketServer } from "ws";
@@ -3498,6 +3499,77 @@ export class Gateway {
         return results;
     }
     /**
+   * Registered prompts for the `listPrompts` RPC. A prompt is a `.md`/`.mdx`
+   * file under the project's `.smithers/prompts/` directory — the SAME real
+   * source smithers-studio walks. Unlike memory/scores/tickets (DB-table backed),
+   * prompts live on disk, so this enumerates the filesystem under
+   * `process.cwd()` (the gateway `chdir`s to the project root at boot, the same
+   * cwd `register`'s UI-entry resolution already assumes). Each file maps to
+   * `{ id, entryFile, source, createdAtMs, updatedAtMs }` where `id` is the
+   * extensionless relative path (POSIX-separated so ids are stable across OSes).
+   * Returns `[]` when no `.smithers/prompts/` directory exists (a clean empty
+   * state, not an error).
+   * @returns {Array<Record<string, unknown>>}
+   */
+    listPromptsFromDisk() {
+        const promptsDir = resolve(process.cwd(), ".smithers", "prompts");
+        if (!existsSync(promptsDir)) {
+            return [];
+        }
+        const files = [];
+        const walk = (dir) => {
+            let entries;
+            try {
+                entries = readdirSync(dir, { withFileTypes: true });
+            }
+            catch {
+                return;
+            }
+            for (const entry of entries) {
+                if (entry.name.startsWith(".")) {
+                    continue;
+                }
+                const full = join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    walk(full);
+                    continue;
+                }
+                if (!entry.isFile()) {
+                    continue;
+                }
+                const ext = extname(entry.name).toLowerCase();
+                if (ext === ".md" || ext === ".mdx") {
+                    files.push(full);
+                }
+            }
+        };
+        walk(promptsDir);
+        const rows = [];
+        for (const file of files) {
+            let source;
+            try {
+                source = readFileSync(file, "utf8");
+            }
+            catch {
+                continue;
+            }
+            const relPosix = relative(promptsDir, file).split(sep).join("/");
+            const id = relPosix.slice(0, relPosix.length - extname(relPosix).length);
+            const row = { id, entryFile: `prompts/${relPosix}`, source };
+            try {
+                const stat = statSync(file);
+                row.createdAtMs = Math.round(stat.birthtimeMs || stat.ctimeMs);
+                row.updatedAtMs = Math.round(stat.mtimeMs);
+            }
+            catch {
+                // Stat failures leave the timestamps absent (optional fields).
+            }
+            rows.push(row);
+        }
+        rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        return rows;
+    }
+    /**
    * Scorer/eval results for one run for the `listScores` RPC. Scores are
    * per-run (keyed by runId), so resolve the run's owning adapter exactly like
    * `getRun` and read the `_smithers_scorers` table via `listScorerResults`
@@ -4903,6 +4975,9 @@ export class Gateway {
             case "listMemoryFacts": {
                 const namespace = asString(params.namespace);
                 return responseOk(frame.id, await this.listMemoryFactsAcrossWorkflows(namespace ?? null));
+            }
+            case "listPrompts": {
+                return responseOk(frame.id, this.listPromptsFromDisk());
             }
             case "listScores": {
                 const runId = asString(params.runId);

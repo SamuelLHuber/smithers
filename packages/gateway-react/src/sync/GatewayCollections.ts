@@ -3,6 +3,7 @@ import type {
   GatewayApprovalRow,
   GatewayCronRow,
   GatewayMemoryFactRow,
+  GatewayPromptRow,
   GatewayScoreRow,
   GatewayTicketRow,
   GatewayRunEventRow,
@@ -18,6 +19,7 @@ import type {
   CronListRequest,
   ListApprovalsRequest,
   ListMemoryFactsRequest,
+  ListPromptsRequest,
   ListRunsRequest,
   ListScoresRequest,
   ListTicketsRequest,
@@ -87,6 +89,8 @@ export type GatewayCollections = {
   crons(params?: CronListRequest): Collection<GatewayCronRow, string>;
   /** Live cross-run memory facts (`listMemoryFacts`); keyed by the composite `${namespace}:${key}` (key is only unique within a namespace). */
   memoryFacts(params?: ListMemoryFactsRequest): Collection<GatewayMemoryFactRow, string>;
+  /** Live registered prompts (`listPrompts`, walked from `.smithers/prompts/`); keyed by `id` (the relative path without extension). */
+  prompts(params?: ListPromptsRequest): Collection<GatewayPromptRow, string>;
   /** Live scorer/eval results for one run (`listScores`); keyed by the composite `${runId}:${nodeId}:${iteration}:${scorerId}`. */
   scores(params?: ListScoresRequest): Collection<GatewayScoreRow, string>;
   /** Live work docs (`listTickets`, tombstones filtered); keyed by `path` (the doc identity). */

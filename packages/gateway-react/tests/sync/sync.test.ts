@@ -26,6 +26,7 @@ import {
   useGatewayApprovals,
   useGatewayCrons,
   useGatewayMemoryFacts,
+  useGatewayPrompts,
   useGatewayScores,
   useGatewayTickets,
   useGatewayConnectionStatus,
@@ -648,6 +649,35 @@ describe("legacy synced hooks over collections", () => {
     expect(facts?.data?.[0]?.namespace).toBe("ci");
     expect(facts?.data?.[0]?.ttlMs).toBe(3_600_000);
     expect(facts?.loading).toBe(false);
+
+    await harness.unmount();
+  });
+
+  test("useGatewayPrompts lists rows from listPrompts (walked from .smithers/prompts/)", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listPrompts") {
+          return Promise.resolve([
+            { id: "refactor", entryFile: "prompts/refactor.mdx", source: "# Refactor", createdAtMs: 1, updatedAtMs: 2 },
+            { id: "release-content/changelog", entryFile: "prompts/release-content/changelog.md", source: "# Changelog", createdAtMs: 1, updatedAtMs: 2 },
+          ]);
+        }
+        return Promise.resolve([]);
+      }).transport,
+    });
+
+    let prompts: ReturnType<typeof useGatewayPrompts> | undefined;
+    function Probe() {
+      prompts = useGatewayPrompts();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => (prompts?.data?.length ?? 0) === 2);
+    expect(prompts?.data?.map((row) => row.id).sort()).toEqual(["refactor", "release-content/changelog"]);
+    expect(prompts?.data?.find((row) => row.id === "refactor")?.entryFile).toBe("prompts/refactor.mdx");
+    expect(prompts?.loading).toBe(false);
 
     await harness.unmount();
   });

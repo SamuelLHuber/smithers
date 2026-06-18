@@ -8,6 +8,7 @@ import {
   type GatewayCollectionConfig,
   type GatewayCronRow,
   type GatewayMemoryFactRow,
+  type GatewayPromptRow,
   type GatewayScoreRow,
   type GatewayTicketRow,
   type GatewayRunEventRow,
@@ -24,6 +25,7 @@ import type {
   CronListRequest,
   ListApprovalsRequest,
   ListMemoryFactsRequest,
+  ListPromptsRequest,
   ListRunsRequest,
   ListScoresRequest,
   ListTicketsRequest,
@@ -410,6 +412,8 @@ export function createGatewayCollections(
       knownCollection<GatewayCronRow, string>(gatewayCollectionDefs.crons(params), listGcTime),
     memoryFacts: (params: ListMemoryFactsRequest = {}) =>
       knownCollection<GatewayMemoryFactRow, string>(gatewayCollectionDefs.memoryFacts(params), listGcTime),
+    prompts: (params: ListPromptsRequest = {}) =>
+      knownCollection<GatewayPromptRow, string>(gatewayCollectionDefs.prompts(params), listGcTime),
     scores: (params: ListScoresRequest = { runId: "" }) =>
       knownCollection<GatewayScoreRow, string>(gatewayCollectionDefs.scores(params), listGcTime),
     tickets: (params: ListTicketsRequest = {}) =>

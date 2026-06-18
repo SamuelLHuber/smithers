@@ -5,6 +5,7 @@ export { useGatewayActions } from "./useGatewayActions.ts";
 export { useGatewayApprovals } from "./useGatewayApprovals.ts";
 export { useGatewayCrons } from "./useGatewayCrons.ts";
 export { useGatewayMemoryFacts } from "./useGatewayMemoryFacts.ts";
+export { useGatewayPrompts } from "./useGatewayPrompts.ts";
 export { useGatewayScores } from "./useGatewayScores.ts";
 export { useGatewayTickets } from "./useGatewayTickets.ts";
 export { useGatewayNodeOutput } from "./useGatewayNodeOutput.ts";

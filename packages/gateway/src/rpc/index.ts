@@ -91,6 +91,7 @@ export type GatewayRpcMethod =
   | "cronDelete"
   | "cronRun"
   | "listMemoryFacts"
+  | "listPrompts"
   | "listScores"
   | "listTickets"
   | "createTicket"
@@ -289,6 +290,27 @@ export type ListMemoryFactsRequest = {
 };
 
 export type ListMemoryFactsResponse = GatewayMemoryFact[];
+
+/**
+ * One registered prompt row — a `.md`/`.mdx` file walked from the project's
+ * `.smithers/prompts/` directory by the `listPrompts` server handler. `id` is the
+ * prompt's relative path without extension (e.g. `refactor` or
+ * `release-content/changelog`); `entryFile` is the workspace-relative source path
+ * (e.g. `prompts/refactor.mdx`); `source` is the raw file text. The timestamps
+ * come from `fs.stat` (`birthtimeMs`/`mtimeMs`) so a freshly-edited prompt sorts
+ * recent.
+ */
+export type GatewayPrompt = {
+  id: string;
+  entryFile: string;
+  source: string;
+  createdAtMs?: number;
+  updatedAtMs?: number;
+};
+
+export type ListPromptsRequest = Record<string, never>;
+
+export type ListPromptsResponse = GatewayPrompt[];
 
 /**
  * One scorer/eval result row (the `_smithers_scorers` table, snake→camel cased).
@@ -821,6 +843,26 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
     errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
     exampleRequest: { namespace: "workflow:deploy" },
     exampleResponse: [{ namespace: "workflow:deploy", key: "last-sha", valueJson: "\"abc123\"", createdAtMs: 1710000000000, updatedAtMs: 1710000000000 }],
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "listPrompts",
+    title: "List Prompts",
+    description: "List registered prompts — the `.md`/`.mdx` files under the project's `.smithers/prompts/` directory, each returned with its source.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "prompt:read",
+    requestSchema: objectSchema({}),
+    responseSchema: arraySchema(objectSchema({
+      id: stringSchema("Prompt id — the relative path under `.smithers/prompts/` without its extension (e.g. 'refactor')."),
+      entryFile: stringSchema("Workspace-relative source path (e.g. 'prompts/refactor.mdx')."),
+      source: stringSchema("Raw prompt file text."),
+      createdAtMs: integerSchema("Unix epoch milliseconds the file was created (fs birthtime).", 0),
+      updatedAtMs: integerSchema("Unix epoch milliseconds the file was last modified (fs mtime).", 0),
+    }, ["id", "entryFile", "source"]), "Registered prompts."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
+    exampleRequest: {},
+    exampleResponse: [{ id: "refactor", entryFile: "prompts/refactor.mdx", source: "# Refactor\n\nRefactor {{file}}.", createdAtMs: 1710000000000, updatedAtMs: 1710000000000 }],
   },
   {
     version: SMITHERS_API_VERSION,

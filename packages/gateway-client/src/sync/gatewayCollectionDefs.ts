@@ -1,8 +1,9 @@
 import type { Collection } from "@tanstack/db";
-import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListRunsRequest, ListScoresRequest, ListTicketsRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
+import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListPromptsRequest, ListRunsRequest, ListScoresRequest, ListTicketsRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayApprovalRow } from "./GatewayApprovalRow.ts";
 import type { GatewayCronRow } from "./GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "./GatewayMemoryFactRow.ts";
+import type { GatewayPromptRow } from "./GatewayPromptRow.ts";
 import type { GatewayScoreRow } from "./GatewayScoreRow.ts";
 import type { GatewayTicketRow } from "./GatewayTicketRow.ts";
 import type { GatewayRunEventRow } from "./GatewayRunEventRow.ts";
@@ -162,6 +163,16 @@ export const gatewayCollectionDefs = {
     // in TanStack DB. Key by the real composite PK.
     getKey: (row: GatewayMemoryFactRow) => `${row.namespace}:${row.key}`,
     rows: arrayRows<GatewayMemoryFactRow>,
+  }),
+  prompts: (params: ListPromptsRequest = {}) => ({
+    key: gatewayKeys.prompts(params),
+    method: "listPrompts",
+    params,
+    // A prompt's `id` is its relative path under `.smithers/prompts/` without the
+    // extension, which is globally unique within the directory — the natural PK
+    // the editor selects/edits by.
+    getKey: (row: GatewayPromptRow) => row.id,
+    rows: arrayRows<GatewayPromptRow>,
   }),
   scores: (params: ListScoresRequest = { runId: "" }) => ({
     key: gatewayKeys.scores(params),

@@ -9,6 +9,7 @@ import {
 } from "../../src/sync/gatewayCollectionDefs.ts";
 import type { GatewayCronRow } from "../../src/sync/GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "../../src/sync/GatewayMemoryFactRow.ts";
+import type { GatewayPromptRow } from "../../src/sync/GatewayPromptRow.ts";
 import type { GatewayScoreRow } from "../../src/sync/GatewayScoreRow.ts";
 import type { GatewayTicketRow } from "../../src/sync/GatewayTicketRow.ts";
 import type { GatewayRunNode } from "../../src/sync/GatewayRunNode.ts";
@@ -338,6 +339,52 @@ describe("gatewayCollectionDefs.memoryFacts", () => {
     expect(Array.from(collection.keys()).sort()).toEqual(["auth:shared", "ci:shared"]);
     expect(collection.get("ci:shared")?.valueJson).toBe('"from ci"');
     expect(collection.get("auth:shared")?.valueJson).toBe('"from auth"');
+  });
+});
+
+/** A real `listPrompts` payload: `.smithers/prompts/**.{md,mdx}` files walked from disk. */
+const promptRows: GatewayPromptRow[] = [
+  {
+    id: "refactor",
+    entryFile: "prompts/refactor.mdx",
+    source: "# Refactor\n\nRefactor {{file}}.",
+    createdAtMs: 1_717_000_000_000,
+    updatedAtMs: 1_717_286_000_000,
+  },
+  {
+    id: "release-content/changelog",
+    entryFile: "prompts/release-content/changelog.md",
+    source: "# Changelog\n\nSummarize {{range}}.",
+    createdAtMs: 1_716_000_000_000,
+    updatedAtMs: 1_717_286_400_000,
+  },
+];
+
+describe("gatewayCollectionDefs.prompts", () => {
+  test("rows mapper passes a listPrompts array through and keys by id", () => {
+    const def = gatewayCollectionDefs.prompts();
+    const rows = Array.from(def.rows(promptRows));
+    expect(rows.map((row) => row.id)).toEqual(["refactor", "release-content/changelog"]);
+    // A prompt's `id` (extensionless relative path) is the natural PK the editor
+    // selects by; nested-dir prompts carry a slash in the id and must round-trip.
+    expect(def.getKey(rows[0])).toBe("refactor");
+    expect(def.getKey(rows[1])).toBe("release-content/changelog");
+  });
+
+  test("a non-array payload maps to no rows", () => {
+    expect(Array.from(gatewayCollectionDefs.prompts().rows({ not: "an array" }))).toEqual([]);
+  });
+
+  test("populates a TanStack DB collection from the listPrompts RPC", async () => {
+    const collection = createCollection<GatewayPromptRow, string>(
+      createGatewayCollection({ ...gatewayCollectionDefs.prompts(), client: quietTransport(promptRows) }),
+    );
+
+    await collection.preload();
+
+    expect(Array.from(collection.keys()).sort()).toEqual(["refactor", "release-content/changelog"]);
+    expect(collection.get("refactor")?.entryFile).toBe("prompts/refactor.mdx");
+    expect(collection.get("release-content/changelog")?.source).toContain("Changelog");
   });
 });
 
