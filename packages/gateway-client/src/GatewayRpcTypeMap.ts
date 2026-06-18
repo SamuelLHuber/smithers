@@ -27,6 +27,7 @@ import type {
   SubmitSignalRequest,
   GetRunRequest,
 } from "@smithers-orchestrator/gateway/rpc";
+import type { GatewayCronRow } from "./sync/GatewayCronRow.ts";
 
 export type GatewayRpcRequestMap = {
   launchRun: LaunchRunRequest;
@@ -66,7 +67,7 @@ export type GatewayRpcResponseMap = {
   streamDevTools: Record<string, unknown>;
   getNodeOutput: Record<string, unknown>;
   getNodeDiff: Record<string, unknown>;
-  cronList: Array<Record<string, unknown>>;
+  cronList: GatewayCronRow[];
   cronCreate: Record<string, unknown>;
   cronDelete: Record<string, unknown>;
   cronRun: LaunchRunResponse;

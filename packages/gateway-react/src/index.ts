@@ -3,6 +3,7 @@ export { SmithersGatewayContext } from "./SmithersGatewayContext.ts";
 export { SmithersGatewayProvider } from "./SmithersGatewayProvider.ts";
 export { useGatewayActions } from "./useGatewayActions.ts";
 export { useGatewayApprovals } from "./useGatewayApprovals.ts";
+export { useGatewayCrons } from "./useGatewayCrons.ts";
 export { useGatewayNodeOutput } from "./useGatewayNodeOutput.ts";
 export { useGatewayRpc } from "./useGatewayRpc.ts";
 export { useGatewayRun } from "./useGatewayRun.ts";

@@ -7,9 +7,36 @@ import {
   runRowsFromFrame,
   runStatusFromFrame,
 } from "../../src/sync/gatewayCollectionDefs.ts";
+import type { GatewayCronRow } from "../../src/sync/GatewayCronRow.ts";
 import type { GatewayRunNode } from "../../src/sync/GatewayRunNode.ts";
 import type { GatewayRunRow } from "../../src/sync/GatewayRunRow.ts";
 import type { SyncStreamFrame, SyncTransport } from "../../src/sync/SyncTransport.ts";
+
+/** A real `cronList` payload: an array of `_smithers_cron` rows + the workflow key. */
+const cronRows: GatewayCronRow[] = [
+  {
+    cronId: "cron_01",
+    pattern: "0 8 * * 1-5",
+    workflowPath: ".smithers/workflows/deploy.tsx",
+    workflow: "deploy",
+    enabled: true,
+    createdAtMs: 1_710_000_000_000,
+    lastRunAtMs: null,
+    nextRunAtMs: 1_710_000_600_000,
+    errorJson: null,
+  },
+  {
+    cronId: "cron_02",
+    pattern: "*/15 * * * *",
+    workflowPath: ".smithers/workflows/canary.tsx",
+    workflow: "canary",
+    enabled: false,
+    createdAtMs: 1_710_000_100_000,
+    lastRunAtMs: 1_710_000_500_000,
+    nextRunAtMs: null,
+    errorJson: '{"error":"WorkflowNotFound"}',
+  },
+];
 
 /** A real `getDevToolsSnapshot` payload: a `{ root }` tree, not an array. */
 const snapshot = {
@@ -209,5 +236,34 @@ describe("gateway run stream frame mappers", () => {
       { payload: { event: "run.started", payload: {} } },
       { collection: collection as never },
     )).toEqual([]);
+  });
+});
+
+describe("gatewayCollectionDefs.crons", () => {
+  test("rows mapper passes a cronList array through and keys by cronId", () => {
+    const def = gatewayCollectionDefs.crons();
+    const rows = Array.from(def.rows(cronRows));
+    expect(rows.map((row) => row.cronId)).toEqual(["cron_01", "cron_02"]);
+    expect(def.getKey(rows[0])).toBe("cron_01");
+    // Disabled rows survive (cronList returns enabled + disabled).
+    expect(rows[1].enabled).toBe(false);
+    expect(rows[1].errorJson).toBe('{"error":"WorkflowNotFound"}');
+  });
+
+  test("a non-array payload maps to no rows", () => {
+    expect(Array.from(gatewayCollectionDefs.crons().rows({ not: "an array" }))).toEqual([]);
+  });
+
+  test("populates a TanStack DB collection from the cronList RPC", async () => {
+    const collection = createCollection<GatewayCronRow, string>(
+      createGatewayCollection({ ...gatewayCollectionDefs.crons(), client: quietTransport(cronRows) }),
+    );
+
+    await collection.preload();
+
+    expect(Array.from(collection.keys()).sort()).toEqual(["cron_01", "cron_02"]);
+    expect(collection.get("cron_01")?.workflow).toBe("deploy");
+    expect(collection.get("cron_02")?.enabled).toBe(false);
+    expect(collection.get("cron_02")?.nextRunAtMs).toBeNull();
   });
 });

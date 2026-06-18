@@ -24,6 +24,7 @@ import {
   SyncProvider,
   createGatewayCollections,
   useGatewayApprovals,
+  useGatewayCrons,
   useGatewayConnectionStatus,
   useGatewayMutation,
   useGatewayQuery,
@@ -583,6 +584,35 @@ describe("legacy synced hooks over collections", () => {
     await waitFor(() => (approvals?.data?.length ?? 0) === 1 && (workflows?.data?.length ?? 0) === 1);
     expect(approvals?.data?.[0]?.nodeId).toBe("approve");
     expect(workflows?.data?.[0]?.key).toBe("deploy");
+
+    await harness.unmount();
+  });
+
+  test("useGatewayCrons lists rows from cronList (enabled + disabled)", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "cronList") {
+          return Promise.resolve([
+            { cronId: "cron-1", workflow: "deploy", workflowPath: ".smithers/workflows/deploy.tsx", pattern: "0 8 * * 1-5", enabled: true },
+            { cronId: "cron-2", workflow: "canary", workflowPath: ".smithers/workflows/canary.tsx", pattern: "*/15 * * * *", enabled: false },
+          ]);
+        }
+        return Promise.resolve([]);
+      }).transport,
+    });
+
+    let crons: ReturnType<typeof useGatewayCrons> | undefined;
+    function Probe() {
+      crons = useGatewayCrons();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => (crons?.data?.length ?? 0) === 2);
+    expect(crons?.data?.map((row) => row.cronId).sort()).toEqual(["cron-1", "cron-2"]);
+    expect(crons?.data?.find((row) => row.cronId === "cron-2")?.enabled).toBe(false);
+    expect(crons?.loading).toBe(false);
 
     await harness.unmount();
   });

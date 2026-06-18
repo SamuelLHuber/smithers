@@ -1,6 +1,7 @@
 import type { Collection } from "@tanstack/react-db";
 import type {
   GatewayApprovalRow,
+  GatewayCronRow,
   GatewayRunEventRow,
   GatewayRunNode,
   GatewayRunRow,
@@ -11,6 +12,7 @@ import type {
   SyncTransport,
 } from "@smithers-orchestrator/gateway-client";
 import type {
+  CronListRequest,
   ListApprovalsRequest,
   ListRunsRequest,
   ListWorkflowsRequest,
@@ -75,6 +77,8 @@ export type GatewayCollections = {
   run(runId: string): Collection<GatewayRunRow, string>;
   workflows(params?: ListWorkflowsRequest): Collection<GatewayWorkflowRow, string>;
   approvals(params?: ListApprovalsRequest): Collection<GatewayApprovalRow, string>;
+  /** Live cron-schedule list (`cronList`); includes enabled + disabled rows. */
+  crons(params?: CronListRequest): Collection<GatewayCronRow, string>;
   /** Flattened devtools run-node tree, reconciled per devtools frame. */
   nodes(runId: string): Collection<GatewayRunNode, string>;
   /** Bounded append-only run-event ring. */

@@ -6,6 +6,7 @@ import {
   syncKeyMatches,
   type GatewayApprovalRow,
   type GatewayCollectionConfig,
+  type GatewayCronRow,
   type GatewayRunEventRow,
   type GatewayRunNode,
   type GatewayRunRow,
@@ -17,6 +18,7 @@ import {
   type SyncTransport,
 } from "@smithers-orchestrator/gateway-client";
 import type {
+  CronListRequest,
   ListApprovalsRequest,
   ListRunsRequest,
   ListWorkflowsRequest,
@@ -398,6 +400,8 @@ export function createGatewayCollections(
       knownCollection<GatewayWorkflowRow, string>(gatewayCollectionDefs.workflows(params), listGcTime),
     approvals: (params: ListApprovalsRequest = {}) =>
       knownCollection<GatewayApprovalRow, string>(gatewayCollectionDefs.approvals(params), listGcTime),
+    crons: (params: CronListRequest = {}) =>
+      knownCollection<GatewayCronRow, string>(gatewayCollectionDefs.crons(params), listGcTime),
     nodes: (runId: string) =>
       knownCollection<GatewayRunNode, string>(gatewayCollectionDefs.nodes(runId), RUN_GC_TIME),
     runEvents: (runId: string) =>
