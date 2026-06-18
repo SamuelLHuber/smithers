@@ -37,7 +37,7 @@ export function runInitCeremony(opts = {}) {
         skillInstalled(result) {
             if (result.installed.length === 0) return;
             const agents = result.installed.map((entry) => entry.agent).join(", ");
-            log.success(`Installing the ${pc.cyan(result.skill)} skill into ${agents} — done for you automatically`);
+            log.message(`${pc.dim("→")} Installed the ${pc.cyan(result.skill)} skill for you ${pc.dim("(" + agents + ")")}`);
         },
         installStart() {
             log.step("Installing dependencies " + pc.dim("(bun install)"));

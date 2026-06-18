@@ -285,8 +285,9 @@ If the bundled jj exists but fails with `EACCES`, its executable bit was strippe
 </Steps>
 
 <Tip>
-  Prefer to let your agent drive? Install the agent skill
-  and just ask for the outcome. Your coding agent runs Smithers for you.
+  `init` installed the smithers skill for your coding agents automatically. Just ask for the
+  outcome (*"orchestrate an agent to add rate limiting and keep iterating until the tests
+  pass"*) and your agent runs Smithers for you.
 </Tip>
 
 For a full worked example, see the Tour. For every CLI command see the CLI catalog.
