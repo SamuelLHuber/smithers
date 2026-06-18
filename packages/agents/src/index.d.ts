@@ -78,6 +78,78 @@ type ImageGenerationProvider$1 = {
     generateImage(request: ImageGenerationRequest$1): Promise<ImageGenerationResult$1> | ImageGenerationResult$1;
 };
 
+type HttpToolOutput$1 = {
+    ok: boolean;
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: unknown;
+};
+
+type HttpToolAuth$1 = {
+    type: "bearer";
+    token: string;
+} | {
+    type: "basic";
+    username: string;
+    password: string;
+} | {
+    type: "header";
+    name: string;
+    value: string;
+};
+
+type HttpToolInput$1 = {
+    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
+    url: string;
+    headers?: Record<string, string>;
+    query?: Record<string, string | number | boolean | null | undefined>;
+    body?: unknown;
+    auth?: HttpToolAuth$1;
+    timeoutMs?: number;
+};
+
+type CreateHttpToolOptions$2 = {
+    description?: string;
+    defaultHeaders?: Record<string, string>;
+};
+
+type ImageGenerationToolOptions$1 = {
+    /** Tool name used when returning a toolset. */
+    name?: string;
+    /** Description shown to the model. */
+    description?: string;
+    /** Provider model to use when the agent does not specify one. */
+    model?: string;
+    /** Return `{ [name]: tool }` for direct mounting on an agent. */
+    asToolset?: boolean;
+};
+
+type ImageGenerationResult$1 = {
+    provider?: string;
+    model?: string;
+    images: Array<{
+        url?: string;
+        base64?: string;
+        mimeType?: string;
+        revisedPrompt?: string;
+    }>;
+};
+
+type ImageGenerationRequest$1 = {
+    prompt: string;
+    model?: string;
+    size?: string;
+    count?: number;
+    seed?: number;
+    style?: string;
+};
+
+type ImageGenerationProvider$1 = {
+    name?: string;
+    generateImage(request: ImageGenerationRequest$1): Promise<ImageGenerationResult$1> | ImageGenerationResult$1;
+};
+
 type CliAgentCapabilityAdapterId$1 = "claude" | "amp" | "antigravity" | "codex" | "forge" | "kimi" | "opencode" | "pi" | "vibe";
 
 type CliAgentSurfaceOptionMapping$1 = {
