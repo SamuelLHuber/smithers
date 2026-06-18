@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@smithers-orchestrator/gateway": "workspace:*",
-    "@tanstack/db": "^0.6.8"
+    "@tanstack/db": "0.6.8"
   },
   "devDependencies": {
     "@types/bun": "latest",
