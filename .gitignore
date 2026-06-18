@@ -79,6 +79,12 @@ codex/
 ghostty/
 burns
 observability/data/
+# The observability stack writes runtime data under apps/observability/data/; the
+# bare `observability/data/` rule above is root-anchored (mid-path slash) and never
+# matched it, so grafana/prometheus/loki/tempo state kept polluting the worktree.
+apps/observability/data/
+# Server test harness scratch dirs (`.test-serve-<rand>/` with sqlite db + tsx).
+packages/server/tests/.test-serve-*/
 **/tmp/verification/
 .context/
 
