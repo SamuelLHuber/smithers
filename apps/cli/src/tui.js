@@ -8,6 +8,7 @@ import { discoverWorkflows, summarizeWorkflowInputSchema, workflowInputJsonSchem
 import { mdxPlugin } from "./mdx-plugin.js";
 import { findSmithersDb, openSmithersDb } from "./find-db.js";
 import { parseAgentEvent, parseNodeOutputEvent } from "./chat.js";
+import { handleApprovals, handleHumanRequests } from "./tui-gates.js";
 import { computeRunStateFromRow } from "@smithers-orchestrator/db/runState";
 
 /**
@@ -183,6 +184,38 @@ function printStreamLine(color, label, text) {
     for (let i = 0; i < lines.length; i++) {
         process.stdout.write(`${i === 0 ? tag : cont} ${pc.dim("│")} ${lines[i]}\n`);
     }
+}
+
+/**
+ * A bottom-of-stream "agent working…" indicator. Animates on a TTY; a no-op when
+ * piped, so replay/tests stay clean. clear() erases it before other output;
+ * set() shows/updates it during quiet periods between events.
+ * @returns {{ set: (text: string) => void; clear: () => void }}
+ */
+function createWorkingIndicator() {
+    if (!process.stdout.isTTY) return { set() { }, clear() { } };
+    const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let i = 0;
+    let timer = null;
+    let msg = "";
+    const paint = () => {
+        i = (i + 1) % frames.length;
+        process.stdout.write(`\r${pc.cyan(frames[i])} ${pc.dim(msg)}\x1B[K`);
+    };
+    return {
+        set(text) {
+            msg = text;
+            if (!timer) {
+                timer = setInterval(paint, 90);
+                if (typeof timer.unref === "function") timer.unref();
+            }
+            paint();
+        },
+        clear() {
+            if (timer) { clearInterval(timer); timer = null; }
+            process.stdout.write("\r\x1B[K");
+        },
+    };
 }
 
 /** Lay `left` and `right` out on one line, right-aligned to the gutter width. */
@@ -394,6 +427,25 @@ function terminateDetachedChild(child) {
 }
 
 /**
+ * Spawn `smithers up` for a run as a detached, log-redirected process. Used for
+ * the initial launch and to resume the run after a gate is resolved.
+ * @param {{ indexPath: string; entryFile: string; runId: string; inputs?: Record<string, unknown>; resume?: boolean }} opts
+ * @returns {import("node:child_process").ChildProcess}
+ */
+function spawnUpProcess({ indexPath, entryFile, runId, inputs, resume }) {
+    const logFile = resolve(dirname(entryFile), `${runId}.log`);
+    const args = [indexPath, "up", entryFile, "--run-id", runId];
+    if (resume) args.push("--resume");
+    if (inputs && Object.keys(inputs).length > 0) args.push("--input", JSON.stringify(inputs));
+    const fd = openSync(logFile, "a");
+    try {
+        return spawn("bun", args, { detached: true, stdio: ["ignore", fd, fd], env: process.env });
+    } finally {
+        closeSync(fd);
+    }
+}
+
+/**
  * Append-only live view of a run: re-renders the status card on every committed
  * frame, and streams agent chat + tool calls in between — each node colored so
  * parallel agents are easy to tell apart. Runs until the run reaches a terminal
@@ -413,6 +465,7 @@ export async function streamRun(adapter, runId, name, promptText, opts = {}) {
     const printLine = opts.printLine ?? printStreamLine;
     const colorFor = makeNodeColorer();
     const labels = new Map();
+    const working = createWorkingIndicator();
     let lastSeq = -1;
     let stopped = false;
     const onSignal = () => { stopped = true; };
@@ -431,11 +484,18 @@ export async function streamRun(adapter, runId, name, promptText, opts = {}) {
         await renderCurrentCard();
 
         while (!stopped) {
+            working.clear();
             const run = await adapter.getRun(runId);
+            let activeNode;
             if (run) {
                 const view = await computeRunStateFromRow(adapter, run).catch(() => ({ state: run.status }));
                 lastState = view.state;
-                for (const node of await adapter.listNodes(runId)) labels.set(node.nodeId, node.label ?? node.nodeId);
+                for (const node of await adapter.listNodes(runId)) {
+                    labels.set(node.nodeId, node.label ?? node.nodeId);
+                    if (node.state === "in-progress" || node.state === "running") {
+                        activeNode = node.label ?? displayNode(node.nodeId);
+                    }
+                }
             }
 
             const events = await adapter.listEvents(runId, lastSeq, 500);
@@ -458,8 +518,12 @@ export async function streamRun(adapter, runId, name, promptText, opts = {}) {
                 }
                 break;
             }
+            if (lastState === "running" || lastState === "recovering") {
+                working.set(`${activeNode ?? "agent"} ${pc.dim("·")} working…`);
+            }
             const waited = await sleepOrChildFailure(intervalMs, childFailure);
             if (waited?.error) {
+                working.clear();
                 const finalRun = await adapter.getRun(runId);
                 if (finalRun) {
                     const view = await computeRunStateFromRow(adapter, finalRun).catch(() => ({ state: finalRun.status }));
@@ -475,6 +539,7 @@ export async function streamRun(adapter, runId, name, promptText, opts = {}) {
             }
         }
     } finally {
+        working.clear();
         process.off("SIGINT", onSignal);
         process.off("SIGTERM", onSignal);
     }
@@ -489,9 +554,11 @@ export async function streamRun(adapter, runId, name, promptText, opts = {}) {
  * @returns {Promise<{ name: string; type: string; required: boolean; default?: unknown; enum?: unknown[]; description?: string }[]>}
  */
 async function loadWorkflowInputFields(entryFile) {
-    // Loading a workflow constructs its agents, which log init warnings to
-    // stderr; silence them so they don't pollute the clean TUI.
-    const origWrite = process.stderr.write.bind(process.stderr);
+    // Loading a workflow constructs its agents, which can log init warnings;
+    // silence both streams so discovery cannot corrupt the interactive prompt.
+    const origStdoutWrite = process.stdout.write.bind(process.stdout);
+    const origStderrWrite = process.stderr.write.bind(process.stderr);
+    process.stdout.write = () => true;
     process.stderr.write = () => true;
     try {
         mdxPlugin();
@@ -501,7 +568,8 @@ async function loadWorkflowInputFields(entryFile) {
     } catch {
         return [];
     } finally {
-        process.stderr.write = origWrite;
+        process.stdout.write = origStdoutWrite;
+        process.stderr.write = origStderrWrite;
     }
 }
 
@@ -687,19 +755,38 @@ export async function runTuiCommand(c, fail = (opts) => c.error?.(opts) ?? c.ok(
     s.stop(`Watching ${pc.dim(runId)} ${pc.dim("·")} logs → ${pc.dim(logFile)}`);
 
     try {
-        const { state, error } = await streamRun(db.adapter, runId, name, promptText, { childFailure });
-        if (error) {
-            const message = `${error.message} See ${logFile}.`;
-            return fail({
-                code: "TUI_RUN_EXITED",
-                message,
-                exitCode: 1,
-                runId,
-                logFile,
-            });
-        }
-        if (state === "waiting-approval") {
-            log.warn(`Paused for approval — run \`smithers approve ${runId}\` to continue.`);
+        let result = await streamRun(db.adapter, runId, name, promptText, { childFailure });
+        // The detached `up` process exits whenever the run pauses for a gate
+        // (approval or human input). Resolve the gate via clack, resume the run
+        // as a fresh process, and keep streaming. Repeat until the run finishes.
+        while (true) {
+            const approvals = await db.adapter.listPendingApprovals(runId);
+            const humans = (await db.adapter.listPendingHumanRequests()).filter((r) => r.runId === runId);
+            if (approvals.length === 0 && humans.length === 0) {
+                if (result.error) {
+                    const message = `${result.error.message} See ${logFile}.`;
+                    return fail({ code: "TUI_RUN_EXITED", message, exitCode: 1, runId, logFile });
+                }
+                break;
+            }
+
+            const gate = humans.length > 0
+                ? await handleHumanRequests(db.adapter, runId)
+                : await handleApprovals(db.adapter, runId);
+            if (gate.cancelled) {
+                return c.ok({ ran: true, runId, paused: true });
+            }
+
+            const runRow = await db.adapter.getRun(runId);
+            const view = runRow
+                ? await computeRunStateFromRow(db.adapter, runRow).catch(() => ({ state: runRow.status }))
+                : { state: undefined };
+            if (["succeeded", "failed", "cancelled"].includes(view.state)) break;
+
+            const resumeChild = spawnUpProcess({ indexPath, entryFile: workflow.entryFile, runId, inputs, resume: true });
+            const resumeFailure = childFailurePromise(resumeChild);
+            resumeChild.unref();
+            result = await streamRun(db.adapter, runId, name, promptText, { childFailure: resumeFailure });
         }
     } finally {
         db.cleanup();
