@@ -32,6 +32,7 @@ export type GatewayRpcErrorCode =
   | "RunNotFound"
   | "RUN_NOT_ACTIVE"
   | "CronNotFound"
+  | "TicketNotFound"
   | "NodeNotFound"
   | "IterationNotFound"
   | "NodeHasNoOutput"
@@ -90,7 +91,11 @@ export type GatewayRpcMethod =
   | "cronDelete"
   | "cronRun"
   | "listMemoryFacts"
-  | "listScores";
+  | "listScores"
+  | "listTickets"
+  | "createTicket"
+  | "updateTicket"
+  | "deleteTicket";
 
 export type LaunchRunRequest = {
   workflow: string;
@@ -313,6 +318,49 @@ export type ListScoresRequest = {
 
 export type ListScoresResponse = GatewayScoreRow[];
 
+/** A doc kind stored in `_smithers_docs`; the tickets surface uses `ticket`. */
+export type GatewayDocKind = "ticket" | "plan" | "spec" | "proposal";
+
+/**
+ * One LIVE doc row (the `_smithers_docs` table, snake→camel cased) returned by
+ * `listTickets`. Tombstones (`deletedAtMs != null`) are filtered server-side and
+ * NEVER appear here. `status` rides the row so a ticket's status survives reload
+ * (LOCKED Path A); `contentHash` is `sha256(content)`.
+ */
+export type GatewayTicketRow = {
+  path: string;
+  kind: GatewayDocKind;
+  content: string;
+  contentHash: string;
+  status?: string | null;
+  updatedAtMs: number;
+};
+
+export type ListTicketsRequest = {
+  /** Optional doc-kind filter; omit to list every kind. Defaults to all. */
+  kind?: GatewayDocKind;
+};
+
+export type ListTicketsResponse = GatewayTicketRow[];
+
+export type CreateTicketRequest = {
+  /** Doc identity (PK); e.g. a ticket id like `feat-issues-card`. */
+  path: string;
+  content: string;
+  kind?: GatewayDocKind;
+  status?: string;
+};
+
+export type UpdateTicketRequest = {
+  path: string;
+  content?: string;
+  status?: string;
+};
+
+export type DeleteTicketRequest = {
+  path: string;
+};
+
 const stringSchema = (description: string): JsonSchema => ({ type: "string", description });
 const booleanSchema = (description: string): JsonSchema => ({ type: "boolean", description });
 const integerSchema = (description: string, minimum = 0): JsonSchema => ({
@@ -408,6 +456,7 @@ export const GATEWAY_RPC_ERRORS: Record<GatewayRpcErrorCode, GatewayRpcErrorDefi
   RunNotFound: { version: SMITHERS_API_VERSION, code: "RunNotFound", httpStatus: 404, description: "The run does not exist." },
   RUN_NOT_ACTIVE: { version: SMITHERS_API_VERSION, code: "RUN_NOT_ACTIVE", httpStatus: 409, description: "The run is not currently active and cannot be cancelled." },
   CronNotFound: { version: SMITHERS_API_VERSION, code: "CronNotFound", httpStatus: 404, description: "The cron schedule does not exist." },
+  TicketNotFound: { version: SMITHERS_API_VERSION, code: "TicketNotFound", httpStatus: 404, description: "The ticket/work doc does not exist." },
   NodeNotFound: { version: SMITHERS_API_VERSION, code: "NodeNotFound", httpStatus: 404, description: "The node does not exist on the run." },
   IterationNotFound: { version: SMITHERS_API_VERSION, code: "IterationNotFound", httpStatus: 404, description: "The requested node iteration does not exist." },
   NodeHasNoOutput: { version: SMITHERS_API_VERSION, code: "NodeHasNoOutput", httpStatus: 404, description: "The node has not produced output." },
@@ -802,6 +851,97 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
     errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "Internal"],
     exampleRequest: { runId: "run_01", nodeId: "review" },
     exampleResponse: [{ runId: "run_01", nodeId: "review", iteration: 0, attempt: 0, scorerId: "correctness", scorerName: "correctness", source: "scorer", score: 0.92, scoredAtMs: 1710000000000 }],
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "listTickets",
+    title: "List Tickets",
+    description: "List live work docs (tickets/plans/specs/proposals) from `_smithers_docs`; soft-deleted tombstones are never returned.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "ticket:read",
+    requestSchema: objectSchema({
+      kind: { type: "string", enum: ["ticket", "plan", "spec", "proposal"], description: "Optional doc-kind filter; omit to list every kind." },
+    }),
+    responseSchema: arraySchema(objectSchema({
+      path: stringSchema("Doc identity (primary key); e.g. a ticket id."),
+      kind: { type: "string", enum: ["ticket", "plan", "spec", "proposal"], description: "Doc kind." },
+      content: stringSchema("Full markdown body."),
+      contentHash: stringSchema("sha256(content), lowercase hex."),
+      status: { type: ["string", "null"], description: "Free-form status (e.g. todo/in-progress/done); rides the row so it survives reload." },
+      updatedAtMs: integerSchema("Unix epoch milliseconds of the last write.", 0),
+    }, ["path", "kind", "content", "contentHash", "updatedAtMs"]), "Live work docs."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
+    exampleRequest: { kind: "ticket" },
+    exampleResponse: [{ path: "feat-issues-card", kind: "ticket", content: "# Issues card", contentHash: "0000000000000000000000000000000000000000000000000000000000000000", status: "in-progress", updatedAtMs: 1710000000000 }],
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "createTicket",
+    title: "Create Ticket",
+    description: "Create or replace a work doc by `path`. Stamps `content_hash = sha256(content)` and `updated_at_ms = now`; reviving a previously soft-deleted path is intentional.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "ticket:write",
+    requestSchema: objectSchema({
+      path: stringSchema("Doc identity (primary key); e.g. `feat-issues-card`."),
+      content: stringSchema("Full markdown body."),
+      kind: { type: "string", enum: ["ticket", "plan", "spec", "proposal"], description: "Doc kind (default `ticket`)." },
+      status: stringSchema("Optional initial status."),
+    }, ["path", "content"]),
+    responseSchema: objectSchema({
+      path: stringSchema("Doc identity (primary key)."),
+      kind: { type: "string", enum: ["ticket", "plan", "spec", "proposal"], description: "Doc kind." },
+      content: stringSchema("Full markdown body."),
+      contentHash: stringSchema("sha256(content), lowercase hex."),
+      status: { type: ["string", "null"], description: "Free-form status." },
+      updatedAtMs: integerSchema("Unix epoch milliseconds of the write.", 0),
+    }, ["path", "kind", "content", "contentHash", "updatedAtMs"], "The created doc row."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
+    exampleRequest: { path: "feat-issues-card", content: "# Issues card", kind: "ticket", status: "todo" },
+    exampleResponse: { path: "feat-issues-card", kind: "ticket", content: "# Issues card", contentHash: "0000000000000000000000000000000000000000000000000000000000000000", status: "todo", updatedAtMs: 1710000000000 },
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "updateTicket",
+    title: "Update Ticket",
+    description: "Patch a work doc's `content` and/or `status` by `path`. Re-stamps `content_hash` + `updated_at_ms` when content changes.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "ticket:write",
+    requestSchema: objectSchema({
+      path: stringSchema("Doc identity (primary key)."),
+      content: stringSchema("Optional new markdown body."),
+      status: stringSchema("Optional new status."),
+    }, ["path"]),
+    responseSchema: objectSchema({
+      path: stringSchema("Doc identity (primary key)."),
+      kind: { type: "string", enum: ["ticket", "plan", "spec", "proposal"], description: "Doc kind." },
+      content: stringSchema("Full markdown body."),
+      contentHash: stringSchema("sha256(content), lowercase hex."),
+      status: { type: ["string", "null"], description: "Free-form status." },
+      updatedAtMs: integerSchema("Unix epoch milliseconds of the write.", 0),
+    }, ["path", "kind", "content", "contentHash", "updatedAtMs"], "The updated doc row."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "TicketNotFound", "Internal"],
+    exampleRequest: { path: "feat-issues-card", status: "in-progress" },
+    exampleResponse: { path: "feat-issues-card", kind: "ticket", content: "# Issues card", contentHash: "0000000000000000000000000000000000000000000000000000000000000000", status: "in-progress", updatedAtMs: 1710000000000 },
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "deleteTicket",
+    title: "Delete Ticket",
+    description: "Soft-delete a work doc by `path` (stamps a `deleted_at_ms` tombstone). The row survives so `listTickets` hides it without losing history; the watcher never materializes a tombstone to disk.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "ticket:write",
+    requestSchema: objectSchema({ path: stringSchema("Doc identity (primary key).") }, ["path"]),
+    responseSchema: objectSchema({
+      path: stringSchema("Doc identity (primary key)."),
+      deleted: booleanSchema("True when the doc was soft-deleted."),
+    }, ["path", "deleted"], "Soft-delete acknowledgement."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "TicketNotFound", "Internal"],
+    exampleRequest: { path: "feat-issues-card" },
+    exampleResponse: { path: "feat-issues-card", deleted: true },
   },
 ] as const;
 

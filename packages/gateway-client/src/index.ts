@@ -40,6 +40,7 @@ export type { GatewayApprovalRow } from "./sync/GatewayApprovalRow.ts";
 export type { GatewayCronRow } from "./sync/GatewayCronRow.ts";
 export type { GatewayMemoryFactRow } from "./sync/GatewayMemoryFactRow.ts";
 export type { GatewayScoreRow } from "./sync/GatewayScoreRow.ts";
+export type { GatewayDocKind, GatewayTicketRow } from "./sync/GatewayTicketRow.ts";
 export type { GatewayRunEventRow } from "./sync/GatewayRunEventRow.ts";
 export type { GatewayRunNode } from "./sync/GatewayRunNode.ts";
 export type { GatewayRunRow } from "./sync/GatewayRunRow.ts";

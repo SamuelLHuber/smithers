@@ -2550,6 +2550,60 @@ export class SmithersDb {
          ORDER BY namespace, key`, [ns, ns]));
     }
     // ---------------------------------------------------------------------------
+    // Docs (tickets / plans / specs / proposals)
+    // ---------------------------------------------------------------------------
+    /**
+   * List LIVE docs from `_smithers_docs` (tombstones — `deleted_at_ms IS NOT
+   * NULL` — are NEVER returned), optionally scoped to one `kind`. Backs the
+   * gateway's `listTickets` RPC and the file-watcher's reconcile read. Columns
+   * are snake→camel cased by the storage layer (`content_hash → contentHash`,
+   * etc.); newest-updated first so the surface shows recent edits on top.
+   * @param {string | null} [kind]
+   * @returns {RunnableEffect<Array<Record<string, unknown>>, SmithersError>}
+   */
+    listDocs(kind = null) {
+        const k = kind ?? null;
+        return this.read("list docs", () => this.internalStorage.queryAll(`SELECT path, kind, content, content_hash, status, updated_at_ms, deleted_at_ms
+         FROM _smithers_docs
+         WHERE deleted_at_ms IS NULL AND (? IS NULL OR kind = ?)
+         ORDER BY updated_at_ms DESC, path ASC`, [k, k]));
+    }
+    /**
+   * Read a single doc row by path (INCLUDING a tombstone, so the watcher's
+   * last-write-wins can compare against a soft-deleted row). Returns `undefined`
+   * when the path was never written.
+   * @param {string} path
+   * @returns {RunnableEffect<Record<string, unknown> | undefined, SmithersError>}
+   */
+    getDoc(path) {
+        return this.read(`get doc ${path}`, () => this.internalStorage.queryOne(`SELECT path, kind, content, content_hash, status, updated_at_ms, deleted_at_ms
+         FROM _smithers_docs
+         WHERE path = ?`, [path]));
+    }
+    /**
+   * Upsert a doc row (insert-or-replace by `path`). The caller supplies the
+   * already-computed `contentHash` (`sha256(content)`) and `updatedAtMs` so the
+   * RPC handler and the file-watcher hash/stamp identically. Writing a row with
+   * `deletedAtMs: null` REVIVES a previously soft-deleted path (a re-create or a
+   * fresh file write), which is the intended last-write-wins behaviour.
+   * @param {Record<string, unknown>} row
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    upsertDoc(row) {
+        return this.write(`upsert doc ${row.path}`, () => this.internalStorage.upsert("_smithers_docs", row, ["path"], ["kind", "content", "contentHash", "status", "updatedAtMs", "deletedAtMs"]));
+    }
+    /**
+   * Soft-delete a doc by stamping `deleted_at_ms` (a tombstone) rather than
+   * removing the row, so `listTickets` hides it while the watcher can still see
+   * it survived. `updated_at_ms` is bumped so the change orders correctly.
+   * @param {string} path
+   * @param {number} deletedAtMs
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    softDeleteDoc(path, deletedAtMs) {
+        return this.write(`soft delete doc ${path}`, () => this.internalStorage.updateWhere("_smithers_docs", { deletedAtMs, updatedAtMs: deletedAtMs }, "path = ?", [path]));
+    }
+    // ---------------------------------------------------------------------------
     // Scorer results
     // ---------------------------------------------------------------------------
     /**

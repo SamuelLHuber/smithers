@@ -1,9 +1,10 @@
 import type { Collection } from "@tanstack/db";
-import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListRunsRequest, ListScoresRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
+import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListRunsRequest, ListScoresRequest, ListTicketsRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayApprovalRow } from "./GatewayApprovalRow.ts";
 import type { GatewayCronRow } from "./GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "./GatewayMemoryFactRow.ts";
 import type { GatewayScoreRow } from "./GatewayScoreRow.ts";
+import type { GatewayTicketRow } from "./GatewayTicketRow.ts";
 import type { GatewayRunEventRow } from "./GatewayRunEventRow.ts";
 import type { GatewayRunNode } from "./GatewayRunNode.ts";
 import type { GatewayRunRow } from "./GatewayRunRow.ts";
@@ -174,6 +175,16 @@ export const gatewayCollectionDefs = {
     getKey: (row: GatewayScoreRow) =>
       `${row.runId}:${row.nodeId}:${row.iteration}:${row.scorerId}`,
     rows: arrayRows<GatewayScoreRow>,
+  }),
+  tickets: (params: ListTicketsRequest = {}) => ({
+    key: gatewayKeys.tickets(params),
+    method: "listTickets",
+    params,
+    // `_smithers_docs` is keyed by `path` (the doc identity / id), which is the
+    // natural primary key the surface selects/edits by. `listTickets` already
+    // filters tombstones server-side, so every row here is live.
+    getKey: (row: GatewayTicketRow) => row.path,
+    rows: arrayRows<GatewayTicketRow>,
   }),
   runEvents: (runId: string, maxRows = 1_024) => ({
     key: gatewayKeys.runEvents(runId),

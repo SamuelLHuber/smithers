@@ -20,6 +20,8 @@ import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { computeRunStateFromRow } from "@smithers-orchestrator/db/runState";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { loadInput } from "@smithers-orchestrator/db/snapshot";
+import { sha256Hex } from "@smithers-orchestrator/db/sha256Hex";
+import { watchDocsDirectory } from "@smithers-orchestrator/db/docWatcher";
 import { devtoolsActiveSubscribers, devtoolsBackpressureDisconnectTotal, devtoolsDeltaBuildMs, devtoolsEventBytes, devtoolsEventTotal, devtoolsSnapshotBuildMs, devtoolsSubscribeTotal, gatewayApprovalDecisionsTotal, gatewayAuthEventsTotal, gatewayConnectionsActive, gatewayConnectionsClosedTotal, gatewayConnectionsTotal, gatewayCronTriggersTotal, gatewayErrorsTotal, gatewayHeartbeatTicksTotal, gatewayMessagesReceivedTotal, gatewayMessagesSentTotal, gatewayRpcCallsTotal, gatewayRpcDuration, gatewayRunsCompletedTotal, gatewayRunsStartedTotal, gatewaySignalsTotal, gatewayWebhooksReceivedTotal, gatewayWebhooksRejectedTotal, gatewayWebhooksVerifiedTotal, } from "@smithers-orchestrator/observability/metrics";
 import { runFork, runPromise } from "./smithersRuntime.js";
 import { prometheusContentType, renderPrometheusMetrics } from "@smithers-orchestrator/observability";
@@ -2360,6 +2362,18 @@ export class Gateway {
         await this.syncRegisteredSchedules();
         this.startScheduler();
         this.startOutOfProcessEventBridge();
+        // Durability seam: when a tickets directory is configured, watch its
+        // `*.md` docs and upsert them into `_smithers_docs` (file → DB,
+        // last-write-wins). A hiccup here never fails `listen()`.
+        const ticketsDir = process.env.SMITHERS_TICKETS_DIR;
+        if (ticketsDir) {
+            try {
+                this.watchTicketsDirectory(ticketsDir);
+            }
+            catch (error) {
+                console.warn(`[gateway] tickets watcher (${ticketsDir}) failed to start: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
         return server;
     }
     async close() {
@@ -3501,6 +3515,160 @@ export class Gateway {
             latencyMs: row.latencyMs ?? null,
             durationMs: row.durationMs ?? null,
         }));
+    }
+    // ---------------------------------------------------------------------------
+    // Tickets / work docs (`_smithers_docs`) — listTickets/createTicket/
+    // updateTicket/deleteTicket RPCs + the file-watcher durability seam.
+    // ---------------------------------------------------------------------------
+    /**
+   * The ONE adapter that backs the ticket WRITE RPCs (create/update/delete) and
+   * the file-watcher. `_smithers_docs` is a SINGLE global table (not per-run,
+   * not per-workflow), so writes must land in one deterministic DB — the first
+   * registered workflow's adapter. `listTickets` still reads across every
+   * distinct adapter (so a doc in any shared DB surfaces), but a write has to
+   * pick one; picking the first registered keeps create→list→update→delete
+   * consistent. Returns `null` only when no workflow is registered yet.
+   * @returns {import("@smithers-orchestrator/db/adapter").SmithersDb | null}
+   */
+    primaryDocsAdapter() {
+        const first = this.workflows.values().next().value;
+        return first ? this.adapterForWorkflow(first.workflow) : null;
+    }
+    /** Map a stored `_smithers_docs` row (camel-cased) onto the wire `GatewayTicketRow`. */
+    static toTicketRow(row) {
+        return {
+            path: row.path,
+            kind: typeof row.kind === "string" ? row.kind : "ticket",
+            content: typeof row.content === "string" ? row.content : "",
+            contentHash: row.contentHash,
+            status: row.status ?? null,
+            updatedAtMs: row.updatedAtMs,
+        };
+    }
+    /**
+   * Live work docs for the `listTickets` RPC. `_smithers_docs` is global, so
+   * read across every DISTINCT adapter (mirrors `listMemoryFactsAcrossWorkflows`)
+   * and dedupe by `path`; `listDocs` already filters tombstones server-side, so
+   * a soft-deleted doc never surfaces. Newest-updated first.
+   * @param {string | null} [kind]
+   * @returns {Promise<Array<Record<string, unknown>>>}
+   */
+    async listTicketsAcrossWorkflows(kind = null) {
+        const seenAdapters = new Set();
+        const byPath = new Map();
+        for (const entry of this.workflows.values()) {
+            const adapter = this.adapterForWorkflow(entry.workflow);
+            if (seenAdapters.has(adapter)) {
+                continue;
+            }
+            seenAdapters.add(adapter);
+            const rows = await adapter.listDocs(kind ?? null);
+            for (const row of rows) {
+                if (!byPath.has(row.path)) {
+                    byPath.set(row.path, Gateway.toTicketRow(row));
+                }
+            }
+        }
+        const results = [...byPath.values()];
+        results.sort((a, b) => b.updatedAtMs - a.updatedAtMs || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+        return results;
+    }
+    /**
+   * Create-or-replace a work doc for `createTicket`. The handler hashes content
+   * + stamps `updated_at_ms` through the SAME `sha256Hex`/clock the file-watcher
+   * uses, so an RPC-written `content_hash` and a file-derived one are comparable
+   * (last-write-wins). Writing `deleted_at_ms: null` REVIVES a soft-deleted path
+   * (a deliberate re-create). Returns the persisted row, or `null` when no
+   * workflow is registered.
+   * @param {{ path: string, content: string, kind?: string, status?: string }} input
+   * @returns {Promise<Record<string, unknown> | null>}
+   */
+    async createTicketDoc(input) {
+        const adapter = this.primaryDocsAdapter();
+        if (!adapter) {
+            return null;
+        }
+        const existing = await adapter.getDoc(input.path);
+        const kind = input.kind ?? (existing && typeof existing.kind === "string" ? existing.kind : "ticket");
+        const status = input.status ?? (existing && existing.status != null ? existing.status : null);
+        const contentHash = sha256Hex(input.content);
+        const updatedAtMs = Date.now();
+        await adapter.upsertDoc({ path: input.path, kind, content: input.content, contentHash, status, updatedAtMs, deletedAtMs: null });
+        return { path: input.path, kind, content: input.content, contentHash, status, updatedAtMs };
+    }
+    /**
+   * Patch a LIVE work doc's content and/or status for `updateTicket`. Re-hashes
+   * + re-stamps when content changes (a status-only patch keeps the existing
+   * hash/content). Returns `null` for an unknown or already-soft-deleted path so
+   * the dispatcher can answer TicketNotFound; `false` when no workflow exists.
+   * @param {{ path: string, content?: string, status?: string }} input
+   * @returns {Promise<Record<string, unknown> | null | false>}
+   */
+    async updateTicketDoc(input) {
+        const adapter = this.primaryDocsAdapter();
+        if (!adapter) {
+            return false;
+        }
+        const existing = await adapter.getDoc(input.path);
+        if (!existing || existing.deletedAtMs != null) {
+            return null;
+        }
+        const content = input.content ?? existing.content;
+        const status = input.status ?? existing.status ?? null;
+        const contentHash = input.content !== undefined ? sha256Hex(content) : existing.contentHash;
+        const kind = typeof existing.kind === "string" ? existing.kind : "ticket";
+        const updatedAtMs = Date.now();
+        await adapter.upsertDoc({ path: input.path, kind, content, contentHash, status, updatedAtMs, deletedAtMs: null });
+        return { path: input.path, kind, content, contentHash, status, updatedAtMs };
+    }
+    /**
+   * Soft-delete (tombstone) a work doc for `deleteTicket`. Returns `null` for an
+   * unknown/already-deleted path (→ TicketNotFound), `false` when no workflow is
+   * registered. The row survives so `listTickets` hides it without losing
+   * history; the watcher never materializes a tombstone back to disk.
+   * @param {string} path
+   * @returns {Promise<boolean | null | false>}
+   */
+    async deleteTicketDoc(path) {
+        const adapter = this.primaryDocsAdapter();
+        if (!adapter) {
+            return false;
+        }
+        const existing = await adapter.getDoc(path);
+        if (!existing || existing.deletedAtMs != null) {
+            return null;
+        }
+        await adapter.softDeleteDoc(path, Date.now());
+        return true;
+    }
+    /**
+   * Wire the `_smithers_docs` file-watcher durability seam against the primary
+   * docs adapter: watch a directory of `*.md` work docs and upsert each into
+   * `_smithers_docs` (file → DB, last-write-wins on hash mismatch). Idempotent —
+   * a second call for the same dir is a no-op. Returns the watcher handle (or
+   * `null` when there is no adapter / no dir). The gateway reads
+   * `SMITHERS_TICKETS_DIR` at `listen()` to start this automatically.
+   * @param {string} dir
+   * @returns {{ close: () => void } | null}
+   */
+    watchTicketsDirectory(dir) {
+        if (!dir) {
+            return null;
+        }
+        const adapter = this.primaryDocsAdapter();
+        if (!adapter) {
+            return null;
+        }
+        if (!this.ticketWatchers) {
+            this.ticketWatchers = new Map();
+        }
+        const existing = this.ticketWatchers.get(dir);
+        if (existing) {
+            return existing;
+        }
+        const watcher = watchDocsDirectory(adapter, { dir, kind: "ticket", defaultStatus: "todo" });
+        this.ticketWatchers.set(dir, watcher);
+        return watcher;
     }
     async listPendingApprovals() {
         const approvals = [];
@@ -4734,6 +4902,62 @@ export class Gateway {
                     return responseError(frame.id, "NOT_FOUND", `Run not found: ${runId}`);
                 }
                 return responseOk(frame.id, scores);
+            }
+            case "listTickets": {
+                const kind = asString(params.kind);
+                return responseOk(frame.id, await this.listTicketsAcrossWorkflows(kind ?? null));
+            }
+            case "createTicket": {
+                const path = asString(params.path);
+                const content = asString(params.content);
+                if (!path) {
+                    return responseError(frame.id, "INVALID_REQUEST", "path is required");
+                }
+                if (content === undefined) {
+                    return responseError(frame.id, "INVALID_REQUEST", "content is required");
+                }
+                const created = await this.createTicketDoc({
+                    path,
+                    content,
+                    kind: asString(params.kind),
+                    status: asString(params.status),
+                });
+                if (created === null) {
+                    return responseError(frame.id, "INVALID_REQUEST", "No workflow is registered to back ticket storage");
+                }
+                return responseOk(frame.id, created);
+            }
+            case "updateTicket": {
+                const path = asString(params.path);
+                if (!path) {
+                    return responseError(frame.id, "INVALID_REQUEST", "path is required");
+                }
+                const updated = await this.updateTicketDoc({
+                    path,
+                    content: asString(params.content),
+                    status: asString(params.status),
+                });
+                if (updated === false) {
+                    return responseError(frame.id, "INVALID_REQUEST", "No workflow is registered to back ticket storage");
+                }
+                if (updated === null) {
+                    return responseError(frame.id, "NOT_FOUND", `Ticket not found: ${path}`);
+                }
+                return responseOk(frame.id, updated);
+            }
+            case "deleteTicket": {
+                const path = asString(params.path);
+                if (!path) {
+                    return responseError(frame.id, "INVALID_REQUEST", "path is required");
+                }
+                const removed = await this.deleteTicketDoc(path);
+                if (removed === false) {
+                    return responseError(frame.id, "INVALID_REQUEST", "No workflow is registered to back ticket storage");
+                }
+                if (removed === null) {
+                    return responseError(frame.id, "NOT_FOUND", `Ticket not found: ${path}`);
+                }
+                return responseOk(frame.id, { path, deleted: true });
             }
             default:
                 return responseError(frame.id, "METHOD_NOT_FOUND", `Unknown method: ${frame.method}`);

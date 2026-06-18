@@ -8430,7 +8430,7 @@ Gateway client exports:
 ## RPC methods (TOON)
 
 ```toon
-rpc[21]{method,params,returns,scope,transport}:
+rpc[25]{method,params,returns,scope,transport}:
   launchRun,workflow/input?/options.runId?/options.idempotencyKey?,{runId/workflow},run:write,http+websocket
   resumeRun,runId/options.force?,{runId/status},run:write,http+websocket
   cancelRun,runId,{runId/status:cancelling},run:write,http+websocket
@@ -8452,6 +8452,10 @@ rpc[21]{method,params,returns,scope,transport}:
   cronRun,cronId? or workflow/input?,{runId/workflow},cron:write,http+websocket
   listMemoryFacts,namespace?,Memory facts,memory:read,http+websocket
   listScores,runId/nodeId?,Scorer results,score:read,http+websocket
+  listTickets,kind?,Work docs,ticket:read,http+websocket
+  createTicket,path/content/kind?/status?,Created doc row,ticket:write,http+websocket
+  updateTicket,path/content?/status?,Updated doc row,ticket:write,http+websocket
+  deleteTicket,path,{path/deleted},ticket:write,http+websocket
 ```
 
 `health` remains available as a utility RPC and `GET /health` is available without auth. The legacy method names are still accepted for compatibility (`runs.create`, `runs.get`, `runs.list`, `runs.cancel`, `runs.rerun`, `runs.diff`, `frames.list`, `frames.get`, `attempts.list`, `attempts.get`, `workflows.list`, `approvals.list`, `approvals.decide`, `signals.send`, `cron.list`, `cron.add`, `cron.remove`, `cron.trigger`, `getDevToolsSnapshot`, `jumpToFrame`, `devtools.jumpToFrame`, `devtools.getNodeOutput`, `devtools.getNodeDiff`), but new clients should use the v1 names above.
@@ -8459,7 +8463,7 @@ rpc[21]{method,params,returns,scope,transport}:
 ### Scopes
 
 ```toon
-scopes[10]{scope,allows}:
+scopes[12]{scope,allows}:
   run:read,Read run state/lists/event streams/node output/node diffs
   run:write,Launch/resume/cancel runs; implies run:read
   run:admin,Hijack or rewind runs; implies run:write and run:read
@@ -8469,6 +8473,8 @@ scopes[10]{scope,allows}:
   cron:write,Create/delete/trigger cron schedules; implies cron:read
   memory:read,List cross-run memory facts
   score:read,List scorer/eval results for a run
+  ticket:read,List work docs (tickets/plans/specs/proposals)
+  ticket:write,Create/update/soft-delete work docs; implies ticket:read
   observability:read,Read DevTools and other observability streams
 ```
 
@@ -8569,7 +8575,7 @@ type OutputSchemaDescriptor = {
 Gateway v1 RPC errors use stable code strings and HTTP status mappings:
 
 ```toon
-errors[21]{code,http}:
+errors[22]{code,http}:
   InvalidRequest,400
   InvalidInput,400
   Unauthorized,401
@@ -8577,6 +8583,7 @@ errors[21]{code,http}:
   RunNotFound,404
   RUN_NOT_ACTIVE,409
   CronNotFound,404
+  TicketNotFound,404
   NodeNotFound,404
   IterationNotFound,404
   NodeHasNoOutput,404

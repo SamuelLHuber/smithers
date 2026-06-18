@@ -139,6 +139,10 @@ describe("Gateway RPC contract", () => {
       "cronRun",
       "listMemoryFacts",
       "listScores",
+      "listTickets",
+      "createTicket",
+      "updateTicket",
+      "deleteTicket",
     ]);
 
     for (const definition of GATEWAY_RPC_DEFINITIONS) {
@@ -248,6 +252,30 @@ describe("Gateway RPC contract", () => {
     expect(getRequiredScopeForGatewayMethod("nonexistent")).toBeUndefined();
     expect(getRequiredScopeForGatewayMethod("runs.nope")).toBeUndefined();
     expect(getRequiredScopeForGatewayMethod("")).toBeUndefined();
+  });
+
+  test("TicketNotFound is declared and wired to the ticket mutation RPCs", () => {
+    expect(GATEWAY_RPC_ERRORS.TicketNotFound).toBeDefined();
+    expect(GATEWAY_RPC_ERRORS.TicketNotFound.code).toBe("TicketNotFound");
+    expect(GATEWAY_RPC_ERRORS.TicketNotFound.httpStatus).toBe(404);
+    expect(GATEWAY_RPC_ERRORS.TicketNotFound.version).toBe(SMITHERS_API_VERSION);
+    // updateTicket and deleteTicket reference it; createTicket revives by design so it does not.
+    expect(getGatewayRpcDefinition("updateTicket")!.errors).toContain("TicketNotFound");
+    expect(getGatewayRpcDefinition("deleteTicket")!.errors).toContain("TicketNotFound");
+    expect(getGatewayRpcDefinition("createTicket")!.errors).not.toContain("TicketNotFound");
+  });
+
+  test("ticket RPCs carry the right scopes and ticket:write implies ticket:read", () => {
+    expect(getRequiredScopeForGatewayMethod("listTickets")).toBe("ticket:read");
+    expect(getRequiredScopeForGatewayMethod("createTicket")).toBe("ticket:write");
+    expect(getRequiredScopeForGatewayMethod("updateTicket")).toBe("ticket:write");
+    expect(getRequiredScopeForGatewayMethod("deleteTicket")).toBe("ticket:write");
+    // ticket:write implies ticket:read; ticket:read does NOT imply ticket:write.
+    expect(hasGatewayScope(["ticket:write"], "ticket:read", "listTickets")).toBe(true);
+    expect(hasGatewayScope(["ticket:read"], "ticket:write", "createTicket")).toBe(false);
+    // legacy "read" reaches ticket:read; legacy "execute" reaches ticket:write.
+    expect(hasGatewayScope(["read"], "ticket:read", "listTickets")).toBe(true);
+    expect(hasGatewayScope(["execute"], "ticket:write", "createTicket")).toBe(true);
   });
 
   test("CronNotFound is declared and wired to the cron mutation RPCs", () => {

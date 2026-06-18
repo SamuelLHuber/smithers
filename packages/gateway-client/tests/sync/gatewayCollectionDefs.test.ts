@@ -10,6 +10,7 @@ import {
 import type { GatewayCronRow } from "../../src/sync/GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "../../src/sync/GatewayMemoryFactRow.ts";
 import type { GatewayScoreRow } from "../../src/sync/GatewayScoreRow.ts";
+import type { GatewayTicketRow } from "../../src/sync/GatewayTicketRow.ts";
 import type { GatewayRunNode } from "../../src/sync/GatewayRunNode.ts";
 import type { GatewayRunRow } from "../../src/sync/GatewayRunRow.ts";
 import type { SyncStreamFrame, SyncTransport } from "../../src/sync/SyncTransport.ts";
@@ -421,5 +422,52 @@ describe("gatewayCollectionDefs.scores", () => {
 
     expect(Array.from(collection.keys())).toEqual(["r:n:0:s"]);
     expect(collection.get("r:n:0:s")?.score).toBe(0.9);
+  });
+});
+
+/** A real `listTickets` payload: live `_smithers_docs` rows (tombstones already filtered server-side). */
+const ticketRows: GatewayTicketRow[] = [
+  {
+    path: "feat-issues-card",
+    kind: "ticket",
+    content: "# Issues card\n\n## Summary\nPort the tickets view.",
+    contentHash: "a".repeat(64),
+    status: "in-progress",
+    updatedAtMs: 1_717_286_100_000,
+  },
+  {
+    path: "docs-markdown-editor",
+    kind: "ticket",
+    content: "# Markdown editor docs",
+    contentHash: "b".repeat(64),
+    status: null,
+    updatedAtMs: 1_717_286_000_000,
+  },
+];
+
+describe("gatewayCollectionDefs.tickets", () => {
+  test("rows mapper passes a listTickets array through and keys by path", () => {
+    const def = gatewayCollectionDefs.tickets({ kind: "ticket" });
+    const rows = Array.from(def.rows(ticketRows));
+    expect(rows.map((row) => row.path)).toEqual(["feat-issues-card", "docs-markdown-editor"]);
+    expect(def.getKey(rows[0])).toBe("feat-issues-card");
+    // A null status survives the passthrough (the no-status branch).
+    expect(rows[1].status).toBeNull();
+  });
+
+  test("a non-array payload maps to no rows", () => {
+    expect(Array.from(gatewayCollectionDefs.tickets().rows({ not: "an array" }))).toEqual([]);
+  });
+
+  test("populates a TanStack DB collection from the listTickets RPC, keyed by path", async () => {
+    const collection = createCollection<GatewayTicketRow, string>(
+      createGatewayCollection({ ...gatewayCollectionDefs.tickets(), client: quietTransport(ticketRows) }),
+    );
+
+    await collection.preload();
+
+    expect(Array.from(collection.keys()).sort()).toEqual(["docs-markdown-editor", "feat-issues-card"]);
+    expect(collection.get("feat-issues-card")?.status).toBe("in-progress");
+    expect(collection.get("feat-issues-card")?.contentHash).toBe("a".repeat(64));
   });
 });

@@ -354,6 +354,15 @@ const CREATE_TABLE_STATEMENTS = [
     node_id TEXT,
     created_at_ms INTEGER NOT NULL
   )`,
+    `CREATE TABLE IF NOT EXISTS _smithers_docs (
+    path TEXT PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'ticket',
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    status TEXT,
+    updated_at_ms INTEGER NOT NULL,
+    deleted_at_ms INTEGER
+  )`,
 ];
 const CREATE_INDEX_STATEMENTS = [
     `CREATE INDEX IF NOT EXISTS _smithers_runs_status_heartbeat_idx
@@ -362,6 +371,8 @@ const CREATE_INDEX_STATEMENTS = [
     ON _smithers_signals (run_id, signal_name, correlation_id, received_at_ms)`,
     `CREATE INDEX IF NOT EXISTS _smithers_time_travel_audit_lookup_idx
     ON _smithers_time_travel_audit (run_id, caller, timestamp_ms)`,
+    `CREATE INDEX IF NOT EXISTS _smithers_docs_kind_live_idx
+    ON _smithers_docs (kind, deleted_at_ms, updated_at_ms)`,
 ];
 /**
  * @param {string} identifier

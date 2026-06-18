@@ -492,6 +492,18 @@ function buildMigrations(context) {
                 return { table: "_smithers_scorers", addedColumns };
             },
         },
+        {
+            id: "0018_add_docs",
+            name: "Add docs (tickets/plans/specs/proposals) table",
+            checksum: "packages/db/migrations/0018_add_docs.sql",
+            isApplied: (sqlite) => tableExists(sqlite, "_smithers_docs"),
+            up: (sqlite) => {
+                sqlite.run(createTableStatementFor("_smithers_docs", context.createTableStatements));
+                sqlite.run(`CREATE INDEX IF NOT EXISTS _smithers_docs_kind_live_idx
+    ON _smithers_docs (kind, deleted_at_ms, updated_at_ms)`);
+                return { table: "_smithers_docs" };
+            },
+        },
     ];
 }
 

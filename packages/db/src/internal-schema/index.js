@@ -19,6 +19,7 @@ export { smithersMemoryThreads } from "./smithersMemoryThreads.js";
 export { smithersMemoryMessages } from "./smithersMemoryMessages.js";
 export { smithersVectors } from "./smithersVectors.js";
 export { smithersCron } from "./smithersCron.js";
+export { smithersDocs } from "./smithersDocs.js";
 export { smithersSchemaMigrations } from "./smithersSchemaMigrations.js";
 export { smithersWorkspaceStates } from "./smithersWorkspaceStates.js";
 export { smithersWorkspaceCheckpoints } from "./smithersWorkspaceCheckpoints.js";

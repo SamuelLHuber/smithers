@@ -9,6 +9,7 @@ import {
   type GatewayCronRow,
   type GatewayMemoryFactRow,
   type GatewayScoreRow,
+  type GatewayTicketRow,
   type GatewayRunEventRow,
   type GatewayRunNode,
   type GatewayRunRow,
@@ -25,6 +26,7 @@ import type {
   ListMemoryFactsRequest,
   ListRunsRequest,
   ListScoresRequest,
+  ListTicketsRequest,
   ListWorkflowsRequest,
 } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayConnectionState } from "./GatewayConnectionState.ts";
@@ -410,6 +412,8 @@ export function createGatewayCollections(
       knownCollection<GatewayMemoryFactRow, string>(gatewayCollectionDefs.memoryFacts(params), listGcTime),
     scores: (params: ListScoresRequest = { runId: "" }) =>
       knownCollection<GatewayScoreRow, string>(gatewayCollectionDefs.scores(params), listGcTime),
+    tickets: (params: ListTicketsRequest = {}) =>
+      knownCollection<GatewayTicketRow, string>(gatewayCollectionDefs.tickets(params), listGcTime),
     nodes: (runId: string) =>
       knownCollection<GatewayRunNode, string>(gatewayCollectionDefs.nodes(runId), RUN_GC_TIME),
     runEvents: (runId: string) =>

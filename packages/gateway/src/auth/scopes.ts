@@ -10,6 +10,8 @@ export const GATEWAY_SCOPE_VALUES = [
   "cron:write",
   "memory:read",
   "score:read",
+  "ticket:read",
+  "ticket:write",
   "observability:read",
 ] as const;
 
@@ -25,11 +27,14 @@ export const GATEWAY_SCOPE_DESCRIPTIONS: Record<GatewayScope, string> = {
   "cron:write": "Create, delete, and trigger cron schedules.",
   "memory:read": "List cross-run memory facts.",
   "score:read": "List scorer/eval results for a run.",
+  "ticket:read": "List work docs (tickets/plans/specs/proposals).",
+  "ticket:write": "Create, update, and soft-delete work docs.",
   "observability:read": "Read DevTools and other observability streams.",
 };
 
 const RUN_SCOPE_ORDER: GatewayScope[] = ["run:read", "run:write", "run:admin"];
 const CRON_SCOPE_ORDER: GatewayScope[] = ["cron:read", "cron:write"];
+const TICKET_SCOPE_ORDER: GatewayScope[] = ["ticket:read", "ticket:write"];
 
 function normalizeScope(scope: string): string {
   return scope.trim();
@@ -49,15 +54,18 @@ function gatewayScopeImplies(granted: GatewayScope, required: GatewayScope): boo
   if (granted.startsWith("cron:") && required.startsWith("cron:")) {
     return CRON_SCOPE_ORDER.indexOf(granted) >= CRON_SCOPE_ORDER.indexOf(required);
   }
+  if (granted.startsWith("ticket:") && required.startsWith("ticket:")) {
+    return TICKET_SCOPE_ORDER.indexOf(granted) >= TICKET_SCOPE_ORDER.indexOf(required);
+  }
   return false;
 }
 
 function legacyAccessImplies(scope: string, required: GatewayScope): boolean {
   switch (scope) {
     case "read":
-      return required === "run:read" || required === "cron:read" || required === "memory:read" || required === "score:read" || required === "observability:read";
+      return required === "run:read" || required === "cron:read" || required === "memory:read" || required === "score:read" || required === "ticket:read" || required === "observability:read";
     case "execute":
-      return required === "run:read" || required === "run:write" || required === "signal:submit" || required === "cron:read" || required === "cron:write";
+      return required === "run:read" || required === "run:write" || required === "signal:submit" || required === "cron:read" || required === "cron:write" || required === "ticket:read" || required === "ticket:write";
     case "approve":
       return required === "approval:submit" || legacyAccessImplies("execute", required);
     case "admin":

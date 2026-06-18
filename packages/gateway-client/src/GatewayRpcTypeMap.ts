@@ -15,6 +15,10 @@ import type {
   ListMemoryFactsRequest,
   ListRunsRequest,
   ListScoresRequest,
+  ListTicketsRequest,
+  CreateTicketRequest,
+  UpdateTicketRequest,
+  DeleteTicketRequest,
   ListWorkflowsRequest,
   ListWorkflowsResponse,
   NodeRequest,
@@ -32,6 +36,7 @@ import type {
 import type { GatewayCronRow } from "./sync/GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "./sync/GatewayMemoryFactRow.ts";
 import type { GatewayScoreRow } from "./sync/GatewayScoreRow.ts";
+import type { GatewayTicketRow } from "./sync/GatewayTicketRow.ts";
 
 export type GatewayRpcRequestMap = {
   launchRun: LaunchRunRequest;
@@ -55,6 +60,10 @@ export type GatewayRpcRequestMap = {
   cronRun: CronRunRequest;
   listMemoryFacts: ListMemoryFactsRequest;
   listScores: ListScoresRequest;
+  listTickets: ListTicketsRequest;
+  createTicket: CreateTicketRequest;
+  updateTicket: UpdateTicketRequest;
+  deleteTicket: DeleteTicketRequest;
 };
 
 export type GatewayRpcResponseMap = {
@@ -79,6 +88,10 @@ export type GatewayRpcResponseMap = {
   cronRun: LaunchRunResponse;
   listMemoryFacts: GatewayMemoryFactRow[];
   listScores: GatewayScoreRow[];
+  listTickets: GatewayTicketRow[];
+  createTicket: GatewayTicketRow;
+  updateTicket: GatewayTicketRow;
+  deleteTicket: { path: string; deleted: boolean };
 };
 
 export type GatewayRpcParams<Method extends GatewayRpcMethod> = GatewayRpcRequestMap[Method];

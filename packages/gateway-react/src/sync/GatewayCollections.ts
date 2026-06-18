@@ -4,6 +4,7 @@ import type {
   GatewayCronRow,
   GatewayMemoryFactRow,
   GatewayScoreRow,
+  GatewayTicketRow,
   GatewayRunEventRow,
   GatewayRunNode,
   GatewayRunRow,
@@ -19,6 +20,7 @@ import type {
   ListMemoryFactsRequest,
   ListRunsRequest,
   ListScoresRequest,
+  ListTicketsRequest,
   ListWorkflowsRequest,
 } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayConnectionState } from "./GatewayConnectionState.ts";
@@ -87,6 +89,8 @@ export type GatewayCollections = {
   memoryFacts(params?: ListMemoryFactsRequest): Collection<GatewayMemoryFactRow, string>;
   /** Live scorer/eval results for one run (`listScores`); keyed by the composite `${runId}:${nodeId}:${iteration}:${scorerId}`. */
   scores(params?: ListScoresRequest): Collection<GatewayScoreRow, string>;
+  /** Live work docs (`listTickets`, tombstones filtered); keyed by `path` (the doc identity). */
+  tickets(params?: ListTicketsRequest): Collection<GatewayTicketRow, string>;
   /** Flattened devtools run-node tree, reconciled per devtools frame. */
   nodes(runId: string): Collection<GatewayRunNode, string>;
   /** Bounded append-only run-event ring. */

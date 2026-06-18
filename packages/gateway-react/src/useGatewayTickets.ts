@@ -1,0 +1,32 @@
+import { useCallback } from "react";
+import { useLiveQuery } from "@tanstack/react-db";
+import { gatewayKeys, type GatewayTicketRow } from "@smithers-orchestrator/gateway-client";
+import type { ListTicketsRequest } from "@smithers-orchestrator/gateway/rpc";
+import { useSyncClient } from "./sync/useSyncClient.ts";
+import type { GatewayAsyncState } from "./GatewayAsyncState.ts";
+
+/**
+ * Live work docs (tickets/plans/specs/proposals) over the `tickets` collection
+ * (initial `listTickets`, re-pulled on `invalidate` — e.g. after a
+ * `createTicket` / `updateTicket` / `deleteTicket` mutation). `listTickets`
+ * returns only LIVE docs (soft-deleted tombstones are filtered server-side), so
+ * every row here is renderable. Pass a `kind` to scope to one doc kind; omit it
+ * to list every kind. Same `GatewayAsyncState` shape the other typed gateway
+ * hooks return (mirrors `useGatewayCrons` / `useGatewayMemoryFacts`).
+ */
+export function useGatewayTickets(params: ListTicketsRequest = {}): GatewayAsyncState<GatewayTicketRow[]> {
+  const registry = useSyncClient();
+  const collection = registry.tickets(params);
+  const live = useLiveQuery((q) => q.from({ row: collection }), [collection]);
+  const refetch = useCallback(async () => {
+    await registry.invalidate(gatewayKeys.tickets(params));
+  }, [registry, collection]);
+
+  const data = (live.data ?? []) as GatewayTicketRow[];
+  return {
+    data,
+    error: undefined,
+    loading: !live.isReady && data.length === 0,
+    refetch,
+  };
+}

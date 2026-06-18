@@ -27,6 +27,7 @@ import {
   useGatewayCrons,
   useGatewayMemoryFacts,
   useGatewayScores,
+  useGatewayTickets,
   useGatewayConnectionStatus,
   useGatewayMutation,
   useGatewayQuery,
@@ -678,6 +679,35 @@ describe("legacy synced hooks over collections", () => {
     expect(scores?.data?.map((row) => row.score).sort()).toEqual([0.88, 0.92]);
     expect(scores?.data?.every((row) => row.runId === "run_7a3f")).toBe(true);
     expect(scores?.loading).toBe(false);
+
+    await harness.unmount();
+  });
+
+  test("useGatewayTickets lists live work docs from listTickets (keyed by path)", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listTickets") {
+          return Promise.resolve([
+            { path: "feat-issues-card", kind: "ticket", content: "# Issues card", contentHash: "a".repeat(64), status: "in-progress", updatedAtMs: 20 },
+            { path: "docs-markdown-editor", kind: "ticket", content: "# Docs", contentHash: "b".repeat(64), status: null, updatedAtMs: 10 },
+          ]);
+        }
+        return Promise.resolve([]);
+      }).transport,
+    });
+
+    let tickets: ReturnType<typeof useGatewayTickets> | undefined;
+    function Probe() {
+      tickets = useGatewayTickets();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => (tickets?.data?.length ?? 0) === 2);
+    expect(tickets?.data?.map((row) => row.path).sort()).toEqual(["docs-markdown-editor", "feat-issues-card"]);
+    expect(tickets?.data?.find((row) => row.path === "feat-issues-card")?.status).toBe("in-progress");
+    expect(tickets?.loading).toBe(false);
 
     await harness.unmount();
   });
