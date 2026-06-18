@@ -2399,6 +2399,19 @@ export class Gateway {
             clearInterval(this.schedulerTimer);
             this.schedulerTimer = null;
         }
+        // Durability seam teardown: close every `_smithers_docs` file-watcher
+        // (`fs.watch` handles) started via `watchTicketsDirectory`, so a closed
+        // gateway never leaks watchers (e.g. across e2e boots or test runs).
+        if (this.ticketWatchers) {
+            for (const watcher of this.ticketWatchers.values()) {
+                try {
+                    watcher.close();
+                }
+                catch { }
+            }
+            this.ticketWatchers.clear();
+            this.ticketWatchers = null;
+        }
         this.stopOutOfProcessEventBridge();
         if (this.server) {
             const server = this.server;

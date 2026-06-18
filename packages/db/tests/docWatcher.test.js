@@ -121,6 +121,74 @@ describe("watchDocsDirectory (file → _smithers_docs reconcile)", () => {
         }
     });
 
+    test("respects a tombstone: an unchanged lingering file does NOT resurrect a soft-deleted doc", async () => {
+        const { adapter } = createDb();
+        const body = "# Ticket Z\n\nbody that will be soft-deleted";
+        writeFileSync(join(dir, "z.md"), body);
+        const watcher = watchDocsDirectory(adapter, {
+            dir,
+            kind: "ticket",
+            defaultStatus: "todo",
+            nowMs: () => 100,
+        });
+        try {
+            // Initial sync surfaces the doc.
+            await watcher.sync();
+            expect((await adapter.listDocs()).map((r) => r.path)).toEqual(["z"]);
+
+            // Soft-delete it (as deleteTicket would). The `.md` file still exists.
+            await adapter.softDeleteDoc("z", 200);
+            expect((await adapter.listDocs()).map((r) => r.path)).toEqual([]);
+            const tomb = await adapter.getDoc("z");
+            expect(tomb?.deletedAtMs).toBe(200);
+
+            // Re-sync (mirrors a watcher event / gateway restart) with the file
+            // STILL on disk and UNCHANGED → the tombstone must survive: no revive.
+            await watcher.sync();
+            expect((await adapter.listDocs()).map((r) => r.path)).toEqual([]);
+            const stillTomb = await adapter.getDoc("z");
+            expect(stillTomb?.deletedAtMs).toBe(200);
+            // Direct single-file reconcile must also leave it tombstoned.
+            await watcher.syncFile("z.md");
+            expect((await adapter.getDoc("z"))?.deletedAtMs).toBe(200);
+            expect((await adapter.listDocs()).map((r) => r.path)).toEqual([]);
+        }
+        finally {
+            watcher.close();
+        }
+    });
+
+    test("revives a tombstone only on a genuine post-deletion edit (file content changes)", async () => {
+        const { adapter } = createDb();
+        let clock = 100;
+        writeFileSync(join(dir, "z.md"), "# Ticket Z\n\noriginal");
+        const watcher = watchDocsDirectory(adapter, {
+            dir,
+            kind: "ticket",
+            defaultStatus: "todo",
+            nowMs: () => clock,
+        });
+        try {
+            await watcher.sync();
+            await adapter.softDeleteDoc("z", 200);
+            expect((await adapter.listDocs()).map((r) => r.path)).toEqual([]);
+
+            // The file is genuinely re-created with NEW content after the delete →
+            // hash mismatch → legitimate revive (file wins, last-write-wins).
+            clock = 300;
+            writeFileSync(join(dir, "z.md"), "# Ticket Z\n\nRECREATED after delete");
+            await watcher.syncFile("z.md");
+            const rows = await adapter.listDocs();
+            expect(rows.map((r) => r.path)).toEqual(["z"]);
+            expect(rows[0].content).toBe("# Ticket Z\n\nRECREATED after delete");
+            expect(rows[0].deletedAtMs).toBe(null);
+            expect(rows[0].updatedAtMs).toBe(300);
+        }
+        finally {
+            watcher.close();
+        }
+    });
+
     test("preserves an existing row's status across a file edit", async () => {
         const { adapter } = createDb();
         writeFileSync(join(dir, "t.md"), "v1");

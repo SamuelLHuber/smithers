@@ -182,6 +182,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -238,6 +241,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -294,6 +300,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -350,6 +359,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -514,6 +526,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -570,6 +585,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -626,6 +644,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -682,6 +703,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -738,6 +762,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -891,6 +918,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -947,6 +977,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1003,6 +1036,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1059,6 +1095,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1115,6 +1154,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1281,6 +1323,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1337,6 +1382,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1393,6 +1441,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1449,6 +1500,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1505,6 +1559,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1668,6 +1725,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1729,6 +1789,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1790,6 +1853,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1851,6 +1917,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1912,6 +1981,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -1973,6 +2045,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2034,6 +2109,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2095,6 +2173,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2304,6 +2385,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2362,6 +2446,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2420,6 +2507,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2478,6 +2568,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2536,6 +2629,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2594,6 +2690,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2771,6 +2870,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2827,6 +2929,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2883,6 +2988,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2939,6 +3047,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -2995,6 +3106,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3207,6 +3321,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3263,6 +3380,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3319,6 +3439,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3375,6 +3498,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3431,6 +3557,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3606,6 +3735,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3661,6 +3793,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3716,6 +3851,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3771,6 +3909,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -3945,6 +4086,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4000,6 +4144,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4055,6 +4202,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4110,6 +4260,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4275,6 +4428,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4330,6 +4486,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4385,6 +4544,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4440,6 +4602,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4610,6 +4775,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4667,6 +4835,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4724,6 +4895,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4781,6 +4955,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4838,6 +5015,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5013,6 +5193,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5071,6 +5254,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5129,6 +5315,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5187,6 +5376,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5245,6 +5437,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5303,6 +5498,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5464,6 +5662,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5524,6 +5725,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5584,6 +5788,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5644,6 +5851,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5704,6 +5914,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5764,6 +5977,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5924,6 +6140,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5984,6 +6203,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6044,6 +6266,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6104,6 +6329,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6164,6 +6392,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6224,6 +6455,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6378,6 +6612,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6433,6 +6670,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6488,6 +6728,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6543,6 +6786,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6700,6 +6946,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6755,6 +7004,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6810,6 +7062,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -6865,6 +7120,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7017,6 +7275,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7073,6 +7334,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7129,6 +7393,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7185,6 +7452,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7241,6 +7511,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7404,6 +7677,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7461,6 +7737,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7518,6 +7797,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7575,6 +7857,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7632,6 +7917,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7813,6 +8101,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7868,6 +8159,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7923,6 +8217,9 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -7978,6 +8275,2016 @@ paths:
                           - cron:read
                           - cron:write
                           - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+  /v1/rpc/listScores:
+    post:
+      operationId: listScores
+      summary: "List Scores"
+      description: "List scorer/eval results for one run, optionally scoped to a node."
+      tags:
+        - "Gateway RPC"
+      security:
+        -
+          bearerAuth:
+            - score:read
+      x-smithers-api-version: v1
+      x-smithers-maturity: stable
+      x-smithers-transport: "http+websocket"
+      x-smithers-required-scope: score:read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - method
+                - params
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  description: "Optional caller request id."
+                method:
+                  const: listScores
+                params:
+                  type: object
+                  properties:
+                    runId:
+                      type: string
+                      description: "Run id whose scorer results to list."
+                    nodeId:
+                      type: string
+                      description: "Optional node id filter."
+                  required:
+                    - runId
+                  additionalProperties: false
+            example:
+              id: listScores-1
+              method: listScores
+              params:
+                runId: run_01
+                nodeId: review
+      responses:
+        200:
+          description: "List Scores response."
+          headers:
+            X-Smithers-API-Version:
+              schema:
+                type: string
+                enum:
+                  - v1
+              description: "Stable Smithers Gateway API version."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - payload
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: true
+                  apiVersion:
+                    const: v1
+                  payload:
+                    type: array
+                    description: "Scorer results."
+                    items:
+                      type: object
+                      properties:
+                        runId:
+                          type: string
+                          description: "Run id the score belongs to."
+                        nodeId:
+                          type: string
+                          description: "Node id the score was produced for."
+                        iteration:
+                          type: integer
+                          minimum: 0
+                          description: "Node iteration the score belongs to."
+                        attempt:
+                          type: integer
+                          minimum: 0
+                          description: "Node attempt the score belongs to."
+                        scorerId:
+                          type: string
+                          description: "Stable scorer id."
+                        scorerName:
+                          type: string
+                          description: "Human scorer name."
+                        source:
+                          type: string
+                          description: "Where the score came from (e.g. 'scorer', 'eval')."
+                        score:
+                          type: number
+                          description: "The scorer's numeric verdict."
+                        reason:
+                          type:
+                            - string
+                            - "null"
+                          description: "Optional human reason for the score."
+                        scoredAtMs:
+                          type: integer
+                          minimum: 0
+                          description: "Unix epoch milliseconds when the score was recorded."
+                        latencyMs:
+                          type:
+                            - number
+                            - "null"
+                          description: "Optional scorer latency in milliseconds."
+                        durationMs:
+                          type:
+                            - number
+                            - "null"
+                          description: "Optional node duration in milliseconds."
+                      required:
+                        - runId
+                        - nodeId
+                        - iteration
+                        - attempt
+                        - scorerId
+                        - scorerName
+                        - source
+                        - score
+                        - scoredAtMs
+                      additionalProperties: false
+              example:
+                type: res
+                id: listScores-1
+                ok: true
+                apiVersion: v1
+                payload:
+                  -
+                    runId: run_01
+                    nodeId: review
+                    iteration: 0
+                    attempt: 0
+                    scorerId: correctness
+                    scorerName: correctness
+                    source: scorer
+                    score: 0.92
+                    scoredAtMs: 1710000000000
+        400:
+          description: "The request shape is invalid."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - RunNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        401:
+          description: "Authentication failed or the token expired."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - RunNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        403:
+          description: "The token is missing the required scope."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - RunNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        404:
+          description: "The run does not exist."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - RunNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        500:
+          description: "The Gateway encountered an internal error."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - RunNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+  /v1/rpc/listTickets:
+    post:
+      operationId: listTickets
+      summary: "List Tickets"
+      description: "List live work docs (tickets/plans/specs/proposals) from `_smithers_docs`; soft-deleted tombstones are never returned."
+      tags:
+        - "Gateway RPC"
+      security:
+        -
+          bearerAuth:
+            - ticket:read
+      x-smithers-api-version: v1
+      x-smithers-maturity: stable
+      x-smithers-transport: "http+websocket"
+      x-smithers-required-scope: ticket:read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - method
+                - params
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  description: "Optional caller request id."
+                method:
+                  const: listTickets
+                params:
+                  type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - ticket
+                        - plan
+                        - spec
+                        - proposal
+                      description: "Optional doc-kind filter; omit to list every kind."
+                  required: []
+                  additionalProperties: false
+            example:
+              id: listTickets-1
+              method: listTickets
+              params:
+                kind: ticket
+      responses:
+        200:
+          description: "List Tickets response."
+          headers:
+            X-Smithers-API-Version:
+              schema:
+                type: string
+                enum:
+                  - v1
+              description: "Stable Smithers Gateway API version."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - payload
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: true
+                  apiVersion:
+                    const: v1
+                  payload:
+                    type: array
+                    description: "Live work docs."
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                          description: "Doc identity (primary key); e.g. a ticket id."
+                        kind:
+                          type: string
+                          enum:
+                            - ticket
+                            - plan
+                            - spec
+                            - proposal
+                          description: "Doc kind."
+                        content:
+                          type: string
+                          description: "Full markdown body."
+                        contentHash:
+                          type: string
+                          description: "sha256(content), lowercase hex."
+                        status:
+                          type:
+                            - string
+                            - "null"
+                          description: "Free-form status (e.g. todo/in-progress/done); rides the row so it survives reload."
+                        updatedAtMs:
+                          type: integer
+                          minimum: 0
+                          description: "Unix epoch milliseconds of the last write."
+                      required:
+                        - path
+                        - kind
+                        - content
+                        - contentHash
+                        - updatedAtMs
+                      additionalProperties: false
+              example:
+                type: res
+                id: listTickets-1
+                ok: true
+                apiVersion: v1
+                payload:
+                  -
+                    path: feat-issues-card
+                    kind: ticket
+                    content: "# Issues card"
+                    contentHash: 0000000000000000000000000000000000000000000000000000000000000000
+                    status: in-progress
+                    updatedAtMs: 1710000000000
+        400:
+          description: "The request shape is invalid."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        401:
+          description: "Authentication failed or the token expired."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        403:
+          description: "The token is missing the required scope."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        500:
+          description: "The Gateway encountered an internal error."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+  /v1/rpc/createTicket:
+    post:
+      operationId: createTicket
+      summary: "Create Ticket"
+      description: "Create or replace a work doc by `path`. Stamps `content_hash = sha256(content)` and `updated_at_ms = now`; reviving a previously soft-deleted path is intentional."
+      tags:
+        - "Gateway RPC"
+      security:
+        -
+          bearerAuth:
+            - ticket:write
+      x-smithers-api-version: v1
+      x-smithers-maturity: stable
+      x-smithers-transport: "http+websocket"
+      x-smithers-required-scope: ticket:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - method
+                - params
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  description: "Optional caller request id."
+                method:
+                  const: createTicket
+                params:
+                  type: object
+                  properties:
+                    path:
+                      type: string
+                      description: "Doc identity (primary key); e.g. `feat-issues-card`."
+                    content:
+                      type: string
+                      description: "Full markdown body."
+                    kind:
+                      type: string
+                      enum:
+                        - ticket
+                        - plan
+                        - spec
+                        - proposal
+                      description: "Doc kind (default `ticket`)."
+                    status:
+                      type: string
+                      description: "Optional initial status."
+                  required:
+                    - path
+                    - content
+                  additionalProperties: false
+            example:
+              id: createTicket-1
+              method: createTicket
+              params:
+                path: feat-issues-card
+                content: "# Issues card"
+                kind: ticket
+                status: todo
+      responses:
+        200:
+          description: "Create Ticket response."
+          headers:
+            X-Smithers-API-Version:
+              schema:
+                type: string
+                enum:
+                  - v1
+              description: "Stable Smithers Gateway API version."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - payload
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: true
+                  apiVersion:
+                    const: v1
+                  payload:
+                    type: object
+                    description: "The created doc row."
+                    properties:
+                      path:
+                        type: string
+                        description: "Doc identity (primary key)."
+                      kind:
+                        type: string
+                        enum:
+                          - ticket
+                          - plan
+                          - spec
+                          - proposal
+                        description: "Doc kind."
+                      content:
+                        type: string
+                        description: "Full markdown body."
+                      contentHash:
+                        type: string
+                        description: "sha256(content), lowercase hex."
+                      status:
+                        type:
+                          - string
+                          - "null"
+                        description: "Free-form status."
+                      updatedAtMs:
+                        type: integer
+                        minimum: 0
+                        description: "Unix epoch milliseconds of the write."
+                    required:
+                      - path
+                      - kind
+                      - content
+                      - contentHash
+                      - updatedAtMs
+                    additionalProperties: false
+              example:
+                type: res
+                id: createTicket-1
+                ok: true
+                apiVersion: v1
+                payload:
+                  path: feat-issues-card
+                  kind: ticket
+                  content: "# Issues card"
+                  contentHash: 0000000000000000000000000000000000000000000000000000000000000000
+                  status: todo
+                  updatedAtMs: 1710000000000
+        400:
+          description: "The request shape is invalid."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        401:
+          description: "Authentication failed or the token expired."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        403:
+          description: "The token is missing the required scope."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        500:
+          description: "The Gateway encountered an internal error."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+  /v1/rpc/updateTicket:
+    post:
+      operationId: updateTicket
+      summary: "Update Ticket"
+      description: "Patch a work doc's `content` and/or `status` by `path`. Re-stamps `content_hash` + `updated_at_ms` when content changes."
+      tags:
+        - "Gateway RPC"
+      security:
+        -
+          bearerAuth:
+            - ticket:write
+      x-smithers-api-version: v1
+      x-smithers-maturity: stable
+      x-smithers-transport: "http+websocket"
+      x-smithers-required-scope: ticket:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - method
+                - params
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  description: "Optional caller request id."
+                method:
+                  const: updateTicket
+                params:
+                  type: object
+                  properties:
+                    path:
+                      type: string
+                      description: "Doc identity (primary key)."
+                    content:
+                      type: string
+                      description: "Optional new markdown body."
+                    status:
+                      type: string
+                      description: "Optional new status."
+                  required:
+                    - path
+                  additionalProperties: false
+            example:
+              id: updateTicket-1
+              method: updateTicket
+              params:
+                path: feat-issues-card
+                status: in-progress
+      responses:
+        200:
+          description: "Update Ticket response."
+          headers:
+            X-Smithers-API-Version:
+              schema:
+                type: string
+                enum:
+                  - v1
+              description: "Stable Smithers Gateway API version."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - payload
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: true
+                  apiVersion:
+                    const: v1
+                  payload:
+                    type: object
+                    description: "The updated doc row."
+                    properties:
+                      path:
+                        type: string
+                        description: "Doc identity (primary key)."
+                      kind:
+                        type: string
+                        enum:
+                          - ticket
+                          - plan
+                          - spec
+                          - proposal
+                        description: "Doc kind."
+                      content:
+                        type: string
+                        description: "Full markdown body."
+                      contentHash:
+                        type: string
+                        description: "sha256(content), lowercase hex."
+                      status:
+                        type:
+                          - string
+                          - "null"
+                        description: "Free-form status."
+                      updatedAtMs:
+                        type: integer
+                        minimum: 0
+                        description: "Unix epoch milliseconds of the write."
+                    required:
+                      - path
+                      - kind
+                      - content
+                      - contentHash
+                      - updatedAtMs
+                    additionalProperties: false
+              example:
+                type: res
+                id: updateTicket-1
+                ok: true
+                apiVersion: v1
+                payload:
+                  path: feat-issues-card
+                  kind: ticket
+                  content: "# Issues card"
+                  contentHash: 0000000000000000000000000000000000000000000000000000000000000000
+                  status: in-progress
+                  updatedAtMs: 1710000000000
+        400:
+          description: "The request shape is invalid."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        401:
+          description: "Authentication failed or the token expired."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        403:
+          description: "The token is missing the required scope."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        404:
+          description: "The ticket/work doc does not exist."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        500:
+          description: "The Gateway encountered an internal error."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+  /v1/rpc/deleteTicket:
+    post:
+      operationId: deleteTicket
+      summary: "Delete Ticket"
+      description: "Soft-delete a work doc by `path` (stamps a `deleted_at_ms` tombstone). The row survives so `listTickets` hides it without losing history; the watcher never materializes a tombstone to disk."
+      tags:
+        - "Gateway RPC"
+      security:
+        -
+          bearerAuth:
+            - ticket:write
+      x-smithers-api-version: v1
+      x-smithers-maturity: stable
+      x-smithers-transport: "http+websocket"
+      x-smithers-required-scope: ticket:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - method
+                - params
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  description: "Optional caller request id."
+                method:
+                  const: deleteTicket
+                params:
+                  type: object
+                  properties:
+                    path:
+                      type: string
+                      description: "Doc identity (primary key)."
+                  required:
+                    - path
+                  additionalProperties: false
+            example:
+              id: deleteTicket-1
+              method: deleteTicket
+              params:
+                path: feat-issues-card
+      responses:
+        200:
+          description: "Delete Ticket response."
+          headers:
+            X-Smithers-API-Version:
+              schema:
+                type: string
+                enum:
+                  - v1
+              description: "Stable Smithers Gateway API version."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - payload
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: true
+                  apiVersion:
+                    const: v1
+                  payload:
+                    type: object
+                    description: "Soft-delete acknowledgement."
+                    properties:
+                      path:
+                        type: string
+                        description: "Doc identity (primary key)."
+                      deleted:
+                        type: boolean
+                        description: "True when the doc was soft-deleted."
+                    required:
+                      - path
+                      - deleted
+                    additionalProperties: false
+              example:
+                type: res
+                id: deleteTicket-1
+                ok: true
+                apiVersion: v1
+                payload:
+                  path: feat-issues-card
+                  deleted: true
+        400:
+          description: "The request shape is invalid."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        401:
+          description: "Authentication failed or the token expired."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        403:
+          description: "The token is missing the required scope."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        404:
+          description: "The ticket/work doc does not exist."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
+                          - observability:read
+                      refresh:
+                        type: string
+        500:
+          description: "The Gateway encountered an internal error."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - TicketNotFound
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -8000,8 +10307,11 @@ components:
         - cron:read
         - cron:write
         - memory:read
+        - score:read
+        - ticket:read
+        - ticket:write
         - observability:read
-      description: "run:read: Read run state, summaries, event streams, node output, and node diffs.\nrun:write: Launch, resume, and cancel runs.\nrun:admin: Perform elevated run control such as hijack and rewind.\napproval:submit: Submit approval decisions.\nsignal:submit: Submit workflow signals.\ncron:read: List cron schedules.\ncron:write: Create, delete, and trigger cron schedules.\nmemory:read: List cross-run memory facts.\nobservability:read: Read DevTools and other observability streams."
+      description: "run:read: Read run state, summaries, event streams, node output, and node diffs.\nrun:write: Launch, resume, and cancel runs.\nrun:admin: Perform elevated run control such as hijack and rewind.\napproval:submit: Submit approval decisions.\nsignal:submit: Submit workflow signals.\ncron:read: List cron schedules.\ncron:write: Create, delete, and trigger cron schedules.\nmemory:read: List cross-run memory facts.\nscore:read: List scorer/eval results for a run.\nticket:read: List work docs (tickets/plans/specs/proposals).\nticket:write: Create, update, and soft-delete work docs.\nobservability:read: Read DevTools and other observability streams."
     GatewayRpcErrorCode:
       type: string
       enum:
@@ -8012,6 +10322,7 @@ components:
         - RunNotFound
         - RUN_NOT_ACTIVE
         - CronNotFound
+        - TicketNotFound
         - NodeNotFound
         - IterationNotFound
         - NodeHasNoOutput

@@ -17,9 +17,16 @@ import { sha256Hex } from "./sha256Hex.js";
  * content-hash mismatch: a file is upserted only when `sha256(content)` differs
  * from the stored `content_hash` (a no-op otherwise, so a noisy `fs.watch` does
  * not churn the DB or bump `updated_at_ms`). The watcher NEVER writes the DB
- * back out to disk and NEVER materializes a tombstone as a file — a soft-deleted
- * row stays deleted unless its file is independently re-written, in which case
- * the fresh file content legitimately revives it (file wins).
+ * back out to disk and NEVER materializes a tombstone as a file.
+ *
+ * Soft-deletes (tombstones) are RESPECTED: a row with `deleted_at_ms` set is NOT
+ * resurrected merely because its `*.md` file still lingers on disk. The watcher
+ * compares the file's `sha256(content)` against the tombstoned row's stored
+ * `content_hash` — only a genuine post-deletion change (a real re-create / edit,
+ * i.e. a hash MISMATCH) revives the doc (file wins). An identical leftover file
+ * leaves the tombstone intact, so a deleted ticket stays deleted across re-syncs
+ * and gateway restarts. This prevents tombstone resurrection while preserving
+ * last-write-wins for live docs and legitimate re-creates.
  *
  * @param {import("./adapter.js").SmithersDb} adapter
  * @param {{
@@ -79,9 +86,14 @@ export function watchDocsDirectory(adapter, options) {
         const contentHash = sha256Hex(content);
         try {
             const existing = await adapter.getDoc(path);
-            // Last-write-wins on hash mismatch: identical content (and still live)
-            // is a no-op so a duplicate `fs.watch` event never bumps updated_at_ms.
-            if (existing && existing.contentHash === contentHash && existing.deletedAtMs == null) {
+            if (existing && existing.contentHash === contentHash) {
+                // Identical content to the stored row:
+                //  - live row  → no-op (a duplicate `fs.watch` event never bumps
+                //    updated_at_ms or churns the DB);
+                //  - tombstone → RESPECT the soft-delete. A lingering, unchanged
+                //    file is NOT a recreation, so we leave `deleted_at_ms` intact
+                //    instead of resurrecting the deleted doc. Only a genuine
+                //    post-deletion edit (hash MISMATCH, handled below) revives it.
                 return;
             }
             await adapter.upsertDoc({
