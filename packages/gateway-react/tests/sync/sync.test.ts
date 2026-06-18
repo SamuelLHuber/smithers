@@ -26,6 +26,7 @@ import {
   useGatewayApprovals,
   useGatewayCrons,
   useGatewayMemoryFacts,
+  useGatewayScores,
   useGatewayConnectionStatus,
   useGatewayMutation,
   useGatewayQuery,
@@ -646,6 +647,37 @@ describe("legacy synced hooks over collections", () => {
     expect(facts?.data?.[0]?.namespace).toBe("ci");
     expect(facts?.data?.[0]?.ttlMs).toBe(3_600_000);
     expect(facts?.loading).toBe(false);
+
+    await harness.unmount();
+  });
+
+  test("useGatewayScores lists scorer rows from listScores (run-scoped)", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport((method, params) => {
+        if (method === "listScores") {
+          const runId = (params as { runId?: string } | undefined)?.runId;
+          if (runId !== "run_7a3f") return Promise.resolve([]);
+          return Promise.resolve([
+            { runId: "run_7a3f", nodeId: "review", iteration: 0, attempt: 0, scorerId: "correctness", scorerName: "correctness", source: "scorer", score: 0.92, reason: "ok", scoredAtMs: 10, latencyMs: 4_120, durationMs: null },
+            { runId: "run_7a3f", nodeId: "review", iteration: 1, attempt: 0, scorerId: "correctness", scorerName: "correctness", source: "scorer", score: 0.88, reason: null, scoredAtMs: 20, latencyMs: null, durationMs: null },
+          ]);
+        }
+        return Promise.resolve([]);
+      }).transport,
+    });
+
+    let scores: ReturnType<typeof useGatewayScores> | undefined;
+    function Probe() {
+      scores = useGatewayScores("run_7a3f");
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => (scores?.data?.length ?? 0) === 2);
+    expect(scores?.data?.map((row) => row.score).sort()).toEqual([0.88, 0.92]);
+    expect(scores?.data?.every((row) => row.runId === "run_7a3f")).toBe(true);
+    expect(scores?.loading).toBe(false);
 
     await harness.unmount();
   });

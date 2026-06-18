@@ -3470,6 +3470,38 @@ export class Gateway {
             : (a.namespace < b.namespace ? -1 : 1));
         return results;
     }
+    /**
+   * Scorer/eval results for one run for the `listScores` RPC. Scores are
+   * per-run (keyed by runId), so resolve the run's owning adapter exactly like
+   * `getRun` and read the `_smithers_scorers` table via `listScorerResults`
+   * (rows already snake→camel cased). Maps each row to the wire `GatewayScoreRow`
+   * shape — only the fields the surface needs (no meta/input/output JSON blobs).
+   * Returns `null` when the run is unknown so the dispatcher can answer NOT_FOUND.
+   * @param {string} runId
+   * @param {string | null} [nodeId]
+   * @returns {Promise<Array<Record<string, unknown>> | null>}
+   */
+    async listScoresForRun(runId, nodeId = null) {
+        const resolved = await this.resolveRun(runId);
+        if (!resolved) {
+            return null;
+        }
+        const rows = await resolved.adapter.listScorerResults(runId, nodeId ?? undefined);
+        return (Array.isArray(rows) ? rows : []).map((row) => ({
+            runId: row.runId,
+            nodeId: row.nodeId,
+            iteration: typeof row.iteration === "number" ? row.iteration : 0,
+            attempt: typeof row.attempt === "number" ? row.attempt : 0,
+            scorerId: row.scorerId,
+            scorerName: row.scorerName,
+            source: row.source,
+            score: row.score,
+            reason: row.reason ?? null,
+            scoredAtMs: row.scoredAtMs,
+            latencyMs: row.latencyMs ?? null,
+            durationMs: row.durationMs ?? null,
+        }));
+    }
     async listPendingApprovals() {
         const approvals = [];
         const registeredKeys = new Set(this.workflows.keys());
@@ -4690,6 +4722,18 @@ export class Gateway {
             case "listMemoryFacts": {
                 const namespace = asString(params.namespace);
                 return responseOk(frame.id, await this.listMemoryFactsAcrossWorkflows(namespace ?? null));
+            }
+            case "listScores": {
+                const runId = asString(params.runId);
+                if (!runId) {
+                    return responseError(frame.id, "INVALID_REQUEST", "runId is required");
+                }
+                const nodeId = asString(params.nodeId);
+                const scores = await this.listScoresForRun(runId, nodeId ?? null);
+                if (scores === null) {
+                    return responseError(frame.id, "NOT_FOUND", `Run not found: ${runId}`);
+                }
+                return responseOk(frame.id, scores);
             }
             default:
                 return responseError(frame.id, "METHOD_NOT_FOUND", `Unknown method: ${frame.method}`);

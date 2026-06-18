@@ -14,6 +14,7 @@ import type {
   ListApprovalsResponse,
   ListMemoryFactsRequest,
   ListRunsRequest,
+  ListScoresRequest,
   ListWorkflowsRequest,
   ListWorkflowsResponse,
   NodeRequest,
@@ -30,6 +31,7 @@ import type {
 } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayCronRow } from "./sync/GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "./sync/GatewayMemoryFactRow.ts";
+import type { GatewayScoreRow } from "./sync/GatewayScoreRow.ts";
 
 export type GatewayRpcRequestMap = {
   launchRun: LaunchRunRequest;
@@ -52,6 +54,7 @@ export type GatewayRpcRequestMap = {
   cronDelete: CronDeleteRequest;
   cronRun: CronRunRequest;
   listMemoryFacts: ListMemoryFactsRequest;
+  listScores: ListScoresRequest;
 };
 
 export type GatewayRpcResponseMap = {
@@ -75,6 +78,7 @@ export type GatewayRpcResponseMap = {
   cronDelete: Record<string, unknown>;
   cronRun: LaunchRunResponse;
   listMemoryFacts: GatewayMemoryFactRow[];
+  listScores: GatewayScoreRow[];
 };
 
 export type GatewayRpcParams<Method extends GatewayRpcMethod> = GatewayRpcRequestMap[Method];

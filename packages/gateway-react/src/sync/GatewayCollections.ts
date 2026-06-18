@@ -3,6 +3,7 @@ import type {
   GatewayApprovalRow,
   GatewayCronRow,
   GatewayMemoryFactRow,
+  GatewayScoreRow,
   GatewayRunEventRow,
   GatewayRunNode,
   GatewayRunRow,
@@ -17,6 +18,7 @@ import type {
   ListApprovalsRequest,
   ListMemoryFactsRequest,
   ListRunsRequest,
+  ListScoresRequest,
   ListWorkflowsRequest,
 } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayConnectionState } from "./GatewayConnectionState.ts";
@@ -83,6 +85,8 @@ export type GatewayCollections = {
   crons(params?: CronListRequest): Collection<GatewayCronRow, string>;
   /** Live cross-run memory facts (`listMemoryFacts`); keyed by the composite `${namespace}:${key}` (key is only unique within a namespace). */
   memoryFacts(params?: ListMemoryFactsRequest): Collection<GatewayMemoryFactRow, string>;
+  /** Live scorer/eval results for one run (`listScores`); keyed by the composite `${runId}:${nodeId}:${iteration}:${scorerId}`. */
+  scores(params?: ListScoresRequest): Collection<GatewayScoreRow, string>;
   /** Flattened devtools run-node tree, reconciled per devtools frame. */
   nodes(runId: string): Collection<GatewayRunNode, string>;
   /** Bounded append-only run-event ring. */

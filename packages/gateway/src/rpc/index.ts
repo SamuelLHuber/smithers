@@ -89,7 +89,8 @@ export type GatewayRpcMethod =
   | "cronCreate"
   | "cronDelete"
   | "cronRun"
-  | "listMemoryFacts";
+  | "listMemoryFacts"
+  | "listScores";
 
 export type LaunchRunRequest = {
   workflow: string;
@@ -283,6 +284,34 @@ export type ListMemoryFactsRequest = {
 };
 
 export type ListMemoryFactsResponse = GatewayMemoryFact[];
+
+/**
+ * One scorer/eval result row (the `_smithers_scorers` table, snake→camel cased).
+ * `score` is the scorer's verdict; `latencyMs`/`durationMs` are the only timing
+ * metrics the table carries (there is NO token/cost data — those tiles are
+ * computed client-side and em-dashed when absent).
+ */
+export type GatewayScoreRow = {
+  runId: string;
+  nodeId: string;
+  iteration: number;
+  attempt: number;
+  scorerId: string;
+  scorerName: string;
+  source: string;
+  score: number;
+  reason?: string | null;
+  scoredAtMs: number;
+  latencyMs?: number | null;
+  durationMs?: number | null;
+};
+
+export type ListScoresRequest = {
+  runId: string;
+  nodeId?: string;
+};
+
+export type ListScoresResponse = GatewayScoreRow[];
 
 const stringSchema = (description: string): JsonSchema => ({ type: "string", description });
 const booleanSchema = (description: string): JsonSchema => ({ type: "boolean", description });
@@ -743,6 +772,36 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
     errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
     exampleRequest: { namespace: "workflow:deploy" },
     exampleResponse: [{ namespace: "workflow:deploy", key: "last-sha", valueJson: "\"abc123\"", createdAtMs: 1710000000000, updatedAtMs: 1710000000000 }],
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "listScores",
+    title: "List Scores",
+    description: "List scorer/eval results for one run, optionally scoped to a node.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "score:read",
+    requestSchema: objectSchema({
+      runId: stringSchema("Run id whose scorer results to list."),
+      nodeId: stringSchema("Optional node id filter."),
+    }, ["runId"]),
+    responseSchema: arraySchema(objectSchema({
+      runId: stringSchema("Run id the score belongs to."),
+      nodeId: stringSchema("Node id the score was produced for."),
+      iteration: integerSchema("Node iteration the score belongs to.", 0),
+      attempt: integerSchema("Node attempt the score belongs to.", 0),
+      scorerId: stringSchema("Stable scorer id."),
+      scorerName: stringSchema("Human scorer name."),
+      source: stringSchema("Where the score came from (e.g. 'scorer', 'eval')."),
+      score: { type: "number", description: "The scorer's numeric verdict." },
+      reason: { type: ["string", "null"], description: "Optional human reason for the score." },
+      scoredAtMs: integerSchema("Unix epoch milliseconds when the score was recorded.", 0),
+      latencyMs: { type: ["number", "null"], description: "Optional scorer latency in milliseconds." },
+      durationMs: { type: ["number", "null"], description: "Optional node duration in milliseconds." },
+    }, ["runId", "nodeId", "iteration", "attempt", "scorerId", "scorerName", "source", "score", "scoredAtMs"]), "Scorer results."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "RunNotFound", "Internal"],
+    exampleRequest: { runId: "run_01", nodeId: "review" },
+    exampleResponse: [{ runId: "run_01", nodeId: "review", iteration: 0, attempt: 0, scorerId: "correctness", scorerName: "correctness", source: "scorer", score: 0.92, scoredAtMs: 1710000000000 }],
   },
 ] as const;
 

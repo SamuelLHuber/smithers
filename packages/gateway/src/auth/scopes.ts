@@ -9,6 +9,7 @@ export const GATEWAY_SCOPE_VALUES = [
   "cron:read",
   "cron:write",
   "memory:read",
+  "score:read",
   "observability:read",
 ] as const;
 
@@ -23,6 +24,7 @@ export const GATEWAY_SCOPE_DESCRIPTIONS: Record<GatewayScope, string> = {
   "cron:read": "List cron schedules.",
   "cron:write": "Create, delete, and trigger cron schedules.",
   "memory:read": "List cross-run memory facts.",
+  "score:read": "List scorer/eval results for a run.",
   "observability:read": "Read DevTools and other observability streams.",
 };
 
@@ -53,7 +55,7 @@ function gatewayScopeImplies(granted: GatewayScope, required: GatewayScope): boo
 function legacyAccessImplies(scope: string, required: GatewayScope): boolean {
   switch (scope) {
     case "read":
-      return required === "run:read" || required === "cron:read" || required === "memory:read" || required === "observability:read";
+      return required === "run:read" || required === "cron:read" || required === "memory:read" || required === "score:read" || required === "observability:read";
     case "execute":
       return required === "run:read" || required === "run:write" || required === "signal:submit" || required === "cron:read" || required === "cron:write";
     case "approve":

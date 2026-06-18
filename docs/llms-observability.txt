@@ -409,7 +409,7 @@ Gateway client exports:
 ## RPC methods (TOON)
 
 ```toon
-rpc[20]{method,params,returns,scope,transport}:
+rpc[21]{method,params,returns,scope,transport}:
   launchRun,workflow/input?/options.runId?/options.idempotencyKey?,{runId/workflow},run:write,http+websocket
   resumeRun,runId/options.force?,{runId/status},run:write,http+websocket
   cancelRun,runId,{runId/status:cancelling},run:write,http+websocket
@@ -430,6 +430,7 @@ rpc[20]{method,params,returns,scope,transport}:
   cronDelete,cronId,{cronId/removed},cron:write,http+websocket
   cronRun,cronId? or workflow/input?,{runId/workflow},cron:write,http+websocket
   listMemoryFacts,namespace?,Memory facts,memory:read,http+websocket
+  listScores,runId/nodeId?,Scorer results,score:read,http+websocket
 ```
 
 `health` remains available as a utility RPC and `GET /health` is available without auth. The legacy method names are still accepted for compatibility (`runs.create`, `runs.get`, `runs.list`, `runs.cancel`, `runs.rerun`, `runs.diff`, `frames.list`, `frames.get`, `attempts.list`, `attempts.get`, `workflows.list`, `approvals.list`, `approvals.decide`, `signals.send`, `cron.list`, `cron.add`, `cron.remove`, `cron.trigger`, `getDevToolsSnapshot`, `jumpToFrame`, `devtools.jumpToFrame`, `devtools.getNodeOutput`, `devtools.getNodeDiff`), but new clients should use the v1 names above.
@@ -437,7 +438,7 @@ rpc[20]{method,params,returns,scope,transport}:
 ### Scopes
 
 ```toon
-scopes[9]{scope,allows}:
+scopes[10]{scope,allows}:
   run:read,Read run state/lists/event streams/node output/node diffs
   run:write,Launch/resume/cancel runs; implies run:read
   run:admin,Hijack or rewind runs; implies run:write and run:read
@@ -446,6 +447,7 @@ scopes[9]{scope,allows}:
   cron:read,List cron schedules
   cron:write,Create/delete/trigger cron schedules; implies cron:read
   memory:read,List cross-run memory facts
+  score:read,List scorer/eval results for a run
   observability:read,Read DevTools and other observability streams
 ```
 

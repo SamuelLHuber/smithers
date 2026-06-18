@@ -9,6 +9,7 @@ import {
 } from "../../src/sync/gatewayCollectionDefs.ts";
 import type { GatewayCronRow } from "../../src/sync/GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "../../src/sync/GatewayMemoryFactRow.ts";
+import type { GatewayScoreRow } from "../../src/sync/GatewayScoreRow.ts";
 import type { GatewayRunNode } from "../../src/sync/GatewayRunNode.ts";
 import type { GatewayRunRow } from "../../src/sync/GatewayRunRow.ts";
 import type { SyncStreamFrame, SyncTransport } from "../../src/sync/SyncTransport.ts";
@@ -336,5 +337,89 @@ describe("gatewayCollectionDefs.memoryFacts", () => {
     expect(Array.from(collection.keys()).sort()).toEqual(["auth:shared", "ci:shared"]);
     expect(collection.get("ci:shared")?.valueJson).toBe('"from ci"');
     expect(collection.get("auth:shared")?.valueJson).toBe('"from auth"');
+  });
+});
+
+/** A real `listScores` payload: `_smithers_scorers` rows for one run (snake→camel cased). */
+const scoreRows: GatewayScoreRow[] = [
+  {
+    runId: "run_7a3f",
+    nodeId: "review",
+    iteration: 0,
+    attempt: 0,
+    scorerId: "correctness",
+    scorerName: "correctness",
+    source: "scorer",
+    score: 0.92,
+    reason: "All assertions passed.",
+    scoredAtMs: 1_717_286_000_000,
+    latencyMs: 4_120,
+    durationMs: 5_010,
+  },
+  {
+    runId: "run_7a3f",
+    nodeId: "review",
+    iteration: 1,
+    attempt: 0,
+    scorerId: "correctness",
+    scorerName: "correctness",
+    source: "scorer",
+    score: 0.88,
+    reason: null,
+    scoredAtMs: 1_717_286_100_000,
+    latencyMs: null,
+    durationMs: null,
+  },
+];
+
+describe("gatewayCollectionDefs.scores", () => {
+  test("rows mapper passes a listScores array through and keys by runId:nodeId:iteration:scorerId", () => {
+    const def = gatewayCollectionDefs.scores({ runId: "run_7a3f" });
+    const rows = Array.from(def.rows(scoreRows));
+    expect(rows.map((row) => row.score)).toEqual([0.92, 0.88]);
+    // The same scorer at the same node but a DIFFERENT iteration must NOT
+    // collide — the composite key includes the iteration.
+    expect(def.getKey(rows[0])).toBe("run_7a3f:review:0:correctness");
+    expect(def.getKey(rows[1])).toBe("run_7a3f:review:1:correctness");
+    // A row with no timing carries null latency/duration (the no-data branch).
+    expect(rows[1].latencyMs).toBeNull();
+    expect(rows[1].durationMs).toBeNull();
+  });
+
+  test("a non-array payload maps to no rows", () => {
+    expect(Array.from(gatewayCollectionDefs.scores({ runId: "x" }).rows({ not: "an array" }))).toEqual([]);
+  });
+
+  test("populates a TanStack DB collection from the listScores RPC", async () => {
+    const collection = createCollection<GatewayScoreRow, string>(
+      createGatewayCollection({ ...gatewayCollectionDefs.scores({ runId: "run_7a3f" }), client: quietTransport(scoreRows) }),
+    );
+
+    await collection.preload();
+
+    expect(Array.from(collection.keys()).sort()).toEqual([
+      "run_7a3f:review:0:correctness",
+      "run_7a3f:review:1:correctness",
+    ]);
+    expect(collection.get("run_7a3f:review:0:correctness")?.score).toBe(0.92);
+    expect(collection.get("run_7a3f:review:0:correctness")?.latencyMs).toBe(4_120);
+    expect(collection.get("run_7a3f:review:1:correctness")?.reason).toBeNull();
+  });
+
+  test("same scorer at the same node+iteration but different attempts collapses (run-level identity)", async () => {
+    // The run-level view collapses repeated attempts of the same
+    // scorer-at-node-iteration — last attempt wins on the shared composite key.
+    const attempts: GatewayScoreRow[] = [
+      { runId: "r", nodeId: "n", iteration: 0, attempt: 0, scorerId: "s", scorerName: "s", source: "scorer", score: 0.4, scoredAtMs: 1, latencyMs: null, durationMs: null },
+      { runId: "r", nodeId: "n", iteration: 0, attempt: 1, scorerId: "s", scorerName: "s", source: "scorer", score: 0.9, scoredAtMs: 2, latencyMs: null, durationMs: null },
+    ];
+    const collection = createCollection<GatewayScoreRow, string>(
+      createGatewayCollection({ ...gatewayCollectionDefs.scores({ runId: "r" }), client: quietTransport(attempts) }),
+    );
+
+    await collection.preload();
+
+    expect(Array.from(collection.keys())).toEqual(["r:n:0:s"]);
+    expect(collection.get("r:n:0:s")?.score).toBe(0.9);
   });
 });

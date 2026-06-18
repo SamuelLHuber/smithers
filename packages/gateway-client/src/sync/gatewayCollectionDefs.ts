@@ -1,8 +1,9 @@
 import type { Collection } from "@tanstack/db";
-import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListRunsRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
+import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListRunsRequest, ListScoresRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayApprovalRow } from "./GatewayApprovalRow.ts";
 import type { GatewayCronRow } from "./GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "./GatewayMemoryFactRow.ts";
+import type { GatewayScoreRow } from "./GatewayScoreRow.ts";
 import type { GatewayRunEventRow } from "./GatewayRunEventRow.ts";
 import type { GatewayRunNode } from "./GatewayRunNode.ts";
 import type { GatewayRunRow } from "./GatewayRunRow.ts";
@@ -160,6 +161,19 @@ export const gatewayCollectionDefs = {
     // in TanStack DB. Key by the real composite PK.
     getKey: (row: GatewayMemoryFactRow) => `${row.namespace}:${row.key}`,
     rows: arrayRows<GatewayMemoryFactRow>,
+  }),
+  scores: (params: ListScoresRequest = { runId: "" }) => ({
+    key: gatewayKeys.scores(params),
+    method: "listScores",
+    params,
+    // One run can carry many score rows: the same scorer fires across nodes,
+    // iterations, and attempts. `(runId, nodeId, iteration, scorerId)` is the
+    // run-level identity used by the surface (it collapses repeated attempts of
+    // the same scorer-at-node-iteration), so key by that composite — `scorerId`
+    // alone (or even `nodeId:scorerId`) would collide across iterations.
+    getKey: (row: GatewayScoreRow) =>
+      `${row.runId}:${row.nodeId}:${row.iteration}:${row.scorerId}`,
+    rows: arrayRows<GatewayScoreRow>,
   }),
   runEvents: (runId: string, maxRows = 1_024) => ({
     key: gatewayKeys.runEvents(runId),
