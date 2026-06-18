@@ -61,6 +61,7 @@ import {
 } from "./eval-suite.js";
 import { initOptions, runInitCommand } from "./init-command.js";
 import { startersArgs, startersOptions, runStartersCommand } from "./starter-gallery-command.js";
+import { runTuiCommand } from "./tui.js";
 import { optimizeOptions, runOptimizeCommand, withOptimizationArtifactEnv } from "./optimize-command.js";
 import { ask } from "./ask.js";
 import { runScheduler } from "./scheduler.js";
@@ -3116,6 +3117,22 @@ const cli = Cli.create({
             return c.error(opts);
         };
         return runStartersCommand(c, fail);
+    },
+})
+    // =========================================================================
+    // smithers tui [runId]
+    // =========================================================================
+    .command("tui", {
+    description: "Pick a workflow, start a run, and live-render its status card (clack TUI).",
+    // The card renders directly to stdout; suppress the raw result dump in a
+    // human TTY while keeping JSON for piped/agent use.
+    outputPolicy: "agent-only",
+    run(c) {
+        const fail = (opts) => {
+            commandExitOverride = opts.exitCode ?? 1;
+            return c.error(opts);
+        };
+        return runTuiCommand(c, fail);
     },
 })
     // =========================================================================

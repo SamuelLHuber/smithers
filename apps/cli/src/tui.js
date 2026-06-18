@@ -1,0 +1,571 @@
+import { intro, log, outro, select, spinner, isCancel, cancel } from "@clack/prompts";
+import pc from "picocolors";
+import { spawn } from "node:child_process";
+import { closeSync, openSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { discoverWorkflows } from "./workflows.js";
+import { findSmithersDb, openSmithersDb } from "./find-db.js";
+import { parseAgentEvent, parseNodeOutputEvent } from "./chat.js";
+import { computeRunStateFromRow } from "@smithers-orchestrator/db/runState";
+
+/**
+ * @typedef {object} RunCardStep
+ * @property {string} label
+ * @property {"persisted" | "running" | "waiting" | "failed" | "pending"} status
+ */
+/**
+ * @typedef {object} RunCardModel
+ * @property {string} name
+ * @property {string} shortId
+ * @property {string} state
+ * @property {string} prompt
+ * @property {string} [highlight]
+ * @property {RunCardStep[]} steps
+ * @property {string} footer
+ */
+
+// Node-level step vocabulary: glyph on the left, colored label on the right.
+const STEP = {
+    persisted: { symbol: pc.green("✓"), label: "PERSISTED", color: pc.dim },
+    running: { symbol: pc.blue("↻"), label: "RUNNING", color: pc.blue },
+    waiting: { symbol: pc.yellow("⏸"), label: "WAITING", color: pc.yellow },
+    failed: { symbol: pc.red("✗"), label: "FAILED", color: pc.red },
+    pending: { symbol: pc.dim("○"), label: "PENDING", color: pc.dim },
+};
+
+// Run-state badge shown top-right in the header.
+const STATE_BADGE = {
+    running: pc.green,
+    "waiting-approval": pc.yellow,
+    "waiting-event": pc.yellow,
+    "waiting-timer": pc.yellow,
+    recovering: pc.cyan,
+    failed: pc.red,
+    succeeded: pc.green,
+    cancelled: pc.dim,
+};
+
+// DB node.state → step vocabulary.
+const NODE_STATUS = {
+    "in-progress": "running",
+    running: "running",
+    finished: "persisted",
+    done: "persisted",
+    persisted: "persisted",
+    failed: "failed",
+    cancelled: "failed",
+    pending: "pending",
+    "waiting-event": "waiting",
+    "waiting-timer": "waiting",
+    "waiting-approval": "waiting",
+};
+
+// Run states at which the live loop stops watching (nothing will change without us).
+const TERMINAL_STATES = new Set(["succeeded", "failed", "cancelled", "waiting-approval"]);
+const STOP_STATES = new Set([...TERMINAL_STATES, "stale", "orphaned"]);
+
+const cols = () => process.stdout.columns || 80;
+const visLen = (s) => s.replace(/\x1B\[[0-9;]*m/g, "").length;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Elide `s` to at most `max` visible chars with an ellipsis. */
+export function truncate(s, max) {
+    if (!s) return s;
+    if (max <= 0) return "";
+    if (s.length <= max) return s;
+    if (max === 1) return "…";
+    return `${s.slice(0, max - 1)}…`;
+}
+
+/**
+ * Clack redraws in-place; oversized option windows can leave stale rows behind
+ * on small terminals. Keep the picker within the current viewport.
+ * @param {number} rows
+ */
+export function pickerMaxItems(rows) {
+    return Math.max(1, Math.min(12, rows - 6));
+}
+
+/**
+ * Build one-line clack select options by sharing a conservative terminal-width
+ * budget between the label and hint.
+ *
+ * @param {import("./DiscoveredWorkflow.ts").DiscoveredWorkflow[]} workflows
+ * @param {number} width
+ */
+export function buildWorkflowPickerOptions(workflows, width) {
+    const lineBudget = Math.max(1, width - 12);
+    return workflows.map((w) => {
+        const rawLabel = w.displayName ?? w.id;
+        const rawHint = typeof w.description === "string" ? w.description : "";
+        const wantsHint = rawHint.length > 0 && lineBudget >= 24;
+        const labelBudget = wantsHint
+            ? Math.max(8, Math.min(lineBudget, Math.floor(lineBudget * 0.55)))
+            : lineBudget;
+        const label = truncate(rawLabel, labelBudget);
+        const hintBudget = lineBudget - visLen(label) - 2;
+        return {
+            value: w.entryFile,
+            label,
+            hint: wantsHint && hintBudget > 8 ? truncate(rawHint, hintBudget) : undefined,
+        };
+    });
+}
+
+// Distinct colors so parallel agents' streams are visually separable, the way
+// docker-compose / multiplexed log viewers tag each source.
+const STREAM_PALETTE = [pc.cyan, pc.magenta, pc.green, pc.blue, pc.yellow, pc.red];
+/** Stable color per nodeId, assigned in first-seen order. */
+function makeNodeColorer() {
+    const assigned = new Map();
+    let next = 0;
+    return (nodeId) => {
+        if (!assigned.has(nodeId)) assigned.set(nodeId, STREAM_PALETTE[next++ % STREAM_PALETTE.length]);
+        return assigned.get(nodeId);
+    };
+}
+
+/**
+ * Keep agent/tool stream output to one visual line so it cannot corrupt the
+ * status-card layout around it.
+ * @param {string} text
+ */
+export function normalizeStreamText(text) {
+    return text
+        .replace(/\s+$/g, "")
+        .replace(/[\r\n]+/g, " ↵ ")
+        .replace(/\t/g, "    ");
+}
+
+/** One streamed log line: colored node tag + dim gutter + truncated body. */
+function printStreamLine(color, label, text) {
+    const tagWidth = Math.max(1, Math.min(14, cols() - 4));
+    const tag = color(truncate(label, tagWidth).padEnd(tagWidth));
+    const body = truncate(normalizeStreamText(text), Math.max(1, cols() - tagWidth - 4));
+    process.stdout.write(`${tag} ${pc.dim("│")} ${body}\n`);
+}
+
+/** Lay `left` and `right` out on one line, right-aligned to the gutter width. */
+function padRow(left, right, width = cols() - 3) {
+    const gap = Math.max(1, width - visLen(left) - visLen(right));
+    return left + " ".repeat(gap) + right;
+}
+
+/** Dim `text`, with a single highlighted keyword box. */
+function highlight(text, word) {
+    if (!word) return pc.dim(text);
+    const i = text.indexOf(word);
+    if (i === -1) return pc.dim(text);
+    return (
+        pc.dim(text.slice(0, i)) +
+        pc.bgGreen(pc.black(` ${word} `)) +
+        pc.dim(text.slice(i + word.length))
+    );
+}
+
+function shortId(runId) {
+    // Run ids are usually short + meaningful (e.g. `run-abc123`); show them
+    // whole, only eliding genuinely long ones from the end.
+    return runId.length > 24 ? `${runId.slice(0, 21)}…` : runId;
+}
+
+/**
+ * Render a single run as a clack-native status card.
+ * @param {RunCardModel} model
+ */
+export function renderRunCard(model) {
+    const badge = (STATE_BADGE[model.state] ?? pc.dim)(String(model.state).toUpperCase());
+    const rowWidth = Math.max(1, cols() - 3);
+    const leftBudget = Math.max(1, rowWidth - visLen(badge) - 1);
+    const idBudget = leftBudget >= 8 ? Math.min(24, Math.max(1, Math.floor(leftBudget / 3))) : 0;
+    const idPart = idBudget > 0 ? ` ${pc.dim("·")} ${pc.dim(truncate(model.shortId, idBudget))}` : "";
+    const titleBudget = Math.max(1, leftBudget - visLen(idPart));
+    const title = `${pc.bold(truncate(model.name, titleBudget))}${idPart}`;
+    intro(padRow(title, badge));
+
+    log.message(`${pc.dim("you ›")} ${highlight(truncate(model.prompt, cols() - 10), model.highlight)}`);
+
+    for (const step of model.steps) {
+        const s = STEP[step.status] ?? STEP.pending;
+        const label = truncate(step.label, Math.max(1, rowWidth - visLen(s.label) - 1));
+        log.message(padRow(pc.reset(label), s.color(s.label)), { symbol: s.symbol });
+    }
+
+    outro(pc.dim(model.footer));
+}
+
+/**
+ * Read a run from the DB and shape it into a card model.
+ * @param {import("@smithers-orchestrator/db/adapter").SmithersDb} adapter
+ * @param {string} runId
+ * @param {string} name
+ * @param {string} promptText
+ * @returns {Promise<RunCardModel | null>}
+ */
+export async function fetchCard(adapter, runId, name, promptText) {
+    const run = await adapter.getRun(runId);
+    if (!run) return null;
+    const view = await computeRunStateFromRow(adapter, run).catch(() => ({ state: run.status }));
+    const nodes = await adapter.listNodes(runId);
+    const steps = nodes.map((n) => ({
+        label: n.label ?? n.nodeId,
+        status: NODE_STATUS[n.state] ?? "pending",
+    }));
+    return {
+        name: run.workflowName ?? name,
+        shortId: shortId(runId),
+        state: view.state,
+        prompt: promptText,
+        steps: steps.length ? steps : [{ label: "starting…", status: "pending" }],
+        footer: "crash-safe · resumes from the last persisted step",
+    };
+}
+
+/**
+ * @param {number} ms
+ * @param {Promise<Error>} [childFailure]
+ * @returns {Promise<{ error: Error } | null>}
+ */
+async function sleepOrChildFailure(ms, childFailure) {
+    if (ms <= 0) return null;
+    if (!childFailure) {
+        await sleep(ms);
+        return null;
+    }
+    return Promise.race([
+        sleep(ms).then(() => null),
+        childFailure.then((error) => ({ error })),
+    ]);
+}
+
+/**
+ * @param {number | null} code
+ * @param {NodeJS.Signals | null} signal
+ */
+function childExitError(code, signal) {
+    const status = signal ? `signal ${signal}` : `exit ${code ?? "unknown"}`;
+    return new Error(`Run process exited before the TUI attached (${status}).`);
+}
+
+/**
+ * Resolves if the detached child cannot keep producing the run we are waiting
+ * for. The promise intentionally never rejects, so races do not create unhandled
+ * rejections when the successful path wins first.
+ *
+ * @param {import("node:child_process").ChildProcess} child
+ * @returns {Promise<Error>}
+ */
+export function childFailurePromise(child) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+        return Promise.resolve(childExitError(child.exitCode, child.signalCode));
+    }
+    return new Promise((resolve) => {
+        let settled = false;
+        const finish = (error) => {
+            if (settled) return;
+            settled = true;
+            child.off("error", onError);
+            child.off("exit", onExit);
+            resolve(error);
+        };
+        const onError = (error) => {
+            finish(error instanceof Error ? error : new Error(String(error)));
+        };
+        const onExit = (code, signal) => {
+            finish(childExitError(code, signal));
+        };
+        child.once("error", onError);
+        child.once("exit", onExit);
+    });
+}
+
+/**
+ * Wait for the workspace DB to exist, but stop immediately if the detached run
+ * process exits first.
+ *
+ * @param {string} from
+ * @param {{ timeoutMs?: number; intervalMs?: number }} opts
+ * @param {Promise<Error>} childFailure
+ * @returns {Promise<{ db?: Awaited<ReturnType<typeof openSmithersDb>> & { dbPath: string }; error?: Error }>}
+ */
+async function waitForOpenDbOrChild(from, opts, childFailure) {
+    const timeoutMs = Math.max(0, opts.timeoutMs ?? 0);
+    const intervalMs = Math.max(1, opts.intervalMs ?? 100);
+    const startedAt = Date.now();
+    let lastMissing;
+
+    while (true) {
+        try {
+            const dbPath = findSmithersDb(from);
+            const db = await openSmithersDb(dbPath);
+            return { db: { ...db, dbPath } };
+        } catch (err) {
+            if (err?.code !== "CLI_DB_NOT_FOUND") {
+                return { error: err instanceof Error ? err : new Error(String(err)) };
+            }
+            lastMissing = err;
+        }
+
+        const elapsedMs = Date.now() - startedAt;
+        if (elapsedMs >= timeoutMs) {
+            return { error: lastMissing instanceof Error ? lastMissing : new Error(String(lastMissing)) };
+        }
+        const waited = await sleepOrChildFailure(Math.min(intervalMs, timeoutMs - elapsedMs), childFailure);
+        if (waited?.error) {
+            return waited;
+        }
+    }
+}
+
+/** Poll until the run row exists (the detached run has begun writing). */
+export async function waitForRunRow(adapter, runId, timeoutMs, intervalMs, childFailure) {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+        if (await adapter.getRun(runId)) return { appeared: true };
+        const elapsedMs = Date.now() - startedAt;
+        const waited = await sleepOrChildFailure(Math.min(intervalMs, Math.max(0, timeoutMs - elapsedMs)), childFailure);
+        if (waited?.error) {
+            return { appeared: false, error: waited.error };
+        }
+    }
+    return { appeared: false };
+}
+
+/**
+ * @param {import("node:child_process").ChildProcess | undefined} child
+ */
+function terminateDetachedChild(child) {
+    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    try {
+        if (child.pid && process.platform !== "win32") {
+            process.kill(-child.pid, "SIGTERM");
+            return;
+        }
+    } catch { }
+    try {
+        child.kill("SIGTERM");
+    } catch { }
+}
+
+/**
+ * Append-only live view of a run: re-renders the status card on every committed
+ * frame, and streams agent chat + tool calls in between — each node colored so
+ * parallel agents are easy to tell apart. Runs until the run reaches a terminal
+ * state, pauses for approval, or the user hits Ctrl-C.
+ *
+ * @param {import("@smithers-orchestrator/db/adapter").SmithersDb} adapter
+ * @param {string} runId
+ * @param {string} name
+ * @param {string} promptText
+ * @param {{ intervalMs?: number; childFailure?: Promise<Error>; renderCard?: (card: RunCardModel) => void; printLine?: (color: (text: string) => string, label: string, text: string) => void }} [opts]
+ * @returns {Promise<{ state: string | undefined; error?: Error }>}
+ */
+export async function streamRun(adapter, runId, name, promptText, opts = {}) {
+    const intervalMs = opts.intervalMs ?? 500;
+    const childFailure = opts.childFailure;
+    const renderCard = opts.renderCard ?? renderRunCard;
+    const printLine = opts.printLine ?? printStreamLine;
+    const colorFor = makeNodeColorer();
+    const labels = new Map();
+    let lastSeq = -1;
+    let stopped = false;
+    const onSignal = () => { stopped = true; };
+    process.once("SIGINT", onSignal);
+    process.once("SIGTERM", onSignal);
+
+    let lastState;
+    let lastRenderedState;
+    const renderCurrentCard = async () => {
+        const card = await fetchCard(adapter, runId, name, promptText);
+        if (!card) return;
+        renderCard(card);
+        lastRenderedState = card.state;
+    };
+    try {
+        await renderCurrentCard();
+
+        while (!stopped) {
+            const run = await adapter.getRun(runId);
+            if (run) {
+                const view = await computeRunStateFromRow(adapter, run).catch(() => ({ state: run.status }));
+                lastState = view.state;
+                for (const node of await adapter.listNodes(runId)) labels.set(node.nodeId, node.label ?? node.nodeId);
+            }
+
+            const events = await adapter.listEvents(runId, lastSeq, 500);
+            for (const ev of events) {
+                lastSeq = Number(ev.seq);
+                if (ev.type === "FrameCommitted") {
+                    await renderCurrentCard();
+                    continue;
+                }
+                const parsed = parseAgentEvent(ev) ?? parseNodeOutputEvent(ev);
+                if (parsed?.text) {
+                    const label = labels.get(parsed.nodeId) ?? parsed.nodeId ?? "·";
+                    printLine(colorFor(parsed.nodeId), label, parsed.text);
+                }
+            }
+
+            if (lastState && STOP_STATES.has(lastState)) {
+                if (lastRenderedState !== lastState) {
+                    await renderCurrentCard();
+                }
+                break;
+            }
+            const waited = await sleepOrChildFailure(intervalMs, childFailure);
+            if (waited?.error) {
+                const finalRun = await adapter.getRun(runId);
+                if (finalRun) {
+                    const view = await computeRunStateFromRow(adapter, finalRun).catch(() => ({ state: finalRun.status }));
+                    lastState = view.state;
+                    if (STOP_STATES.has(lastState)) {
+                        if (lastRenderedState !== lastState) {
+                            await renderCurrentCard();
+                        }
+                        break;
+                    }
+                }
+                return { state: lastState, error: waited.error };
+            }
+        }
+    } finally {
+        process.off("SIGINT", onSignal);
+        process.off("SIGTERM", onSignal);
+    }
+    return { state: lastState };
+}
+
+/**
+ * `smithers tui` — pick a workflow, start a real run, and live-render its
+ * status card until the run finishes or pauses for approval.
+ * @param {{ ok: (...args: any[]) => any; error?: (...args: any[]) => any }} c
+ * @param {(opts: { code: string; message: string; exitCode?: number; [key: string]: unknown }) => any} fail
+ */
+export async function runTuiCommand(c, fail = (opts) => c.error?.(opts) ?? c.ok({ ran: false, reason: opts.code })) {
+    intro(`${pc.bgCyan(pc.black(" smithers "))} ${pc.dim("tui")}`);
+
+    const workflows = discoverWorkflows();
+    if (workflows.length === 0) {
+        log.warn("No workflows found. Run `smithers init` to install the workflow pack.");
+        return c.ok({ ran: false, reason: "no-workflows" });
+    }
+
+    // Bound the picker to a scrolling window that fits the terminal, and keep
+    // every option on ONE line. A list taller than the screen, or a hint that
+    // wraps, both break clack's in-place redraw (ghost rows, jumpy cursor).
+    const rows = process.stdout.rows || 24;
+    const width = process.stdout.columns || 80;
+    const choice = await select({
+        message: "Select a workflow to run",
+        maxItems: pickerMaxItems(rows),
+        options: buildWorkflowPickerOptions(workflows, width),
+    });
+    if (isCancel(choice)) {
+        cancel("No workflow selected.");
+        return c.ok({ ran: false, reason: "cancelled" });
+    }
+    const workflow = workflows.find((w) => w.entryFile === choice);
+    if (!workflow) {
+        return fail({
+            code: "TUI_WORKFLOW_NOT_FOUND",
+            message: `Selected workflow could not be resolved: ${String(choice)}`,
+            exitCode: 4,
+        });
+    }
+
+    const runId = `run-${Date.now().toString(36)}`;
+    const name = workflow.displayName ?? workflow.id;
+    const promptText = workflow.description ?? name;
+
+    const s = spinner();
+    s.start(`Starting ${name}…`);
+
+    // Run the workflow as a detached background process so its agent output
+    // streams to a log file and never collides with the live card.
+    const indexPath = fileURLToPath(new URL("./index.js", import.meta.url));
+    const logFile = resolve(dirname(workflow.entryFile), `${runId}.log`);
+    let child;
+    try {
+        const fd = openSync(logFile, "a");
+        try {
+            child = spawn("bun", [indexPath, "up", workflow.entryFile, "--run-id", runId], {
+                detached: true,
+                stdio: ["ignore", fd, fd],
+                env: process.env,
+            });
+        } finally {
+            closeSync(fd);
+        }
+    } catch (err) {
+        s.stop(pc.red(`Could not start run: ${err?.message ?? err}`), 1);
+        return fail({
+            code: "TUI_START_FAILED",
+            message: err?.message ?? String(err),
+            exitCode: 1,
+            runId,
+            logFile,
+        });
+    }
+    const childFailure = childFailurePromise(child);
+    child.unref();
+
+    let db;
+    try {
+        const dbResult = await waitForOpenDbOrChild(process.cwd(), { timeoutMs: 20_000, intervalMs: 150 }, childFailure);
+        if (dbResult.error) {
+            throw dbResult.error;
+        }
+        db = dbResult.db;
+    } catch (err) {
+        terminateDetachedChild(child);
+        s.stop(pc.red(`Could not open workspace DB: ${err?.message ?? err}`), 1);
+        return fail({
+            code: "TUI_DB_NOT_FOUND",
+            message: err?.message ?? String(err),
+            exitCode: 1,
+            runId,
+            logFile,
+        });
+    }
+
+    s.message("Waiting for the run to start…");
+    const appeared = await waitForRunRow(db.adapter, runId, 20_000, 200, childFailure);
+    if (!appeared.appeared) {
+        terminateDetachedChild(child);
+        const message = appeared.error
+            ? `${appeared.error.message} See ${logFile}.`
+            : `Run ${runId} did not start within 20s. See ${logFile}.`;
+        s.stop(pc.red(message), 1);
+        db.cleanup();
+        return fail({
+            code: "TUI_RUN_DID_NOT_START",
+            message,
+            exitCode: 1,
+            runId,
+            logFile,
+        });
+    }
+    s.stop(`Watching ${pc.dim(runId)} ${pc.dim("·")} logs → ${pc.dim(logFile)}`);
+
+    try {
+        const { state, error } = await streamRun(db.adapter, runId, name, promptText, { childFailure });
+        if (error) {
+            const message = `${error.message} See ${logFile}.`;
+            return fail({
+                code: "TUI_RUN_EXITED",
+                message,
+                exitCode: 1,
+                runId,
+                logFile,
+            });
+        }
+        if (state === "waiting-approval") {
+            log.warn(`Paused for approval — run \`smithers approve ${runId}\` to continue.`);
+        }
+    } finally {
+        db.cleanup();
+    }
+
+    return c.ok({ ran: true, runId });
+}

@@ -42,6 +42,7 @@ examples/run-*.log
 playwright-report
 test-results
 tui-buffer.txt
+apps/cli/tmp/
 
 # IntelliJ based IDEs
 .idea
