@@ -720,17 +720,22 @@ export function makeWorkflowSession(options = {}) {
             }
         }),
         taskCompleted: (output) => Effect.sync(() => {
-            const descriptor = findDescriptor(state, output.nodeId, output.iteration);
-            if (!descriptor) {
-                return failedDecision(new SmithersError("NODE_NOT_FOUND", `Unknown task ${output.nodeId}`), "taskCompleted");
-            }
+            // A completion can legitimately arrive for a task that is no longer in the
+            // current graph: a conditionally-rendered task (e.g. `{done ? <Task pr/> : null}`)
+            // whose parent re-rendered it out while it was still running in the background.
+            // That result is stale, not fatal — record it (so it is available if the task
+            // re-mounts) and let the current graph drive the next decision. Failing here
+            // would discard every other in-flight task in the run.
             markTaskFinished(output);
             return decideAfterOutputChange(output.iteration);
         }),
         taskFailed: (failure) => Effect.sync(() => {
             const descriptor = findDescriptor(state, failure.nodeId, failure.iteration);
             if (!descriptor) {
-                return failedDecision(new SmithersError("NODE_NOT_FOUND", `Unknown task ${failure.nodeId}`), "taskFailed");
+                // Stale failure for a task that already left the graph (see taskCompleted) —
+                // the task is gone, so its failure is moot. Re-decide on the current graph
+                // rather than failing the whole run.
+                return decide();
             }
             return applyFailure(descriptor, failure.error);
         }),
