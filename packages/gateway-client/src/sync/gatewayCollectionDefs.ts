@@ -154,7 +154,11 @@ export const gatewayCollectionDefs = {
     key: gatewayKeys.memoryFacts(params),
     method: "listMemoryFacts",
     params,
-    getKey: (row: GatewayMemoryFactRow) => row.key,
+    // `_smithers_memory_facts` is keyed by `(namespace, key)` and an unfiltered
+    // `listMemoryFacts` returns every namespace, so `key` alone is NOT unique:
+    // two namespaces can share a key and would collide (one row silently drops)
+    // in TanStack DB. Key by the real composite PK.
+    getKey: (row: GatewayMemoryFactRow) => `${row.namespace}:${row.key}`,
     rows: arrayRows<GatewayMemoryFactRow>,
   }),
   runEvents: (runId: string, maxRows = 1_024) => ({

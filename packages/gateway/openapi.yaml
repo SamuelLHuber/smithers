@@ -181,6 +181,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -236,6 +237,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -291,6 +293,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -346,6 +349,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -509,6 +513,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -564,6 +569,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -619,6 +625,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -674,6 +681,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -729,6 +737,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -881,6 +890,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -936,6 +946,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -991,6 +1002,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1046,6 +1058,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1101,6 +1114,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1266,6 +1280,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1321,6 +1336,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1376,6 +1392,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1431,6 +1448,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1486,6 +1504,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1648,6 +1667,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1708,6 +1728,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1768,6 +1789,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1828,6 +1850,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1888,6 +1911,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -1948,6 +1972,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2008,6 +2033,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2068,6 +2094,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2276,6 +2303,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2333,6 +2361,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2390,6 +2419,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2447,6 +2477,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2504,6 +2535,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2561,6 +2593,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2737,6 +2770,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2792,6 +2826,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2847,6 +2882,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2902,6 +2938,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -2957,6 +2994,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3168,6 +3206,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3223,6 +3262,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3278,6 +3318,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3333,6 +3374,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3388,6 +3430,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3562,6 +3605,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3616,6 +3660,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3670,6 +3715,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3724,6 +3770,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3897,6 +3944,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -3951,6 +3999,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4005,6 +4054,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4059,6 +4109,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4223,6 +4274,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4277,6 +4329,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4331,6 +4384,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4385,6 +4439,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4554,6 +4609,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4610,6 +4666,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4666,6 +4723,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4722,6 +4780,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4778,6 +4837,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -4952,6 +5012,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5009,6 +5070,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5066,6 +5128,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5123,6 +5186,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5180,6 +5244,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5237,6 +5302,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5397,6 +5463,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5456,6 +5523,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5515,6 +5583,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5574,6 +5643,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5633,6 +5703,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5692,6 +5763,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5851,6 +5923,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5910,6 +5983,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -5969,6 +6043,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6028,6 +6103,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6087,6 +6163,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6146,6 +6223,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6299,6 +6377,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6353,6 +6432,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6407,6 +6487,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6461,6 +6542,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6617,6 +6699,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6671,6 +6754,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6725,6 +6809,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6779,6 +6864,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6930,6 +7016,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -6985,6 +7072,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7040,6 +7128,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7095,6 +7184,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7150,6 +7240,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7312,6 +7403,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7368,6 +7460,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7424,6 +7517,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7480,6 +7574,7 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7536,6 +7631,353 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - memory:read
+                          - observability:read
+                      refresh:
+                        type: string
+  /v1/rpc/listMemoryFacts:
+    post:
+      operationId: listMemoryFacts
+      summary: "List Memory Facts"
+      description: "List cross-run memory facts, optionally scoped to a namespace."
+      tags:
+        - "Gateway RPC"
+      security:
+        -
+          bearerAuth:
+            - memory:read
+      x-smithers-api-version: v1
+      x-smithers-maturity: stable
+      x-smithers-transport: "http+websocket"
+      x-smithers-required-scope: memory:read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - method
+                - params
+              additionalProperties: false
+              properties:
+                id:
+                  type: string
+                  description: "Optional caller request id."
+                method:
+                  const: listMemoryFacts
+                params:
+                  type: object
+                  properties:
+                    namespace:
+                      type: string
+                      description: "Optional namespace filter (e.g. 'workflow:deploy')."
+                  required: []
+                  additionalProperties: false
+            example:
+              id: listMemoryFacts-1
+              method: listMemoryFacts
+              params:
+                namespace: workflow:deploy
+      responses:
+        200:
+          description: "List Memory Facts response."
+          headers:
+            X-Smithers-API-Version:
+              schema:
+                type: string
+                enum:
+                  - v1
+              description: "Stable Smithers Gateway API version."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - payload
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: true
+                  apiVersion:
+                    const: v1
+                  payload:
+                    type: array
+                    description: "Memory facts."
+                    items:
+                      type: object
+                      properties:
+                        namespace:
+                          type: string
+                          description: "Fact namespace."
+                        key:
+                          type: string
+                          description: "Fact key (unique within the namespace)."
+                        valueJson:
+                          type: string
+                          description: "Stored value as a JSON string."
+                        schemaSig:
+                          type:
+                            - string
+                            - "null"
+                          description: "Optional value-schema signature."
+                        createdAtMs:
+                          type: integer
+                          minimum: 0
+                          description: "Unix epoch milliseconds when first written."
+                        updatedAtMs:
+                          type: integer
+                          minimum: 0
+                          description: "Unix epoch milliseconds when last written."
+                        ttlMs:
+                          type:
+                            - integer
+                            - "null"
+                          description: "Time-to-live in milliseconds, or null when the fact does not expire."
+                      required:
+                        - namespace
+                        - key
+                        - valueJson
+                        - createdAtMs
+                        - updatedAtMs
+                      additionalProperties: false
+              example:
+                type: res
+                id: listMemoryFacts-1
+                ok: true
+                apiVersion: v1
+                payload:
+                  -
+                    namespace: workflow:deploy
+                    key: last-sha
+                    valueJson: "\"abc123\""
+                    createdAtMs: 1710000000000
+                    updatedAtMs: 1710000000000
+        400:
+          description: "The request shape is invalid."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - observability:read
+                      refresh:
+                        type: string
+        401:
+          description: "Authentication failed or the token expired."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - observability:read
+                      refresh:
+                        type: string
+        403:
+          description: "The token is missing the required scope."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
+                          - observability:read
+                      refresh:
+                        type: string
+        500:
+          description: "The Gateway encountered an internal error."
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - type
+                  - id
+                  - ok
+                  - apiVersion
+                  - error
+                additionalProperties: false
+                properties:
+                  type:
+                    const: res
+                  id:
+                    type: string
+                  ok:
+                    const: false
+                  apiVersion:
+                    const: v1
+                  error:
+                    type: object
+                    required:
+                      - version
+                      - code
+                      - message
+                    additionalProperties: true
+                    properties:
+                      version:
+                        const: v1
+                      code:
+                        type: string
+                        enum:
+                          - InvalidRequest
+                          - Unauthorized
+                          - Forbidden
+                          - Internal
+                      message:
+                        type: string
+                      requiredScope:
+                        type: string
+                        enum:
+                          - run:read
+                          - run:write
+                          - run:admin
+                          - approval:submit
+                          - signal:submit
+                          - cron:read
+                          - cron:write
+                          - memory:read
                           - observability:read
                       refresh:
                         type: string
@@ -7557,8 +7999,9 @@ components:
         - signal:submit
         - cron:read
         - cron:write
+        - memory:read
         - observability:read
-      description: "run:read: Read run state, summaries, event streams, node output, and node diffs.\nrun:write: Launch, resume, and cancel runs.\nrun:admin: Perform elevated run control such as hijack and rewind.\napproval:submit: Submit approval decisions.\nsignal:submit: Submit workflow signals.\ncron:read: List cron schedules.\ncron:write: Create, delete, and trigger cron schedules.\nobservability:read: Read DevTools and other observability streams."
+      description: "run:read: Read run state, summaries, event streams, node output, and node diffs.\nrun:write: Launch, resume, and cancel runs.\nrun:admin: Perform elevated run control such as hijack and rewind.\napproval:submit: Submit approval decisions.\nsignal:submit: Submit workflow signals.\ncron:read: List cron schedules.\ncron:write: Create, delete, and trigger cron schedules.\nmemory:read: List cross-run memory facts.\nobservability:read: Read DevTools and other observability streams."
     GatewayRpcErrorCode:
       type: string
       enum:

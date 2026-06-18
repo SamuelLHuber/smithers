@@ -1,9 +1,9 @@
 import * as react from 'react';
 import { ReactElement, ReactNode } from 'react';
 import * as _smithers_orchestrator_gateway_client from '@smithers-orchestrator/gateway-client';
-import { SmithersGatewayClientOptions, SmithersGatewayClient, GatewayRpcParams, GatewayRpcPayload, GatewayEventFrame, GatewayBackoffOptions, SyncTransport, SyncKey, GatewayRunSummaryRow, GatewayRunRow, GatewayWorkflowRow, GatewayApprovalRow, GatewayRunNode, GatewayRunEventRow, SyncStreamFrame } from '@smithers-orchestrator/gateway-client';
+import { SmithersGatewayClientOptions, SmithersGatewayClient, GatewayCronRow, GatewayMemoryFactRow, GatewayRpcParams, GatewayRpcPayload, GatewayEventFrame, GatewayBackoffOptions, SyncTransport, SyncKey, GatewayRunSummaryRow, GatewayRunRow, GatewayWorkflowRow, GatewayApprovalRow, GatewayRunNode, GatewayRunEventRow, SyncStreamFrame } from '@smithers-orchestrator/gateway-client';
 import * as _smithers_orchestrator_gateway_rpc from '@smithers-orchestrator/gateway/rpc';
-import { ListApprovalsRequest, ListApprovalsResponse, GatewayRpcMethod, ListRunsRequest, ListWorkflowsRequest, ListWorkflowsResponse } from '@smithers-orchestrator/gateway/rpc';
+import { ListApprovalsRequest, ListApprovalsResponse, CronListRequest, GatewayRpcMethod, ListRunsRequest, ListWorkflowsRequest, ListWorkflowsResponse, ListMemoryFactsRequest } from '@smithers-orchestrator/gateway/rpc';
 import { Collection } from '@tanstack/react-db';
 
 declare function createGatewayReactRoot(element: ReactElement, options?: SmithersGatewayClientOptions & {
@@ -45,6 +45,25 @@ type GatewayAsyncState<T> = {
  * shape the RPC hook returned.
  */
 declare function useGatewayApprovals(params?: ListApprovalsRequest): GatewayAsyncState<ListApprovalsResponse>;
+
+/**
+ * Live cron-schedule list over the `crons` collection (initial `cronList`,
+ * re-pulled on `invalidate` — e.g. after a `cronCreate` / `cronDelete` / `cronRun`
+ * mutation). `cronList` returns ALL crons (enabled + disabled), so disabled rows
+ * surface too. Same `GatewayAsyncState` shape the other typed gateway hooks
+ * return (mirrors `useGatewayApprovals`).
+ */
+declare function useGatewayCrons(params?: CronListRequest): GatewayAsyncState<GatewayCronRow[]>;
+
+/**
+ * Live cross-run memory facts over the `memoryFacts` collection (initial
+ * `listMemoryFacts`, re-pulled on `invalidate`). Pass a `namespace` to scope the
+ * list to one namespace; omit it to list every namespace's facts. The facts are
+ * read-only on the wire (no write RPC), so this hook is query-only — the same
+ * `GatewayAsyncState` shape the other typed gateway hooks return (mirrors
+ * `useGatewayCrons`).
+ */
+declare function useGatewayMemoryFacts(namespace?: string): GatewayAsyncState<GatewayMemoryFactRow[]>;
 
 declare function useGatewayNodeOutput(params: {
     runId: string | undefined;
@@ -225,6 +244,10 @@ type GatewayCollections = {
     run(runId: string): Collection<GatewayRunRow, string>;
     workflows(params?: ListWorkflowsRequest): Collection<GatewayWorkflowRow, string>;
     approvals(params?: ListApprovalsRequest): Collection<GatewayApprovalRow, string>;
+    /** Live cron-schedule list (`cronList`); includes enabled + disabled rows. */
+    crons(params?: CronListRequest): Collection<GatewayCronRow, string>;
+    /** Live cross-run memory facts (`listMemoryFacts`); keyed by the composite `${namespace}:${key}` (key is only unique within a namespace). */
+    memoryFacts(params?: ListMemoryFactsRequest): Collection<GatewayMemoryFactRow, string>;
     /** Flattened devtools run-node tree, reconciled per devtools frame. */
     nodes(runId: string): Collection<GatewayRunNode, string>;
     /** Bounded append-only run-event ring. */
@@ -450,4 +473,4 @@ type UseGatewayConnectionStatusResult = {
  */
 declare function useGatewayConnectionStatus(): UseGatewayConnectionStatusResult;
 
-export { type CreateGatewayCollectionsOptions, type GatewayAsyncState, type GatewayCollections, type GatewayConnectionState, type GatewayConnectionStatus, type GatewayExtensionStreamState, type GatewayQueryHandle, type GatewayQueryRow, type GatewayStreamHandle, type GatewayStreamRow, type NodeStatus, SmithersGatewayContext, SmithersGatewayProvider, SyncContext, type SyncMutationOptions, SyncProvider, type UseGatewayConnectionStatusResult, type UseGatewayRunTreeResult, type UseSyncMutationResult, type UseSyncMutationStatus, type UseSyncQueryOptions, type UseSyncQueryResult, type UseSyncSubscriptionOptions, type UseSyncSubscriptionResult, createGatewayCollections, createGatewayReactRoot, useGatewayActions, useGatewayApprovals, useGatewayConnectionStatus, useGatewayExtensionAction, useGatewayExtensionResource, useGatewayExtensionStream, useGatewayMutation, useGatewayNodeOutput, useGatewayQuery, useGatewayRpc, useGatewayRun, useGatewayRunEvents, useGatewayRunStream, useGatewayRunTree, useGatewayRuns, useGatewayWorkflows, useSmithersGateway, useSyncClient, useSyncMutation, useSyncQuery, useSyncSubscription };
+export { type CreateGatewayCollectionsOptions, type GatewayAsyncState, type GatewayCollections, type GatewayConnectionState, type GatewayConnectionStatus, type GatewayExtensionStreamState, type GatewayQueryHandle, type GatewayQueryRow, type GatewayStreamHandle, type GatewayStreamRow, type NodeStatus, SmithersGatewayContext, SmithersGatewayProvider, SyncContext, type SyncMutationOptions, SyncProvider, type UseGatewayConnectionStatusResult, type UseGatewayRunTreeResult, type UseSyncMutationResult, type UseSyncMutationStatus, type UseSyncQueryOptions, type UseSyncQueryResult, type UseSyncSubscriptionOptions, type UseSyncSubscriptionResult, createGatewayCollections, createGatewayReactRoot, useGatewayActions, useGatewayApprovals, useGatewayConnectionStatus, useGatewayCrons, useGatewayExtensionAction, useGatewayExtensionResource, useGatewayExtensionStream, useGatewayMemoryFacts, useGatewayMutation, useGatewayNodeOutput, useGatewayQuery, useGatewayRpc, useGatewayRun, useGatewayRunEvents, useGatewayRunStream, useGatewayRunTree, useGatewayRuns, useGatewayWorkflows, useSmithersGateway, useSyncClient, useSyncMutation, useSyncQuery, useSyncSubscription };

@@ -81,7 +81,7 @@ export type GatewayCollections = {
   approvals(params?: ListApprovalsRequest): Collection<GatewayApprovalRow, string>;
   /** Live cron-schedule list (`cronList`); includes enabled + disabled rows. */
   crons(params?: CronListRequest): Collection<GatewayCronRow, string>;
-  /** Live cross-run memory facts (`listMemoryFacts`); keyed by the per-namespace `key`. */
+  /** Live cross-run memory facts (`listMemoryFacts`); keyed by the composite `${namespace}:${key}` (key is only unique within a namespace). */
   memoryFacts(params?: ListMemoryFactsRequest): Collection<GatewayMemoryFactRow, string>;
   /** Flattened devtools run-node tree, reconciled per devtools frame. */
   nodes(runId: string): Collection<GatewayRunNode, string>;

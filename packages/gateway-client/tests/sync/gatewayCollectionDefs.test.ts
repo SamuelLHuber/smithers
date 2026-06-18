@@ -292,11 +292,14 @@ const memoryFactRows: GatewayMemoryFactRow[] = [
 ];
 
 describe("gatewayCollectionDefs.memoryFacts", () => {
-  test("rows mapper passes a listMemoryFacts array through and keys by key", () => {
+  test("rows mapper passes a listMemoryFacts array through and keys by namespace+key", () => {
     const def = gatewayCollectionDefs.memoryFacts();
     const rows = Array.from(def.rows(memoryFactRows));
     expect(rows.map((row) => row.key)).toEqual(["token-ttl-rotation", "session-sync-signing"]);
-    expect(def.getKey(rows[0])).toBe("token-ttl-rotation");
+    // `_smithers_memory_facts` is keyed by `(namespace, key)` and an unfiltered
+    // `listMemoryFacts` returns every namespace, so the collection key must be the
+    // composite — `key` alone collides across namespaces.
+    expect(def.getKey(rows[0])).toBe("ci:token-ttl-rotation");
     // A non-expiring fact carries a null ttl (load-bearing for the detail pane).
     expect(rows[1].ttlMs).toBeNull();
   });
@@ -312,9 +315,26 @@ describe("gatewayCollectionDefs.memoryFacts", () => {
 
     await collection.preload();
 
-    expect(Array.from(collection.keys()).sort()).toEqual(["session-sync-signing", "token-ttl-rotation"]);
-    expect(collection.get("token-ttl-rotation")?.namespace).toBe("ci");
-    expect(collection.get("token-ttl-rotation")?.ttlMs).toBe(3_600_000);
-    expect(collection.get("session-sync-signing")?.ttlMs).toBeNull();
+    expect(Array.from(collection.keys()).sort()).toEqual(["auth:session-sync-signing", "ci:token-ttl-rotation"]);
+    expect(collection.get("ci:token-ttl-rotation")?.namespace).toBe("ci");
+    expect(collection.get("ci:token-ttl-rotation")?.ttlMs).toBe(3_600_000);
+    expect(collection.get("auth:session-sync-signing")?.ttlMs).toBeNull();
+  });
+
+  test("same key in two namespaces does NOT collide (composite key)", async () => {
+    // Regression guard: keying by `key` alone dropped one of these rows.
+    const collidingRows: GatewayMemoryFactRow[] = [
+      { namespace: "ci", key: "shared", valueJson: '"from ci"', schemaSig: null, createdAtMs: 1, updatedAtMs: 1, ttlMs: null },
+      { namespace: "auth", key: "shared", valueJson: '"from auth"', schemaSig: null, createdAtMs: 2, updatedAtMs: 2, ttlMs: null },
+    ];
+    const collection = createCollection<GatewayMemoryFactRow, string>(
+      createGatewayCollection({ ...gatewayCollectionDefs.memoryFacts(), client: quietTransport(collidingRows) }),
+    );
+
+    await collection.preload();
+
+    expect(Array.from(collection.keys()).sort()).toEqual(["auth:shared", "ci:shared"]);
+    expect(collection.get("ci:shared")?.valueJson).toBe('"from ci"');
+    expect(collection.get("auth:shared")?.valueJson).toBe('"from auth"');
   });
 });
