@@ -25,6 +25,7 @@ import {
   createGatewayCollections,
   useGatewayApprovals,
   useGatewayCrons,
+  useGatewayMemoryFacts,
   useGatewayConnectionStatus,
   useGatewayMutation,
   useGatewayQuery,
@@ -613,6 +614,38 @@ describe("legacy synced hooks over collections", () => {
     expect(crons?.data?.map((row) => row.cronId).sort()).toEqual(["cron-1", "cron-2"]);
     expect(crons?.data?.find((row) => row.cronId === "cron-2")?.enabled).toBe(false);
     expect(crons?.loading).toBe(false);
+
+    await harness.unmount();
+  });
+
+  test("useGatewayMemoryFacts lists rows from listMemoryFacts (namespace-scoped)", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport((method, params) => {
+        if (method === "listMemoryFacts") {
+          const ns = (params as { namespace?: string } | undefined)?.namespace;
+          const all = [
+            { namespace: "ci", key: "token-ttl-rotation", valueJson: '"fixed ttl"', schemaSig: null, createdAtMs: 1, updatedAtMs: 2, ttlMs: 3_600_000 },
+            { namespace: "auth", key: "session-sync-signing", valueJson: '{"sync":true}', schemaSig: null, createdAtMs: 1, updatedAtMs: 2, ttlMs: null },
+          ];
+          return Promise.resolve(ns ? all.filter((row) => row.namespace === ns) : all);
+        }
+        return Promise.resolve([]);
+      }).transport,
+    });
+
+    let facts: ReturnType<typeof useGatewayMemoryFacts> | undefined;
+    function Probe() {
+      facts = useGatewayMemoryFacts("ci");
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => (facts?.data?.length ?? 0) === 1);
+    expect(facts?.data?.map((row) => row.key)).toEqual(["token-ttl-rotation"]);
+    expect(facts?.data?.[0]?.namespace).toBe("ci");
+    expect(facts?.data?.[0]?.ttlMs).toBe(3_600_000);
+    expect(facts?.loading).toBe(false);
 
     await harness.unmount();
   });

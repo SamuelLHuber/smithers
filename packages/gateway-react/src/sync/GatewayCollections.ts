@@ -2,6 +2,7 @@ import type { Collection } from "@tanstack/react-db";
 import type {
   GatewayApprovalRow,
   GatewayCronRow,
+  GatewayMemoryFactRow,
   GatewayRunEventRow,
   GatewayRunNode,
   GatewayRunRow,
@@ -14,6 +15,7 @@ import type {
 import type {
   CronListRequest,
   ListApprovalsRequest,
+  ListMemoryFactsRequest,
   ListRunsRequest,
   ListWorkflowsRequest,
 } from "@smithers-orchestrator/gateway/rpc";
@@ -79,6 +81,8 @@ export type GatewayCollections = {
   approvals(params?: ListApprovalsRequest): Collection<GatewayApprovalRow, string>;
   /** Live cron-schedule list (`cronList`); includes enabled + disabled rows. */
   crons(params?: CronListRequest): Collection<GatewayCronRow, string>;
+  /** Live cross-run memory facts (`listMemoryFacts`); keyed by the per-namespace `key`. */
+  memoryFacts(params?: ListMemoryFactsRequest): Collection<GatewayMemoryFactRow, string>;
   /** Flattened devtools run-node tree, reconciled per devtools frame. */
   nodes(runId: string): Collection<GatewayRunNode, string>;
   /** Bounded append-only run-event ring. */

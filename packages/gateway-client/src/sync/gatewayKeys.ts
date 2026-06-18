@@ -22,6 +22,7 @@ export const gatewayKeys = {
     { runId, nodeId, iteration },
   ],
   cronList: (params?: Record<string, unknown>): SyncKey => ["gateway:cronList", params ?? {}],
+  memoryFacts: (params?: Record<string, unknown>): SyncKey => ["gateway:listMemoryFacts", params ?? {}],
   runEvents: (runId: string): SyncKey => ["gateway:streamRunEvents", { runId }],
   devtools: (runId: string): SyncKey => ["gateway:streamDevTools", { runId }],
 } as const;

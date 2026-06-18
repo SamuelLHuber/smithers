@@ -137,6 +137,7 @@ describe("Gateway RPC contract", () => {
       "cronCreate",
       "cronDelete",
       "cronRun",
+      "listMemoryFacts",
     ]);
 
     for (const definition of GATEWAY_RPC_DEFINITIONS) {

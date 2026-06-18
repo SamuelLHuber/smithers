@@ -7,6 +7,7 @@ import {
   type GatewayApprovalRow,
   type GatewayCollectionConfig,
   type GatewayCronRow,
+  type GatewayMemoryFactRow,
   type GatewayRunEventRow,
   type GatewayRunNode,
   type GatewayRunRow,
@@ -20,6 +21,7 @@ import {
 import type {
   CronListRequest,
   ListApprovalsRequest,
+  ListMemoryFactsRequest,
   ListRunsRequest,
   ListWorkflowsRequest,
 } from "@smithers-orchestrator/gateway/rpc";
@@ -402,6 +404,8 @@ export function createGatewayCollections(
       knownCollection<GatewayApprovalRow, string>(gatewayCollectionDefs.approvals(params), listGcTime),
     crons: (params: CronListRequest = {}) =>
       knownCollection<GatewayCronRow, string>(gatewayCollectionDefs.crons(params), listGcTime),
+    memoryFacts: (params: ListMemoryFactsRequest = {}) =>
+      knownCollection<GatewayMemoryFactRow, string>(gatewayCollectionDefs.memoryFacts(params), listGcTime),
     nodes: (runId: string) =>
       knownCollection<GatewayRunNode, string>(gatewayCollectionDefs.nodes(runId), RUN_GC_TIME),
     runEvents: (runId: string) =>

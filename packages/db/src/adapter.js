@@ -2529,6 +2529,27 @@ export class SmithersDb {
         return this.write(`delete cron ${cronId}`, () => this.internalStorage.deleteWhere("_smithers_cron", "cron_id = ?", [cronId]));
     }
     // ---------------------------------------------------------------------------
+    // Memory facts
+    // ---------------------------------------------------------------------------
+    /**
+   * List cross-run memory facts, optionally scoped to a namespace. Reads the
+   * `_smithers_memory_facts` table written by `@smithers-orchestrator/memory`'s
+   * MemoryStore (`setFact`) — the SAME table the `smithers memory list` CLI reads
+   * — so a fact set by any run/workflow surfaces here. Columns are snake→camel
+   * cased by the storage layer (`value_json → valueJson`, etc.). A null/undefined
+   * namespace returns every namespace's facts; ordering is stable (namespace, key)
+   * so the gateway's `listMemoryFacts` RPC returns a deterministic list.
+   * @param {string | null} [namespace]
+   * @returns {RunnableEffect<Array<Record<string, unknown>>, SmithersError>}
+   */
+    listMemoryFacts(namespace = null) {
+        const ns = namespace ?? null;
+        return this.read("list memory facts", () => this.internalStorage.queryAll(`SELECT namespace, key, value_json, schema_sig, created_at_ms, updated_at_ms, ttl_ms
+         FROM _smithers_memory_facts
+         WHERE (? IS NULL OR namespace = ?)
+         ORDER BY namespace, key`, [ns, ns]));
+    }
+    // ---------------------------------------------------------------------------
     // Scorer results
     // ---------------------------------------------------------------------------
     /**

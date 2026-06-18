@@ -8,6 +8,7 @@ import {
   runStatusFromFrame,
 } from "../../src/sync/gatewayCollectionDefs.ts";
 import type { GatewayCronRow } from "../../src/sync/GatewayCronRow.ts";
+import type { GatewayMemoryFactRow } from "../../src/sync/GatewayMemoryFactRow.ts";
 import type { GatewayRunNode } from "../../src/sync/GatewayRunNode.ts";
 import type { GatewayRunRow } from "../../src/sync/GatewayRunRow.ts";
 import type { SyncStreamFrame, SyncTransport } from "../../src/sync/SyncTransport.ts";
@@ -265,5 +266,55 @@ describe("gatewayCollectionDefs.crons", () => {
     expect(collection.get("cron_01")?.workflow).toBe("deploy");
     expect(collection.get("cron_02")?.enabled).toBe(false);
     expect(collection.get("cron_02")?.nextRunAtMs).toBeNull();
+  });
+});
+
+/** A real `listMemoryFacts` payload: `_smithers_memory_facts` rows (snake→camel cased). */
+const memoryFactRows: GatewayMemoryFactRow[] = [
+  {
+    namespace: "ci",
+    key: "token-ttl-rotation",
+    valueJson: '"rotation must use a fixed ROTATE_TTL"',
+    schemaSig: null,
+    createdAtMs: 1_717_000_000_000,
+    updatedAtMs: 1_717_286_000_000,
+    ttlMs: 3_600_000,
+  },
+  {
+    namespace: "auth",
+    key: "session-sync-signing",
+    valueJson: '{"sync":true}',
+    schemaSig: null,
+    createdAtMs: 1_716_000_000_000,
+    updatedAtMs: 1_717_286_400_000,
+    ttlMs: null,
+  },
+];
+
+describe("gatewayCollectionDefs.memoryFacts", () => {
+  test("rows mapper passes a listMemoryFacts array through and keys by key", () => {
+    const def = gatewayCollectionDefs.memoryFacts();
+    const rows = Array.from(def.rows(memoryFactRows));
+    expect(rows.map((row) => row.key)).toEqual(["token-ttl-rotation", "session-sync-signing"]);
+    expect(def.getKey(rows[0])).toBe("token-ttl-rotation");
+    // A non-expiring fact carries a null ttl (load-bearing for the detail pane).
+    expect(rows[1].ttlMs).toBeNull();
+  });
+
+  test("a non-array payload maps to no rows", () => {
+    expect(Array.from(gatewayCollectionDefs.memoryFacts().rows({ not: "an array" }))).toEqual([]);
+  });
+
+  test("populates a TanStack DB collection from the listMemoryFacts RPC", async () => {
+    const collection = createCollection<GatewayMemoryFactRow, string>(
+      createGatewayCollection({ ...gatewayCollectionDefs.memoryFacts(), client: quietTransport(memoryFactRows) }),
+    );
+
+    await collection.preload();
+
+    expect(Array.from(collection.keys()).sort()).toEqual(["session-sync-signing", "token-ttl-rotation"]);
+    expect(collection.get("token-ttl-rotation")?.namespace).toBe("ci");
+    expect(collection.get("token-ttl-rotation")?.ttlMs).toBe(3_600_000);
+    expect(collection.get("session-sync-signing")?.ttlMs).toBeNull();
   });
 });

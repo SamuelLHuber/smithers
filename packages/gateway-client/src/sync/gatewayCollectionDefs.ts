@@ -1,7 +1,8 @@
 import type { Collection } from "@tanstack/db";
-import type { CronListRequest, ListApprovalsRequest, ListRunsRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
+import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListRunsRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayApprovalRow } from "./GatewayApprovalRow.ts";
 import type { GatewayCronRow } from "./GatewayCronRow.ts";
+import type { GatewayMemoryFactRow } from "./GatewayMemoryFactRow.ts";
 import type { GatewayRunEventRow } from "./GatewayRunEventRow.ts";
 import type { GatewayRunNode } from "./GatewayRunNode.ts";
 import type { GatewayRunRow } from "./GatewayRunRow.ts";
@@ -148,6 +149,13 @@ export const gatewayCollectionDefs = {
     params,
     getKey: (row: GatewayCronRow) => row.cronId,
     rows: arrayRows<GatewayCronRow>,
+  }),
+  memoryFacts: (params: ListMemoryFactsRequest = {}) => ({
+    key: gatewayKeys.memoryFacts(params),
+    method: "listMemoryFacts",
+    params,
+    getKey: (row: GatewayMemoryFactRow) => row.key,
+    rows: arrayRows<GatewayMemoryFactRow>,
   }),
   runEvents: (runId: string, maxRows = 1_024) => ({
     key: gatewayKeys.runEvents(runId),

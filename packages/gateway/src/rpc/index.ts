@@ -88,7 +88,8 @@ export type GatewayRpcMethod =
   | "cronList"
   | "cronCreate"
   | "cronDelete"
-  | "cronRun";
+  | "cronRun"
+  | "listMemoryFacts";
 
 export type LaunchRunRequest = {
   workflow: string;
@@ -265,6 +266,23 @@ export type CronRunRequest = {
   workflow?: string;
   input?: Record<string, unknown>;
 };
+
+/** One cross-run memory fact row (the `_smithers_memory_facts` table, snake→camel cased). */
+export type GatewayMemoryFact = {
+  namespace: string;
+  key: string;
+  valueJson: string;
+  schemaSig?: string | null;
+  createdAtMs: number;
+  updatedAtMs: number;
+  ttlMs?: number | null;
+};
+
+export type ListMemoryFactsRequest = {
+  namespace?: string;
+};
+
+export type ListMemoryFactsResponse = GatewayMemoryFact[];
 
 const stringSchema = (description: string): JsonSchema => ({ type: "string", description });
 const booleanSchema = (description: string): JsonSchema => ({ type: "boolean", description });
@@ -703,6 +721,28 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
     errors: ["InvalidRequest", "InvalidInput", "Unauthorized", "Forbidden", "CronNotFound", "Internal"],
     exampleRequest: { cronId: "cron_01", input: { dryRun: true } },
     exampleResponse: { runId: "run_02", workflow: "deploy" },
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "listMemoryFacts",
+    title: "List Memory Facts",
+    description: "List cross-run memory facts, optionally scoped to a namespace.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "memory:read",
+    requestSchema: objectSchema({ namespace: stringSchema("Optional namespace filter (e.g. 'workflow:deploy').") }),
+    responseSchema: arraySchema(objectSchema({
+      namespace: stringSchema("Fact namespace."),
+      key: stringSchema("Fact key (unique within the namespace)."),
+      valueJson: stringSchema("Stored value as a JSON string."),
+      schemaSig: { type: ["string", "null"], description: "Optional value-schema signature." },
+      createdAtMs: integerSchema("Unix epoch milliseconds when first written.", 0),
+      updatedAtMs: integerSchema("Unix epoch milliseconds when last written.", 0),
+      ttlMs: { type: ["integer", "null"], description: "Time-to-live in milliseconds, or null when the fact does not expire." },
+    }, ["namespace", "key", "valueJson", "createdAtMs", "updatedAtMs"]), "Memory facts."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
+    exampleRequest: { namespace: "workflow:deploy" },
+    exampleResponse: [{ namespace: "workflow:deploy", key: "last-sha", valueJson: "\"abc123\"", createdAtMs: 1710000000000, updatedAtMs: 1710000000000 }],
   },
 ] as const;
 

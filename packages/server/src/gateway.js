@@ -3438,6 +3438,38 @@ export class Gateway {
         results.sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0));
         return results.slice(0, limit);
     }
+    /**
+   * Cross-run memory facts for the `listMemoryFacts` RPC. Memory is global (keyed
+   * by namespace+key, not per-run), so iterate each DISTINCT workflow DB exactly
+   * once — shared-DB workflows share an adapter — and union the rows, deduping on
+   * `${namespace} ${key}` so a fact stored in a shared DB is returned once.
+   * Mirrors the `listRunsAcrossWorkflows` shape.
+   * @param {string | null} [namespace]
+   */
+    async listMemoryFactsAcrossWorkflows(namespace = null) {
+        const ns = namespace ?? null;
+        const seenAdapters = new Set();
+        const byKey = new Map();
+        for (const entry of this.workflows.values()) {
+            const adapter = this.adapterForWorkflow(entry.workflow);
+            if (seenAdapters.has(adapter)) {
+                continue;
+            }
+            seenAdapters.add(adapter);
+            const rows = await adapter.listMemoryFacts(ns);
+            for (const row of rows) {
+                const dedupeKey = `${row.namespace} ${row.key}`;
+                if (!byKey.has(dedupeKey)) {
+                    byKey.set(dedupeKey, row);
+                }
+            }
+        }
+        const results = [...byKey.values()];
+        results.sort((a, b) => a.namespace === b.namespace
+            ? (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+            : (a.namespace < b.namespace ? -1 : 1));
+        return results;
+    }
     async listPendingApprovals() {
         const approvals = [];
         const registeredKeys = new Set(this.workflows.keys());
@@ -4654,6 +4686,10 @@ export class Gateway {
                     tokenId: connection.tokenId ?? null,
                     subscribeConnection: connection,
                 }, undefined, { resume: false }));
+            }
+            case "listMemoryFacts": {
+                const namespace = asString(params.namespace);
+                return responseOk(frame.id, await this.listMemoryFactsAcrossWorkflows(namespace ?? null));
             }
             default:
                 return responseError(frame.id, "METHOD_NOT_FOUND", `Unknown method: ${frame.method}`);
