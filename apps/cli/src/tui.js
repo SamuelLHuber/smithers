@@ -1,10 +1,11 @@
-import { intro, log, outro, select, spinner, isCancel, cancel } from "@clack/prompts";
+import { intro, log, outro, select, spinner, text, confirm, isCancel, cancel } from "@clack/prompts";
 import pc from "picocolors";
 import { spawn } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { discoverWorkflows } from "./workflows.js";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { discoverWorkflows, summarizeWorkflowInputSchema, workflowInputJsonSchema } from "./workflows.js";
+import { mdxPlugin } from "./mdx-plugin.js";
 import { findSmithersDb, openSmithersDb } from "./find-db.js";
 import { parseAgentEvent, parseNodeOutputEvent } from "./chat.js";
 import { computeRunStateFromRow } from "@smithers-orchestrator/db/runState";
@@ -138,12 +139,50 @@ export function normalizeStreamText(text) {
         .replace(/\t/g, "    ");
 }
 
-/** One streamed log line: colored node tag + dim gutter + truncated body. */
+/** Bare node id for display: strip any `workflow:`-style qualifier prefix. */
+export function displayNode(nodeId) {
+    const id = String(nodeId ?? "·");
+    const i = id.lastIndexOf(":");
+    return i >= 0 ? id.slice(i + 1) : id;
+}
+
+/**
+ * Word-wrap `text` to at most `width` visible chars per line, hard-breaking
+ * tokens longer than the width.
+ * @param {string} text
+ * @param {number} width
+ * @returns {string[]}
+ */
+export function wrapText(text, width) {
+    const w = Math.max(1, width);
+    const lines = [];
+    let line = "";
+    for (const word of String(text).split(/ +/)) {
+        let token = word;
+        if (!line) {
+            while (token.length > w) { lines.push(token.slice(0, w)); token = token.slice(w); }
+            line = token;
+        } else if (line.length + 1 + token.length <= w) {
+            line += ` ${token}`;
+        } else {
+            lines.push(line);
+            while (token.length > w) { lines.push(token.slice(0, w)); token = token.slice(w); }
+            line = token;
+        }
+    }
+    if (line) lines.push(line);
+    return lines.length ? lines : [""];
+}
+
+/** One streamed log entry: colored node tag, dim gutter, body wrapped across lines. */
 function printStreamLine(color, label, text) {
     const tagWidth = Math.max(1, Math.min(14, cols() - 4));
     const tag = color(truncate(label, tagWidth).padEnd(tagWidth));
-    const body = truncate(normalizeStreamText(text), Math.max(1, cols() - tagWidth - 4));
-    process.stdout.write(`${tag} ${pc.dim("│")} ${body}\n`);
+    const cont = " ".repeat(tagWidth);
+    const lines = wrapText(normalizeStreamText(text), Math.max(1, cols() - tagWidth - 4));
+    for (let i = 0; i < lines.length; i++) {
+        process.stdout.write(`${i === 0 ? tag : cont} ${pc.dim("│")} ${lines[i]}\n`);
+    }
 }
 
 /** Lay `left` and `right` out on one line, right-aligned to the gutter width. */
@@ -245,7 +284,7 @@ async function sleepOrChildFailure(ms, childFailure) {
  */
 function childExitError(code, signal) {
     const status = signal ? `signal ${signal}` : `exit ${code ?? "unknown"}`;
-    return new Error(`Run process exited before the TUI attached (${status}).`);
+    return new Error(`Run process exited (${status}).`);
 }
 
 /**
@@ -313,6 +352,11 @@ async function waitForOpenDbOrChild(from, opts, childFailure) {
         }
         const waited = await sleepOrChildFailure(Math.min(intervalMs, timeoutMs - elapsedMs), childFailure);
         if (waited?.error) {
+            try {
+                const dbPath = findSmithersDb(from);
+                const db = await openSmithersDb(dbPath);
+                return { db: { ...db, dbPath } };
+            } catch { }
             return waited;
         }
     }
@@ -326,6 +370,7 @@ export async function waitForRunRow(adapter, runId, timeoutMs, intervalMs, child
         const elapsedMs = Date.now() - startedAt;
         const waited = await sleepOrChildFailure(Math.min(intervalMs, Math.max(0, timeoutMs - elapsedMs)), childFailure);
         if (waited?.error) {
+            if (await adapter.getRun(runId)) return { appeared: true };
             return { appeared: false, error: waited.error };
         }
     }
@@ -402,7 +447,7 @@ export async function streamRun(adapter, runId, name, promptText, opts = {}) {
                 }
                 const parsed = parseAgentEvent(ev) ?? parseNodeOutputEvent(ev);
                 if (parsed?.text) {
-                    const label = labels.get(parsed.nodeId) ?? parsed.nodeId ?? "·";
+                    const label = labels.get(parsed.nodeId) ?? displayNode(parsed.nodeId);
                     printLine(colorFor(parsed.nodeId), label, parsed.text);
                 }
             }
@@ -434,6 +479,89 @@ export async function streamRun(adapter, runId, name, promptText, opts = {}) {
         process.off("SIGTERM", onSignal);
     }
     return { state: lastState };
+}
+
+/**
+ * Load a workflow module and return its declared input fields. Returns [] when
+ * the workflow has no input schema or cannot be loaded (so we just run with no
+ * input rather than blocking the user).
+ * @param {string} entryFile
+ * @returns {Promise<{ name: string; type: string; required: boolean; default?: unknown; enum?: unknown[]; description?: string }[]>}
+ */
+async function loadWorkflowInputFields(entryFile) {
+    // Loading a workflow constructs its agents, which log init warnings to
+    // stderr; silence them so they don't pollute the clean TUI.
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = () => true;
+    try {
+        mdxPlugin();
+        const mod = await import(pathToFileURL(resolve(process.cwd(), entryFile)).href);
+        const summary = summarizeWorkflowInputSchema(workflowInputJsonSchema(mod.default?.inputSchema));
+        return summary?.fields ?? [];
+    } catch {
+        return [];
+    } finally {
+        process.stderr.write = origWrite;
+    }
+}
+
+/**
+ * Prompt for one input field with a clack control matched to its type, re-asking
+ * (via clack's validate) until the value is valid.
+ * @param {{ name: string; type: string; required: boolean; default?: unknown; enum?: unknown[]; description?: string }} field
+ * @returns {Promise<unknown | symbol>} coerced value, or a clack cancel symbol
+ */
+export async function promptForField(field) {
+    const types = String(field.type ?? "").split(" | ");
+    const isNumber = types.includes("number") || types.includes("integer");
+    const isInteger = types.includes("integer");
+    const isBoolean = types.includes("boolean");
+    const suffix = field.required ? "" : pc.dim(" (optional)");
+    const message = `${field.name}${suffix}${field.description ? ` — ${pc.dim(field.description)}` : ""}`;
+
+    if (Array.isArray(field.enum) && field.enum.length > 0) {
+        return select({ message, options: field.enum.map((v) => ({ value: v, label: String(v) })) });
+    }
+    if (isBoolean) {
+        return confirm({ message, initialValue: field.default === true });
+    }
+    const raw = await text({
+        message,
+        placeholder: field.default !== undefined ? String(field.default) : undefined,
+        validate: (value) => {
+            const v = (value ?? "").trim();
+            if (!v) {
+                if (field.required && field.default === undefined) return "Required.";
+                return undefined;
+            }
+            if (isInteger && !Number.isInteger(Number(v))) return `Enter a whole number for ${field.name}.`;
+            if (isNumber && !Number.isFinite(Number(v))) return `Enter a number for ${field.name}.`;
+            return undefined;
+        },
+    });
+    if (isCancel(raw)) return raw;
+    const v = (raw ?? "").trim();
+    if (!v) return field.default;
+    return isNumber ? Number(v) : v;
+}
+
+/**
+ * Ask for a workflow's inputs before launching it. Returns the input object, or
+ * null if the user cancelled mid-prompt.
+ * @param {{ entryFile: string }} workflow
+ * @returns {Promise<Record<string, unknown> | null>}
+ */
+async function askWorkflowInputs(workflow) {
+    const fields = await loadWorkflowInputFields(workflow.entryFile);
+    if (fields.length === 0) return {};
+    log.message(pc.dim(`This workflow takes ${fields.length} input${fields.length === 1 ? "" : "s"}.`));
+    const inputs = {};
+    for (const field of fields) {
+        const value = await promptForField(field);
+        if (isCancel(value)) return null;
+        if (value !== undefined) inputs[field.name] = value;
+    }
+    return inputs;
 }
 
 /**
@@ -474,6 +602,12 @@ export async function runTuiCommand(c, fail = (opts) => c.error?.(opts) ?? c.ok(
         });
     }
 
+    const inputs = await askWorkflowInputs(workflow);
+    if (inputs === null) {
+        cancel("Cancelled.");
+        return c.ok({ ran: false, reason: "cancelled" });
+    }
+
     const runId = `run-${Date.now().toString(36)}`;
     const name = workflow.displayName ?? workflow.id;
     const promptText = workflow.description ?? name;
@@ -489,7 +623,11 @@ export async function runTuiCommand(c, fail = (opts) => c.error?.(opts) ?? c.ok(
     try {
         const fd = openSync(logFile, "a");
         try {
-            child = spawn("bun", [indexPath, "up", workflow.entryFile, "--run-id", runId], {
+            const upArgs = [indexPath, "up", workflow.entryFile, "--run-id", runId];
+            if (inputs && Object.keys(inputs).length > 0) {
+                upArgs.push("--input", JSON.stringify(inputs));
+            }
+            child = spawn("bun", upArgs, {
                 detached: true,
                 stdio: ["ignore", fd, fd],
                 env: process.env,

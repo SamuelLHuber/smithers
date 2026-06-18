@@ -3,11 +3,13 @@ import { EventEmitter } from "node:events";
 import {
     buildWorkflowPickerOptions,
     childFailurePromise,
+    displayNode,
     normalizeStreamText,
     pickerMaxItems,
     streamRun,
     truncate,
     waitForRunRow,
+    wrapText,
 } from "../src/tui.js";
 
 describe("tui helpers", () => {
@@ -67,6 +69,13 @@ describe("tui helpers", () => {
         expect(normalizeStreamText("first line\nsecond\tline\n")).toBe("first line \u21b5 second    line");
     });
 
+    test("wraps stream output and compacts qualified node ids", () => {
+        expect(displayNode("workflow:task-a")).toBe("task-a");
+        expect(displayNode("task-a")).toBe("task-a");
+        expect(wrapText("alpha beta gamma", 10)).toEqual(["alpha beta", "gamma"]);
+        expect(wrapText("abcdefghij", 4)).toEqual(["abcd", "efgh", "ij"]);
+    });
+
     test("renders the final card when a run becomes terminal without a frame event", async () => {
         let getRunCalls = 0;
         const rendered = [];
@@ -94,6 +103,46 @@ describe("tui helpers", () => {
         expect(rendered).toEqual(["running", "succeeded"]);
     });
 
+    test("streamRun uses persisted node labels for streamed output", async () => {
+        let getRunCalls = 0;
+        let eventsReturned = false;
+        const printed = [];
+        const adapter = {
+            async getRun() {
+                getRunCalls += 1;
+                return runRow(getRunCalls < 3 ? "running" : "finished");
+            },
+            async listNodes() {
+                return [{ nodeId: "workflow:task-a", label: "Friendly Task", state: "running" }];
+            },
+            async listEvents() {
+                if (eventsReturned) return [];
+                eventsReturned = true;
+                return [{
+                    seq: 1,
+                    timestampMs: Date.now(),
+                    type: "NodeOutput",
+                    payloadJson: JSON.stringify({
+                        nodeId: "workflow:task-a",
+                        stream: "stdout",
+                        text: "hello",
+                    }),
+                }];
+            },
+        };
+
+        const result = await streamRun(adapter, "run-label", "Label Test", "prompt", {
+            intervalMs: 1,
+            renderCard() {},
+            printLine(_color, label, text) {
+                printed.push({ label, text });
+            },
+        });
+
+        expect(result.state).toBe("succeeded");
+        expect(printed).toEqual([{ label: "Friendly Task", text: "hello" }]);
+    });
+
     test("childFailurePromise resolves when the detached run exits", async () => {
         const child = new EventEmitter();
         child.exitCode = null;
@@ -117,6 +166,19 @@ describe("tui helpers", () => {
         expect(result.appeared).toBe(false);
         expect(result.error?.message).toBe("child exited");
         expect(Date.now() - startedAt).toBeLessThan(500);
+    });
+
+    test("waitForRunRow accepts a fast run that appears as the child exits", async () => {
+        let calls = 0;
+        const result = await waitForRunRow({
+            async getRun() {
+                calls += 1;
+                return calls === 1 ? null : runRow("finished");
+            },
+        }, "fast-run", 10_000, 10_000, Promise.resolve(new Error("child exited")));
+
+        expect(result).toEqual({ appeared: true });
+        expect(calls).toBe(2);
     });
 
     test("streamRun returns an error when the child exits before a terminal DB state", async () => {
