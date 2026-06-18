@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { logDebug, logInfo, logWarning, logError } from "@smithers-orchestrator/observability/logging";
+import { logDebug, logInfo, logWarning, logError, logWarningAwait, setSmithersLogRunner } from "@smithers-orchestrator/observability/logging";
 describe("effect/logging", () => {
     // These functions fire-and-forget via runFork, so we just verify they don't throw.
     test("logDebug does not throw", () => {
@@ -31,5 +31,35 @@ describe("effect/logging", () => {
     });
     test("logError with annotations and span does not throw", () => {
         expect(() => logError("test error", { code: "ERR" }, "error-span")).not.toThrow();
+    });
+    test("uses an injected Effect runner for fire-and-forget logs", () => {
+        let forked = false;
+        const restore = setSmithersLogRunner({
+            runFork() {
+                forked = true;
+            },
+            async runPromise() { },
+        });
+        try {
+            logWarning("runner warning");
+            expect(forked).toBe(true);
+        } finally {
+            restore();
+        }
+    });
+    test("uses an injected Effect runner for awaited logs", async () => {
+        let awaited = false;
+        const restore = setSmithersLogRunner({
+            runFork() { },
+            async runPromise() {
+                awaited = true;
+            },
+        });
+        try {
+            await logWarningAwait("runner warning");
+            expect(awaited).toBe(true);
+        } finally {
+            restore();
+        }
     });
 });
