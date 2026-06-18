@@ -91,8 +91,14 @@
       {
         "group": "Build Workflows",
         "pages": [
-          "jsx/overview",
-          "effect/overview"
+          "guides/mdx-authoring",
+          {
+            "group": "TypeScript SDK",
+            "pages": [
+              "jsx/overview",
+              "effect/overview"
+            ]
+          }
         ]
       },
       {

@@ -54,7 +54,11 @@ need the runtime model. Human-facing docs live in the **For Humans** Guide, star
 What Smithers Is.
 </Note>
 
-Your agent writes the workflow as a JSX tree, and Smithers repeatedly renders it every "frame". Each render answers: given what has already finished, what can run now? Tasks produce outputs validated by Zod schemas; the runtime persists them to SQLite. Crashes, restarts, and approvals are first-class, and the runtime resumes from the last persisted state without re-running completed work.
+Smithers runs your workflow on a render loop: each frame it asks "what has finished, and what can start now?" Tasks produce outputs validated by Zod schemas; the runtime persists them to SQLite. Crashes, restarts, and approvals are first-class, and the runtime resumes from the last persisted state without re-running completed work.
+
+**Default authoring path — MDX prompts.** For most workflows you edit a plain Markdown file in `.smithers/prompts/` and the seeded TypeScript skeleton picks it up automatically. No build step, no TypeScript required. See MDX Workflow Authoring.
+
+**Advanced authoring — TypeScript SDK.** When you need branching, schemas, parallel fan-out, or loops, write the workflow as a JSX tree. Smithers renders the tree and drives execution:
 
 ```tsx
 <Workflow name="review">
@@ -83,7 +87,8 @@ Don't use it for a single prompt → single response. Use your model provider's 
 
 ## Read next
 
-- Tour for a working code-review example.
+- MDX Workflow Authoring to change what your agent does without writing TypeScript.
+- Tour for a working code-review example (TypeScript SDK).
 - How It Works for the execution model.
 - Why React? for the rationale behind the JSX runtime.
 
@@ -279,7 +284,7 @@ If the bundled jj exists but fails with `EACCES`, its executable bit was strippe
     last checkpoint.
 
     ```bash
-    bunx smithers-orchestrator up workflow.tsx --run-id RUN_ID --resume true
+    bunx smithers-orchestrator workflow run hello --run-id RUN_ID --resume true
     ```
   </Step>
 </Steps>
