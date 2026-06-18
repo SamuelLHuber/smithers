@@ -53,16 +53,6 @@ is exactly where the cross-agent command installs them:
 bunx smithers-orchestrator skills add
 ```
 
-Or place the onboarding skill there by hand:
-
-```bash
-mkdir -p ~/.agents/skills/smithers
-curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
-  -o ~/.agents/skills/smithers/SKILL.md
-curl -fsSL https://smithers.sh/llms-full.txt \
-  -o ~/.agents/skills/smithers/llms-full.txt
-```
-
 OpenClaw's own skill registry is **ClawHub** (`openclaw skills install <slug>`);
 the Smithers skill installs directly into the skills directory rather than
 through the hub.

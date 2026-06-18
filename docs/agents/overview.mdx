@@ -20,7 +20,7 @@ one that matches how the agent is extended.
 
 | Surface | What it gives the agent | Ship it with |
 |---|---|---|
-| **Skill** | Fluency in Smithers (when to use it, the CLI verbs, the component catalog) loaded on demand | `skills add` or a one-line `curl` |
+| **Skill** | Fluency in Smithers (when to use it, the CLI verbs, the component catalog) loaded on demand | `skills add` |
 | **MCP server** | Structured tools to list, run, watch, inspect, and control runs without shell-parsing | `mcp add` or native MCP config |
 | **Instructions** | A standing note in `AGENTS.md` / `CLAUDE.md` so the agent knows Smithers is available | a few lines in the repo |
 
@@ -78,23 +78,21 @@ goes further. It teaches the agent the *mental model* (Smithers as durable plan
 mode, the `.smithers/` layout, which component to reach for) and ships the full
 docs bundle next to it so the agent can read the exact API on demand.
 
+`init` installs the skill automatically for every detected agent. To install or
+re-install at any time:
+
 ```bash
-mkdir -p ~/.claude/skills/smithers
-curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
-  -o ~/.claude/skills/smithers/SKILL.md
-curl -fsSL https://smithers.sh/llms-full.txt \
-  -o ~/.claude/skills/smithers/llms-full.txt
+bunx smithers-orchestrator skills add
 ```
 
-Any agent with a skills directory can host it. Swap `~/.claude/skills` for
-`~/.codex/skills`, `~/.cursor/skills`, `~/.agents/skills`, and so on. See each
-agent's page for the exact path.
+Target a single agent with `--agent` (e.g. `--agent codex`, `--agent cursor`).
+See each agent's page for the exact path where the skill lands.
 
 ## Support matrix
 
 | Agent | Skill | MCP server | Notes |
 |---|---|---|---|
-| [Claude Code](/agents/claude-code) | `skills add` / curl | `mcp add` → `~/.claude.json` | Also a Claude Code **plugin** (skill + MCP bundled) |
+| [Claude Code](/agents/claude-code) | `skills add` | `mcp add` → `~/.claude.json` | Also a Claude Code **plugin** (skill + MCP bundled) |
 | [Codex](/agents/codex) | `skills add` → `~/.codex/skills` | `mcp add` / `config.toml` (TOML) | `AGENTS.md` for standing instructions |
 | [Cursor](/agents/cursor) | `skills add` → `~/.cursor/skills` | `mcp add` / `.cursor/mcp.json` | Rules in `.cursor/rules/*.mdc`; `cursor-agent` CLI |
 | [GitHub Copilot](/agents/copilot) | `skills add` → `~/.copilot/skills` | `.vscode/mcp.json` (editor) / repo settings (cloud agent) | Two distinct MCP schemas |

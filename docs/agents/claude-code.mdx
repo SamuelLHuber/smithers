@@ -21,15 +21,12 @@ The onboarding skill teaches Claude the Smithers mental model and ships the full
 docs bundle next to it:
 
 ```bash
-mkdir -p ~/.claude/skills/smithers
-curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
-  -o ~/.claude/skills/smithers/SKILL.md
-curl -fsSL https://smithers.sh/llms-full.txt \
-  -o ~/.claude/skills/smithers/llms-full.txt
+bunx smithers-orchestrator skills add --agent claude-code
 ```
 
-For project-scoped skills, write to `.claude/skills/` in the repo instead, or run
-`skills add --no-global` to generate per-command skills there.
+`init` runs this automatically; you only need it explicitly to re-install or
+update the skill. For project-scoped skills, pass `--no-global` to write to
+`.claude/skills/` in the repo instead.
 
 Claude loads a skill when its `description` matches the request, so once it's
 installed you just ask for the outcome, *"orchestrate an agent to add rate

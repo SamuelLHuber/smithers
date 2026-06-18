@@ -20,24 +20,19 @@ some multi-step or long-running work, and it reaches for Smithers on its own.
 
 ## Install
 
-### Claude Code
+`smithers init` auto-installs the skill into every coding agent it detects — no
+`mkdir`, no `curl`. To install or re-install at any time:
 
 ```bash
-mkdir -p ~/.claude/skills/smithers
-curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
-  -o ~/.claude/skills/smithers/SKILL.md
-curl -fsSL https://smithers.sh/llms-full.txt \
-  -o ~/.claude/skills/smithers/llms-full.txt
+bunx smithers-orchestrator skills add
 ```
 
-Use `.claude/skills/smithers/` instead of `~/.claude/skills/smithers/` to scope the
-skill to one project.
+Target a single agent with `--agent` (e.g. `--agent claude-code`, `--agent codex`).
+Use `--no-global` to scope the skill to the current project instead of the global
+agent directory.
 
-### Other agents
-
-Any agent that loads Markdown skills works the same way — point it at this folder.
-For agents without a skills directory, just tell them to run
-`bunx smithers-orchestrator docs-full` (it prints the same `llms-full.txt`), or
+For agents without a skills directory, point them at
+`bunx smithers-orchestrator docs-full` (prints the same `llms-full.txt`), or
 `bunx smithers-orchestrator ask "<question>"`.
 
 ## Keeping it fresh

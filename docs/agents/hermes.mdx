@@ -40,16 +40,11 @@ reference: [MCP Server](/integrations/mcp-server).
 
 ## Install the skill
 
-Hermes supports the `SKILL.md` (agentskills.io) format. Drop the onboarding skill
-into its skills directory. `skills add` also writes the generated set to the
-canonical `~/.agents/skills/`, which Hermes can be pointed at:
+Hermes supports the `SKILL.md` (agentskills.io) format. `skills add` installs the
+curated `smithers` skill into `~/.agents/skills/`, which Hermes can be pointed at:
 
 ```bash
-mkdir -p ~/.agents/skills/smithers
-curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
-  -o ~/.agents/skills/smithers/SKILL.md
-curl -fsSL https://smithers.sh/llms-full.txt \
-  -o ~/.agents/skills/smithers/llms-full.txt
+bunx smithers-orchestrator skills add --agent hermes
 ```
 
 Because Hermes is a native MCP client, the MCP server above is the primary

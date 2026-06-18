@@ -38,15 +38,11 @@ The server exposes the semantic tools (`list_workflows`, `run_workflow`,
 
 ## Install the skill
 
-Cursor reads skills from `~/.cursor/skills/`. Drop the onboarding skill in
-manually if you skip `skills add`:
+Cursor reads skills from `~/.cursor/skills/`. The command at the top of this page
+installs the skill for you:
 
 ```bash
-mkdir -p ~/.cursor/skills/smithers
-curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
-  -o ~/.cursor/skills/smithers/SKILL.md
-curl -fsSL https://smithers.sh/llms-full.txt \
-  -o ~/.cursor/skills/smithers/llms-full.txt
+bunx smithers-orchestrator skills add --agent cursor
 ```
 
 ## Add a project rule

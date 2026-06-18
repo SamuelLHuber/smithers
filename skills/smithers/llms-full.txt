@@ -156,12 +156,18 @@ runs, watching them, and clearing approvals. The `smithers` skill makes your age
 fluent in that without making it read the whole docs site first, so you reach the
 aha moment faster.
 
+`init` auto-installs the skill into every coding agent it detects (no `mkdir`, no
+`curl`). To install or re-install at any time:
+
 ```bash
-mkdir -p ~/.claude/skills/smithers
-curl -fsSL https://raw.githubusercontent.com/smithersai/smithers/main/skills/smithers/SKILL.md \
-  -o ~/.claude/skills/smithers/SKILL.md
-curl -fsSL https://smithers.sh/llms-full.txt \
-  -o ~/.claude/skills/smithers/llms-full.txt
+bunx smithers-orchestrator skills add
+```
+
+That copies the curated `smithers` skill (SKILL.md + the full docs bundle) into
+every detected agent on your machine. Target a single agent with `--agent`:
+
+```bash
+bunx smithers-orchestrator skills add --agent claude-code
 ```
 
 The skill ships the full docs bundle (`llms-full.txt`) next to its `SKILL.md`, so
