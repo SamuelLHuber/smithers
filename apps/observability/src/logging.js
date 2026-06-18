@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Logger, LogLevel } from "effect";
 import { getCurrentSmithersTraceAnnotations } from "./getCurrentSmithersTraceAnnotations.js";
 import { correlationContextToLogAnnotations, getCurrentCorrelationContext, withCurrentCorrelationContext, } from "./correlation.js";
 /**
@@ -30,6 +30,17 @@ function resolveMinLevel() {
 }
 
 const minLevel = resolveMinLevel();
+
+/** @param {number} level */
+function toEffectLogLevel(level) {
+    switch (level) {
+        case LOG_LEVEL_DEBUG: return LogLevel.Debug;
+        case LOG_LEVEL_INFO: return LogLevel.Info;
+        case LOG_LEVEL_WARNING: return LogLevel.Warning;
+        case LOG_LEVEL_ERROR: return LogLevel.Error;
+        default: return LogLevel.All;
+    }
+}
 
 /**
  * @param {Effect.Effect<void, never, never>} effect
@@ -66,7 +77,7 @@ function buildLogProgram(effect, annotations, span) {
 function emitLog(effect, annotations, span, level = LOG_LEVEL_INFO) {
     if (level < minLevel) return;
     const program = buildLogProgram(effect, annotations, span);
-    if (program) void Effect.runFork(program);
+    if (program) void Effect.runFork(program.pipe(Logger.withMinimumLogLevel(toEffectLogLevel(level))));
 }
 
 /**
@@ -79,7 +90,7 @@ function emitLog(effect, annotations, span, level = LOG_LEVEL_INFO) {
 async function emitLogAwait(effect, annotations, span, level = LOG_LEVEL_INFO) {
     if (level < minLevel) return;
     const program = buildLogProgram(effect, annotations, span);
-    if (program) await Effect.runPromise(program);
+    if (program) await Effect.runPromise(program.pipe(Logger.withMinimumLogLevel(toEffectLogLevel(level))));
 }
 /**
  * @param {string} message

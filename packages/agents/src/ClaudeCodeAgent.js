@@ -56,6 +56,7 @@ export function createClaudeCodeCapabilityRegistry(opts = {}) {
     };
 }
 const TOOL_OUTPUT_MAX_CHARS = 500;
+let didWarnAnthropicApiKeyUnset = false;
 /**
  * @param {string} toolName
  * @param {string | undefined} rawOutput
@@ -105,8 +106,11 @@ export class ClaudeCodeAgent extends BaseCliAgent {
         if (process.env.CLAUDECODE)
             parentEnvOverrides.CLAUDECODE = "";
         if (process.env.ANTHROPIC_API_KEY && !opts.apiKey) {
-            logWarning("ClaudeCodeAgent: unsetting ANTHROPIC_API_KEY so Claude Code uses your subscription. " +
-                "To use API billing instead, pass `apiKey` to ClaudeCodeAgent or use ToolLoopAgent from 'ai' with anthropic() provider.", {}, "agent.init");
+            if (!didWarnAnthropicApiKeyUnset) {
+                didWarnAnthropicApiKeyUnset = true;
+                logWarning("ClaudeCodeAgent: unsetting ANTHROPIC_API_KEY so Claude Code uses your subscription. " +
+                    "To use API billing instead, pass `apiKey` to ClaudeCodeAgent or use ToolLoopAgent from 'ai' with anthropic() provider.", {}, "agent.init");
+            }
             parentEnvOverrides.ANTHROPIC_API_KEY = "";
         }
         if (Object.keys(parentEnvOverrides).length > 0) {
