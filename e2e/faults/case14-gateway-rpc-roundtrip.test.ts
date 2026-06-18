@@ -164,6 +164,15 @@ describe("case 14: gateway authenticated RPC roundtrip", () => {
     );
     expect(approval?.runId).toBe(RUN_ID);
 
+    // submitApproval is validated against the NODE state (not the approval row), and the
+    // row can flip to "requested" a beat before the node parks at waiting-approval. Wait
+    // for the node itself so the round-trip isn't racing the engine.
+    await waitFor(
+      () => Effect.runPromise(adapter!.getNode(RUN_ID, APPROVAL_NODE_ID, 0)),
+      (node) => node?.state === "waiting-approval" || node?.state === "waiting_approval",
+      "node waiting-approval",
+    );
+
     const approved = await postRpc(port, "submitApproval", OPERATOR_TOKEN, {
       runId: RUN_ID,
       nodeId: APPROVAL_NODE_ID,
