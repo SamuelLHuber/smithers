@@ -194,6 +194,35 @@ test("seeded workflow docs cover current init workflow pack", () => {
     }
 });
 
+test("workflow overview, catalog, and sidebar cover every documented workflow", () => {
+    const workflowDocIds = readdirSync(resolve(REPO_ROOT, "docs/workflows"))
+        .filter((file) => file.endsWith(".mdx"))
+        .map((file) => file.replace(/\.mdx$/, ""))
+        .filter((id) => id !== "overview" && id !== "catalog")
+        .sort();
+    expect(workflowDocIds).toHaveLength(30);
+
+    const overview = readRepoFile("docs/workflows/overview.mdx");
+    const catalog = readRepoFile("docs/workflows/catalog.mdx");
+    const docsJson = readRepoFile("docs/docs.json");
+
+    const overviewWorkflowIds = [...overview.matchAll(/\[`([a-z0-9-]+)`\]\(\/workflows\/\1\)/g)]
+        .map((match) => match[1])
+        .sort();
+    const catalogWorkflowIds = [...catalog.matchAll(/`([a-z0-9-]+)`/g)]
+        .map((match) => match[1])
+        .filter((id) => workflowDocIds.includes(id))
+        .sort();
+    const sidebarWorkflowIds = [...docsJson.matchAll(/"workflows\/([a-z0-9-]+)"/g)]
+        .map((match) => match[1])
+        .filter((id) => id !== "overview" && id !== "catalog")
+        .sort();
+
+    expect(overviewWorkflowIds).toEqual(workflowDocIds);
+    expect(catalogWorkflowIds).toEqual(workflowDocIds);
+    expect(sidebarWorkflowIds).toEqual(workflowDocIds);
+});
+
 test("error reference docs cover current Smithers error registry", () => {
     const errorSource = readRepoFile("packages/errors/src/smithersErrorDefinitions.js");
     const errorDoc = readRepoFile("docs/reference/errors.mdx");
@@ -883,6 +912,47 @@ test("OpenAPI docs document current package limitations", () => {
     expect(docs).toContain("JSON request bodies");
     expect(docs).toContain("Parameter serialization styles");
     expect(docs).toContain("Swagger 2.0");
+});
+
+test("community connector spec documents the long-tail package contract", () => {
+    const docsConfig = readRepoFile("docs/docs.json");
+    expect(docsConfig).toContain("integrations/community-connectors");
+
+    const doc = readRepoFile("docs/integrations/community-connectors.mdx");
+    const requiredSections = [
+        "## Package Layout",
+        "## Manifest Format",
+        "## Loader Contract",
+        "## Tool Declarations",
+        "## Trigger Declarations",
+        "## Auth Requirements",
+        "## Tier 0 Integration Points",
+        "## Anti-Patterns",
+    ];
+    const manifestKeys = [
+        "smithers.connector.v1",
+        "tools",
+        "triggers",
+        "auth",
+        "surfaces",
+        "oauth",
+        "tokenBroker",
+        "mcp",
+        "openapi",
+        "webhooks",
+    ];
+    const loaderTerms = [
+        "validate the manifest",
+        "project tools",
+        "register triggers",
+        "resolve auth",
+        "enforce scopes",
+        "idempotency",
+    ];
+
+    for (const section of requiredSections) expect(doc).toContain(section);
+    for (const key of manifestKeys) expect(doc).toContain(key);
+    for (const term of loaderTerms) expect(doc).toContain(term);
 });
 
 test("memory docs cover current MemoryStore method names", () => {
