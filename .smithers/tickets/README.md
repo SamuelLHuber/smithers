@@ -24,25 +24,9 @@ Phase 0.5 — 2026-04-25 hardening review (CI honesty + import contracts):
 - [0026](smithers/0026-smithers-workspace-typecheck-and-agentlike.md) — `.smithers` workspace fails `tsc`; `AgentLike` contract diverges
 - [0027](smithers/0027-root-validation-scope-gaps.md) — Root `typecheck`/`lint` scope too narrow — false-green CI
 
-Studio 2 / context:
+This-repo features:
 
-- [0028](smithers/0028-vector-memories-context-management.md) — Vector memories: background-embedded agent memories + cross-session semantic recall (lights up `_smithers_vectors` + `SemanticRecallConfig`)
 - [0029](smithers/0029-global-settings-and-global-workflows.md) — Global settings + global workflows (OS-convention config home, à la Claude Code / Codex)
-
-jjhub parity — bring `apps/smithers` (the new chat-first UI) to feature parity
-with the jjhub cloud platform. Plan: [`../plans/jjhub-parity.md`](../plans/jjhub-parity.md).
-Already shipped: transport seam, Worker platform proxy, backend selector, WS/SSE
-ticket helper; issues + landings list-views wired to live Plue. Remaining:
-
-- [0030](smithers/0030-jjhub-sse-seam.md) — Authenticated SSE seam (blocked on jjhub reference impl)
-- [0031](smithers/0031-jjhub-owner-repo-route-vocabulary.md) — owner/repo route vocabulary + repo-context
-- [0032](smithers/0032-jjhub-notifications-inbox.md) — Notifications inbox surface
-- [0033](smithers/0033-jjhub-repos-and-source.md) — Repos list + dashboard + source browser
-- [0034](smithers/0034-jjhub-workspaces-and-terminal.md) — Cloud workspaces + in-browser terminal (WS bypasses the Worker)
-- [0035](smithers/0035-jjhub-vcs-live.md) — jj VCS live (changes/operations/stacks) + tickets
-- [0036](smithers/0036-jjhub-review-and-tracker-depth.md) — Landings PR review + issues comments/metadata depth
-- [0037](smithers/0037-jjhub-runs-parity-and-sessions.md) — Runs parity + durable agent sessions
-- [0038](smithers/0038-jjhub-platform-breadth.md) — Settings, repo config, wiki/releases, search, integrations (umbrella)
 
 Onboarding feedback (2026-06-17, from X/Twitter replies asking for feedback):
 
@@ -52,7 +36,29 @@ Onboarding feedback (2026-06-17, from X/Twitter replies asking for feedback):
 - [0042](smithers/0042-cut-onboarding-volume.md) — Cut get-started ~75–80%: 1–3 steps, stop bombarding with choices
 - [0043](smithers/0043-one-command-helloworld-mdx-default.md) — Default first-run = 1 command + editable hello-world `.mdx` template
 - [0044](smithers/0044-default-to-mdx-deprioritize-sdk.md) — Default onboarding to MDX; keep TS SDK but not front-and-center
-- [0045](smithers/0045-onboarding-walkthrough-stream.md) — Produce a ~1-hour onboarding walkthrough/stream on a new project
+
+> Removed 2026-06-18 (stale / other-repo, per CLAUDE.md): the jjhub-parity set
+> (0030–0038) and `0028` (vector memories) targeted the deprioritized
+> `apps/smithers` / Studio-2 POCs; `real-stack-e2e/*` targeted the separate
+> `../plue` product repo; `0045` (record a walkthrough stream) is a human task;
+> `0001`/`0002` were kanban demo fixtures; `0003` (6LARP, complete) → `.done/`.
+
+Bulletproof-audit follow-ups (triaged 2026-06-18 against `main`, post-#442 merge train).
+These hold the **still-open** findings from the 2026-06-16 audit GitHub epics after the
+#312–#442 fix/test/refactor wave; each ticket links its source issue and lists only the
+remaining work. Of 443 tracked findings/items, ~155 have landed; the rest live here:
+
+- [0046](smithers/0046-audit-p0-blockers.md) — P0 critical blockers ([#299](https://github.com/smithersai/smithers/issues/299), 1 of 4 open: real-product rewrite of the remaining ~17 fabricated-schema fault cases)
+- [0047](smithers/0047-audit-ci-architecture-systemic.md) — CI enforcement, architecture & systemic policy ([#300](https://github.com/smithersai/smithers/issues/300), 34 open — no lint/coverage/build/examples CI gates, exports/boundary drift, checkJs off)
+- [0048](smithers/0048-audit-dead-code-cleanup.md) — Dead code cleanup ([#301](https://github.com/smithersai/smithers/issues/301), 64 open)
+- [0049](smithers/0049-audit-stubbed-missing-features.md) — Stubbed & missing features ([#302](https://github.com/smithersai/smithers/issues/302), 8 open — AmpAgent resume, AlertRuntime, sandbox providers, gateway RPC drift)
+- [0050](smithers/0050-audit-bug-fixes.md) — Bug fixes ([#303](https://github.com/smithersai/smithers/issues/303), 15 open)
+- [0051](smithers/0051-audit-docs-skills-accuracy.md) — Documentation & skills accuracy ([#304](https://github.com/smithersai/smithers/issues/304), 11 open — leftover JSDoc/changelog/comment edits)
+- [0052](smithers/0052-audit-test-coverage-gaps.md) — Test coverage gaps ([#306](https://github.com/smithersai/smithers/issues/306), 58 open — OTLP layers, review drivers, fabricated/skip-only e2e, gateway-react branches)
+- [0053](smithers/0053-audit-code-cleanup-refactors.md) — Code cleanup & refactors ([#307](https://github.com/smithersai/smithers/issues/307), 25 open)
+- [0054](smithers/0054-degraded-partial-failure-run-status.md) — Degraded/partial-failure run status ([#295](https://github.com/smithersai/smithers/issues/295), open — masked failed children)
+- [0055](smithers/0055-quota-aware-pause-and-resume.md) — Quota-aware pause & resume ([#324](https://github.com/smithersai/smithers/issues/324), open — don't burn retries on usage-limit errors)
+- [0056](smithers/0056-integrations-tool-catalog.md) — Integrations tool catalog ([#222](https://github.com/smithersai/smithers/issues/222), 72 of 87 open — OAuth plane is the load-bearing gap; Tier 1 connector backlog)
 
 ## `jjhub/` — `/Users/williamcory/jjhub`
 
