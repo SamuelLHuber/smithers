@@ -7,6 +7,7 @@ import { nowMs } from "@smithers-orchestrator/scheduler/nowMs";
 import { openApiToolCallsTotal, openApiToolCallErrorsTotal, openApiToolDuration, } from "../metrics.js";
 import { buildOperationSchema } from "../schema-converter.js";
 import { extractOperations } from "../spec-parser.js";
+import { getRequestBodyArgName } from "../getRequestBodyArgName.js";
 /** @typedef {import("../OpenApiSpec.ts").OpenApiSpec} OpenApiSpec */
 /** @typedef {import("../OpenApiTool.ts").OpenApiTool} OpenApiTool */
 /** @typedef {import("../OpenApiToolsOptions.ts").OpenApiToolsOptions} OpenApiToolsOptions */
@@ -208,9 +209,11 @@ export async function executeRequest(operation, args, baseUrl, options) {
         method: operation.method.toUpperCase(),
         headers,
     };
-    // Request body
-    if (args.body !== undefined) {
-        fetchInit.body = serializeRequestBody(args.body, operation.requestBodyMediaType, headers);
+    // Request body — read from the SAME non-colliding key the schema used, so a
+    // parameter named `body` (or `requestBody`) cannot shadow the actual body.
+    const requestBodyArgName = getRequestBodyArgName(operation.parameters);
+    if (args[requestBodyArgName] !== undefined) {
+        fetchInit.body = serializeRequestBody(args[requestBodyArgName], operation.requestBodyMediaType, headers);
         fetchInit.headers = headers;
     }
     const response = await fetch(url, fetchInit);

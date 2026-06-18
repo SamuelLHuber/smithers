@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { isRef } from "./ref-resolver.js";
 import { jsonSchemaToZod } from "./jsonSchemaToZod.js";
+import { getRequestBodyArgName } from "./getRequestBodyArgName.js";
 
 /** @typedef {import("./OpenApiSpec.ts").OpenApiSpec} OpenApiSpec */
 /** @typedef {import("./ParameterObject.ts").ParameterObject} ParameterObject */
@@ -65,14 +66,17 @@ export function buildOperationSchema(parameters, requestBody, spec) {
             const bodySchema = selectedContent.content.schema
                 ? jsonSchemaToZod(selectedContent.content.schema, spec)
                 : z.any();
-            // If the body schema is an object, merge its properties
-            // into the top-level props under a "body" key
+            // The request body lives under "body" unless an operation parameter
+            // already claims that name (or "requestBody"); getRequestBodyArgName
+            // resolves a non-colliding key so a param named `body` cannot replace
+            // the request body. executeRequest reads from the SAME resolved key.
+            const requestBodyArgName = getRequestBodyArgName(parameters);
             if (requestBody.required) {
-                props.body = bodySchema;
-                requiredKeys.push("body");
+                props[requestBodyArgName] = bodySchema;
+                requiredKeys.push(requestBodyArgName);
             }
             else {
-                props.body = bodySchema.optional();
+                props[requestBodyArgName] = bodySchema.optional();
             }
         }
     }
