@@ -13,7 +13,7 @@ export const GENERATED_SEEDED_FILES = [
   },
   {
     "path": ".smithers/prompts/hello.mdx",
-    "contents": "Write a short, friendly one-sentence greeting for {props.name}.\n\nThis is your hello-world prompt. It is just Markdown, so edit this file to change\nwhat the workflow does. Anything in `{curly braces}` is a value passed in from\nthe workflow (here, `props.name`).\n\nTry changing this instruction (for example, ask for a haiku instead of a\ngreeting), then run `smithers workflow run hello` again to see it change.\n"
+    "contents": "Write a short, friendly one-sentence greeting for {props.name}.\n\nThis is your hello-world workflow. Edit this file to change what the agent does —\nit is plain Markdown, no TypeScript required. Anything in `{curly braces}` is a\nvalue passed in from the workflow (here, `props.name`).\n\nTry changing the instruction (for example, ask for a haiku instead of a greeting),\nthen run `smithers workflow run hello` again to see it change.\n"
   },
   {
     "path": ".smithers/workflows/create-workflow.tsx",

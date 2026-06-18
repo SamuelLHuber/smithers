@@ -1,7 +1,7 @@
 ---
 title: "Get Started"
 icon: "play"
-description: "One command sets everything up. Your first workflow runs in 30 seconds."
+description: "One command. One editable .mdx file. Your first workflow runs in 30 seconds."
 ---
 
 <Steps>
@@ -14,15 +14,17 @@ From inside your project:
 bunx smithers-orchestrator init
 ```
 
+This creates `.smithers/` and seeds **`.smithers/prompts/hello.mdx`** — your editable hello-world workflow. Open it, change the instruction, and the next run picks it up. No TypeScript required.
+
 </Step>
 
-<Step title="Run your first workflow">
+<Step title="Run your hello-world workflow">
 
 ```bash
 bunx smithers-orchestrator workflow run hello
 ```
 
-A durable run completes and you see the output. Its prompt lives in `.smithers/prompts/hello.mdx` (plain Markdown). Edit it, run it again, watch the output change.
+A durable run completes and you see the output. Edit `.smithers/prompts/hello.mdx`, run it again, watch the output change.
 
 </Step>
 
