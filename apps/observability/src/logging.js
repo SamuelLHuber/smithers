@@ -11,6 +11,7 @@ const LOG_LEVEL_DEBUG = 1;
 const LOG_LEVEL_INFO = 2;
 const LOG_LEVEL_WARNING = 3;
 const LOG_LEVEL_ERROR = 4;
+const LOG_RUNNER_KEY = Symbol.for("smithers.observability.logRunner");
 
 /** @returns {number} */
 function resolveMinLevel() {
@@ -30,6 +31,47 @@ function resolveMinLevel() {
 }
 
 const minLevel = resolveMinLevel();
+
+/**
+ * @typedef {{
+ *   runFork: (effect: Effect.Effect<void, never, never>) => unknown;
+ *   runPromise: (effect: Effect.Effect<void, never, never>) => Promise<void>;
+ * }} SmithersLogRunner
+ */
+
+/** @returns {{ runner: SmithersLogRunner | null }} */
+function getRunnerState() {
+    const globalState = /** @type {typeof globalThis & { [LOG_RUNNER_KEY]?: { runner: SmithersLogRunner | null } }} */ (globalThis);
+    globalState[LOG_RUNNER_KEY] ??= { runner: null };
+    return globalState[LOG_RUNNER_KEY];
+}
+
+/** @type {SmithersLogRunner} */
+const defaultRunner = {
+    runFork: (effect) => Effect.runFork(effect),
+    runPromise: (effect) => Effect.runPromise(effect),
+};
+
+/** @returns {SmithersLogRunner} */
+function getLogRunner() {
+    return getRunnerState().runner ?? defaultRunner;
+}
+
+/**
+ * Install the Effect runtime used by fire-and-forget observability logs.
+ * Returns a restore function so tests and embedded hosts can scope overrides.
+ *
+ * @param {SmithersLogRunner | null} runner
+ * @returns {() => void}
+ */
+export function setSmithersLogRunner(runner) {
+    const state = getRunnerState();
+    const previous = state.runner;
+    state.runner = runner;
+    return () => {
+        state.runner = previous;
+    };
+}
 
 /** @param {number} level */
 function toEffectLogLevel(level) {
@@ -77,7 +119,12 @@ function buildLogProgram(effect, annotations, span) {
 function emitLog(effect, annotations, span, level = LOG_LEVEL_INFO) {
     if (level < minLevel) return;
     const program = buildLogProgram(effect, annotations, span);
-    if (program) void Effect.runFork(program.pipe(Logger.withMinimumLogLevel(toEffectLogLevel(level))));
+    if (!program) return;
+    try {
+        void getLogRunner().runFork(program.pipe(Logger.withMinimumLogLevel(toEffectLogLevel(level))));
+    } catch {
+        // Logging must never break the caller.
+    }
 }
 
 /**
@@ -90,7 +137,12 @@ function emitLog(effect, annotations, span, level = LOG_LEVEL_INFO) {
 async function emitLogAwait(effect, annotations, span, level = LOG_LEVEL_INFO) {
     if (level < minLevel) return;
     const program = buildLogProgram(effect, annotations, span);
-    if (program) await Effect.runPromise(program.pipe(Logger.withMinimumLogLevel(toEffectLogLevel(level))));
+    if (!program) return;
+    try {
+        await getLogRunner().runPromise(program.pipe(Logger.withMinimumLogLevel(toEffectLogLevel(level))));
+    } catch {
+        // Logging must never break the caller.
+    }
 }
 /**
  * @param {string} message

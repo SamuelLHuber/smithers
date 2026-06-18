@@ -1,7 +1,7 @@
 import * as WorkflowEngine from "@effect/workflow/WorkflowEngine";
 import { Cause, Effect, Exit, Layer, ManagedRuntime } from "effect";
 import { SchedulerLive, WorkflowSessionLive } from "@smithers-orchestrator/scheduler";
-import { CorrelationContextLive, MetricsServiceLive, TracingServiceLive, createSmithersRuntimeLayer, getCurrentSmithersTraceAnnotations, getCurrentSmithersTraceSpan, } from "@smithers-orchestrator/observability";
+import { CorrelationContextLive, MetricsServiceLive, TracingServiceLive, createSmithersRuntimeLayer, getCurrentSmithersTraceAnnotations, getCurrentSmithersTraceSpan, setSmithersLogRunner, } from "@smithers-orchestrator/observability";
 import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { SmithersLoggerLayer } from "./util/logger.ts";
 const ObservabilityLayer = Layer.mergeAll(CorrelationContextLive, MetricsServiceLive, TracingServiceLive);
@@ -9,6 +9,14 @@ const SmithersCoreLayer = Layer.mergeAll(ObservabilityLayer, SchedulerLive.pipe(
 const SmithersWorkflowEngineLayer = Layer.suspend(() => WorkflowEngine.layerMemory);
 const SmithersRuntimeLayer = Layer.mergeAll(SmithersLoggerLayer, SmithersCoreLayer, SmithersWorkflowEngineLayer, createSmithersRuntimeLayer()).pipe(Layer.orDie);
 const runtime = ManagedRuntime.make(SmithersRuntimeLayer);
+setSmithersLogRunner({
+    runFork(effect) {
+        return runtime.runFork(decorate(effect));
+    },
+    runPromise(effect) {
+        return runtime.runPromise(decorate(effect));
+    },
+});
 /**
  * @template A, E, R
  * @param {Effect.Effect<A, E, R>} effect

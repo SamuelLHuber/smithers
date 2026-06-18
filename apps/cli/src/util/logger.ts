@@ -128,31 +128,6 @@ function formatDetailValue(value: unknown): string {
   }).replace(/\s+/g, " ");
 }
 
-function logLevelFromLabel(label: string | undefined): LogLevel.LogLevel | undefined {
-  switch ((label ?? "").toUpperCase()) {
-    case "ALL":
-      return LogLevel.All;
-    case "TRACE":
-      return LogLevel.Trace;
-    case "DEBUG":
-      return LogLevel.Debug;
-    case "INFO":
-      return LogLevel.Info;
-    case "WARN":
-    case "WARNING":
-      return LogLevel.Warning;
-    case "ERROR":
-      return LogLevel.Error;
-    case "FATAL":
-      return LogLevel.Fatal;
-    case "OFF":
-    case "NONE":
-      return LogLevel.None;
-    default:
-      return undefined;
-  }
-}
-
 function styleLevel(logLevel: LogLevel.LogLevel): string {
   const label = (logLevel.label === "WARN" ? "warn" : logLevel.label.toLowerCase()).padEnd(5);
   switch (logLevel._tag) {
@@ -201,89 +176,7 @@ export function formatCliLogLine(options: CliLoggerOptions): string {
   return formatCompactLog(options.logLevel, formatMessage(options.message), formatLogDetails(options));
 }
 
-type ParsedEffectLogLine = {
-  level: LogLevel.LogLevel;
-  messages: string[];
-  details: string[];
-};
-
-function parseEffectLogLine(line: string): ParsedEffectLogLine | null {
-  if (!line.startsWith("timestamp=") || !line.includes(" level=") || !line.includes(" fiber=")) {
-    return null;
-  }
-
-  const fields = new Map<string, string[]>();
-  let i = 0;
-  while (i < line.length) {
-    while (line[i] === " ") i += 1;
-    if (i >= line.length) break;
-
-    const keyStart = i;
-    while (i < line.length && line[i] !== "=" && line[i] !== " ") i += 1;
-    if (line[i] !== "=") return null;
-    const key = line.slice(keyStart, i);
-    i += 1;
-
-    let value = "";
-    if (line[i] === "\"") {
-      i += 1;
-      while (i < line.length) {
-        const char = line[i];
-        if (char === "\\") {
-          value += line[i + 1] ?? "";
-          i += 2;
-          continue;
-        }
-        if (char === "\"") {
-          i += 1;
-          break;
-        }
-        value += char;
-        i += 1;
-      }
-    } else {
-      const valueStart = i;
-      while (i < line.length && line[i] !== " ") i += 1;
-      value = line.slice(valueStart, i);
-    }
-
-    const values = fields.get(key);
-    if (values) values.push(value);
-    else fields.set(key, [value]);
-  }
-
-  const level = logLevelFromLabel(fields.get("level")?.[0]);
-  if (!level) return null;
-
-  const details: string[] = [];
-  for (const [key, values] of fields) {
-    if (key === "timestamp" || key === "level" || key === "fiber" || key === "message") continue;
-    for (const value of values) details.push(`${key}=${value.replace(/\s+/g, " ")}`);
-  }
-
-  return {
-    level,
-    messages: fields.get("message") ?? [""],
-    details,
-  };
-}
-
-function routeEffectConsoleLog(args: ReadonlyArray<unknown>, raw: boolean): boolean {
-  if (args.length !== 1 || typeof args[0] !== "string") return false;
-  const parsed = parseEffectLogLine(args[0]);
-  if (!parsed) return false;
-  if (!shouldEmitLogLevel(parsed.level)) return true;
-
-  const line = raw
-    ? args[0]
-    : formatCompactLog(parsed.level, parsed.messages.join(" "), parsed.details);
-  const stream = raw ? process.stderr : process.stdout;
-  stream.write(`${line}\n`);
-  return true;
-}
-
 function routeConsoleArgs(args: ReadonlyArray<unknown>, original: (...args: unknown[]) => void): void {
-  if (routeEffectConsoleLog(args, isJsonMode())) return;
   if (isJsonMode()) return writeConsoleArgsToStderr(args);
   return original(...args);
 }
