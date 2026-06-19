@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { escapeHtml } from "../src/walkthrough/escapeHtml";
 import { classifyChangeRole } from "../src/walkthrough/classifyChangeRole";
+import { describeChange } from "../src/walkthrough/describeChange";
 
 describe("escapeHtml", () => {
   test("escapes the five HTML-sensitive characters", () => {
@@ -57,5 +58,16 @@ describe("classifyChangeRole", () => {
     expect(classifyChangeRole("tests/helpers/build.ts")).toBe("tests");
     // A markdown file anywhere is docs.
     expect(classifyChangeRole("packages/x/src/NOTES.md")).toBe("docs");
+  });
+});
+
+describe("describeChange", () => {
+  test("renders status with signed insertion/deletion counts", () => {
+    expect(
+      describeChange({ path: "a.ts", status: "added", insertions: 12, deletions: 0, diff: "", reviewed: false, excludeReason: "" }),
+    ).toBe("added (+12 −0)");
+    expect(
+      describeChange({ path: "b.ts", status: "modified", insertions: 3, deletions: 7, diff: "", reviewed: false, excludeReason: "" }),
+    ).toBe("modified (+3 −7)");
   });
 });
