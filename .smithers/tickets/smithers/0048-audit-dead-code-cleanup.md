@@ -68,7 +68,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Vestigial approve mapping still present.
 - [ ] **P2** JsonSchema type declares anyOf/format/default/maximum fields that no schema sets and the test validator cannot check — `packages/gateway/src/rpc/index.ts:9-25`
   - _remaining:_ Unused JsonSchema fields still declared.
-- [ ] **P2** Stale empty src/index.d.ts is checked in and shipped — `packages/gateway-client/src/index.d.ts:1`
+- [x] **P2** Stale empty src/index.d.ts is checked in and shipped — `packages/gateway-client/src/index.d.ts:1`
   - _remaining:_ Stale empty index.d.ts still checked in.
 - [ ] **P2** Exported GatewayRequestFrame type is never imported or used anywhere — `packages/gateway-client/src/GatewayRequestFrame.ts:1`
   - _remaining:_ Exported type still never imported.
@@ -88,7 +88,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Four speculative config types still have no consumer.
 - [ ] **P2** `deprecated` is parsed but never used; OpenApiToolCalled event is typed/formatted but never emitted — `packages/openapi/src/extractOperations.js:45, apps/cli/src/format.js:280, packages/engine/src/index.d.ts:204`
   - _remaining:_ deprecated unused; OpenApiToolCalled still never emitted.
-- [ ] **P2** Committed generated src/index.d.ts is unreferenced by the exports map (dead generated artifact in source) — `packages/pi-plugin/src/index.d.ts`
+- [x] **P2** Committed generated src/index.d.ts is unreferenced by the exports map (dead generated artifact in source) — `packages/pi-plugin/src/index.d.ts`
   - _remaining:_ Committed generated index.d.ts still dead.
 - [ ] **P2** DevToolsStore.retryNode and runSupportsRetry are effectively dead (no-op feature) — `packages/pi-plugin/src/runtime/DevToolsStore.ts:204,520-524`
   - _remaining:_ retryNode/runSupportsRetry still effectively no-op/dead.
