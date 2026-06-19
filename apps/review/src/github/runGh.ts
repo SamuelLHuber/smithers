@@ -21,15 +21,22 @@ export async function runGh(repoDir: string, args: string[], stdin?: string): Pr
   try {
     const result = Bun.spawnSync([ghBin, ...args], {
       cwd: repoDir,
+      // Pass env explicitly: Bun.spawnSync snapshots the environment at startup
+      // for its default, so env vars set at runtime (e.g. a freshly exported
+      // GH_TOKEN) would not otherwise reach gh.
+      env: { ...process.env },
       stdin: stdin != null ? new TextEncoder().encode(stdin) : undefined,
       stdout: Bun.file(outPath),
       stderr: Bun.file(errPath),
     });
     const stderr = readFileSync(errPath, "utf8");
-    if (result.exitCode !== 0) {
-      throw new Error(
-        `gh ${args.slice(0, 2).join(" ")} failed: ${stderr.trim() || `exited with code ${result.exitCode}`}`,
-      );
+    // A failed spawn (e.g. the binary could not be exec'd) can surface as
+    // success=false; don't silently return "" in that case — report it.
+    if (!result.success || result.exitCode !== 0) {
+      const detail =
+        stderr.trim() ||
+        `exited with code ${result.exitCode}${result.signalCode ? `, signal ${result.signalCode}` : ""}`;
+      throw new Error(`gh ${args.slice(0, 2).join(" ")} failed: ${detail}`);
     }
     return readFileSync(outPath, "utf8");
   } finally {
