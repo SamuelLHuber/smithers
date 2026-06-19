@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { escapeHtml } from "../src/walkthrough/escapeHtml";
 import { classifyChangeRole } from "../src/walkthrough/classifyChangeRole";
 import { describeChange } from "../src/walkthrough/describeChange";
+import { normalizeReviewInput } from "../src/workflow/normalizeReviewInput";
 
 describe("escapeHtml", () => {
   test("escapes the five HTML-sensitive characters", () => {
@@ -69,5 +70,24 @@ describe("describeChange", () => {
     expect(
       describeChange({ path: "b.ts", status: "modified", insertions: 3, deletions: 7, diff: "", reviewed: false, excludeReason: "" }),
     ).toBe("modified (+3 −7)");
+  });
+});
+
+describe("normalizeReviewInput", () => {
+  test("applies schema defaults for an empty / non-object input", () => {
+    const fromEmpty = normalizeReviewInput({});
+    expect(fromEmpty.narrate).toBe(true);
+    expect(fromEmpty.split).toBe(false);
+    expect(fromEmpty.out).toBe("");
+
+    const fromNonObject = normalizeReviewInput("not-an-object");
+    expect(fromNonObject.narrate).toBe(true);
+  });
+
+  test("strips null fields so their schema defaults apply, but keeps real values", () => {
+    const result = normalizeReviewInput({ narrate: null, split: true });
+    // null was stripped -> default (true) applies; the real `split: true` is kept.
+    expect(result.narrate).toBe(true);
+    expect(result.split).toBe(true);
   });
 });
