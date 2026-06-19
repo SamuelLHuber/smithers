@@ -1,4 +1,5 @@
 import type { Collection } from "@tanstack/db";
+import { asRecord } from "../objectGuards.ts";
 import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListPromptsRequest, ListRunsRequest, ListScoresRequest, ListTicketsRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayApprovalRow } from "./GatewayApprovalRow.ts";
 import type { GatewayCronRow } from "./GatewayCronRow.ts";
@@ -14,12 +15,6 @@ import type { GatewayWorkflowRow } from "./GatewayWorkflowRow.ts";
 import { flattenGatewayRunNode } from "./flattenGatewayRunNode.ts";
 import { snapshotToGatewayRunNode, type DevToolsSnapshot } from "./snapshotToGatewayRunNode.ts";
 import { gatewayKeys } from "./gatewayKeys.ts";
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;

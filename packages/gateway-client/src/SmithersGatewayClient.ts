@@ -1,4 +1,5 @@
 import type { GatewayRpcMethod } from "@smithers-orchestrator/gateway/rpc";
+import { isObject } from "./objectGuards.ts";
 import { GatewayRpcError } from "./GatewayRpcError.ts";
 import type { GatewayEventFrame } from "./GatewayEventFrame.ts";
 import type { GatewayResponseFrame } from "./GatewayResponseFrame.ts";
@@ -112,10 +113,6 @@ function invalidGatewayResponse(method: string, status: number | undefined, deta
     message: "Gateway returned an invalid RPC response frame.",
     details,
   });
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function sleepWithSignal(ms: number, signal: AbortSignal | undefined): Promise<void> {

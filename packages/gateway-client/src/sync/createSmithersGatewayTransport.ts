@@ -1,4 +1,5 @@
 import type { SmithersGatewayClient } from "../SmithersGatewayClient.ts";
+import { isObject } from "../objectGuards.ts";
 import type { SyncRpcOptions, SyncStreamFrame, SyncStreamOptions, SyncTransport } from "./SyncTransport.ts";
 
 /**
@@ -21,10 +22,6 @@ export type CreateSmithersGatewayTransportOptions = {
    */
   streamHealthyAfterMs?: number;
 };
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function asRunId(params: unknown): string {
   if (!isObject(params) || typeof params.runId !== "string") {

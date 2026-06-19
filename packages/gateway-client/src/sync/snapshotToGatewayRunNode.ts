@@ -1,4 +1,5 @@
 import type { GatewayRunNode } from "./GatewayRunNode.ts";
+import { asRecord } from "../objectGuards.ts";
 
 /**
  * A node in a `getDevToolsSnapshot` payload. The gateway builds this tree from a
@@ -19,12 +20,6 @@ export type DevToolsSnapshot = {
   root?: DevToolsSnapshotNode;
   runState?: { state?: string; blocked?: { nodeId?: string } };
 };
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
 
 /**
  * The logical node id. `getNodeOutput` and approval rows speak the *logical* task
