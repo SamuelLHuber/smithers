@@ -291,7 +291,9 @@ describe("useGatewayExtensionStream", () => {
       { namespace: "logs", key: "tail", params: { runId: "run-1" } },
       { namespace: "logs", key: "tail", params: { runId: "run-1" } },
     ]);
-    expect(snapshot?.error).toBe(firstError);
+    // The stream recovered: once the reconnect delivers {seq:2}, the error from
+    // the first attempt is cleared (not left stuck after a successful reconnect).
+    expect(snapshot?.error).toBeUndefined();
     expect(snapshot?.streaming).toBe(true);
     expect(snapshot?.frames).toEqual([{ seq: 1 }, { seq: 2 }]);
     expect(snapshot?.latest).toEqual({ seq: 2 });

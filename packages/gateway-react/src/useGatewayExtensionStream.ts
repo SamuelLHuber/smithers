@@ -70,6 +70,9 @@ export function useGatewayExtensionStream<T = unknown>(
             signal: abort.signal,
           })) {
             attempt = 0;
+            // Recovered: a frame arrived, so clear any error from a prior
+            // failed attempt instead of leaving it stuck after reconnect.
+            setError(undefined);
             setLatest(frame);
             setFrames((current) => {
               if (current.length >= maxFrames) {
@@ -91,7 +94,19 @@ export function useGatewayExtensionStream<T = unknown>(
         }
         // Wait + reconnect. Server-side `subscribe()` decides whether replay
         // happens on resume — clients can't fake durability from this side.
-        await new Promise((resolve) => setTimeout(resolve, gatewayBackoffDelay(attempt, options.backoff)));
+        // The wait is abort-aware so an unmount/dep-change during backoff
+        // resolves immediately instead of blocking on a stale timer.
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, gatewayBackoffDelay(attempt, options.backoff));
+          abort.signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              resolve();
+            },
+            { once: true },
+          );
+        });
         attempt += 1;
       }
     })().finally(() => {
