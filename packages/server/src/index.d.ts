@@ -214,8 +214,6 @@ type ConnectRequest$1 = {
     };
     auth?: {
         token: string;
-    } | {
-        password: string;
     };
     subscribe?: string[];
 };

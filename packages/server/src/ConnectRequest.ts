@@ -6,12 +6,8 @@ export type ConnectRequest = {
     version: string;
     platform: string;
   };
-  auth?:
-    | {
-        token: string;
-      }
-    | {
-        password: string;
-      };
+  auth?: {
+    token: string;
+  };
   subscribe?: string[];
 };

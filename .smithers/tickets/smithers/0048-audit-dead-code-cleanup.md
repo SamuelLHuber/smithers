@@ -118,7 +118,7 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P2** process-runner.js exports normalizeSandboxEnv/Ports/Volumes but they are only used internally; their negative paths are untested — `packages/sandbox/src/effect/process-runner.js:67,109,143 (normalizeSandboxEnv, normalizeSandboxPorts, normalizeSandboxVolumes)`
   - _remaining:_ Over-exported, internal-only normalizers remain.
 - [ ] **P2** sandboxEgressEnv NO_PROXY array branch is unreachable dead code — `packages/sandbox/src/egress.js:148`
-  - _remaining:_ NO_PROXY array branch still unreachable.
+  - _disposition (2026-06-19):_ Keep. The branch is unreachable at runtime (`normalizeNoProxy` already collapses arrays to a comma-joined string before `sandboxEgressEnv` runs), but it is type-required: `SandboxEgressConfig.noProxy` is `string | string[]`, so `env.NO_PROXY = egress.noProxy` without the `Array.isArray` narrowing fails typecheck (`string[]` not assignable to `string`). Removing it would need a separate normalized-config type — not worth it for a P2; the guard is harmless and type-honest.
 - [ ] **P2** assertPathWithinRootEffect exported but only used internally — `packages/sandbox/src/sandboxPath.js:28`
   - _remaining:_ Exported but only used internally.
 - [ ] **P2** Scheduler/WorkflowSession Effect Tags and SchedulerLive are dead provisioning (never consumed) — ``
@@ -131,7 +131,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Cited scorer public API still has no in-repo product consumer.
 - [ ] **P2** getNodeDiffRoute documents and destructures parameters it never uses (getCurrentPointerImpl, restorePointerImpl) — `packages/server/src/gatewayRoutes/getNodeDiff.js:260-262, 276-278`
   - _remaining:_ Documented/destructured-but-unused params remain.
-- [ ] **P2** ConnectRequest declares a `{ password: string }` auth variant that is never implemented — `packages/server/src/ConnectRequest.ts:11-15`
+- [x] **P2** ConnectRequest declares a `{ password: string }` auth variant that is never implemented — `packages/server/src/ConnectRequest.ts:11-15`
   - _remaining:_ Unimplemented password auth variant still declared.
 - [x] **P1** Entire src/ide/ subtree is orphaned dead code (zero importers, zero tests, no docs) — `packages/smithers/src/ide/SmithersIdeService.js (433 lines), packages/smithers/src/ide/tools.js (95 lines), packages/smithers/src/ide/index.js, and 13 SmithersIde*.ts type files` — removed the whole `src/ide/` directory (16 files). Verified zero references anywhere in the monorepo (only reachable via the `./*` glob, which nothing used), not in the index or any d.ts. smithers typecheck + 28 tests + root typecheck + lint green.
   - _remaining:_ Entire ide/ subtree still orphaned.
