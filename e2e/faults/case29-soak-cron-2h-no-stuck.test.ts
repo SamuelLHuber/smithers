@@ -9,6 +9,7 @@ describe("case 29: Repeated cron runs over 2 hours; no stuck scheduler", () => {
     () => {
       // Implementable once apps/cli/src/scheduler.js gains a hook to
       // advance virtual time / pump scheduled triggers from a test.
+      // Tracked: ticket smithers/0022 §F (needs in-test cron driver).
     },
   );
 });

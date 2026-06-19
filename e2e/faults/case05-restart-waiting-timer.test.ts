@@ -426,5 +426,6 @@ describe("case05 restart during waiting-timer", () => {
     // packages/engine/src/effect/deferred-state-bridge.js writes inside
     // the "timer-fire" transaction. Promote once a bootEngine helper
     // exists in /e2e/harness/.
+    // Tracked: ticket smithers/0022 §A (needs e2e/harness bootEngine).
   });
 });

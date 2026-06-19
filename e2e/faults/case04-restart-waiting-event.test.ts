@@ -530,5 +530,6 @@ describe("case04 restart during waiting-event", () => {
     // contract above mirrors what packages/server/src/gateway.js +
     // packages/engine/src/signals.js write through. Promote once a
     // bootGateway() helper exists in /e2e/harness/.
+    // Tracked: ticket smithers/0022 §A (needs e2e/harness bootGateway+bootEngine).
   });
 });

@@ -90,11 +90,27 @@ enumerated in the memo. Runs on every PR; soak subset runs nightly.
 
 ## Acceptance
 
-- [ ] All 30 cases implemented or explicitly skipped with a ticket link.
-- [ ] Per-PR subset < 10 min wall time.
-- [ ] Nightly soak < 2h wall time.
+- [x] All 30 cases implemented or explicitly skipped with a ticket link.
+      (2026-06-19: every `case*.test.ts` exists; every `test.skip` now cites a
+      tracking ref — `smithers/0022 §A/§E/§F`, `gui/0001`, `jjhub/0002`, or
+      `#302`.)
+- [x] Per-PR subset < 10 min wall time. (Runs via `e2e test:faults`; soak rows
+      are `test.skip` unless `SMITHERS_E2E_SOAK=1`, so the PR subset stays fast.)
+- [ ] Nightly soak < 2h wall time. (Soak cases 28–30 are skip-gated; no nightly
+      soak workflow wired yet.)
 - [ ] Budgets enforced (test fails on regression, not just recorded).
-- [ ] Every fault primitive reusable from any test.
+- [x] Every fault primitive reusable from any test. (`e2e/harness/` primitives.)
+
+## Status (2026-06-19)
+
+The 30-case matrix, harness primitives, `flake-log.md`, and promotion doc are in
+place. **Remaining work is the deep coverage, tracked under the audit epics — not
+this umbrella:** ~18 cases still fabricate schema / assert DB-level contracts
+instead of driving the real engine end-to-end; de-fabricating them is the P0
+work in **#299 / #306** (tickets `0046`, `0052`). Several skips are blocked on
+unbuilt features (a real engine scorer-gate — case27/#302; a scope-denial audit
+table — case25/#302; `bootGateway`/`bootEngine` harness helpers; an in-test cron
+driver). This ticket stays open as the home for that ongoing coverage.
 
 ## Blocks
 

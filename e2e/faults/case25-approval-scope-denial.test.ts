@@ -273,5 +273,6 @@ describe("case25 approval scope denial", () => {
     //       `_smithers_audit` table (or adds a dedicated audit table), and
     //   (b) writes a row from `responseForbidden` with caller, method,
     //       requiredScope, and timestamp.
+    // Tracked: ticket smithers/0022 §E + #302 (scope-denial audit table not built).
   });
 });

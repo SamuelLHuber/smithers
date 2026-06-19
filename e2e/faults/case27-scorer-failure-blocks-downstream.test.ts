@@ -453,5 +453,6 @@ describe("case 27: scorer failure blocks destructive downstream step", () => {
     // from `pending` -> `running`; it should consult _smithers_scorers and the
     // event log for any scorer bound as a gate to an upstream node and refuse
     // to advance unless score >= threshold.
+    // Tracked: ticket smithers/0022 §E + #302 (engine scorer-gating not enforced).
   });
 });
