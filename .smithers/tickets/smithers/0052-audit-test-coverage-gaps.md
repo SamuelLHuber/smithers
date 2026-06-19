@@ -54,7 +54,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ examples/ tree still in NO CI gate; typecheck:examples never invoked
 - [ ] **P2** examples/tsconfig.json points smithers-orchestrator at src/*.js source, not the published package — typecheck:examples does not validate against shipped types — `examples/tsconfig.json`
   - _remaining:_ examples tsconfig still points at src/*.js source, not the published package; does not validate against shipped types
-- [ ] **P2** AntigravityAgent stream-json interpreter is untested and effectively dead in practice — ``
+- [x] **P2** AntigravityAgent stream-json interpreter is untested and effectively dead in practice — ``
   - _remaining:_ AntigravityAgent stream-json interpreter/output-parsing still untested
 - [ ] **P2** Observability metric emission path has no test assertions — ``
   - _remaining:_ Agent observability/metric emission path still has no test assertions

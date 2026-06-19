@@ -89,4 +89,51 @@ describe("AntigravityAgent command surface", () => {
       });
     }
   });
+
+  test("interpreter ignores blank, non-JSON, non-object, and type-less lines", () => {
+    const i = new AntigravityAgent().createOutputInterpreter();
+    expect(i.onStdoutLine("")).toEqual([]);
+    expect(i.onStdoutLine("not json")).toEqual([]);
+    expect(i.onStdoutLine("[]")).toEqual([]);
+    expect(i.onStdoutLine(JSON.stringify({ no: "type" }))).toEqual([]);
+  });
+
+  test("interpreter emits started on init and carries the session id to completed", () => {
+    const i = new AntigravityAgent().createOutputInterpreter();
+    const started = i.onStdoutLine(JSON.stringify({ type: "init", session_id: "sess-1", model: "agy-1" }));
+    expect(started).toEqual([
+      {
+        type: "started",
+        engine: "antigravity",
+        title: "Antigravity CLI",
+        resume: "sess-1",
+        detail: { model: "agy-1" },
+      },
+    ]);
+    // Assistant messages accumulate (no event), then RESULT flushes the answer.
+    expect(i.onStdoutLine(JSON.stringify({ type: "MESSAGE", role: "assistant", content: "Hello " }))).toEqual([]);
+    expect(i.onStdoutLine(JSON.stringify({ type: "MESSAGE", role: "assistant", content: "world", delta: true }))).toEqual([]);
+    const done = i.onStdoutLine(JSON.stringify({ type: "RESULT", status: "ok" }));
+    expect(done).toEqual([
+      { type: "completed", engine: "antigravity", ok: true, answer: "Hello world", resume: "sess-1", usage: undefined },
+    ]);
+    // RESULT only fires once.
+    expect(i.onStdoutLine(JSON.stringify({ type: "RESULT", status: "ok" }))).toEqual([]);
+  });
+
+  test("interpreter maps TOOL_USE / TOOL_RESULT / ERROR to action events", () => {
+    const i = new AntigravityAgent().createOutputInterpreter();
+    const use = i.onStdoutLine(JSON.stringify({ type: "TOOL_USE", tool_name: "bash", tool_id: "t1" }));
+    expect(use[0]).toMatchObject({ type: "action", phase: "started", action: { id: "t1", title: "bash" } });
+    const result = i.onStdoutLine(JSON.stringify({ type: "TOOL_RESULT", tool_id: "t1", status: "error", error: { message: "boom" } }));
+    expect(result[0]).toMatchObject({ type: "action", phase: "completed", ok: false, level: "warning" });
+    const err = i.onStdoutLine(JSON.stringify({ type: "ERROR", severity: "error", message: "fatal" }));
+    expect(err[0]).toMatchObject({ type: "action", ok: false, level: "error", message: "fatal" });
+  });
+
+  test("interpreter onExit emits a completed failure on non-zero exit", () => {
+    const i = new AntigravityAgent().createOutputInterpreter();
+    const exit = i.onExit({ exitCode: 7, stdout: "", stderr: "bad" });
+    expect(exit[0]).toMatchObject({ type: "completed", engine: "antigravity", ok: false });
+  });
 });
