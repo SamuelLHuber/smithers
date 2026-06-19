@@ -50,6 +50,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Confusing/empty runtime field on provider path unchanged.
 - [ ] **P2** Approval 'continue' path stores resolution as output without usage; cache/output shape inconsistency — ``
   - _remaining:_ Output shape not normalized to standard TaskOutput (no usage). Low severity per audit.
+  - _disposition (2026-06-19):_ Deferred deliberately. The audit left the file location blank (no precise site) and rated it low severity. The approval-resolution row is a durable node-output/cache shape consumed by time-travel, the diff cache, and replay; normalizing it to the full TaskOutput contract (adding `usage`) without a pinned repro and an end-to-end replay/diff test risks regressing those invariants — the kind of behavioral change this repo's standards say not to ship un-verified. Needs a design + real e2e test, not a quick refactor.
 - [x] **P2** Redundant two-layer barrel shims (create-scorer.js, builtins.js) duplicate the real implementation files — `packages/scorers/src/create-scorer.js:6-7; packages/scorers/src/builtins.js:1-5`
   - _remaining:_ Two-layer barrel shims not collapsed into index.js.
 - [x] **P2** asStringRecord is a redundant one-line alias of asObject — `packages/server/src/gateway.js:596-601`
