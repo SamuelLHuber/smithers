@@ -17,6 +17,19 @@ would contradict the documented design — it is a **future product feature**, n
 bug fix, and should be scoped deliberately (with a docs change) rather than slipped
 in. Marked accordingly below; left unchecked because no code change is correct here.
 
+## Disposition note (2026-06-19): Gateway "RPC drift" is intentional legacy aliasing
+
+The "10 live RPC methods absent from GATEWAY_RPC_DEFINITIONS" finding is contradicted
+by the gateway contract test `packages/gateway/tests/rpc-contract.test.ts:163`
+("maps legacy methods to stable definitions **without duplicating the contract**").
+The dotted methods (`health`, `approvals.list`, `workflows.list`, `runs.diff`,
+`getDevToolsSnapshot`, `runs.rerun`, `runs.create`, `approvals.decide`, `cron.trigger`,
+`frames.*`, `attempts.*`) are deliberate legacy/compat aliases: `canonicalGatewayRpcMethod`
+maps them to the canonical method, `getRequiredScopeForGatewayMethod` scopes them, and
+`isGatewayRpcMethod("runs.create") === false` keeps them out of the frozen v1 contract
+on purpose. Adding them to GATEWAY_RPC_DEFINITIONS would duplicate the contract, exactly
+what the tested design avoids. By-design, not drift — left unchecked, no code change correct.
+
 ## Context
 
 Documented features that still ship as no-op stubs or are missing. Memory token-limiting/summarization, semantic-MCP time-travel tools, openapi generate, non-JSON bodies, scorer context/groundTruth, and the gui shortcut all landed; these remain.
