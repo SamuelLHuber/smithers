@@ -14,8 +14,8 @@ import React from "react";
  *
  * Internally expands to a sequence of tasks:
  * 1. Agent reads the strategy doc and target files
- * 2. Agent proposes modifications
- * 3. (If not dryRun) Compute task writes modifications to disk
+ * 2. (If not dryRun) Agent applies the modifications directly to disk
+ * 3. A compute marker records the apply and triggers the hot-reload system
  * 4. Agent generates a report of what changed
  *
  * ```tsx

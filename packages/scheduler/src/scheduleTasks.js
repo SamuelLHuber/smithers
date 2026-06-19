@@ -123,6 +123,7 @@ export function scheduleTasks(plan, states, descriptors, ralphState, retryWait, 
     }
     /**
    * @param {PlanNode} node
+   * @param {{ includeContinuedFailures?: boolean }} [options]
    * @returns {{ readonly terminal: boolean; readonly failed: boolean }}
    */
     function inspect(node, options = {}) {

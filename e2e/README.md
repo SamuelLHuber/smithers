@@ -41,6 +41,12 @@ the JSON when a budget changes; never silently widen one in test code.
 
 ## Flake log
 
-Every observed flake is recorded in [`flake-log.md`](./flake-log.md). A fault
-case is only promoted from nightly-only to per-PR after **0 flakes per 100
-CI runs**, per the meta-testing section of ticket 0022.
+Every observed flake is recorded in [`flake-log.md`](./flake-log.md). The
+**intended** promotion policy (ticket 0022 meta-testing) is that a fault case
+moves from nightly-only to per-PR only after **0 flakes per 100 CI runs**.
+
+Current reality: that nightly/per-PR split and the automated 100-run counter are
+not wired yet — `.github/workflows/faults.yml` runs the whole non-soak matrix
+per-PR via `e2e test:faults`, and the soak cases (28–30) stay `test.skip` unless
+`SMITHERS_E2E_SOAK=1`. The flake log is therefore maintained by hand for now;
+automating the promotion gate is tracked under ticket 0022.

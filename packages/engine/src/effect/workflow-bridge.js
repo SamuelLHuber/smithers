@@ -27,14 +27,12 @@ export { BubblewrapSandboxExecutorLive, SandboxSocketRunner, } from "@smithers-o
 export { isTaskResultFailure, makeWorkerTask, TaskResult, WorkerDispatchKind, WorkerTask, WorkerTaskKind, TaskWorkerEntity, } from "./entity-worker.js";
 export { dispatchWorkerTask, subscribeTaskWorkerDispatches, } from "./single-runner.js";
 /**
- * Phase 0 Seam Adapter
+ * Engine ↔ Effect seam adapter.
  *
- * This file establishes the interface boundaries for bridging the legacy Smithers engine
- * with the Effect ecosystem.
- *
- * Currently, it delegates to the legacy implementations exactly as they are.
- * In Phase 1, `executeTaskBridge` will be replaced by `Activity.make()`.
- * In subsequent phases, other engine boundaries will be modeled as Workflows.
+ * This file establishes the interface boundaries for bridging the Smithers engine
+ * with the Effect ecosystem. `executeTaskBridge` delegates to the engine's task
+ * execution; the Effect-native `Activity.make()` path now lives alongside it (see
+ * `activity-bridge.js`). Further engine boundaries are modeled as Workflows over time.
  */
 const inflightTaskExecutions = new Map();
 const completedTaskExecutions = new Map();

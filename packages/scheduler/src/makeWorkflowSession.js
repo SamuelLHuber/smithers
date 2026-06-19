@@ -490,6 +490,7 @@ export function makeWorkflowSession(options = {}) {
         };
     }
     /**
+   * @param {number} [depth] recursion depth; guarded at 10 to catch decision cycles
    * @returns {EngineDecision}
    */
     function decide(depth = 0) {

@@ -22,6 +22,7 @@
 /** @typedef {import("./ScorerInput.ts").ScorerInput} ScorerInput */
 /** @typedef {import("./ScorersMap.ts").ScorersMap} ScorersMap */
 /** @typedef {import("./TaskDescriptor.ts").TaskDescriptor} TaskDescriptor */
+/** @typedef {import("./TaskAspects.ts").TaskAspects} TaskAspects */
 /** @typedef {import("./TaskMemoryConfig.ts").TaskMemoryConfig} TaskMemoryConfig */
 /** @typedef {import("./WorkflowGraph.ts").WorkflowGraph} WorkflowGraph */
 /** @typedef {import("./XmlElement.ts").XmlElement} XmlElement */

@@ -82,7 +82,7 @@ import { DEFAULT_OPERATOR_UI_ENTRY } from "./gatewayUi/defaultOperatorUi.js";
  *   role: string;
  *   scopes: string[];
  *   userId: string | null;
- *   subscribe?: Set<string>;
+ *   subscribedRuns?: Set<string>;
  *   heartbeat?: unknown;
  *   lastActivity?: number;
  *   closed?: boolean;

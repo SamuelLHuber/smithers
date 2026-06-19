@@ -23,8 +23,8 @@ export type GatewayExtensionStreamState<T> = {
  *   `params.afterSeq` (or extension-specific cursor) in its replay; the client
  *   has no way to replay frames the server hasn't kept.
  * - Stale frames are fenced: a re-render that changes `(namespace, key, params)`
- *   bumps a generation counter; frames from the prior subscription that arrive
- *   late are discarded.
+ *   aborts the prior subscription via its `AbortController`, so frames from it
+ *   that arrive late are ignored.
  *
  * Slow-consumer backpressure: the server already enforces a per-connection
  * outbound queue; if the React app falls behind the gateway's bound, the gateway

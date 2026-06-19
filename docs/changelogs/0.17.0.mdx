@@ -324,16 +324,16 @@ import {
   type Account,
 } from "@smithers-orchestrator/accounts";
 
-await addAccount({
-  provider: "claude",
+addAccount({
+  provider: "claude-code",
   label: "work",
   configDir: "~/.smithers/configs/claude-work",
 });
 
-const accounts: Account[] = await listAccounts();
-// → [{ provider: "claude", label: "work", configDir: "..." }, ...]
+const accounts: Account[] = listAccounts();
+// → [{ provider: "claude-code", label: "work", configDir: "..." }, ...]
 
-const env = accountToProviderEnv(await getAccount("claude", "work"));
+const env = accountToProviderEnv(getAccount("work"));
 // → { CLAUDE_CONFIG_DIR: "/Users/.../claude-work" }
 ```
 
