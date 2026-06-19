@@ -13,6 +13,15 @@ import {
     wrapText,
 } from "../src/tui.js";
 
+/**
+ * Strip ANSI escape codes so assertions are stable regardless of whether
+ * picocolors emits color. picocolors enables color when `CI` is set even
+ * without a TTY, so CI runs see styled output that local piped runs do not.
+ * @param {string} value
+ */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI stripping
+const stripAnsi = (value) => value.replace(/\x1B\[[0-9;]*m/g, "");
+
 describe("tui helpers", () => {
     test("bounds picker height to the terminal viewport", () => {
         expect(pickerMaxItems(3)).toBe(1);
@@ -77,12 +86,12 @@ describe("tui helpers", () => {
             `codex_core::session::session: failed to load skill ${home}/.agents/skills/smithers-snapshot-hook/SKILL.md: invalid YAML`,
         ].join("\n");
 
-        expect(formatStreamText(raw)).toBe("error failed to load skill ~/.agents/skills/smithers-snapshot-hook/SKILL.md: invalid YAML");
+        expect(stripAnsi(formatStreamText(raw))).toBe("error failed to load skill ~/.agents/skills/smithers-snapshot-hook/SKILL.md: invalid YAML");
     });
 
     test("formats shell tool calls without the shell wrapper", () => {
-        expect(formatStreamText("[tool] /bin/zsh -lc 'git diff --stat'")).toBe("$ git diff --stat");
-        expect(formatStreamText("[tool] /bin/zsh -lc 'git diff --stat' \u2192 done")).toBe("✓ git diff --stat");
+        expect(stripAnsi(formatStreamText("[tool] /bin/zsh -lc 'git diff --stat'"))).toBe("$ git diff --stat");
+        expect(stripAnsi(formatStreamText("[tool] /bin/zsh -lc 'git diff --stat' \u2192 done"))).toBe("✓ git diff --stat");
     });
 
     test("wraps stream output and compacts qualified node ids", () => {
@@ -93,7 +102,6 @@ describe("tui helpers", () => {
     });
 
     test("wraps colored tokens without splitting ANSI escapes", () => {
-        const stripAnsi = (value) => value.replace(/\x1B\[[0-9;]*m/g, "");
         const wrapped = wrapText("\x1B[32mabcdefgh\x1B[39m", 4);
         expect(wrapped.map(stripAnsi)).toEqual(["abcd", "efgh"]);
     });
