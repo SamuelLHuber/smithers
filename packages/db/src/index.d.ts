@@ -913,15 +913,6 @@ declare class SmithersDb {
     /**
    * @param {string} runId
    * @param {EventHistoryQuery} [query]
-   * @returns {{ whereSql: string; params: Array<string | number> }}
-   */
-    buildEventHistoryWhere(runId: string, query?: EventHistoryQuery): {
-        whereSql: string;
-        params: Array<string | number>;
-    };
-    /**
-   * @param {string} runId
-   * @param {EventHistoryQuery} [query]
    * @returns {RunnableEffect<Array<Record<string, unknown>>, SmithersError>}
    */
     listEventHistory(runId: string, query?: EventHistoryQuery): RunnableEffect<Array<Record<string, unknown>>, SmithersError$1>;

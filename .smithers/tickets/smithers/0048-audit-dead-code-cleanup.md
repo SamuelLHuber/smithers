@@ -42,7 +42,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Duplicate implementations not consolidated.
 - [x] **P2** dialect.js exports isDialect and tableColumnsSql are never used — ``
   - _remaining:_ Both exports still unused.
-- [ ] **P2** SmithersDb.buildEventHistoryWhere duplicates SqlMessageStorage logic but is SQLite-hardcoded and unused — ``
+- [x] **P2** SmithersDb.buildEventHistoryWhere duplicates SqlMessageStorage logic but is SQLite-hardcoded and unused — ``
   - _remaining:_ Duplicate SQLite-hardcoded method still unused.
 - [ ] **P2** react-output.js stripAutoColumns is a third copy of the same function — ``
   - _remaining:_ Third copy / duplication still present; not consolidated.

@@ -2136,31 +2136,6 @@ export class SmithersDb {
     /**
    * @param {string} runId
    * @param {EventHistoryQuery} [query]
-   * @returns {{ whereSql: string; params: Array<string | number> }}
-   */
-    buildEventHistoryWhere(runId, query = {}) {
-        const clauses = ["run_id = ?", "seq > ?"];
-        const params = [runId, query.afterSeq ?? -1];
-        if (typeof query.sinceTimestampMs === "number") {
-            clauses.push("timestamp_ms >= ?");
-            params.push(query.sinceTimestampMs);
-        }
-        if (query.types && query.types.length > 0) {
-            clauses.push(`type IN (${query.types.map(() => "?").join(", ")})`);
-            params.push(...query.types);
-        }
-        if (query.nodeId) {
-            clauses.push("json_extract(payload_json, '$.nodeId') = ?");
-            params.push(query.nodeId);
-        }
-        return {
-            whereSql: clauses.join(" AND "),
-            params,
-        };
-    }
-    /**
-   * @param {string} runId
-   * @param {EventHistoryQuery} [query]
    * @returns {RunnableEffect<Array<Record<string, unknown>>, SmithersError>}
    */
     listEventHistory(runId, query = {}) {
