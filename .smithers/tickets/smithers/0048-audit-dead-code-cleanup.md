@@ -28,8 +28,8 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Exported helper still imported nowhere.
 - [ ] **P2** Orphan jsx stub pages not in any navigation (jsx/installation.mdx, jsx/quickstart.mdx) — `docs/jsx/installation.mdx, docs/jsx/quickstart.mdx`
   - _remaining:_ Both jsx stub pages remain orphaned from navigation.
-- [ ] **P1** Public export `accountToProviderEnv` is dead code with false JSDoc; logic duplicated in 3 places — `packages/accounts/src/accountToProviderEnv.js:1-48`
-  - _remaining:_ Public export still dead in product (test-only).
+- [x] **P1** Public export `accountToProviderEnv` is dead code with false JSDoc; logic duplicated in 3 places — `packages/accounts/src/accountToProviderEnv.js:1-48`
+  - _correction (2026-06-19):_ The "dead code" claim is **wrong** — `accountToProviderEnv` is live: it's called by `packages/usage/src/getAccountUsage.js` (production), exported from the accounts index, and covered by `accounts.test.js` (provider-env mapping + missing-credential throws). The only valid residue is the secondary "logic duplicated in 3 places" note, which is an optional dedup, not dead-code removal. Closing the dead-code item as not-applicable.
 - [ ] **P2** BaseCliAgent.stream() path is unused by the product and has no tests (buildStreamResult/emptyUsage/asyncIterableToStream) — ``
   - _remaining:_ Stream path remains unused-by-product/untested.
 - [ ] **P2** Aspects accumulator + tracking config are render-time plumbing that the engine discards (dead data path) — `packages/components/src/aspects/AspectContext.js:22 (createAccumulator), packages/components/src/components/Aspects.js:27-37, packages/components/src/components/Task.js:300-309 (buildAspectMeta)`
@@ -91,6 +91,7 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P2** Four exported config types have no consumers (speculative public API) — `packages/memory/src/WorkingMemoryConfig.ts, MessageHistoryConfig.ts, MemoryProcessorConfig.ts, SemanticRecallConfig.ts`
   - _remaining:_ Four speculative config types still have no consumer.
 - [ ] **P2** `deprecated` is parsed but never used; OpenApiToolCalled event is typed/formatted but never emitted — `packages/openapi/src/extractOperations.js:45, apps/cli/src/format.js:280, packages/engine/src/index.d.ts:204`
+  - _disposition (2026-06-19):_ `OpenApiToolCalled` is an unwired event, not dead code — it's woven through the SmithersEvent union with a `trackEvent.js` handler, a `format.js` formatter, and observability tests; "never emitted" means the openapi tool-call path doesn't yet dispatch it. Deleting it means tearing the event out of the union + handler + formatter + tests; wiring it means emitting it where openapi-generated tools run. Both are decisions beyond a cleanup deletion. The `deprecated` parse (extractOperations.js:45) is a trivially-unused parsed field — could be dropped, but it's harmless metadata kept for forward-compat with the OpenAPI spec.
   - _remaining:_ deprecated unused; OpenApiToolCalled still never emitted.
 - [x] **P2** Committed generated src/index.d.ts is unreferenced by the exports map (dead generated artifact in source) — `packages/pi-plugin/src/index.d.ts`
   - _remaining:_ Committed generated index.d.ts still dead.
@@ -119,8 +120,8 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Over-exported, internal-only normalizers remain.
 - [ ] **P2** sandboxEgressEnv NO_PROXY array branch is unreachable dead code — `packages/sandbox/src/egress.js:148`
   - _disposition (2026-06-19):_ Keep. The branch is unreachable at runtime (`normalizeNoProxy` already collapses arrays to a comma-joined string before `sandboxEgressEnv` runs), but it is type-required: `SandboxEgressConfig.noProxy` is `string | string[]`, so `env.NO_PROXY = egress.noProxy` without the `Array.isArray` narrowing fails typecheck (`string[]` not assignable to `string`). Removing it would need a separate normalized-config type — not worth it for a P2; the guard is harmless and type-honest.
-- [ ] **P2** assertPathWithinRootEffect exported but only used internally — `packages/sandbox/src/sandboxPath.js:28`
-  - _remaining:_ Exported but only used internally.
+- [x] **P2** assertPathWithinRootEffect exported but only used internally — `packages/sandbox/src/sandboxPath.js:28`
+  - _done (2026-06-19):_ Dropped the `export` keyword — it was used only by `assertPathWithinRoot` in the same file, not in the sandbox index or any committed d.ts, and had zero external consumers. sandbox typecheck + 80 tests + lint green.
 - [ ] **P2** Scheduler/WorkflowSession Effect Tags and SchedulerLive are dead provisioning (never consumed) — ``
   - _remaining:_ Dead provisioning unchanged (Tags provided but never consumed).
 - [ ] **P2** ~9 session methods are dead in production; the package ships a much larger API than is used — ``

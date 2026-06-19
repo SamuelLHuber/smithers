@@ -25,7 +25,7 @@ export function resolveSandboxPath(rootDir, inputPath) {
  * @param {string} rootDir
  * @param {string} resolvedPath
  */
-export function assertPathWithinRootEffect(rootDir, resolvedPath) {
+function assertPathWithinRootEffect(rootDir, resolvedPath) {
     return Effect.gen(function* () {
         const root = yield* Effect.tryPromise({
             try: () => realpath(resolve(rootDir)),
