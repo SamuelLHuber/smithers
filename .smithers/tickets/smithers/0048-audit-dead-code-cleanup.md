@@ -74,7 +74,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Unused JsonSchema fields still declared.
 - [x] **P2** Stale empty src/index.d.ts is checked in and shipped — `packages/gateway-client/src/index.d.ts:1`
   - _remaining:_ Stale empty index.d.ts still checked in.
-- [ ] **P2** Exported GatewayRequestFrame type is never imported or used anywhere — `packages/gateway-client/src/GatewayRequestFrame.ts:1`
+- [x] **P2** Exported GatewayRequestFrame type is never imported or used anywhere — `packages/gateway-client/src/GatewayRequestFrame.ts:1`
   - _remaining:_ Exported type still never imported.
 - [ ] **P2** Three exported gatewayKeys factories (cronList, nodeOutput, nodeDiff) are unused — `packages/gateway-client/src/sync/gatewayKeys.ts:16-24`
   - _remaining:_ Three gatewayKeys factories still unused in product.
