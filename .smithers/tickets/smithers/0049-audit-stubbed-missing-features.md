@@ -18,7 +18,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Ship example providers (or links) for gVisor/Daytona/Cloudflare, or trim README/docs to the targets that actually have a provider. Still a documented-but-absent surface.
 - [x] **P2** `smithers memory` and `smithers cron` CLI groups are partial vs their underlying store/adapter capabilities — `apps/cli/src/index.js:2230-2328`
   - _remaining:_ Add `memory get`, `memory set`, `memory rm` wrapping store.getFact/setFact/deleteFact. Memory CLI still partial; cron resolved.
-- [ ] **P2** ./BaseCliAgent subpath export declares types target missing its runtime exports — ``
+- [x] **P2** ./BaseCliAgent subpath export declares types target missing its runtime exports — ``
   - _remaining:_ Emit a dedicated ./src/BaseCliAgent/index.d.ts re-exporting the module symbols and set it as the subpath's types. Helper imports still untyped.
 - [ ] **P2** SuperSmithers 'apply' task is a no-op stub that returns a literal and writes nothing — `packages/components/src/components/SuperSmithers.js:74-91`
   - _remaining:_ Implement the compute fn to read prior propose-task output and apply edits to disk (or gate behind dryRun), or document as report-only. Still a no-op stub.
