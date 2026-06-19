@@ -22,10 +22,10 @@ describe("runGh", () => {
 const input = await Bun.stdin.text();
 await Bun.write(${JSON.stringify(log)}, JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2), input }));
 if (process.argv.includes("fail")) {
-  console.error("fixture failure");
+  await Bun.write(Bun.stderr, "fixture failure\\n");
   process.exit(7);
 }
-process.stdout.write("fixture stdout");
+await Bun.write(Bun.stdout, "fixture stdout");
 `,
       { mode: 0o755 },
     );
