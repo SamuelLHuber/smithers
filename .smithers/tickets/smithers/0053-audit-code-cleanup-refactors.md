@@ -14,7 +14,7 @@ Each item below is still open in current `main`. Text is the original audit find
 
 - [ ] **P2** OpenCodeAgent is the only adapter with a hand-maintained .ts declaration file instead of the standard XAgentOptions.ts pattern — `packages/agents/src/OpenCodeAgent.ts (+ OpenCodeAgent.js)`
   - _remaining:_ No OpenCodeAgentOptions.ts; still the only adapter with a hand-written declare file. Not converted to standard pattern.
-- [ ] **P2** Detached spawn path resolution is inconsistent (`.pathname` vs fileURLToPath) — `apps/cli/src/index.js:1649 and 2902 vs apps/cli/src/resume-detached.js:17`
+- [x] **P2** Detached spawn path resolution is inconsistent (`.pathname` vs fileURLToPath) — `apps/cli/src/index.js:1649 and 2902 vs apps/cli/src/resume-detached.js:17`
   - _remaining:_ Spawn paths not converted to fileURLToPath; inconsistency remains.
 - [ ] **P2** runDevtoolsCommandWithTelemetry is called for snapshots/restore despite its `cmd` type being tree|diff|output|rewind — `apps/cli/src/index.js:2606 (JSDoc), 4978 (snapshots), 5006 (restore), 2589 (DEVTOOLS_COMMANDS)`
   - _remaining:_ Partially widened (snapshots added) but 'restore' still missing from JSDoc/DEVTOOLS_COMMANDS; type/contract mismatch persists.
@@ -44,9 +44,9 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Two different conventions for sibling subpaths remain.
 - [x] **P2** DevToolsNodeType union is duplicated inline in index.d.ts instead of being a single declared type — `packages/protocol/src/index.d.ts:1 vs src/devtools/DevToolsNodeType.ts:1-17`
   - _remaining:_ Duplicated union literal; two sources of truth remain.
-- [ ] **P2** directorySize misnamed and dangling WalkResult typedef — `packages/sandbox/src/execute.js:106-113 (directorySize); packages/sandbox/src/bundle.js:19 (@returns {Promise<WalkResult>})`
+- [x] **P2** directorySize misnamed and dangling WalkResult typedef — `packages/sandbox/src/execute.js:106-113 (directorySize); packages/sandbox/src/bundle.js:19 (@returns {Promise<WalkResult>})`
   - _remaining:_ Neither the misnaming nor the dangling typedef addressed.
-- [ ] **P2** Request README writes confusing/empty runtime field on provider path — `packages/sandbox/src/execute.js:417-423`
+- [x] **P2** Request README writes confusing/empty runtime field on provider path — `packages/sandbox/src/execute.js:417-423`
   - _remaining:_ Confusing/empty runtime field on provider path unchanged.
 - [ ] **P2** Approval 'continue' path stores resolution as output without usage; cache/output shape inconsistency — ``
   - _remaining:_ Output shape not normalized to standard TaskOutput (no usage). Low severity per audit.

@@ -144,8 +144,8 @@ describe("executeSandbox", () => {
     test("covers defensive helper branches used by sandbox execution", async () => {
         const root = tempDir("smithers-sandbox-execute-helper-");
         mkdirSync(join(root, "README.md"), { recursive: true });
-        expect(await __executeSandboxInternals.directorySize(join(root, "README.md"))).toBe(0);
-        expect(await __executeSandboxInternals.directorySize(join(root, "missing"))).toBe(0);
+        expect(await __executeSandboxInternals.fileSize(join(root, "README.md"))).toBe(0);
+        expect(await __executeSandboxInternals.fileSize(join(root, "missing"))).toBe(0);
         expect(() => __executeSandboxInternals.requireSandboxHandle(null, "missing-handle")).toThrow(
             "did not initialize correctly",
         );

@@ -1649,7 +1649,7 @@ async function executeUpCommand(c, workflowPath, options, fail) {
         const runId = options.runId ?? resumeRunId;
         // Detached mode: spawn ourselves as a background process
         if (options.detach) {
-            const cliPath = new URL(import.meta.url).pathname;
+            const cliPath = fileURLToPath(import.meta.url);
             const childArgs = ["up", workflowPath];
             if (runId)
                 childArgs.push("--run-id", runId);
@@ -3067,7 +3067,7 @@ async function resolveLatestRunId() {
  */
 function openMonitoredRunUi(runId, port) {
     try {
-        const cliPath = new URL(import.meta.url).pathname;
+        const cliPath = fileURLToPath(import.meta.url);
         const args = [cliPath, "ui", runId];
         if (port && port !== 7331)
             args.push("--port", String(port));

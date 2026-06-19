@@ -16,7 +16,7 @@ export const SANDBOX_BUNDLE_OUTPUT_MAX_ARRAY_LENGTH = 512;
 export const SANDBOX_BUNDLE_OUTPUT_MAX_STRING_LENGTH = 64 * 1024;
 /**
  * @param {string} dir
- * @returns {Promise<WalkResult>}
+ * @returns {Promise<{ files: string[]; totalBytes: number }>}
  */
 async function walkFiles(dir) {
     const pending = [dir];

@@ -100,10 +100,11 @@ async function emitSandboxEvent(db, event) {
     await Effect.runPromise(trackEvent(event));
 }
 /**
- * @param {string} path
- * @returns {Promise<number>}
+ * Size in bytes of a single file path (0 if missing or not a regular file).
+ *  {string} path
+ *  {Promise<number>}
  */
-async function directorySize(path) {
+async function fileSize(path) {
     const info = await stat(path).catch(() => null);
     if (!info)
         return 0;
@@ -293,7 +294,7 @@ function redactSandboxConfig(config) {
     return redacted;
 }
 export const __executeSandboxInternals = {
-    directorySize,
+    fileSize,
     diffBundlePatchCount,
     isDiffBundleLike,
     materializeProviderResult,
@@ -418,12 +419,12 @@ export async function executeSandbox(options) {
             status: "pending",
             sandboxId: options.sandboxId,
             provider: selectedRuntime,
-            runtime: provider ? options.runtime : selectedRuntime,
+            runtime: options.runtime ?? selectedRuntime,
             input: options.input ?? {},
         }, null, 2), "utf8");
         await writeSandboxEgressFiles(egress, requestBundlePath);
         if (provider) {
-            const bundleSizeBytes = await directorySize(join(requestBundlePath, "README.md"));
+            const bundleSizeBytes = await fileSize(join(requestBundlePath, "README.md"));
             await emitSandboxEvent(runtimeDb, {
                 type: "SandboxShipped",
                 runId: runtime.runId,
@@ -577,7 +578,7 @@ export async function executeSandbox(options) {
         handle = await transportCall(selectedRuntime, sandboxTransport((svc) => svc.create(transportConfig)));
         const sandboxHandle = requireSandboxHandle(handle, options.sandboxId);
         await transportCall(selectedRuntime, sandboxTransport((svc) => svc.ship(requestBundlePath, sandboxHandle)));
-        const bundleSizeBytes = await directorySize(join(requestBundlePath, "README.md"));
+        const bundleSizeBytes = await fileSize(join(requestBundlePath, "README.md"));
         await emitSandboxEvent(runtimeDb, {
             type: "SandboxShipped",
             runId: runtime.runId,
