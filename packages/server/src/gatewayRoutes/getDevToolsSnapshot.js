@@ -1,4 +1,4 @@
-import { SmithersDevToolsCore, snapshotSerialize } from "@smithers-orchestrator/devtools";
+import { snapshotSerialize } from "@smithers-orchestrator/devtools";
 import { computeRunStateFromRow } from "@smithers-orchestrator/db/runState";
 
 /** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
@@ -330,9 +330,6 @@ export function snapshotFromFrameRow(input) {
         xml = null;
     }
     const root = parseXmlToDevToolsRoot(xml, input.onWarning);
-    // Keep parity with existing devtools snapshot capture semantics.
-    const core = new SmithersDevToolsCore();
-    core.captureSnapshot(root);
     return {
         version: 1,
         runId: input.runId,

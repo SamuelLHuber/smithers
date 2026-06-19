@@ -48,7 +48,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Third copy / duplication still present; not consolidated.
 - [ ] **P2** Five package exports have no consumers anywhere in the repo (effectively dead public API) — `packages/devtools/src/index.js:18-23`
   - _remaining:_ All five exports still have no consumers.
-- [ ] **P2** Server snapshotFromFrameRow constructs a SmithersDevToolsCore + captureSnapshot whose result is discarded — `packages/server/src/gatewayRoutes/getDevToolsSnapshot.js:334-335 (re: packages/devtools/src/SmithersDevToolsCore.js:33-37)`
+- [x] **P2** Server snapshotFromFrameRow constructs a SmithersDevToolsCore + captureSnapshot whose result is discarded — `packages/server/src/gatewayRoutes/getDevToolsSnapshot.js:334-335 (re: packages/devtools/src/SmithersDevToolsCore.js:33-37)`
   - _remaining:_ Discarded captureSnapshot call still present.
 - [x] **P2** loadCreateSession has an unreachable createSession branch and a dead relative-path fallback — `packages/driver/src/WorkflowDriver.js:22-23, 157-173`
   - _remaining:_ Unreachable createSession branch + relative-path fallback remain.
