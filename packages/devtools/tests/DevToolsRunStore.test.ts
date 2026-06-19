@@ -294,6 +294,46 @@ describe("DevToolsRunStore event processing", () => {
     expect(store.runs.size).toBe(0);
   });
 
+  test("getTaskState returns undefined for unknown run, unknown node, and missing iteration", () => {
+    const store = new DevToolsRunStore();
+    // Unknown run id.
+    expect(store.getTaskState("nope", "n1")).toBeUndefined();
+    store.processEngineEvent({ type: "NodeStarted", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 1, attempt: 1 });
+    // Run exists but the node id never appears.
+    expect(store.getTaskState("r1", "ghost")).toBeUndefined();
+    // Exact-iteration lookup that does not exist.
+    expect(store.getTaskState("r1", "n1", 9)).toBeUndefined();
+  });
+
+  test("ToolCallFinished without a matching ToolCallStarted is a harmless no-op", () => {
+    const store = new DevToolsRunStore();
+    store.processEngineEvent({ type: "NodeStarted", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 1, attempt: 1 });
+    // No prior ToolCallStarted for seq 5 -> find() misses, branch leaves toolCalls untouched.
+    store.processEngineEvent({ type: "ToolCallFinished", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 2, toolName: "search", seq: 5, status: "success" });
+    expect(store.getTaskState("r1", "n1")?.toolCalls).toHaveLength(0);
+  });
+
+  test("records an unknown event type without mutating task state", () => {
+    const store = new DevToolsRunStore();
+    store.processEngineEvent({ type: "SomethingTheStoreDoesNotKnow", runId: "r1", timestampMs: 1 });
+    const run = store.getRun("r1");
+    // The run is created and the event is retained, but no case ran.
+    expect(run?.events).toHaveLength(1);
+    expect(run?.tasks.size).toBe(0);
+  });
+
+  test("verbose mode logs lifecycle transitions without altering behavior", () => {
+    const store = new DevToolsRunStore({ verbose: true });
+    const base = { runId: "r1", nodeId: "n1", iteration: 0 };
+    store.processEngineEvent({ ...base, type: "NodeStarted", timestampMs: 1, attempt: 1 });
+    store.processEngineEvent({ ...base, type: "NodeFinished", timestampMs: 2, attempt: 1 });
+    const failed = { runId: "r1", nodeId: "n2", iteration: 0 };
+    store.processEngineEvent({ ...failed, type: "NodeStarted", timestampMs: 3, attempt: 1 });
+    store.processEngineEvent({ ...failed, type: "NodeFailed", timestampMs: 4, attempt: 1, error: "boom" });
+    expect(store.getTaskState("r1", "n1")?.status).toBe("finished");
+    expect(store.getTaskState("r1", "n2")?.status).toBe("failed");
+  });
+
   test("onEngineEvent callback fires for every event", () => {
     const received: unknown[] = [];
     const store = new DevToolsRunStore({

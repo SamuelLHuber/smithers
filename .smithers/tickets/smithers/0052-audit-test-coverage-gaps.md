@@ -62,7 +62,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Still single-case; recursive/branch coverage not added
 - [ ] **P2** createMcpToolset include filter and callMcpTool error/structured-content branches untested — ``
   - _remaining:_ createMcpToolset include filter and callMcpTool error/structured-content branches still untested
-- [ ] **P2** DevToolsRunStore: verbose logging, unknown-event recording, orphan ToolCallFinished, and getTaskState-miss branches are untested — `packages/devtools/src/DevToolsRunStore.js:68-77,119-142,183-189`
+- [x] **P2** DevToolsRunStore: verbose logging, unknown-event recording, orphan ToolCallFinished, and getTaskState-miss branches are untested — `packages/devtools/src/DevToolsRunStore.js:68-77,119-142,183-189` — added 5 tests: getTaskState misses (unknown run, unknown node, missing iteration), orphan ToolCallFinished no-op, unknown-event recording (run created + event retained, no task mutation), and verbose-mode lifecycle logging. 88 devtools tests green.
   - _remaining:_ Verbose logging, unknown-event recording, orphan ToolCallFinished, and getTaskState run-miss branches all still untested
 - [x] **P2** snapshotSerializer: top-level non-plain values and anonymous-class instances are untested boundary cases — `packages/devtools/src/snapshotSerializer.js:88-106` — added tests for top-level bigint/function/symbol(±description)/Date(valid+invalid), a top-level named-class instance (`[Ctor]` + UnsupportedType warning at path `$`), and an anonymous-class instance (empty ctor name → walked as its own enumerable keys). 84 devtools tests green.
   - _remaining:_ Top-level non-plain value and anonymous-class instance boundary cases still untested
