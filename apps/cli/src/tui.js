@@ -153,6 +153,17 @@ export function displayNode(nodeId) {
     return i >= 0 ? id.slice(i + 1) : id;
 }
 
+/**
+ * A completed tool phase ("[tool] X → Y", emitted by parseAgentEvent) is
+ * redundant with the start line, so the stream skips it to halve tool-call noise.
+ * @param {string} text
+ */
+export function isCompletedToolPhase(text) {
+    // Completed = "[tool] <title> → <output>" (title has no ':' — a started call
+    // with JSON args is "[tool] <title>: {…}", whose args may legitimately hold →).
+    return /^\s*\[(?:tool|command)\]\s+[^:→\n]+\s→\s/.test(String(text));
+}
+
 const OUTPUT_META_KEYS = new Set([
     "runId", "nodeId", "iteration", "attempt", "run_id", "node_id",
     "createdAtMs", "updatedAtMs", "created_at_ms", "updated_at_ms",
@@ -589,7 +600,7 @@ export async function streamRun(adapter, runId, name, promptText, opts = {}) {
                     continue;
                 }
                 const parsed = parseAgentEvent(ev) ?? parseNodeOutputEvent(ev);
-                if (parsed?.text) {
+                if (parsed?.text && !isCompletedToolPhase(parsed.text)) {
                     const label = labels.get(parsed.nodeId) ?? displayNode(parsed.nodeId);
                     printLine(colorFor(parsed.nodeId), label, parsed.text);
                 }
