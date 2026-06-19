@@ -1,5 +1,4 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SEMANTIC_TOOL_NAMES, createSemanticToolDefinitions, } from "./semantic-tools.js";
 /** @typedef {import("./SemanticMcpServerOptions.ts").SemanticMcpServerOptions} SemanticMcpServerOptions */
 /** @typedef {import("./SemanticToolDefinition.ts").SemanticToolDefinition} SemanticToolDefinition */
@@ -77,14 +76,5 @@ export function createSemanticMcpServer(options = {}) {
         version: options.version ?? "0.0.0",
     });
     registerSemanticTools(server, createSemanticToolDefinitions(), options);
-    return server;
-}
-/**
- * @param {SemanticMcpServerOptions} [options]
- */
-export async function serveSemanticMcpServer(options = {}) {
-    const server = createSemanticMcpServer(options);
-    const transport = new StdioServerTransport(process.stdin, process.stdout);
-    await server.connect(transport);
     return server;
 }

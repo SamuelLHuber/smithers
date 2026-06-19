@@ -16,8 +16,8 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ 4 of the capability-registry factory re-exports remain inconsistent/unused via the barrel.
 - [x] **P2** Orphaned type files: AskOptions.ts, InitWorkflowPackOptions.ts, InitWorkflowPackResult.ts, and a shebang-only index.d.ts — `apps/cli/src/AskOptions.ts, apps/cli/src/InitWorkflowPackOptions.ts, apps/cli/src/InitWorkflowPackResult.ts, apps/cli/src/index.d.ts`
   - _remaining:_ All four orphaned files still present.
-- [ ] **P2** Dead MCP exports: registerSemanticTools and serveSemanticMcpServer — `apps/cli/src/mcp/semantic-server.js:11-21 (registerSemanticTools), 36-41 (serveSemanticMcpServer)`
-  - _remaining:_ The genuinely-dead serveSemanticMcpServer export remains.
+- [x] **P2** Dead MCP exports: registerSemanticTools and serveSemanticMcpServer — `apps/cli/src/mcp/semantic-server.js:11-21 (registerSemanticTools), 36-41 (serveSemanticMcpServer)`
+  - _done (2026-06-19):_ Removed the dead `serveSemanticMcpServer` wrapper (zero consumers; the CLI --mcp path uses `createSemanticMcpServer` + its own stdio wiring) and the now-unused StdioServerTransport import. `registerSemanticTools` stays (tested + used by createSemanticMcpServer). cli typecheck + semantic-mcp tests + lint green.
 - [x] **P1** Entire in-memory MetricsService in _coreMetrics.js is dead code (only the Tag is used) — `apps/observability/src/_coreMetrics.js:85-510`
   - _done (2026-06-19):_ Removed `makeInMemoryMetricsService` + the in-file `MetricsServiceLive`/`MetricsServiceNoop` and their private helpers (DEFAULT_HISTOGRAM_BUCKETS, labelsKey, metricKey, cloneLabels) and 9 now-dead JSDoc typedef imports. The production `MetricsServiceLive` lives in `MetricsServiceLive.js` (re-exported by index.js), and the heavily-used catalog (smithersMetricCatalog, 9 consumers) + the `MetricsService` Tag are kept. _coreMetrics.js 510→~180 lines; obs typecheck + lint + 157 tests + root typecheck green.
 - [x] **P2** Dead in-memory recordEvent handles event types that don't exist in the SmithersEvent union — `apps/observability/src/_coreMetrics.js:359-479`
