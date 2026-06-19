@@ -34,7 +34,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Stream path remains unused-by-product/untested.
 - [ ] **P2** Aspects accumulator + tracking config are render-time plumbing that the engine discards (dead data path) — `packages/components/src/aspects/AspectContext.js:22 (createAccumulator), packages/components/src/components/Aspects.js:27-37, packages/components/src/components/Task.js:300-309 (buildAspectMeta)`
   - _remaining:_ Render-time accumulator/tracking data path still discarded by engine.
-- [ ] **P2** aspects/index.js barrel is exported but imported by nothing — `packages/components/src/aspects/index.js:9`
+- [x] **P2** aspects/index.js barrel is exported but imported by nothing — `packages/components/src/aspects/index.js:9`
   - _remaining:_ Barrel still imported by nothing.
 - [ ] **P1** Entire in-memory storage module (storage/) is dead code — ``
   - _remaining:_ In-memory storage module still dead.
