@@ -60,5 +60,5 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Public type surface still Record<string,any>; zero type safety for importers.
 - [x] **P2** package.json ./* subpath export maps every subpath's types to index.d.ts (latent mis-mapping, currently unused) — `packages/tool-context/package.json:13-17`
   - _remaining:_ Latent ./* types mis-mapping not fixed.
-- [ ] **P2** findVcsRoot is wrapped in Effect.sync but every consumer immediately Effect.runSync's it — pure ceremony with no Effect benefit — `packages/vcs/src/find-root.js:12-29 ; packages/engine/src/engine.js:709,733,1697`
+- [x] **P2** findVcsRoot is wrapped in Effect.sync but every consumer immediately Effect.runSync's it — pure ceremony with no Effect benefit — `packages/vcs/src/find-root.js:12-29 ; packages/engine/src/engine.js:709,733,1697` — now a plain sync function; engine call sites + test wrapper + index.d.ts updated
   - _remaining:_ Effect ceremony not removed; not converted to a plain sync function.

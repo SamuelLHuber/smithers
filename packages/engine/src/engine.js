@@ -739,7 +739,7 @@ async function ensureJjWorkspaceGitRoot(gitRoot, worktreePath, branch, baseBranc
 async function ensureWorktree(rootDir, worktreePath, branch, baseBranch) {
     if (existsSync(worktreePath)) {
         // Worktree exists — rebase onto the configured base branch so work starts from tip.
-        const vcs = Effect.runSync(findVcsRoot(rootDir));
+        const vcs = findVcsRoot(rootDir);
         const base = baseBranch || "main";
         if (vcs?.type === "jj") {
             await Effect.runPromise(runJj(["git", "fetch"], { cwd: worktreePath }).pipe(Effect.provide(BunContext.layer)));
@@ -763,7 +763,7 @@ async function ensureWorktree(rootDir, worktreePath, branch, baseBranch) {
         createdWorktrees.delete(worktreePath);
     }
     // Walk up from rootDir to find the actual VCS root
-    const vcs = Effect.runSync(findVcsRoot(rootDir));
+    const vcs = findVcsRoot(rootDir);
     if (!vcs) {
         // Distinguish "no VCS tooling installed" from "tooling present, but not
         // inside a repo" so the error tells the user what to actually fix.
@@ -1727,7 +1727,7 @@ async function getGitPointer(cwd) {
 async function getRunDurabilityMetadata(workflowPath, rootDir) {
     const entryWorkflowHash = await readWorkflowEntryHash(workflowPath);
     const workflowHash = await readWorkflowGraphHash(workflowPath);
-    const vcs = Effect.runSync(findVcsRoot(rootDir));
+    const vcs = findVcsRoot(rootDir);
     if (!vcs) {
         return {
             workflowHash,

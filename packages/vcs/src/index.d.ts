@@ -8,15 +8,15 @@ import { existsSync } from 'node:fs';
  * Returns the VCS type and root path, or null if neither is found.
  *
  * @param {string} startDir
- * @returns {Effect.Effect<{ type: "jj"; root: string } | { type: "git"; root: string } | null, never, never>}
+ * @returns {{ type: "jj"; root: string } | { type: "git"; root: string } | null}
  */
-declare function findVcsRoot(startDir: string): Effect.Effect<{
+declare function findVcsRoot(startDir: string): {
     type: "jj";
     root: string;
 } | {
     type: "git";
     root: string;
-} | null, never, never>;
+} | null;
 
 type WorkspaceResult$1 = {
     success: boolean;

@@ -1,17 +1,10 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import { Effect } from "effect";
-import { findVcsRoot as findVcsRootEffect } from "../src/find-root.js";
+import { findVcsRoot } from "../src/find-root.js";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 function makeTmpDir() {
     return mkdtempSync(join(tmpdir(), "smithers-vcs-"));
-}
-/**
- * @param {string} startDir
- */
-function findVcsRoot(startDir) {
-    return Effect.runSync(findVcsRootEffect(startDir));
 }
 describe("findVcsRoot", () => {
     const dirs = [];
