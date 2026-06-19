@@ -50,7 +50,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ OpenAPI 'e2e' still mocks globalThis.fetch — not a strict no-mock e2e
 - [ ] **P1** Neither 'examples smoke test' actually exercises the examples/ tree — both only scan docs/** — `apps/cli/tests/docs-examples-smoke.test.js:155`
   - _remaining:_ Neither smoke test exercises the examples/ tree; both only scan docs
-- [ ] **P2** examples/ tree (108 workflows) is in NO CI gate — typecheck:examples script exists but is never invoked — `.github/workflows/ci.yml:34`
+- [x] **P2** examples/ tree (108 workflows) is in NO CI gate — typecheck:examples script exists but is never invoked — `.github/workflows/ci.yml:34`
   - _remaining:_ examples/ tree still in NO CI gate; typecheck:examples never invoked
 - [ ] **P2** examples/tsconfig.json points smithers-orchestrator at src/*.js source, not the published package — typecheck:examples does not validate against shipped types — `examples/tsconfig.json`
   - _remaining:_ examples tsconfig still points at src/*.js source, not the published package; does not validate against shipped types
@@ -58,7 +58,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ AntigravityAgent stream-json interpreter/output-parsing still untested
 - [ ] **P2** Observability metric emission path has no test assertions — ``
   - _remaining:_ Agent observability/metric emission path still has no test assertions
-- [ ] **P2** extractTextFromJsonValue (widely-used recursive util) has a single test case — ``
+- [x] **P2** extractTextFromJsonValue (widely-used recursive util) has a single test case — ``
   - _remaining:_ Still single-case; recursive/branch coverage not added
 - [ ] **P2** createMcpToolset include filter and callMcpTool error/structured-content branches untested — ``
   - _remaining:_ createMcpToolset include filter and callMcpTool error/structured-content branches still untested
