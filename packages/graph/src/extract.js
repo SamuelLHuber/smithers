@@ -2,14 +2,12 @@ import { getTableName } from "drizzle-orm";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { validateForkSources } from "./validateForkSources.js";
 import { resolveWorktreePath } from "./worktree-path.js";
+import { DEFAULT_MERGE_QUEUE_CONCURRENCY, WORKTREE_EMPTY_PATH_ERROR } from "./constants.js";
 /** @typedef {import("./TaskDescriptor.ts").TaskDescriptor} TaskDescriptor */
 /** @typedef {import("./XmlNode.ts").XmlNode} XmlNode */
 /** @typedef {import("./ExtractOptions.ts").ExtractOptions} ExtractOptions */
 /** @typedef {import("./HostNode.ts").HostNode} HostNode */
 /** @typedef {import("./WorkflowGraph.ts").WorkflowGraph} WorkflowGraph */
-
-const DEFAULT_MERGE_QUEUE_CONCURRENCY = 1;
-const WORKTREE_EMPTY_PATH_ERROR = "<Worktree> requires a non-empty path prop";
 // Default per-task heartbeat timeout. 10 min is the floor for agent-backed
 // tasks: LLM CLIs (claude, codex, gemini, kimi) can sit silent for several
 // minutes during long deliberation or large-context reads. The previous

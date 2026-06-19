@@ -7,6 +7,15 @@ import { useSyncClient } from "./useSyncClient.ts";
 /** The five tones the run UI knows; mirrors `snapshotToGatewayRunNode`'s output. */
 export type NodeStatus = "ok" | "running" | "queued" | "failed" | "waiting";
 
+const NODE_STATUSES: readonly NodeStatus[] = ["ok", "running", "queued", "failed", "waiting"];
+
+/** Narrow a raw node status string to NodeStatus, defaulting to "queued". */
+function toNodeStatus(value: string | undefined): NodeStatus {
+  return value !== undefined && (NODE_STATUSES as readonly string[]).includes(value)
+    ? (value as NodeStatus)
+    : "queued";
+}
+
 export type UseGatewayRunTreeResult = {
   /** The run tree with `children` rebuilt from the flat collection, or null when empty. */
   root: GatewayRunNode | null;
@@ -35,7 +44,7 @@ export function useGatewayRunTree(runId: string | undefined): UseGatewayRunTreeR
 
   const nodes = (live.data ?? []) as GatewayRunNode[];
   const root = useMemo(() => buildGatewayRunTree(nodes), [nodes]);
-  const status = (root?.status ?? "queued") as NodeStatus;
+  const status = toNodeStatus(root?.status);
   const isLoading = Boolean(runId) && !live.isReady && nodes.length === 0;
   return {
     root,

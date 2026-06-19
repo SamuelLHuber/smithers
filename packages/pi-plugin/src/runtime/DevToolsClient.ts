@@ -88,7 +88,6 @@ const NESTED_AUDIT_CONTAINERS = ["result", "data", "mutation", "ack", "payload",
 function toWsUrl(baseUrl: string) {
   const url = new URL(baseUrl);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.pathname = url.pathname === "/" ? "/" : url.pathname;
   url.search = "";
   return url.toString();
 }

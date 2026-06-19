@@ -27,7 +27,8 @@ const rules = [
     {
         id: "secret-ish",
         pattern: /\b(?:api[_-]?key|token|secret|password)=([^\s"']+)/gi,
-        replace: "",
+        // No `replace` field: redactValue special-cases this rule by id and
+        // rewrites the captured value itself, so a top-level replace is never read.
     },
 ];
 

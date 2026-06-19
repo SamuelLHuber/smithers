@@ -5,7 +5,7 @@ export const SMITHERS_NODE_ICONS = {
     workflow: "📋",
     task: "⚡",
     sequence: "➡️",
-    parallel: "⚡",
+    parallel: "🛤️",
     "merge-queue": "🔀",
     branch: "🌿",
     loop: "🔁",
