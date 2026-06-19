@@ -855,8 +855,17 @@ export async function runTuiCommand(c, fail = (opts) => c.error?.(opts) ?? c.ok(
         // (approval or human input). Resolve the gate via clack, resume the run
         // as a fresh process, and keep streaming. Repeat until the run finishes.
         while (true) {
-            const approvals = await db.adapter.listPendingApprovals(runId);
-            const humans = (await db.adapter.listPendingHumanRequests()).filter((r) => r.runId === runId);
+            let approvals = await db.adapter.listPendingApprovals(runId);
+            let humans = (await db.adapter.listPendingHumanRequests()).filter((r) => r.runId === runId);
+            // A HumanTask surfaces as BOTH a pending approval AND a human request,
+            // but the two can land a tick apart. If we only see the approval, give
+            // the human request a beat to materialize so we don't mis-route to a
+            // bare Approve/Deny prompt instead of asking for the real answer.
+            if (approvals.length > 0 && humans.length === 0) {
+                await sleep(400);
+                humans = (await db.adapter.listPendingHumanRequests()).filter((r) => r.runId === runId);
+                approvals = await db.adapter.listPendingApprovals(runId);
+            }
             if (approvals.length === 0 && humans.length === 0) {
                 if (result.error) {
                     const message = `${result.error.message} See ${logFile}.`;
