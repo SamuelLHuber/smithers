@@ -1,7 +1,8 @@
-// Real-PTY e2e for `smithers tui`, driven through zmux (github.com/smithersai/zmux).
-// Each test spawns the zmux daemon, runs `smithers tui` inside an 80x24 pane,
-// drives the clack prompts with raw key bytes, and asserts against the visible
-// terminal grid reconstructed by the VT emulator in zmux-harness.js.
+// Real-PTY e2e for the interactive run flow (`smithers up --interactive`),
+// driven through zmux (github.com/smithersai/zmux). Each test spawns the zmux
+// daemon, runs `smithers up --interactive` inside an 80x24 pane, drives the
+// clack prompts with raw key bytes, and asserts against the visible terminal
+// grid reconstructed by the VT emulator in zmux-harness.js.
 //
 // The `zmuxd` daemon binary is NOT present on the clean CI box by default. When
 // `resolveZmuxd()` returns null these tests skip cleanly so CI stays green;
@@ -21,11 +22,12 @@ import {
 import { findSmithersDb, openSmithersDb } from "../src/find-db.js";
 
 const ZMUXD = resolveZmuxd();
-// `bun apps/cli/src/index.js tui` from the repo root is the most robust way to
-// launch the CLI inside the pane (avoids depending on the `bun run cli` script).
-const TUI_COMMAND = "bun apps/cli/src/index.js tui";
+// `bun apps/cli/src/index.js up --interactive` from the repo root is the most
+// robust way to launch the interactive flow inside the pane (avoids depending on
+// the `bun run cli` script). With no workflow argument it opens the picker.
+const TUI_COMMAND = "bun apps/cli/src/index.js up --interactive";
 
-describe.skipIf(ZMUXD == null)("smithers tui zmux PTY", () => {
+describe.skipIf(ZMUXD == null)("smithers up --interactive zmux PTY", () => {
     test("renders the workflow picker without wrapped ghost rows", async () => {
         const cols = 80;
         const rows = 20;

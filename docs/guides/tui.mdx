@@ -7,10 +7,13 @@ description: The old smithers tui command is no longer shipped; use the CLI comm
 
 The removal dropped the OpenTUI dependency and the `apps/cli/src/tui/` tree from the package.
 
+If you want the old "pick a workflow, start it, and watch it live" experience, that flow now lives behind a flag on the run commands: [`up --interactive`](/cli/overview) (or [`workflow run --interactive`](/cli/overview)). With no workflow argument it opens an interactive picker, prompts for inputs, and live-renders the run's status card until it finishes or pauses on a gate.
+
 ## Replacements
 
 | Need | Use |
 | --- | --- |
+| Pick a workflow and watch it run | [`up --interactive`](/cli/overview) or [`workflow run --interactive`](/cli/overview) |
 | Active run list | [`ps --watch`](/cli/overview) |
 | Lifecycle event stream | [`events --watch`](/cli/overview) or [`logs --follow`](/cli/overview) |
 | Agent transcript | [`chat --follow`](/cli/overview) |

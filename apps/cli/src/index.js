@@ -1271,6 +1271,11 @@ async function buildNodeSnapshot(adapter, options) {
 const workflowArgs = z.object({
     workflow: z.string().describe("Path to a .tsx workflow file"),
 });
+// `up` accepts an optional workflow path: omit it (or pass --interactive) to pick
+// one through the interactive terminal flow instead.
+const upArgs = z.object({
+    workflow: z.string().optional().describe("Path to a .tsx workflow file (omit with --interactive to pick one)"),
+});
 const upOptions = z.object({
     detach: z.boolean().default(false).describe("Run in background, print run ID, exit"),
     runId: z.string().optional().describe("Explicit run ID"),
@@ -1301,6 +1306,14 @@ const upOptions = z.object({
     authToken: z.string().optional().describe("Bearer token for HTTP auth (or set SMITHERS_API_KEY)"),
     metrics: z.boolean().default(true).describe("Expose /metrics endpoint (with --serve)"),
 });
+// Launch the interactive picker + live status card instead of a one-shot run.
+// Shared by `up` and `workflow run`; deliberately NOT folded into `upOptions`
+// so it does not leak onto `monitor` (which also extends `upOptions`).
+const interactiveRunOption = z
+    .boolean()
+    .default(false)
+    .describe("Pick a workflow and its inputs through interactive terminal prompts, then live-render the run (TTY only)");
+const upRunOptions = upOptions.extend({ interactive: interactiveRunOption });
 const evalOptions = z.object({
     cases: z.string().describe("JSON or JSONL eval case file"),
     suite: z.string().optional().describe("Stable suite ID used in run IDs and report paths"),
@@ -1468,6 +1481,11 @@ const revertOptions = z.object({
 const workflowPathArgs = z.object({
     name: z.string().describe("Workflow ID"),
 });
+// `workflow run` accepts an optional ID: omit it (or pass --interactive) to pick
+// a workflow through the interactive terminal flow instead.
+const workflowRunArgs = z.object({
+    name: z.string().optional().describe("Workflow ID (omit with --interactive to pick one)"),
+});
 const workflowDoctorArgs = z.object({
     name: z.string().optional().describe("Workflow ID"),
 });
@@ -1484,6 +1502,7 @@ const workflowCreateOptions = z.object({
 });
 const workflowRunOptions = upOptions.extend({
     prompt: z.string().optional().describe("Prompt text mapped to input.prompt when --input is omitted"),
+    interactive: interactiveRunOption,
 });
 /**
  * @param {WorkflowRunCommandOptions} options
@@ -1500,6 +1519,24 @@ function normalizeWorkflowRunOptions(options) {
                 ? JSON.stringify({ prompt: options.prompt })
                 : undefined),
     };
+}
+/**
+ * Decide how a run command (`up` / `workflow run`) should launch:
+ *   - "interactive" — show the clack picker + live status card (explicit
+ *     --interactive, or no workflow given while attached to a TTY).
+ *   - "direct" — run the named/path workflow non-interactively (the default).
+ *   - "needs-tty" — --interactive was requested without an interactive terminal.
+ *   - "missing-arg" — no workflow given and not a TTY, so there is nothing to run.
+ *
+ * @param {{ interactive?: boolean }} options
+ * @param {boolean} hasWorkflowArg
+ * @returns {"interactive" | "direct" | "needs-tty" | "missing-arg"}
+ */
+function interactiveLaunchMode(options, hasWorkflowArg) {
+    const tty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+    if (options.interactive) return tty ? "interactive" : "needs-tty";
+    if (!hasWorkflowArg) return tty ? "interactive" : "missing-arg";
+    return "direct";
 }
 function formatRequestedJsonOutput() {
     for (let index = 0; index < process.argv.length; index += 1) {
@@ -2107,8 +2144,8 @@ const workflowCli = Cli.create({
     description: "Discover local workflows from .smithers/workflows.",
 })
     .command("run", {
-    description: "Run a discovered workflow by ID.",
-    args: workflowPathArgs,
+    description: "Run a discovered workflow by ID. Omit the ID (or pass --interactive) to pick one interactively.",
+    args: workflowRunArgs,
     options: workflowRunOptions,
     alias: { detach: "d", runId: "r", input: "i", maxConcurrency: "c", prompt: "p" },
     async run(c) {
@@ -2117,6 +2154,17 @@ const workflowCli = Cli.create({
             return c.error(opts);
         };
         try {
+            const mode = interactiveLaunchMode(c.options, Boolean(c.args.name));
+            if (mode === "needs-tty") {
+                return fail({ code: "INTERACTIVE_REQUIRES_TTY", message: "--interactive needs an interactive terminal (TTY).", exitCode: 4 });
+            }
+            if (mode === "missing-arg") {
+                return fail({ code: "WORKFLOW_REQUIRED", message: "Provide a workflow ID, or pass --interactive to pick one.", exitCode: 4 });
+            }
+            if (mode === "interactive") {
+                const preselect = c.args.name ? resolveWorkflow(c.args.name, process.cwd()) : undefined;
+                return runTuiCommand(c, fail, { preselect });
+            }
             const workflow = resolveWorkflow(c.args.name, process.cwd());
             return executeUpCommand(c, workflow.entryFile, normalizeWorkflowRunOptions(c.options), fail);
         }
@@ -3205,34 +3253,37 @@ const cli = Cli.create({
     },
 })
     // =========================================================================
-    // smithers tui [runId]
-    // =========================================================================
-    .command("tui", {
-    description: "Pick a workflow, start a run, and live-render its status card (clack TUI).",
-    // The card renders directly to stdout; suppress the raw result dump in a
-    // human TTY while keeping JSON for piped/agent use.
-    outputPolicy: "agent-only",
-    run(c) {
-        const fail = (opts) => {
-            commandExitOverride = opts.exitCode ?? 1;
-            return c.error(opts);
-        };
-        return runTuiCommand(c, fail);
-    },
-})
-    // =========================================================================
     // smithers up [workflow]
     // =========================================================================
     .command("up", {
-    description: "Start a workflow execution. Use -d for detached (background) mode.",
-    args: workflowArgs,
-    options: upOptions,
+    description: "Start a workflow execution. Omit the workflow (or pass --interactive) to pick one interactively; use -d for detached (background) mode.",
+    args: upArgs,
+    options: upRunOptions,
     alias: { detach: "d", runId: "r", input: "i", maxConcurrency: "c" },
     async run(c) {
         const fail = (opts) => {
             commandExitOverride = opts.exitCode ?? 1;
             return c.error(opts);
         };
+        const mode = interactiveLaunchMode(c.options, Boolean(c.args.workflow));
+        if (mode === "needs-tty") {
+            return fail({ code: "INTERACTIVE_REQUIRES_TTY", message: "--interactive needs an interactive terminal (TTY).", exitCode: 4 });
+        }
+        if (mode === "missing-arg") {
+            return fail({ code: "WORKFLOW_REQUIRED", message: "Provide a workflow file path, or pass --interactive to pick one.", exitCode: 4 });
+        }
+        if (mode === "interactive") {
+            let preselect;
+            if (c.args.workflow) {
+                const entryFile = resolve(process.cwd(), c.args.workflow);
+                if (!existsSync(entryFile)) {
+                    return fail({ code: "WORKFLOW_NOT_FOUND", message: `Workflow file not found: ${c.args.workflow}`, exitCode: 4 });
+                }
+                const id = basename(c.args.workflow).replace(/\.[mc]?[tj]sx?$/i, "");
+                preselect = { entryFile, id, displayName: id };
+            }
+            return runTuiCommand(c, fail, { preselect });
+        }
         return executeUpCommand(c, c.args.workflow, c.options, fail);
     },
 })

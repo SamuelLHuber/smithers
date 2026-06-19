@@ -727,41 +727,51 @@ async function askWorkflowInputs(workflow) {
 }
 
 /**
- * `smithers tui` — pick a workflow, start a real run, and live-render its
- * status card until the run finishes or pauses for approval.
+ * The interactive run flow (`up --interactive` / `workflow run --interactive`):
+ * optionally pick a workflow, start a real run, and live-render its status card
+ * until the run finishes or pauses for approval.
+ *
+ * When `opts.preselect` is supplied the workflow is already chosen (the caller
+ * passed a workflow ID or file path), so the picker is skipped and we go
+ * straight to prompting for inputs.
+ *
  * @param {{ ok: (...args: any[]) => any; error?: (...args: any[]) => any }} c
  * @param {(opts: { code: string; message: string; exitCode?: number; [key: string]: unknown }) => any} fail
+ * @param {{ preselect?: { entryFile: string; id?: string; displayName?: string; description?: string } }} [opts]
  */
-export async function runTuiCommand(c, fail = (opts) => c.error?.(opts) ?? c.ok({ ran: false, reason: opts.code })) {
-    intro(`${pc.bgCyan(pc.black(" smithers "))} ${pc.dim("tui")}`);
+export async function runTuiCommand(c, fail = (opts) => c.error?.(opts) ?? c.ok({ ran: false, reason: opts.code }), opts = {}) {
+    intro(`${pc.bgCyan(pc.black(" smithers "))} ${pc.dim("interactive")}`);
 
-    const workflows = discoverWorkflows();
-    if (workflows.length === 0) {
-        log.warn("No workflows found. Run `smithers init` to install the workflow pack.");
-        return c.ok({ ran: false, reason: "no-workflows" });
-    }
-
-    // Bound the picker to a scrolling window that fits the terminal, and keep
-    // every option on ONE line. A list taller than the screen, or a hint that
-    // wraps, both break clack's in-place redraw (ghost rows, jumpy cursor).
-    const rows = process.stdout.rows || 24;
-    const width = process.stdout.columns || 80;
-    const choice = await fuzzySelect({
-        message: "Select a workflow to run",
-        maxItems: pickerMaxItems(rows),
-        options: buildWorkflowPickerOptions(workflows, width),
-    });
-    if (isCancel(choice)) {
-        cancel("No workflow selected.");
-        return c.ok({ ran: false, reason: "cancelled" });
-    }
-    const workflow = workflows.find((w) => w.entryFile === choice);
+    let workflow = opts.preselect ?? null;
     if (!workflow) {
-        return fail({
-            code: "TUI_WORKFLOW_NOT_FOUND",
-            message: `Selected workflow could not be resolved: ${String(choice)}`,
-            exitCode: 4,
+        const workflows = discoverWorkflows();
+        if (workflows.length === 0) {
+            log.warn("No workflows found. Run `smithers init` to install the workflow pack.");
+            return c.ok({ ran: false, reason: "no-workflows" });
+        }
+
+        // Bound the picker to a scrolling window that fits the terminal, and keep
+        // every option on ONE line. A list taller than the screen, or a hint that
+        // wraps, both break clack's in-place redraw (ghost rows, jumpy cursor).
+        const rows = process.stdout.rows || 24;
+        const width = process.stdout.columns || 80;
+        const choice = await fuzzySelect({
+            message: "Select a workflow to run",
+            maxItems: pickerMaxItems(rows),
+            options: buildWorkflowPickerOptions(workflows, width),
         });
+        if (isCancel(choice)) {
+            cancel("No workflow selected.");
+            return c.ok({ ran: false, reason: "cancelled" });
+        }
+        workflow = workflows.find((w) => w.entryFile === choice);
+        if (!workflow) {
+            return fail({
+                code: "TUI_WORKFLOW_NOT_FOUND",
+                message: `Selected workflow could not be resolved: ${String(choice)}`,
+                exitCode: 4,
+            });
+        }
     }
 
     const inputs = await askWorkflowInputs(workflow);

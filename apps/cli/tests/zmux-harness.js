@@ -1,7 +1,8 @@
-// Shared harness for the `smithers tui` real-PTY e2e tests driven through zmux
-// (github.com/smithersai/zmux). These tests spawn the zmux daemon (`zmuxd`),
-// run `smithers tui` inside a real PTY pane, drive the clack prompts with raw
-// key bytes, and reconstruct the visible terminal grid with a tiny VT emulator
+// Shared harness for the interactive run flow (`smithers up --interactive`)
+// real-PTY e2e tests driven through zmux (github.com/smithersai/zmux). These
+// tests spawn the zmux daemon (`zmuxd`), run `smithers up --interactive` inside
+// a real PTY pane, drive the clack prompts with raw key bytes, and reconstruct
+// the visible terminal grid with a tiny VT emulator
 // so assertions run against what a human actually sees.
 //
 // The daemon binary is not present on the clean CI box by default, so every
