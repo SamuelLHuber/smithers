@@ -160,10 +160,10 @@ to the workflow:
 
 | Target | Notes |
 | --- | --- |
-| Local | default, runs on your machine |
-| [gVisor](https://gvisor.dev) | syscall-isolated containers |
-| Kubernetes | your own cluster |
-| [Freestyle](https://freestyle.sh) · [Daytona](https://daytona.io) · [Cloudflare](https://workers.cloudflare.com) | managed remote sandboxes |
+| Local | default; syscall-isolated via Bubblewrap or Docker |
+| Docker | containerized execution on your machine or CI |
+| [Freestyle](https://freestyle.sh) | managed remote sandbox (see the [example provider](./docs/examples/freestyle-sandbox-provider.mdx)) |
+| Bring-your-own | implement the `SandboxProvider` interface for any backend ([gVisor](https://gvisor.dev), Kubernetes, [Daytona](https://daytona.io), [Cloudflare](https://workers.cloudflare.com), …) |
 
 Beyond [`init`](#get-started), `bunx smithers-orchestrator mcp add` also wires the MCP
 server into Cursor, Copilot, Hermes, OpenClaw, and ~20 more coding agents.
@@ -328,8 +328,8 @@ runtime:
   can see exactly what an agent did and why.
 - **Reversible**: `rewind`, `fork`, or `replay` any run from a checkpoint instead of living
   with whatever the agent left behind.
-- **Isolated**: run agents in a [sandbox](#any-agent-any-model) (gVisor, Kubernetes,
-  Freestyle, Daytona, Cloudflare) so edits never touch your host.
+- **Isolated**: run agents in a [sandbox](#any-agent-any-model) (Bubblewrap, Docker,
+  or a bring-your-own remote provider) so edits never touch your host.
 - **Auditable**: every run emits Prometheus metrics and OpenTelemetry traces.
 
 ## Read next
