@@ -1,5 +1,5 @@
 import type { GatewayRpcMethod } from "@smithers-orchestrator/gateway/rpc";
-import { isObject } from "./objectGuards.ts";
+import { isObject, isGatewayResponseFrame } from "./objectGuards.ts";
 import { GatewayRpcError } from "./GatewayRpcError.ts";
 import type { GatewayEventFrame } from "./GatewayEventFrame.ts";
 import type { GatewayResponseFrame } from "./GatewayResponseFrame.ts";
@@ -161,21 +161,6 @@ function raceSignal<T>(promise: Promise<T>, signal: AbortSignal | undefined, mes
       },
     );
   });
-}
-
-function isGatewayResponseFrame(value: unknown): value is GatewayResponseFrame {
-  if (!isObject(value)) {
-    return false;
-  }
-  if (value.type !== "res" || typeof value.id !== "string" || typeof value.ok !== "boolean") {
-    return false;
-  }
-  if (value.ok === true) {
-    return "payload" in value;
-  }
-  return isObject(value.error) &&
-    typeof value.error.code === "string" &&
-    typeof value.error.message === "string";
 }
 
 function rpcError(frame: Extract<GatewayResponseFrame, { ok: false }>, method: string, status?: number) {

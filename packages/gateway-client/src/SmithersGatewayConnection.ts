@@ -1,5 +1,5 @@
 import type { GatewayRpcMethod } from "@smithers-orchestrator/gateway/rpc";
-import { isObject } from "./objectGuards.ts";
+import { isObject, isGatewayResponseFrame } from "./objectGuards.ts";
 import { GatewayRpcError } from "./GatewayRpcError.ts";
 import type { GatewayEventFrame } from "./GatewayEventFrame.ts";
 import type { GatewayResponseFrame } from "./GatewayResponseFrame.ts";
@@ -42,21 +42,6 @@ function invalidFrameError(details?: unknown) {
     message: "Gateway returned an invalid WebSocket frame.",
     details,
   });
-}
-
-function isGatewayResponseFrame(value: unknown): value is GatewayResponseFrame {
-  if (!isObject(value)) {
-    return false;
-  }
-  if (value.type !== "res" || typeof value.id !== "string" || typeof value.ok !== "boolean") {
-    return false;
-  }
-  if (value.ok === true) {
-    return "payload" in value;
-  }
-  return isObject(value.error) &&
-    typeof value.error.code === "string" &&
-    typeof value.error.message === "string";
 }
 
 function isGatewayEventFrame(value: unknown): value is GatewayEventFrame {
