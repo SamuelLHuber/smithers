@@ -12,17 +12,7 @@ import { normalizeCapabilityStringList } from "./capability-registry/index.js";
 
 /** @typedef {import("./BaseCliAgent/index.ts").BaseCliAgentOptions} BaseCliAgentOptions */
 /** @typedef {import("./capability-registry/index.ts").AgentCapabilityRegistry} AgentCapabilityRegistry */
-
-/**
- * @typedef {BaseCliAgentOptions & {
- *   model?: string;
- *   agentName?: string;
- *   attachFiles?: string[];
- *   continueSession?: boolean;
- *   sessionId?: string;
- *   variant?: "high" | "medium" | "low";
- * }} OpenCodeAgentOptions
- */
+/** @typedef {import("./OpenCodeAgentOptions.ts").OpenCodeAgentOptions} OpenCodeAgentOptions */
 
 /** @typedef {import("./BaseCliAgent/index.ts").CliOutputInterpreter} CliOutputInterpreter */
 

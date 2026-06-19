@@ -21,7 +21,7 @@
 /** @typedef {import("./PiAgentOptions.ts").PiAgentOptions} PiAgentOptions */
 /** @typedef {import("./BaseCliAgent/PiExtensionUiRequest.ts").PiExtensionUiRequest} PiExtensionUiRequest */
 /** @typedef {import("./BaseCliAgent/PiExtensionUiResponse.ts").PiExtensionUiResponse} PiExtensionUiResponse */
-/** @typedef {import("./OpenCodeAgent.ts").OpenCodeAgentOptions} OpenCodeAgentOptions */
+/** @typedef {import("./OpenCodeAgentOptions.ts").OpenCodeAgentOptions} OpenCodeAgentOptions */
 /** @typedef {import("./VibeAgentOptions.ts").VibeAgentOptions} VibeAgentOptions */
 /** @typedef {import("./agent-contract/SmithersAgentContract.ts").SmithersAgentContract} SmithersAgentContract */
 /** @typedef {import("./agent-contract/SmithersAgentContractTool.ts").SmithersAgentContractTool} SmithersAgentContractTool */

@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 describe("OpenCodeAgent JSDoc", () => {
   test("documents the current Opus model ID", async () => {
     const source = await readFile(
-      resolve(__dirname, "../src/OpenCodeAgent.ts"),
+      resolve(__dirname, "../src/OpenCodeAgentOptions.ts"),
       "utf8"
     );
 

@@ -12,7 +12,7 @@ Each item below is still open in current `main`. Text is the original audit find
 
 ## Open items
 
-- [ ] **P2** OpenCodeAgent is the only adapter with a hand-maintained .ts declaration file instead of the standard XAgentOptions.ts pattern — `packages/agents/src/OpenCodeAgent.ts (+ OpenCodeAgent.js)`
+- [x] **P2** OpenCodeAgent is the only adapter with a hand-maintained .ts declaration file instead of the standard XAgentOptions.ts pattern — `packages/agents/src/OpenCodeAgent.ts (+ OpenCodeAgent.js)` — replaced with `OpenCodeAgentOptions.ts` (options-only) per sibling pattern; dropped the dead `declare class`/`declare function`; repointed index.js typedef + 2 tests, folded into the standard optionFiles list
   - _remaining:_ No OpenCodeAgentOptions.ts; still the only adapter with a hand-written declare file. Not converted to standard pattern.
 - [x] **P2** Detached spawn path resolution is inconsistent (`.pathname` vs fileURLToPath) — `apps/cli/src/index.js:1649 and 2902 vs apps/cli/src/resume-detached.js:17`
   - _remaining:_ Spawn paths not converted to fileURLToPath; inconsistency remains.

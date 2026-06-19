@@ -72,6 +72,7 @@ test("CLI agent docs mention current agent-specific option names", () => {
         "ForgeAgentOptions.ts",
         "GeminiAgentOptions.ts",
         "KimiAgentOptions.ts",
+        "OpenCodeAgentOptions.ts",
         "PiAgentOptions.ts",
         "VibeAgentOptions.ts",
     ];
@@ -82,14 +83,6 @@ test("CLI agent docs mention current agent-specific option names", () => {
         for (const optionName of optionNames) {
             expect(cliAgentDoc).toContain(optionName);
         }
-    }
-
-    const openCodeSource = readRepoFile("packages/agents/src/OpenCodeAgent.ts");
-    const openCodeOptionsBlock = openCodeSource.match(/export type OpenCodeAgentOptions = BaseCliAgentOptions & \{([\s\S]*?)\};/)?.[1];
-    expect(openCodeOptionsBlock).toBeTruthy();
-    const openCodeOptionNames = [...openCodeOptionsBlock.matchAll(/^\s{2}([a-zA-Z][a-zA-Z0-9]*)\??:/gm)].map((match) => match[1]);
-    for (const optionName of openCodeOptionNames) {
-        expect(cliAgentDoc).toContain(optionName);
     }
 });
 
