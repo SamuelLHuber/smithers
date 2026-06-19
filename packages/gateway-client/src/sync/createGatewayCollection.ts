@@ -1,3 +1,4 @@
+import { withoutVirtualFields } from "./withoutVirtualFields.ts";
 import { deepEquals, type Collection, type CollectionConfig } from "@tanstack/db";
 import type { SyncBackoffOptions } from "./SyncBackoff.ts";
 import { syncBackoffDelay } from "./SyncBackoff.ts";
@@ -96,16 +97,6 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
     }, ms);
     signal.addEventListener("abort", onAbort, { once: true });
   });
-}
-
-function withoutVirtualFields<TRow extends object>(row: TRow): TRow {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    if (!key.startsWith("$") && value !== undefined) {
-      out[key] = value;
-    }
-  }
-  return out as TRow;
 }
 
 function shouldWriteUpdate<TRow extends object, TKey extends string | number>(

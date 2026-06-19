@@ -1,15 +1,6 @@
+import { withoutVirtualFields } from "./withoutVirtualFields.ts";
 import { deepEquals } from "@tanstack/db";
 import type { GatewayRunNode } from "./GatewayRunNode.ts";
-
-function withoutVirtualFields(row: GatewayRunNode): GatewayRunNode {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    if (!key.startsWith("$") && value !== undefined) {
-      out[key] = value;
-    }
-  }
-  return out as GatewayRunNode;
-}
 
 export function reconcileSnapshotNodes(
   previous: Iterable<GatewayRunNode> | ReadonlyMap<string, GatewayRunNode>,

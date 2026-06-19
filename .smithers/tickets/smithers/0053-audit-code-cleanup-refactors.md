@@ -32,7 +32,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ No type-narrowing added.
 - [x] **P2** Confusing snapshot-handle defaults: public snapshot() hardcodes source 'watch'/tier 2 while its comment says Tier 1/wrap — `packages/engine/src/startDurability.js:125-127 (and undocumented withSocket/createSocketServer options at 77-78)`
   - _remaining:_ Default/comment mismatch and undocumented options both remain.
-- [ ] **P2** Duplicated helper functions copy-pasted across files (isObject x3, isGatewayResponseFrame x2 identical, withoutVirtualFields x3, asRecord x2) — `packages/gateway-client/src/SmithersGatewayConnection.ts:50-63`
+- [x] **P2** Duplicated helper functions copy-pasted across files (isObject x3, isGatewayResponseFrame x2 identical, withoutVirtualFields x3, asRecord x2) — `packages/gateway-client/src/SmithersGatewayConnection.ts:50-63` — consolidated: isObject/asRecord/isGatewayResponseFrame in `src/objectGuards.ts`, withoutVirtualFields in `src/sync/withoutVirtualFields.ts`
   - _remaining:_ No shared internal module; helpers still copy-pasted across files.
 - [x] **P2** useGatewayRunTree casts node status to NodeStatus despite the source type being plain `string` — `packages/gateway-react/src/sync/useGatewayRunTree.ts:57`
   - _remaining:_ Unchecked widening-to-narrow cast remains.

@@ -1,3 +1,4 @@
+import { withoutVirtualFields } from "./withoutVirtualFields.ts";
 import type { Collection } from "@tanstack/db";
 import { asRecord } from "../objectGuards.ts";
 import type { CronListRequest, ListApprovalsRequest, ListMemoryFactsRequest, ListPromptsRequest, ListRunsRequest, ListScoresRequest, ListTicketsRequest, ListWorkflowsRequest } from "@smithers-orchestrator/gateway/rpc";
@@ -65,16 +66,6 @@ export function runStatusFromFrame(frame: { payload: unknown }): string | undefi
   if (innerEvent === "run.started" || innerEvent === "run.resumed") return "running";
   if (innerEvent === "run.paused") return "waiting";
   return undefined;
-}
-
-function withoutVirtualFields<TRow extends Record<string, unknown>>(row: TRow): TRow {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    if (!key.startsWith("$") && value !== undefined) {
-      out[key] = value;
-    }
-  }
-  return out as TRow;
 }
 
 export function runRowsFromFrame(runId: string) {
