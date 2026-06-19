@@ -71,24 +71,6 @@ type DevToolsEvent = {
 /** @typedef {import("./devtools/DevToolsSnapshot.ts").DevToolsSnapshot} DevToolsSnapshot */
 declare const DEVTOOLS_PROTOCOL_VERSION: 1;
 
-type OutputSchemaFieldType = "string" | "number" | "boolean" | "object" | "array" | "null" | "unknown";
-type OutputSchemaDescriptor = {
-    fields: Array<{
-        name: string;
-        type: OutputSchemaFieldType;
-        optional: boolean;
-        nullable: boolean;
-        description?: string;
-        enum?: readonly unknown[];
-    }>;
-};
-type NodeOutputResponse = {
-    status: "produced" | "pending" | "failed";
-    row: Record<string, unknown> | null;
-    schema: OutputSchemaDescriptor | null;
-    partial?: Record<string, unknown> | null;
-};
-
 declare const DEVTOOLS_ERROR_CODES: readonly ["RunNotFound", "InvalidRunId", "FrameOutOfRange", "SeqOutOfRange", "BackpressureDisconnect", "Unauthorized", "InvalidDelta"];
 type DevToolsErrorCode = (typeof DEVTOOLS_ERROR_CODES)[number];
 declare const NODE_OUTPUT_ERROR_CODES: readonly ["InvalidRunId", "InvalidNodeId", "InvalidIteration", "RunNotFound", "NodeNotFound", "IterationNotFound", "NodeHasNoOutput", "SchemaConversionError", "MalformedOutputRow", "PayloadTooLarge"];
@@ -103,4 +85,4 @@ type ProtocolError = {
     hint?: string;
 };
 
-export { DEVTOOLS_ERROR_CODES, DEVTOOLS_PROTOCOL_VERSION, type DevToolsDelta, type DevToolsDeltaOp, type DevToolsErrorCode, type DevToolsEvent, type DevToolsNode, type DevToolsNodeType, type DevToolsSnapshot, JUMP_TO_FRAME_ERROR_CODES, type JumpToFrameErrorCode, NODE_DIFF_ERROR_CODES, NODE_OUTPUT_ERROR_CODES, type NodeDiffErrorCode, type NodeOutputErrorCode, type NodeOutputResponse, type OutputSchemaDescriptor, type OutputSchemaFieldType, type ProtocolError };
+export { DEVTOOLS_ERROR_CODES, DEVTOOLS_PROTOCOL_VERSION, type DevToolsDelta, type DevToolsDeltaOp, type DevToolsErrorCode, type DevToolsEvent, type DevToolsNode, type DevToolsNodeType, type DevToolsSnapshot, JUMP_TO_FRAME_ERROR_CODES, type JumpToFrameErrorCode, NODE_DIFF_ERROR_CODES, NODE_OUTPUT_ERROR_CODES, type NodeDiffErrorCode, type NodeOutputErrorCode, type ProtocolError };

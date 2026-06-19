@@ -96,7 +96,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ retryNode/runSupportsRetry still effectively no-op/dead.
 - [ ] **P2** DevToolsClient.signal/resume/getNodeOutput/getNodeDiff are unused within the package — `packages/pi-plugin/src/runtime/DevToolsClient.ts:411-425,449-466`
   - _remaining:_ Four DevToolsClient methods still unused within the package.
-- [ ] **P2** outputs.ts is entirely dead — exported types have zero consumers; server and db reimplement them — `packages/protocol/src/outputs.ts (whole file: OutputSchemaFieldType, OutputSchemaDescriptor, NodeOutputResponse)`
+- [x] **P2** outputs.ts is entirely dead — exported types have zero consumers; server and db reimplement them — `packages/protocol/src/outputs.ts (whole file: OutputSchemaFieldType, OutputSchemaDescriptor, NodeOutputResponse)` — verified nothing in the monorepo imports these from `@smithers-orchestrator/protocol` (db/`output-schema-descriptor.js` and server/`gatewayRoutes/NodeOutputResponse.ts` have their own copies); deleted outputs.ts, dropped the index.ts re-export, hand-synced index.d.ts. protocol + root typecheck + lint + tests green.
   - _remaining:_ outputs.ts still entirely dead (reimplemented elsewhere).
 - [ ] **P2** ProtocolError type is exported but never consumed anywhere — `packages/protocol/src/errors.ts:51 (and duplicate at src/errors/ProtocolError.ts:6, re-exported via index.ts:22)`
   - _remaining:_ ProtocolError type still never consumed.

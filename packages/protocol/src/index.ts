@@ -6,11 +6,6 @@ export type { DevToolsDeltaOp } from "./devtools/DevToolsDeltaOp.ts";
 export type { DevToolsDelta } from "./devtools/DevToolsDelta.ts";
 export type { DevToolsEvent } from "./devtools/DevToolsEvent.ts";
 export {
-  type OutputSchemaFieldType,
-  type OutputSchemaDescriptor,
-  type NodeOutputResponse,
-} from "./outputs.ts";
-export {
   DEVTOOLS_ERROR_CODES,
   NODE_OUTPUT_ERROR_CODES,
   NODE_DIFF_ERROR_CODES,
