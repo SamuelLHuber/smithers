@@ -3,7 +3,6 @@
 /** @typedef {import("./JumpToFrameErrorCode.ts").JumpToFrameErrorCode} JumpToFrameErrorCode */
 /** @typedef {import("./NodeDiffErrorCode.ts").NodeDiffErrorCode} NodeDiffErrorCode */
 /** @typedef {import("./NodeOutputErrorCode.ts").NodeOutputErrorCode} NodeOutputErrorCode */
-/** @typedef {import("./ProtocolError.ts").ProtocolError} ProtocolError */
 // @smithers-type-exports-end
 
 export const DEVTOOLS_ERROR_CODES = /** @type {const} */ ([

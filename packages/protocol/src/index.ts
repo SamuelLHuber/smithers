@@ -15,4 +15,3 @@ export type { DevToolsErrorCode } from "./errors/DevToolsErrorCode.ts";
 export type { NodeOutputErrorCode } from "./errors/NodeOutputErrorCode.ts";
 export type { NodeDiffErrorCode } from "./errors/NodeDiffErrorCode.ts";
 export type { JumpToFrameErrorCode } from "./errors/JumpToFrameErrorCode.ts";
-export type { ProtocolError } from "./errors/ProtocolError.ts";

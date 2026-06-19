@@ -79,10 +79,5 @@ declare const NODE_DIFF_ERROR_CODES: readonly ["InvalidRunId", "InvalidNodeId", 
 type NodeDiffErrorCode = (typeof NODE_DIFF_ERROR_CODES)[number];
 declare const JUMP_TO_FRAME_ERROR_CODES: readonly ["InvalidRunId", "InvalidFrameNo", "RunNotFound", "FrameOutOfRange", "ConfirmationRequired", "Busy", "UnsupportedSandbox", "VcsError", "RewindFailed", "RateLimited", "Unauthorized"];
 type JumpToFrameErrorCode = (typeof JUMP_TO_FRAME_ERROR_CODES)[number];
-type ProtocolError = {
-    code: DevToolsErrorCode | NodeOutputErrorCode | NodeDiffErrorCode | JumpToFrameErrorCode | string;
-    message: string;
-    hint?: string;
-};
 
-export { DEVTOOLS_ERROR_CODES, DEVTOOLS_PROTOCOL_VERSION, type DevToolsDelta, type DevToolsDeltaOp, type DevToolsErrorCode, type DevToolsEvent, type DevToolsNode, type DevToolsNodeType, type DevToolsSnapshot, JUMP_TO_FRAME_ERROR_CODES, type JumpToFrameErrorCode, NODE_DIFF_ERROR_CODES, NODE_OUTPUT_ERROR_CODES, type NodeDiffErrorCode, type NodeOutputErrorCode, type ProtocolError };
+export { DEVTOOLS_ERROR_CODES, DEVTOOLS_PROTOCOL_VERSION, type DevToolsDelta, type DevToolsDeltaOp, type DevToolsErrorCode, type DevToolsEvent, type DevToolsNode, type DevToolsNodeType, type DevToolsSnapshot, JUMP_TO_FRAME_ERROR_CODES, type JumpToFrameErrorCode, NODE_DIFF_ERROR_CODES, NODE_OUTPUT_ERROR_CODES, type NodeDiffErrorCode, type NodeOutputErrorCode };
