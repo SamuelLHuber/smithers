@@ -12,12 +12,12 @@ export {
 } from "./outputs.ts";
 export {
   DEVTOOLS_ERROR_CODES,
-  type DevToolsErrorCode,
   NODE_OUTPUT_ERROR_CODES,
-  type NodeOutputErrorCode,
   NODE_DIFF_ERROR_CODES,
-  type NodeDiffErrorCode,
   JUMP_TO_FRAME_ERROR_CODES,
-  type JumpToFrameErrorCode,
-  type ProtocolError,
-} from "./errors.ts";
+} from "./errors/index.js";
+export type { DevToolsErrorCode } from "./errors/DevToolsErrorCode.ts";
+export type { NodeOutputErrorCode } from "./errors/NodeOutputErrorCode.ts";
+export type { NodeDiffErrorCode } from "./errors/NodeDiffErrorCode.ts";
+export type { JumpToFrameErrorCode } from "./errors/JumpToFrameErrorCode.ts";
+export type { ProtocolError } from "./errors/ProtocolError.ts";

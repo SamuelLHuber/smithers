@@ -40,7 +40,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Constants re-declared, not imported from ./constants.js; drift risk persists.
 - [x] **P2** DevToolsClient.toWsUrl has a no-op pathname assignment — `packages/pi-plugin/src/runtime/DevToolsClient.ts:91`
   - _remaining:_ No-op pathname assignment not removed.
-- [ ] **P2** Inconsistent subpath module layout between /devtools and /errors — `packages/protocol/src/devtools.js + devtools/*.ts vs src/errors.ts + errors/index.js + errors/*.ts`
+- [x] **P2** Inconsistent subpath module layout between /devtools and /errors — `packages/protocol/src/devtools.js + devtools/*.ts vs src/errors.ts + errors/index.js + errors/*.ts` — deleted the leftover `errors.ts` (a duplicate, divergent copy of the error-code arrays that only `index.ts` still used); `index.ts` now mirrors the devtools split (values from `errors/index.js`, types from `errors/*.ts`)
   - _remaining:_ Two different conventions for sibling subpaths remain.
 - [x] **P2** DevToolsNodeType union is duplicated inline in index.d.ts instead of being a single declared type — `packages/protocol/src/index.d.ts:1 vs src/devtools/DevToolsNodeType.ts:1-17`
   - _remaining:_ Duplicated union literal; two sources of truth remain.
