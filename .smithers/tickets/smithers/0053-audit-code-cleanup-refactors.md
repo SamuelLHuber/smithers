@@ -20,11 +20,11 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Partially widened (snapshots added) but 'restore' still missing from JSDoc/DEVTOOLS_COMMANDS; type/contract mismatch persists.
 - [x] **P2** Redaction 'secret-ish' rule carries a misleading dead replace:'' field — `apps/observability/src/_traceRedaction.js:27-31`
   - _remaining:_ Dead/misleading replace field not removed.
-- [ ] **P2** Public makeSmithersSpanAttributes and the internal _coreTracing.js copy can silently diverge — only the standalone file uses the shared alias table — `apps/observability/src/_coreTracing.js:32-59`
+- [x] **P2** Public makeSmithersSpanAttributes and the internal _coreTracing.js copy can silently diverge — only the standalone file uses the shared alias table — `apps/observability/src/_coreTracing.js:32-59`
   - _remaining:_ Inline copy persists; can still silently diverge from the shared/public table.
 - [ ] **P2** Inconsistent host-prop sanitization across structural components — `packages/components/src/components/Branch.js:11, Sequence.js:8, Ralph.js:13, Workflow.js:9 vs Parallel.js:11-16, MergeQueue.js:11-16`
   - _remaining:_ Sanitization still inconsistent across structural components.
-- [ ] **P2** tsconfig outDir/declaration cruft conflicts with tsup build target — `packages/components/tsconfig.json:18-20 vs tsup.config.ts:5-6`
+- [x] **P2** tsconfig outDir/declaration cruft conflicts with tsup build target — `packages/components/tsconfig.json:18-20 vs tsup.config.ts:5-6`
   - _remaining:_ tsconfig outDir/declaration cruft still conflicts with tsup target.
 - [x] **P2** SMITHERS_NODE_ICONS uses the same '⚡' glyph for both 'task' and 'parallel' — `packages/devtools/src/SMITHERS_NODE_ICONS.js:6,8`
   - _remaining:_ parallel still not given a distinct glyph.

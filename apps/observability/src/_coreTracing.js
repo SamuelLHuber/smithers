@@ -1,5 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import { correlationContextToLogAnnotations, getCurrentCorrelationContext, withCorrelationContext, } from "./_coreCorrelation/index.js";
+import { smithersSpanAttributeAliases } from "./_smithersSpanAttributeAliases.js";
 /** @typedef {import("./SmithersLogFormat.ts").SmithersLogFormat} SmithersLogFormat */
 /** @typedef {import("./_coreTracingShape.ts").SmithersSpanAttributesInput} SmithersSpanAttributesInput */
 /** @typedef {import("./_coreTracingShape.ts").TracingServiceShape} TracingServiceShape */
@@ -30,25 +31,7 @@ export function getCurrentSmithersTraceAnnotations() {
  * @returns {Record<string, unknown>}
  */
 export function makeSmithersSpanAttributes(attributes = {}) {
-    const aliases = {
-        runId: "smithers.run_id",
-        run_id: "smithers.run_id",
-        workflowName: "smithers.workflow_name",
-        workflow_name: "smithers.workflow_name",
-        nodeId: "smithers.node_id",
-        node_id: "smithers.node_id",
-        iteration: "smithers.iteration",
-        attempt: "smithers.attempt",
-        nodeLabel: "smithers.node_label",
-        node_label: "smithers.node_label",
-        toolName: "smithers.tool_name",
-        tool_name: "smithers.tool_name",
-        agent: "smithers.agent",
-        model: "smithers.model",
-        status: "smithers.status",
-        waitReason: "smithers.wait_reason",
-        wait_reason: "smithers.wait_reason",
-    };
+    const aliases = smithersSpanAttributeAliases;
     const result = {};
     for (const [key, value] of Object.entries(attributes)) {
         if (value !== undefined) {
