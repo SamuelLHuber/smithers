@@ -50,7 +50,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ All five exports still have no consumers.
 - [ ] **P2** Server snapshotFromFrameRow constructs a SmithersDevToolsCore + captureSnapshot whose result is discarded — `packages/server/src/gatewayRoutes/getDevToolsSnapshot.js:334-335 (re: packages/devtools/src/SmithersDevToolsCore.js:33-37)`
   - _remaining:_ Discarded captureSnapshot call still present.
-- [ ] **P2** loadCreateSession has an unreachable createSession branch and a dead relative-path fallback — `packages/driver/src/WorkflowDriver.js:22-23, 157-173`
+- [x] **P2** loadCreateSession has an unreachable createSession branch and a dead relative-path fallback — `packages/driver/src/WorkflowDriver.js:22-23, 157-173`
   - _remaining:_ Unreachable createSession branch + relative-path fallback remain.
 - [ ] **P1** Obsolete ~1759-line legacy engine body (runWorkflowBodyLegacy) is unreachable in production — `packages/engine/src/engine.js:5829-7587 (runWorkflowBodyLegacy); gate at 4624-4630`
   - _remaining:_ Legacy engine body still present.

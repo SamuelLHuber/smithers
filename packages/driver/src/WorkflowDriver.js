@@ -20,7 +20,6 @@ import { withAbort } from "./withAbort.js";
 /** @typedef {import("@smithers-orchestrator/graph/types").TaskDescriptor} TaskDescriptor */
 
 const SCHEDULER_SPECIFIER = "@smithers-orchestrator/scheduler";
-const LOCAL_SCHEDULER_SPECIFIER = "../../scheduler/src/index.js";
 function createRunId() {
     return `run_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -155,19 +154,17 @@ function mergeOutputSnapshots(base, live) {
  * @returns {Promise<CreateWorkflowSession | null>}
  */
 async function loadCreateSession() {
-    for (const specifier of [SCHEDULER_SPECIFIER, LOCAL_SCHEDULER_SPECIFIER]) {
-        let mod;
-        try {
-            mod = (await import(specifier));
-        }
-        catch {
-            continue;
-        }
-        if (typeof mod.createSession === "function")
-            return mod.createSession;
-        if (typeof mod.makeWorkflowSession === "function") {
-            return mod.makeWorkflowSession;
-        }
+    let mod;
+    try {
+        // The scheduler is a workspace dependency, so the package specifier always
+        // resolves (no relative-path fallback needed).
+        mod = (await import(SCHEDULER_SPECIFIER));
+    }
+    catch {
+        return null;
+    }
+    if (typeof mod.makeWorkflowSession === "function") {
+        return mod.makeWorkflowSession;
     }
     return null;
 }
