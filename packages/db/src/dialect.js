@@ -25,14 +25,6 @@ export const SQLITE = /** @type {const} */ ("sqlite");
 export const POSTGRES = /** @type {const} */ ("postgres");
 
 /**
- * @param {unknown} value
- * @returns {value is Dialect}
- */
-export function isDialect(value) {
-    return value === SQLITE || value === POSTGRES;
-}
-
-/**
  * @param {string} identifier
  * @returns {string}
  */
@@ -175,27 +167,6 @@ export function translateDdl(dialect, ddl) {
         .replace(/\bBLOB\b/gi, "BYTEA")
         .replace(/\bREAL\b/gi, "DOUBLE PRECISION")
         .replace(/\bINTEGER\b/gi, "BIGINT");
-}
-
-/**
- * SQL that lists the column names of a table, normalized to rows shaped
- * `{ name: string }`.
- *
- * @param {Dialect} dialect
- * @param {string} table
- * @returns {{ sql: string; params: ReadonlyArray<string> }}
- */
-export function tableColumnsSql(dialect, table) {
-    if (dialect === POSTGRES) {
-        return {
-            sql: "SELECT column_name AS name FROM information_schema.columns WHERE table_name = ? AND table_schema = current_schema()",
-            params: [table],
-        };
-    }
-    return {
-        sql: `PRAGMA table_info(${quoteIdentifier(table)})`,
-        params: [],
-    };
 }
 
 /**

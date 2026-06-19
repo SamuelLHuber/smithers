@@ -40,7 +40,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ In-memory storage module still dead.
 - [ ] **P1** Parallel duplicate implementations: output/, frame-codec/, internal-schema/index.js, loadInputEffect.js, loadOutputsEffect.js — ``
   - _remaining:_ Duplicate implementations not consolidated.
-- [ ] **P2** dialect.js exports isDialect and tableColumnsSql are never used — ``
+- [x] **P2** dialect.js exports isDialect and tableColumnsSql are never used — ``
   - _remaining:_ Both exports still unused.
 - [ ] **P2** SmithersDb.buildEventHistoryWhere duplicates SqlMessageStorage logic but is SQLite-hardcoded and unused — ``
   - _remaining:_ Duplicate SQLite-hardcoded method still unused.
