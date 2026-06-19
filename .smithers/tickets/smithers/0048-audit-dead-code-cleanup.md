@@ -105,10 +105,10 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P2** DEVTOOLS_PROTOCOL_VERSION is exported but never read; both producer and consumers hardcode version: 1 — `packages/protocol/src/devtools.js:10 (DEVTOOLS_PROTOCOL_VERSION), re-exported index.ts:1`
   - _disposition (2026-06-19):_ Kept, not deleted. A protocol-version constant is a meaningful public marker even while unread; the correct fix is to wire the producer/consumers to read it instead of hardcoding `version: 1` (a small follow-up), not to delete the constant. Left as a wiring improvement rather than dead-code removal.
   - _remaining:_ Constant still never read in production; version hardcoded.
-- [ ] **P2** errors/*.ts type files are dead — shadowed by errors.ts in path resolution, never a consumer target — `packages/protocol/src/errors/DevToolsErrorCode.ts, NodeOutputErrorCode.ts, NodeDiffErrorCode.ts, JumpToFrameErrorCode.ts, ProtocolError.ts`
-  - _remaining:_ Shadowed dead .ts type files remain.
-- [ ] **P2** Duplicate ProtocolError definition: errors.ts and errors/ProtocolError.ts both define the identical shape independently — `packages/protocol/src/errors.ts:51-55 and packages/protocol/src/errors/ProtocolError.ts:6-10`
-  - _remaining:_ Duplicate ProtocolError shape still defined twice.
+- [x] **P2** errors/*.ts type files are dead — shadowed by errors.ts in path resolution, never a consumer target — `packages/protocol/src/errors/DevToolsErrorCode.ts, NodeOutputErrorCode.ts, NodeDiffErrorCode.ts, JumpToFrameErrorCode.ts, ProtocolError.ts`
+  - _done (2026-06-19):_ Resolved by the 0053 `/errors` subpath unification — the shadowing `errors.ts` was deleted, so the `errors/*.ts` files are now the canonical, live consumer targets (index.ts imports each error-code type from them). `ProtocolError.ts` was additionally removed as fully dead.
+- [x] **P2** Duplicate ProtocolError definition: errors.ts and errors/ProtocolError.ts both define the identical shape independently — `packages/protocol/src/errors.ts:51-55 and packages/protocol/src/errors/ProtocolError.ts:6-10`
+  - _done (2026-06-19):_ Both copies are gone — `errors.ts` deleted in the subpath unification and `errors/ProtocolError.ts` deleted with the dead-ProtocolError removal. No duplicate remains.
 - [x] **P2** Dead host-config method: prepareUpdate is never called by react-reconciler 0.33 — `packages/react-reconciler/src/reconciler.js:181-185`
   - _remaining:_ Dead prepareUpdate still present.
 - [x] **P2** core-types.js is an orphaned re-export imported by nothing — `packages/react-reconciler/src/core-types.js:1`
