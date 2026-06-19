@@ -33,7 +33,7 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P2** BaseCliAgent.stream() path is unused by the product and has no tests (buildStreamResult/emptyUsage/asyncIterableToStream) — ``
   - _remaining:_ Stream path remains unused-by-product/untested.
 - [ ] **P2** Aspects accumulator + tracking config are render-time plumbing that the engine discards (dead data path) — `packages/components/src/aspects/AspectContext.js:22 (createAccumulator), packages/components/src/components/Aspects.js:27-37, packages/components/src/components/Task.js:300-309 (buildAspectMeta)`
-  - _remaining:_ Render-time accumulator/tracking data path still discarded by engine.
+  - _disposition (2026-06-19):_ Unwired feature, not dead code. `createAccumulator`/`buildAspectMeta` are live (called by the `<Aspects>` component and `<Task>` render), but the aspect meta they attach is currently not read back by the engine. This is the user-facing `<Aspects>` component's data path; removing it deletes the feature, wiring it means consuming the aspect meta in the engine. A product decision, not a cleanup deletion.
 - [x] **P2** aspects/index.js barrel is exported but imported by nothing — `packages/components/src/aspects/index.js:9`
   - _remaining:_ Barrel still imported by nothing.
 - [x] **P1** Entire in-memory storage module (storage/) is dead code — `packages/db/src/storage/`
@@ -115,6 +115,7 @@ Each item below is still open in current `main`. Text is the original audit find
 - [x] **P2** core-types.js is an orphaned re-export imported by nothing — `packages/react-reconciler/src/core-types.js:1`
   - _remaining:_ Orphan re-export still imported by nothing.
 - [ ] **P2** SandboxHttpRunner / SandboxSocketRunner are dead pass-through re-exports — `packages/sandbox/src/effect/http-runner.js:108 (export const SandboxHttpRunner = HttpRunner); packages/sandbox/src/effect/socket-runner.js:93 (export const SandboxSocketRunner = SocketRunner)`
+  - _disposition (2026-06-19):_ Keep. These are one-line public aliases re-exported through `workflow-bridge.js` into the engine's public barrel (engine index.d.ts). Nothing in-repo imports the alias names, but they are part of the published engine API for configuring sandbox transport, and removing them churns the large hand-synced engine index.d.ts and risks an external consumer for zero in-repo benefit. Harmless thin aliases — not worth the public-surface churn.
   - _remaining:_ Dead pass-through re-exports remain.
 - [ ] **P2** process-runner.js exports normalizeSandboxEnv/Ports/Volumes but they are only used internally; their negative paths are untested — `packages/sandbox/src/effect/process-runner.js:67,109,143 (normalizeSandboxEnv, normalizeSandboxPorts, normalizeSandboxVolumes)`
   - _remaining:_ Over-exported, internal-only normalizers remain.
@@ -122,10 +123,10 @@ Each item below is still open in current `main`. Text is the original audit find
   - _disposition (2026-06-19):_ Keep. The branch is unreachable at runtime (`normalizeNoProxy` already collapses arrays to a comma-joined string before `sandboxEgressEnv` runs), but it is type-required: `SandboxEgressConfig.noProxy` is `string | string[]`, so `env.NO_PROXY = egress.noProxy` without the `Array.isArray` narrowing fails typecheck (`string[]` not assignable to `string`). Removing it would need a separate normalized-config type — not worth it for a P2; the guard is harmless and type-honest.
 - [x] **P2** assertPathWithinRootEffect exported but only used internally — `packages/sandbox/src/sandboxPath.js:28`
   - _done (2026-06-19):_ Dropped the `export` keyword — it was used only by `assertPathWithinRoot` in the same file, not in the sandbox index or any committed d.ts, and had zero external consumers. sandbox typecheck + 80 tests + lint green.
-- [ ] **P2** Scheduler/WorkflowSession Effect Tags and SchedulerLive are dead provisioning (never consumed) — ``
-  - _remaining:_ Dead provisioning unchanged (Tags provided but never consumed).
+- [x] **P2** Scheduler/WorkflowSession Effect Tags and SchedulerLive are dead provisioning (never consumed) — ``
+  - _correction (2026-06-19):_ The "dead provisioning" claim is **wrong**. `SchedulerLive` + `WorkflowSessionLive` are merged into the server's `SmithersCoreLayer` in `packages/server/src/smithersRuntime.js`, which backs the `runPromise`/`runSync` runtime imported by `serve.js`, `index.js`, and every gateway route (streamDevTools, getNodeOutput, getNodeDiff, …). The scheduler IS wired into the production server runtime — not dead.
 - [ ] **P2** ~9 session methods are dead in production; the package ships a much larger API than is used — ``
-  - _remaining:_ Larger session API still ships beyond what's used.
+  - _disposition (2026-06-19):_ API-trimming, not removable as a unit. WorkflowSession (driver + scheduler) is a live durable-session class; ~9 of its methods may be unused by current callers, but each is part of the session contract and trimming requires per-method verification that no resume/replay/hijack path or external consumer relies on it. A careful surface-trim refactor, deferred — not a single dead-code deletion.
 - [x] **P2** Dead file: src/react-types.ts is never imported anywhere — `packages/scorers/src/react-types.ts:1`
   - _remaining:_ Dead file still present.
 - [ ] **P2** Public API (aggregateScores, runScorersBatch, relevancy/toxicity/faithfulness scorers) has no in-repo product consumer — `packages/scorers/src/index.js:18-28; packages/smithers/src/index.js:231`
