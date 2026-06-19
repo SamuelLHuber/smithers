@@ -194,7 +194,15 @@ export class AmpAgent extends BaseCliAgent {
    * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
    */
     async buildCommand(params) {
-        const args = [];
+        // Resume an existing thread when a session id is provided. Amp continues a
+        // thread with `amp threads continue <id>` (vs starting a fresh thread), so
+        // new-thread-only flags (--visibility, --archive) are skipped on resume.
+        // NB: the `threads continue` invocation follows the Amp manifest; confirm
+        // against the live `amp` CLI if its thread syntax changes.
+        const resumeSession = typeof params.options?.resumeSession === "string"
+            ? params.options.resumeSession
+            : this.opts.resume;
+        const args = resumeSession ? ["threads", "continue", resumeSession] : [];
         const yoloEnabled = this.opts.yolo ?? this.yolo;
         // Dangerous allow all (yolo mode) — must come before --execute
         if (this.opts.dangerouslyAllowAll || yoloEnabled) {
@@ -202,8 +210,9 @@ export class AmpAgent extends BaseCliAgent {
         }
         // Model / mode
         pushFlag(args, "--model", this.opts.model ?? this.model);
-        // Visibility for new threads
-        pushFlag(args, "--visibility", this.opts.visibility);
+        // Visibility for new threads (not applicable when continuing one)
+        if (!resumeSession)
+            pushFlag(args, "--visibility", this.opts.visibility);
         // MCP config
         pushFlag(args, "--mcp-config", this.opts.mcpConfig);
         // Settings file
@@ -217,8 +226,9 @@ export class AmpAgent extends BaseCliAgent {
         args.push("--no-jetbrains");
         // Color handling
         args.push("--no-color");
-        // Archive thread after execution to keep things clean
-        args.push("--archive");
+        // Archive thread after execution to keep things clean (new threads only)
+        if (!resumeSession)
+            args.push("--archive");
         if (this.extraArgs?.length)
             args.push(...this.extraArgs);
         // Build prompt with system prompt prepended

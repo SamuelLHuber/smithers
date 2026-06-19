@@ -280,4 +280,29 @@ describe("AmpAgent", () => {
       "Amp exited with code 3",
     );
   });
+
+  test("continues an existing thread when a session id is provided", async () => {
+    const agent = new AmpAgent({ visibility: "private" });
+    const command = await agent.buildCommand({
+      cwd: "/tmp/project",
+      prompt: "Keep going",
+      options: { resumeSession: "thread-123" },
+    });
+
+    // Resume routes through `amp threads continue <id>` at the front of the args.
+    expect(command.args.slice(0, 3)).toEqual(["threads", "continue", "thread-123"]);
+    expect(command.args).toContain("--execute");
+    // New-thread-only flags are not emitted when continuing a thread.
+    expect(command.args).not.toContain("--visibility");
+    expect(command.args).not.toContain("--archive");
+  });
+
+  test("starts a fresh thread (no continue) when no session id is provided", async () => {
+    const agent = new AmpAgent({ visibility: "private" });
+    const command = await agent.buildCommand({ cwd: "/tmp/project", prompt: "Start" });
+
+    expect(command.args).not.toContain("continue");
+    expect(command.args).toContain("--archive");
+    expect(command.args).toContain("--visibility");
+  });
 });

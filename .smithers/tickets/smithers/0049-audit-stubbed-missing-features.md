@@ -38,7 +38,7 @@ Each item below is still open in current `main`. Text is the original audit find
 
 ## Open items
 
-- [ ] **P1** AmpAgent cannot resume a session — it is the only CLI adapter that never wires resumeSession into buildCommand — `packages/agents/src/AmpAgent.js:196-240, packages/agents/src/AmpAgentOptions.ts`
+- [x] **P1** AmpAgent cannot resume a session — it is the only CLI adapter that never wires resumeSession into buildCommand — `packages/agents/src/AmpAgent.js:196-240, packages/agents/src/AmpAgentOptions.ts`
   - _remaining:_ buildCommand must read params.options?.resumeSession and emit `amp threads continue <id>` per the manifest; add session field to AmpAgentOptions. Still unimplemented.
 - [x] **P2** Several documented remote sandbox targets (gVisor, Daytona, Cloudflare) have no shipped or example provider — `docs/index.mdx:240-241, README.md:170-174, packages/sandbox/src/`
   - _remaining:_ Ship example providers (or links) for gVisor/Daytona/Cloudflare, or trim README/docs to the targets that actually have a provider. Still a documented-but-absent surface.

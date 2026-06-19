@@ -4,6 +4,12 @@ import type { BaseCliAgentOptions } from "./BaseCliAgent/BaseCliAgentOptions";
  * Configuration options for the AmpAgent.
  */
 export type AmpAgentOptions = BaseCliAgentOptions & {
+  /**
+   * Thread id to continue. When set (or when a task passes
+   * `options.resumeSession`), buildCommand emits `amp threads continue <id>`
+   * instead of starting a fresh thread.
+   */
+  resume?: string;
   /** Visibility setting for the new thread (e.g., private, public) */
   visibility?: "private" | "public" | "workspace" | "group";
   /** Path to a specific MCP configuration file */
