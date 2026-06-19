@@ -23,7 +23,7 @@ export async function runGh(repoDir: string, args: string[], stdin?: string): Pr
   // inject a fake gh by absolute path).
   const ghBin = process.env.SMITHERS_GH_BIN || "gh";
   const maxAttempts = 12;
-  let last: ReturnType<typeof spawnSync> | null = null;
+  const trace: string[] = [];
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const result = spawnSync(ghBin, args, {
       cwd: repoDir,
@@ -33,28 +33,34 @@ export async function runGh(repoDir: string, args: string[], stdin?: string): Pr
       // env changes; pass it explicitly to be unambiguous.
       env: process.env,
     });
-    last = result;
     if (result.error) {
       throw new Error(`gh ${args.slice(0, 2).join(" ")} failed: ${result.error.message}`);
     }
     const stdout = result.stdout ?? "";
     const stderr = result.stderr ?? "";
+    trace.push(
+      `#${attempt} st=${result.status} sig=${result.signal ?? "·"} ` +
+        `outLen=${stdout.length} stderr=${JSON.stringify(stderr.slice(0, 30))}`,
+    );
     if (result.status !== 0) {
       const detail =
         stderr.trim() ||
         `exited with code ${result.status}${result.signal ? `, signal ${result.signal}` : ""}`;
       throw new Error(`gh ${args.slice(0, 2).join(" ")} failed: ${detail}`);
     }
-    if (stdout === "" && attempt < maxAttempts) {
+    if (stdout !== "") {
+      return stdout;
+    }
+    if (attempt < maxAttempts) {
       await sleep(20 * attempt);
       continue;
     }
-    return stdout;
   }
-  // Exhausted retries with no stdout — surface the raw spawn result so a
-  // recurrence is diagnosable instead of a silent empty string.
+  // DIAGNOSTIC: persistent empty stdout — surface ghBin and the per-attempt
+  // trace so we can see what runGh's own spawn returns vs a direct spawn.
   throw new Error(
-    `gh ${args.slice(0, 2).join(" ")} produced no stdout after ${maxAttempts} attempts: ` +
-      `status=${last?.status} signal=${last?.signal ?? "none"} stderr=${JSON.stringify(last?.stderr ?? "")}`,
+    `gh ${args.slice(0, 2).join(" ")} produced no stdout after ${maxAttempts} attempts; ` +
+      `ghBin=${JSON.stringify(ghBin)} cwd=${JSON.stringify(repoDir)} ` +
+      `hasStdin=${stdin != null}\n${trace.join("\n")}`,
   );
 }
