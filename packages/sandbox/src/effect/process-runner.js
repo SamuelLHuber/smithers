@@ -64,7 +64,7 @@ export function sandboxRunnerEnv() {
  * @param {{ includeDefaultPath?: boolean }} [options]
  * @returns {Record<string, string>}
  */
-export function normalizeSandboxEnv(env, options = {}) {
+function normalizeSandboxEnv(env, options = {}) {
     const normalized = {};
     if (env !== undefined) {
         if (!isPlainObject(env)) {
@@ -106,7 +106,7 @@ function normalizePort(value, field) {
  * @param {unknown} ports
  * @returns {Array<{ host: number; container: number }>}
  */
-export function normalizeSandboxPorts(ports) {
+function normalizeSandboxPorts(ports) {
     if (ports === undefined) {
         return [];
     }
@@ -140,7 +140,7 @@ function normalizeAbsolutePath(value, field) {
  * @param {unknown} volumes
  * @returns {Array<{ host: string; container: string; readonly?: boolean }>}
  */
-export function normalizeSandboxVolumes(volumes) {
+function normalizeSandboxVolumes(volumes) {
     if (volumes === undefined) {
         return [];
     }
