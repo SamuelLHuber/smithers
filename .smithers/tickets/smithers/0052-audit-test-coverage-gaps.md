@@ -20,7 +20,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ rewind not added to the json-stdout-contract command coverage
 - [ ] **P2** OTLP integration entry points (createSmithersOtelLayer/ObservabilityLayer/RuntimeLayer) have no tests — `apps/observability/src/createSmithersObservabilityLayer.js:46-49`
   - _remaining:_ OTLP integration entry-point layers still have no tests
-- [ ] **P2** _traceEventNormalizers.js: shared/generic normalizer and provider-correlation paths largely untested — `apps/observability/src/_traceEventNormalizers.js:306-397`
+- [x] **P2** _traceEventNormalizers.js: shared/generic normalizer and provider-correlation paths largely untested — `apps/observability/src/_traceEventNormalizers.js:306-397`
   - _remaining:_ shared/generic normalizer and provider-correlation paths still untested
 - [x] **P2** OTLP severity edge cases untested: truncated-json-stream WARN and session error/warning inference — `apps/observability/src/_otelLogBuilders.js:60-92`
   - _remaining:_ The two cited OTLP severity edge cases remain untested
