@@ -64,7 +64,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ createMcpToolset include filter and callMcpTool error/structured-content branches still untested
 - [ ] **P2** DevToolsRunStore: verbose logging, unknown-event recording, orphan ToolCallFinished, and getTaskState-miss branches are untested — `packages/devtools/src/DevToolsRunStore.js:68-77,119-142,183-189`
   - _remaining:_ Verbose logging, unknown-event recording, orphan ToolCallFinished, and getTaskState run-miss branches all still untested
-- [ ] **P2** snapshotSerializer: top-level non-plain values and anonymous-class instances are untested boundary cases — `packages/devtools/src/snapshotSerializer.js:88-106`
+- [x] **P2** snapshotSerializer: top-level non-plain values and anonymous-class instances are untested boundary cases — `packages/devtools/src/snapshotSerializer.js:88-106` — added tests for top-level bigint/function/symbol(±description)/Date(valid+invalid), a top-level named-class instance (`[Ctor]` + UnsupportedType warning at path `$`), and an anonymous-class instance (empty ctor name → walked as its own enumerable keys). 84 devtools tests green.
   - _remaining:_ Top-level non-plain value and anonymous-class instance boundary cases still untested
 - [ ] **P2** diffSnapshots p95 timing assertion is a CI-flaky unit test — `packages/devtools/tests/diffSnapshots.test.ts:7,236-253`
   - _remaining:_ CI-flaky p95 wall-clock timing assertion still present, not removed/made deterministic

@@ -138,4 +138,33 @@ describe("snapshotSerialize", () => {
     expect(snapshotSerialize({ child: true }, { maxDepth: -1 })).toEqual({ child: "[MaxDepth]" });
     expect(snapshotSerialize([{ value: 1 }], { maxEntries: 0 })).toEqual(["[MaxEntries]"]);
   });
+
+  test("serializes non-plain values passed at the top level", () => {
+    expect(snapshotSerialize(10n)).toBe("[BigInt: 10]");
+    expect(snapshotSerialize(() => {})).toBe("[Function]");
+    expect(snapshotSerialize(Symbol("tag"))).toBe("[Symbol: tag]");
+    expect(snapshotSerialize(Symbol())).toBe("[Symbol]");
+    expect(snapshotSerialize(new Date("2026-06-19T00:00:00.000Z"))).toBe("[Date: 2026-06-19T00:00:00.000Z]");
+    expect(snapshotSerialize(new Date("not-a-date"))).toBe("[Date: Invalid]");
+  });
+
+  test("renders a top-level named-class instance as [Ctor] with a warning", () => {
+    class Widget {
+      x = 1;
+    }
+    const warnings: Array<{ code: string; detail?: string }> = [];
+    const result = snapshotSerialize(new Widget(), { onWarning: (w) => warnings.push(w) });
+    expect(result).toBe("[Widget]");
+    expect(warnings).toEqual([{ code: "UnsupportedType", path: "$", detail: "Widget" }]);
+  });
+
+  test("serializes an anonymous-class instance as its own enumerable keys", () => {
+    // An anonymous class has an empty constructor name, so the [Ctor] guard does
+    // not fire and the instance's own enumerable fields are walked like an object.
+    const instance = new (class {
+      a = 1;
+      b = "two";
+    })();
+    expect(snapshotSerialize(instance)).toEqual({ a: 1, b: "two" });
+  });
 });
