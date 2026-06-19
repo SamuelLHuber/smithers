@@ -39,7 +39,9 @@ Each item below is still open in current `main`. Text is the original audit find
 - [x] **P1** Entire in-memory storage module (storage/) is dead code — `packages/db/src/storage/`
   - _done (2026-06-19):_ Removed `packages/db/src/storage/` (InMemoryStorage.js, StorageService.js, StorageServiceShape.ts, StorageServiceTypes.ts) and its sole self-referential test (in-memory-storage-scorers.test.js). The module was not in the db index/d.ts and had zero consumers anywhere in the monorepo (the only importer was its own test). db typecheck + 376 tests + lint green.
 - [ ] **P1** Parallel duplicate implementations: output/, frame-codec/, internal-schema/index.js, loadInputEffect.js, loadOutputsEffect.js — ``
-  - _remaining:_ Duplicate implementations not consolidated.
+  - _partial (2026-06-19):_ Removed the two unambiguously-dead duplicate dir-index barrels `output/index.js` and `frame-codec/index.js` (zero importers; the flat `output.js`/`frame-codec.js` barrels are canonical and import submodules directly). db typecheck + 376 tests + lint green.
+  - _correction:_ `loadInputEffect.js`/`loadOutputsEffect.js` are NOT dead — both are live and publicly exported (consumed by `db/src/snapshot.js`, a test, smithers' index, and an e2e test). The audit was wrong on those.
+  - _remaining:_ The `internal-schema.js` (monolithic table defs, even re-exporting a few tables from the modular dir) vs `internal-schema/` (modular per-table files + `internal-schema/index.js`) split is a half-finished monolithic→modular migration of the **production DB schema**. Consolidating it is a real refactor with data/migration blast radius and a large hand-synced `index.d.ts`; needs a direction decision (modular vs monolithic) + dedicated focus, not a quick dedup.
 - [x] **P2** dialect.js exports isDialect and tableColumnsSql are never used — ``
   - _remaining:_ Both exports still unused.
 - [x] **P2** SmithersDb.buildEventHistoryWhere duplicates SqlMessageStorage logic but is SQLite-hardcoded and unused — ``
