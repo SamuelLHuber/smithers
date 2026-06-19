@@ -3525,14 +3525,13 @@ function checkCliAgentHijackDocsMatchLauncher() {
     [NATIVE_HIJACK_ENGINE_SOURCE, readFileSync(NATIVE_HIJACK_ENGINE_SOURCE, "utf8")],
   ]);
   const required = [
-    [NATIVE_HIJACK_ENGINE_SOURCE, '| "gemini"'],
-    [CLI_HIJACK_SOURCE, 'candidate.engine === "gemini"'],
-    [CLI_HIJACK_SOURCE, 'command: "gemini"'],
+    [NATIVE_HIJACK_ENGINE_SOURCE, '| "antigravity"'],
+    [CLI_HIJACK_SOURCE, 'candidate.engine === "antigravity"'],
+    [CLI_HIJACK_SOURCE, 'command: "agy"'],
     [CLI_HIJACK_SOURCE, 'args: ["--resume", candidate.resume]'],
     [CLI_AGENTS_INTEGRATION, "| `ClaudeCodeAgent` | `claude --resume` |"],
     [CLI_AGENTS_INTEGRATION, "| `CodexAgent` | `codex resume` |"],
     [CLI_AGENTS_INTEGRATION, "| `AntigravityAgent` | `agy --conversation` |"],
-    [CLI_AGENTS_INTEGRATION, "| `GeminiAgent` | `gemini --resume` |"],
     [CLI_AGENTS_INTEGRATION, "| `PiAgent` | `pi --session` |"],
     [CLI_AGENTS_INTEGRATION, "| `KimiAgent` | `kimi --session` |"],
     [CLI_AGENTS_INTEGRATION, "| `ForgeAgent` | `forge --conversation-id` |"],
@@ -3540,6 +3539,7 @@ function checkCliAgentHijackDocsMatchLauncher() {
     [CLI_AGENTS_INTEGRATION, "native `bunx smithers-orchestrator hijack` support for Vibe and OpenCode is not shipped yet"],
   ];
   const forbidden = [
+    [CLI_AGENTS_INTEGRATION, "| `GeminiAgent` | `gemini --resume` |"],
     [CLI_AGENTS_INTEGRATION, "| `VibeAgent` | `vibe --resume` |"],
     [CLI_AGENTS_INTEGRATION, "| `OpenCodeAgent` | `opencode --session` |"],
   ];

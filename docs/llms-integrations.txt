@@ -529,13 +529,12 @@ Smithers persists the native session or conversation id on each task event. On h
 | `ClaudeCodeAgent` | `claude --resume` |
 | `CodexAgent` | `codex resume` |
 | `AntigravityAgent` | `agy --conversation` |
-| `GeminiAgent` | `gemini --resume` |
 | `PiAgent` | `pi --session` |
 | `KimiAgent` | `kimi --session` |
 | `ForgeAgent` | `forge --conversation-id` |
 | `AmpAgent` | `amp threads continue` |
 
-On clean exit the workflow resumes in detached mode. Vibe and OpenCode stream capture and headless session continuation are documented above, but native `bunx smithers-orchestrator hijack` support for Vibe and OpenCode is not shipped yet. See [How it works → Durability and resume](/how-it-works#durability--resume).
+On clean exit the workflow resumes in detached mode. Vibe and OpenCode stream capture and headless session continuation are documented above, but native `bunx smithers-orchestrator hijack` support for Vibe and OpenCode is not shipped yet. The deprecated `GeminiAgent` has no native hijack launcher; use `AntigravityAgent` (`agy --conversation`) for Google CLI takeover. See [How it works → Durability and resume](/how-it-works#durability--resume).
 
 ## Notes
 
