@@ -52,8 +52,8 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Discarded captureSnapshot call still present.
 - [x] **P2** loadCreateSession has an unreachable createSession branch and a dead relative-path fallback — `packages/driver/src/WorkflowDriver.js:22-23, 157-173`
   - _remaining:_ Unreachable createSession branch + relative-path fallback remain.
-- [ ] **P1** Obsolete ~1759-line legacy engine body (runWorkflowBodyLegacy) is unreachable in production — `packages/engine/src/engine.js:5829-7587 (runWorkflowBodyLegacy); gate at 4624-4630`
-  - _remaining:_ Legacy engine body still present.
+- [x] **P1** Obsolete ~1759-line legacy engine body (runWorkflowBodyLegacy) is unreachable in production — `packages/engine/src/engine.js:5829-7587 (runWorkflowBodyLegacy); gate at 4624-4630`
+  - _done (2026-06-19):_ Removed the 1760-line `runWorkflowBodyLegacy` and collapsed `runWorkflowBody` to a direct `runWorkflowBodyDriver` passthrough. The legacy path was reachable only via the `__smithersEngineMode === "legacy"` option and `SMITHERS_LEGACY_ENGINE=1` env var — neither set/tested/documented anywhere in the repo. engine.js 7775→6011 lines; engine typecheck + lint + full 646-test suite + root typecheck all green.
 - [x] **P2** deferred-bridge.js is entirely dead code (non-durable bridge superseded by durable variant) — `packages/engine/src/effect/deferred-bridge.js:1-64`
   - _remaining:_ Non-durable deferred-bridge.js still entirely dead.
 - [x] **P2** Dead exports in durable-deferred-bridge.js (Workflow + success schemas never consumed) — `packages/engine/src/effect/durable-deferred-bridge.js:19 (DurableDeferredBridgeWorkflow), 44 (approvalDurableDeferredSuccessSchema), 51 (waitForEventDurableDeferredSuccessSchema)`
