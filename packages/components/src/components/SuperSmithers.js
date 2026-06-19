@@ -51,7 +51,7 @@ export function SuperSmithers(props) {
         agent,
         __smithersKind: "agent",
     }, readChildren);
-    // Task 2: Propose modifications
+    // Task 2: Apply the modifications (or, in a dry run, propose them only)
     const proposeTaskId = `${prefix}-propose`;
     const proposeOutput = "super-smithers-propose";
     const proposeTask = React.createElement("smithers:task", {
@@ -60,11 +60,15 @@ export function SuperSmithers(props) {
         agent,
         dependsOn: [readTaskId],
         __smithersKind: "agent",
-    }, "Based on your analysis, propose specific code modifications. " +
-        "For each file, provide the exact changes needed as a list of edits. " +
-        "Include the file path, the original code, and the replacement code for each change. " +
-        (dryRun ? "This is a DRY RUN — do not apply changes, only report them." : ""));
-    // Task 3: Apply modifications (only if not dryRun)
+    }, dryRun
+        ? "Based on your analysis, propose specific code modifications. This is a DRY RUN — do NOT modify any files. " +
+            "For each file, provide the exact changes needed as a list of edits: the file path, the original code, and the replacement code."
+        : "Based on your analysis, apply the necessary code modifications directly to the target files using your file-editing tools. " +
+            "Make each edit on disk now. After applying them, list each file you changed with a short description of the change.");
+    // Task 3: Sync marker after the apply agent has written its edits (skipped on
+    // dry runs). The edits themselves are made by the agent in Task 2; this compute
+    // step is a dependency barrier so the report below only runs once the apply
+    // task has settled (and its settled write triggers the hot-reload system).
     const applyTaskId = `${prefix}-apply`;
     const applyOutput = "super-smithers-apply";
     const applyTask = !dryRun
@@ -74,9 +78,6 @@ export function SuperSmithers(props) {
             dependsOn: [proposeTaskId],
             __smithersKind: "compute",
             __smithersComputeFn: async () => {
-                // The compute function has access to the proposed modifications
-                // from the previous task via the engine context. The actual file
-                // writes trigger the hot reload system.
                 return { applied: true };
             },
         }, null)
