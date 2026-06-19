@@ -112,7 +112,7 @@ const PI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/PiAgentOptions.t
 const PI_EXTENSION_UI_REQUEST_SOURCE = join(root, "packages/agents/src/BaseCliAgent/PiExtensionUiRequest.ts");
 const PI_EXTENSION_UI_RESPONSE_SOURCE = join(root, "packages/agents/src/BaseCliAgent/PiExtensionUiResponse.ts");
 const PI_AGENT_SOURCE = join(root, "packages/agents/src/PiAgent.js");
-const OPENCODE_AGENT_SOURCE = join(root, "packages/agents/src/OpenCodeAgent.ts");
+const OPENCODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/OpenCodeAgentOptions.ts");
 const CLAUDE_CODE_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/ClaudeCodeAgentOptions.ts");
 const CODEX_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/CodexAgentOptions.ts");
 const KIMI_AGENT_OPTIONS_SOURCE = join(root, "packages/agents/src/KimiAgentOptions.ts");
@@ -3573,7 +3573,7 @@ function checkCliAgentOptionDocsMatchSourceTypes() {
     [PI_EXTENSION_UI_RESPONSE_SOURCE, readFileSync(PI_EXTENSION_UI_RESPONSE_SOURCE, "utf8")],
     [PI_AGENT_SOURCE, readFileSync(PI_AGENT_SOURCE, "utf8")],
     [VIBE_AGENT_OPTIONS_SOURCE, readFileSync(VIBE_AGENT_OPTIONS_SOURCE, "utf8")],
-    [OPENCODE_AGENT_SOURCE, readFileSync(OPENCODE_AGENT_SOURCE, "utf8")],
+    [OPENCODE_AGENT_OPTIONS_SOURCE, readFileSync(OPENCODE_AGENT_OPTIONS_SOURCE, "utf8")],
   ]);
   const required = [
     [BASE_CLI_AGENT_OPTIONS_SOURCE, "export type BaseCliAgentOptions = {"],
@@ -3609,9 +3609,9 @@ function checkCliAgentOptionDocsMatchSourceTypes() {
     [CLI_AGENTS_INTEGRATION, "Key additions: `agent`, `maxTurns`, `maxPrice`, `maxTokens`, `enabledTools`, `sessionId`, `continueSession`."],
     [CLI_AGENTS_INTEGRATION, "enabledTools?: string[];"],
     [CLI_AGENTS_INTEGRATION, "sessionId?: string; continueSession?: boolean;"],
-    [OPENCODE_AGENT_SOURCE, "export type OpenCodeAgentOptions = BaseCliAgentOptions & {"],
-    [OPENCODE_AGENT_SOURCE, "attachFiles?: string[];"],
-    [OPENCODE_AGENT_SOURCE, "variant?: string;"],
+    [OPENCODE_AGENT_OPTIONS_SOURCE, "export type OpenCodeAgentOptions = BaseCliAgentOptions & {"],
+    [OPENCODE_AGENT_OPTIONS_SOURCE, "attachFiles?: string[];"],
+    [OPENCODE_AGENT_OPTIONS_SOURCE, "variant?: string;"],
     [TYPES_REFERENCE, "type OpenCodeAgentOptions = BaseCliAgentOptions & {"],
     [TYPES_REFERENCE, "attachFiles?: string[];"],
     [TYPES_REFERENCE, "variant?: string;"],
