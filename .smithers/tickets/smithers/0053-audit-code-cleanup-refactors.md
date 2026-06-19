@@ -28,7 +28,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ tsconfig outDir/declaration cruft still conflicts with tsup target.
 - [x] **P2** SMITHERS_NODE_ICONS uses the same '⚡' glyph for both 'task' and 'parallel' — `packages/devtools/src/SMITHERS_NODE_ICONS.js:6,8`
   - _remaining:_ parallel still not given a distinct glyph.
-- [ ] **P2** printTree prints props.name/props.id without type-narrowing (Record<string,unknown> values) — `packages/devtools/src/printTree.js:24-29`
+- [x] **P2** printTree prints props.name/props.id without type-narrowing (Record<string,unknown> values) — `packages/devtools/src/printTree.js:24-29`
   - _remaining:_ No type-narrowing added.
 - [ ] **P2** Confusing snapshot-handle defaults: public snapshot() hardcodes source 'watch'/tier 2 while its comment says Tier 1/wrap — `packages/engine/src/startDurability.js:125-127 (and undocumented withSocket/createSocketServer options at 77-78)`
   - _remaining:_ Default/comment mismatch and undocumented options both remain.
@@ -54,7 +54,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Two-layer barrel shims not collapsed into index.js.
 - [x] **P2** asStringRecord is a redundant one-line alias of asObject — `packages/server/src/gateway.js:596-601`
   - _remaining:_ Redundant alias not removed.
-- [ ] **P2** JUMP_RUN_ID_PATTERN / JUMP_MAX_FRAME_NO exported from subpath but absent from main barrel and index.d.ts — `packages/time-travel/src/jumpToFrame.js:21-22; src/index.js:46; src/index.d.ts`
+- [x] **P2** JUMP_RUN_ID_PATTERN / JUMP_MAX_FRAME_NO exported from subpath but absent from main barrel and index.d.ts — `packages/time-travel/src/jumpToFrame.js:21-22; src/index.js:46; src/index.d.ts`
   - _remaining:_ Constants still missing from main barrel + types (only reachable via subpath).
 - [ ] **P2** Public type surface is Record<string,any> — direct importers of the package get zero type safety — `packages/tool-context/src/index.d.ts:12-26`
   - _remaining:_ Public type surface still Record<string,any>; zero type safety for importers.

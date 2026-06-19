@@ -21,10 +21,10 @@ export function printTree(node, indent = "") {
             line += ` "${node.task.label}"`;
         }
     }
-    else if (node.props.name) {
+    else if (typeof node.props.name === "string" || typeof node.props.name === "number") {
         line += ` "${node.props.name}"`;
     }
-    else if (node.props.id) {
+    else if (typeof node.props.id === "string" || typeof node.props.id === "number") {
         line += ` [${node.props.id}]`;
     }
     let output = line + "\n";
