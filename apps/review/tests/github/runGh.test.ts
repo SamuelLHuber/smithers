@@ -38,13 +38,23 @@ process.stdout.write("fixture stdout");
 
     try {
       const stdout = await runGh(tmp, ["api", "ok"], "payload");
-      // Surface whether the fixture ran (did it write its log?) when the output
-      // mismatches, so a recurrence is diagnosable, not a bare Expected/Received.
       if (stdout !== "fixture stdout") {
+        // Replicate runGh's exact spawn to localize a recurrence (does
+        // Bun.spawnSync with cwd run the fixture, or is cwd the problem?).
+        const probe = Bun.spawnSync([ghPath, "api", "ok"], {
+          cwd: tmp,
+          stdin: new TextEncoder().encode("payload"),
+        });
         const logState = existsSync(log)
           ? readFileSync(log, "utf8")
           : "<fixture never ran: no log written>";
-        throw new Error(`runGh returned ${JSON.stringify(stdout)}; fixture log: ${logState}`);
+        throw new Error(
+          `runGh=${JSON.stringify(stdout)} | log=${logState} | probe=${JSON.stringify({
+            exitCode: probe.exitCode,
+            stdout: new TextDecoder().decode(probe.stdout),
+            stderr: new TextDecoder().decode(probe.stderr),
+          })}`,
+        );
       }
       expect(stdout).toBe("fixture stdout");
       await expect(Bun.file(log).json()).resolves.toEqual({
