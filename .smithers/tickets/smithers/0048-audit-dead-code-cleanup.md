@@ -13,7 +13,7 @@ Each item below is still open in current `main`. Text is the original audit find
 ## Open items
 
 - [x] **P2** Capability-registry factory exports are inconsistent: 4 of 10 re-exported from index, and those 4 are consumed nowhere — `packages/agents/src/index.js:48-58`
-  - _remaining:_ 4 of the capability-registry factory re-exports remain inconsistent/unused via the barrel.
+  - _done (2026-06-19):_ Dropped the 4 inconsistent index re-exports (createAmp/Antigravity/Forge/VibeCapabilityRegistry) — zero external consumers; the factories stay (used internally by each agent + the capability report imports them directly from the agent files). Hand-synced the d.ts declares/barrel/orphaned JSDoc. agents typecheck + 314 tests + root typecheck + lint green.
 - [x] **P2** Orphaned type files: AskOptions.ts, InitWorkflowPackOptions.ts, InitWorkflowPackResult.ts, and a shebang-only index.d.ts — `apps/cli/src/AskOptions.ts, apps/cli/src/InitWorkflowPackOptions.ts, apps/cli/src/InitWorkflowPackResult.ts, apps/cli/src/index.d.ts`
   - _remaining:_ All four orphaned files still present.
 - [x] **P2** Dead MCP exports: registerSemanticTools and serveSemanticMcpServer — `apps/cli/src/mcp/semantic-server.js:11-21 (registerSemanticTools), 36-41 (serveSemanticMcpServer)`
