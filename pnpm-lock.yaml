@@ -1507,9 +1507,6 @@ importers:
       '@smithers-orchestrator/accounts':
         specifier: workspace:*
         version: link:../accounts
-      '@smithers-orchestrator/errors':
-        specifier: workspace:*
-        version: link:../errors
     devDependencies:
       '@types/bun':
         specifier: latest
