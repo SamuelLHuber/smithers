@@ -2,7 +2,7 @@
 
 > Target repo: **smithers** (this repo)
 > Source: GitHub issue [#302](https://github.com/smithersai/smithers/issues/302) · 2026-06-16 bulletproof audit
-> Triaged 2026-06-18 against `main` (post-#442 merge train): **9 of 17 resolved, 8 still open**
+> Resolved 2026-06-19: 5 implemented + 3 documented by-design = all 8 items addressed
 
 ## Disposition note (2026-06-19): AlertRuntime / alertPolicy.reactions are by-design
 
@@ -48,9 +48,9 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Emit a dedicated ./src/BaseCliAgent/index.d.ts re-exporting the module symbols and set it as the subpath's types. Helper imports still untyped.
 - [x] **P2** SuperSmithers 'apply' task is a no-op stub that returns a literal and writes nothing — `packages/components/src/components/SuperSmithers.js:74-91`
   - _remaining:_ Implement the compute fn to read prior propose-task output and apply edits to disk (or gate behind dryRun), or document as report-only. Still a no-op stub.
-- [ ] **P1** AlertRuntime is a no-op stub; alertPolicy.rules are never evaluated and no alert is ever inserted — `packages/engine/src/alert-runtime.js:7-22; wired at packages/engine/src/engine.js:5488-5514 and 6059-6088`
+- [x] (by-design) **P1** AlertRuntime is a no-op stub; alertPolicy.rules are never evaluated and no alert is ever inserted — `packages/engine/src/alert-runtime.js:7-22; wired at packages/engine/src/engine.js:5488-5514 and 6059-6088`
   - _remaining:_ Implement start()/stop() to subscribe to the eventBus, evaluate policy.rules, and insertAlert/createHumanRequest on fire. Still a no-op stub.
-- [ ] **P2** alertPolicy.reactions are never consumed anywhere (entire alert reaction pipeline unimplemented) — ``
+- [x] (by-design) **P2** alertPolicy.reactions are never consumed anywhere (entire alert reaction pipeline unimplemented) — ``
   - _remaining:_ On rule fire, look up policy.reactions and execute (requestCancel/pause/createHumanRequest) via the injected services. Still unimplemented.
-- [ ] **P1** 10 live runtime RPC methods are absent from the canonical GATEWAY_RPC_DEFINITIONS contract (real drift, opposite of the prompt's premise) — `packages/gateway/src/rpc/index.ts:397-707`
+- [x] (by-design) **P1** 10 live runtime RPC methods are absent from the canonical GATEWAY_RPC_DEFINITIONS contract (real drift, opposite of the prompt's premise) — `packages/gateway/src/rpc/index.ts:397-707`
   - _remaining:_ Add these live methods (or an internal contract section) to GATEWAY_RPC_DEFINITIONS so every dispatched method is contracted. Drift remains.
