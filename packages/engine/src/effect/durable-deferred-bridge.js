@@ -4,7 +4,6 @@
 // @smithers-type-exports-end
 
 import * as DurableDeferred from "@effect/workflow/DurableDeferred";
-import * as Workflow from "@effect/workflow/Workflow";
 import { resolve as resolvePath } from "node:path";
 import { Effect, Exit, Schema } from "effect";
 import { updateAsyncExternalWaitPending } from "@smithers-orchestrator/observability/metrics";
@@ -16,12 +15,6 @@ import { updateAsyncExternalWaitPending } from "@smithers-orchestrator/observabi
  * @typedef {{ signalName: string; correlationId: string | null; payloadJson: string; seq: number; receivedAtMs: number; }} WaitForEventSignalInput
  */
 
-export const DurableDeferredBridgeWorkflow = Workflow.make({
-    name: "SmithersDurableDeferredBridge",
-    payload: { executionId: Schema.String },
-    success: Schema.Unknown,
-    idempotencyKey: ({ executionId }) => executionId,
-});
 const adapterNamespaces = new WeakMap();
 let nextAdapterNamespace = 0;
 /**
@@ -41,7 +34,7 @@ const getAdapterNamespace = (adapter) => {
     adapterNamespaces.set(adapter, created);
     return created;
 };
-export const approvalDurableDeferredSuccessSchema = Schema.Struct({
+const approvalDurableDeferredSuccessSchema = Schema.Struct({
     approved: Schema.Boolean,
     // `note` is omitted entirely when no note was provided; if a string was
     // provided, preserve it exactly (including the empty string).
@@ -50,7 +43,7 @@ export const approvalDurableDeferredSuccessSchema = Schema.Struct({
     decisionJson: Schema.NullOr(Schema.String),
     autoApproved: Schema.Boolean,
 });
-export const waitForEventDurableDeferredSuccessSchema = Schema.Struct({
+const waitForEventDurableDeferredSuccessSchema = Schema.Struct({
     signalName: Schema.String,
     correlationId: Schema.NullOr(Schema.String),
     payloadJson: Schema.String,
