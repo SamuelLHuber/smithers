@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -37,18 +38,19 @@ describe("runGh", () => {
         const logState = existsSync(log)
           ? readFileSync(log, "utf8")
           : "<fixture never ran: no log written>";
-        const probe = Bun.spawnSync([FAKE_GH, "api", "ok"], {
+        // Probe with the same mechanism runGh uses (node:child_process). If this
+        // succeeds while runGh returned "", the failure is ordering-specific.
+        const probe = spawnSync(FAKE_GH, ["api", "ok"], {
           cwd: tmp,
-          stdin: new TextEncoder().encode("payload"),
-          env: { ...process.env, SMITHERS_FAKE_GH_LOG: log },
+          input: "payload",
+          encoding: "utf8",
+          env: process.env,
         });
-        const probeOut = new TextDecoder().decode(probe.stdout ?? new Uint8Array());
-        const probeErr = new TextDecoder().decode(probe.stderr ?? new Uint8Array());
         throw new Error(
           `runGh returned ${JSON.stringify(stdout)}; fixture log: ${logState}; ` +
-            `fixtureExists=${existsSync(FAKE_GH)}; direct probe: success=${probe.success} ` +
-            `exit=${probe.exitCode} signal=${probe.signalCode} ` +
-            `stdout=${JSON.stringify(probeOut)} stderr=${JSON.stringify(probeErr)}`,
+            `fixtureExists=${existsSync(FAKE_GH)}; direct probe: status=${probe.status} ` +
+            `signal=${probe.signal} error=${probe.error?.message ?? "none"} ` +
+            `stdout=${JSON.stringify(probe.stdout)} stderr=${JSON.stringify(probe.stderr)}`,
         );
       }
       expect(stdout).toBe("fixture stdout");
