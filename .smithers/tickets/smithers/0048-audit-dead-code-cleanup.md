@@ -36,8 +36,8 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Render-time accumulator/tracking data path still discarded by engine.
 - [x] **P2** aspects/index.js barrel is exported but imported by nothing — `packages/components/src/aspects/index.js:9`
   - _remaining:_ Barrel still imported by nothing.
-- [ ] **P1** Entire in-memory storage module (storage/) is dead code — ``
-  - _remaining:_ In-memory storage module still dead.
+- [x] **P1** Entire in-memory storage module (storage/) is dead code — `packages/db/src/storage/`
+  - _done (2026-06-19):_ Removed `packages/db/src/storage/` (InMemoryStorage.js, StorageService.js, StorageServiceShape.ts, StorageServiceTypes.ts) and its sole self-referential test (in-memory-storage-scorers.test.js). The module was not in the db index/d.ts and had zero consumers anywhere in the monorepo (the only importer was its own test). db typecheck + 376 tests + lint green.
 - [ ] **P1** Parallel duplicate implementations: output/, frame-codec/, internal-schema/index.js, loadInputEffect.js, loadOutputsEffect.js — ``
   - _remaining:_ Duplicate implementations not consolidated.
 - [x] **P2** dialect.js exports isDialect and tableColumnsSql are never used — ``
