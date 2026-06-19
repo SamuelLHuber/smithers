@@ -56,7 +56,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Redundant alias not removed.
 - [x] **P2** JUMP_RUN_ID_PATTERN / JUMP_MAX_FRAME_NO exported from subpath but absent from main barrel and index.d.ts — `packages/time-travel/src/jumpToFrame.js:21-22; src/index.js:46; src/index.d.ts`
   - _remaining:_ Constants still missing from main barrel + types (only reachable via subpath).
-- [ ] **P2** Public type surface is Record<string,any> — direct importers of the package get zero type safety — `packages/tool-context/src/index.d.ts:12-26`
+- [x] **P2** Public type surface is Record<string,any> — direct importers of the package get zero type safety — `packages/tool-context/src/index.d.ts:12-26` — added an exported `ToolContext` interface (runId/nodeId/iteration/attempt/rootDir/idempotencyKey/seq/durabilitySnapshot); JSDoc source + hand-synced d.ts
   - _remaining:_ Public type surface still Record<string,any>; zero type safety for importers.
 - [x] **P2** package.json ./* subpath export maps every subpath's types to index.d.ts (latent mis-mapping, currently unused) — `packages/tool-context/package.json:13-17`
   - _remaining:_ Latent ./* types mis-mapping not fixed.

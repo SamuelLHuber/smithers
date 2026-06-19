@@ -1,6 +1,22 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-/** @type {AsyncLocalStorage<Record<string, any>>} */
+/**
+ * Ambient context handed to in-process agent tools while a node attempt runs.
+ * Every field is optional so partial contexts (and the durability-inactive
+ * `null` path) are accepted; helpers degrade gracefully when fields are absent.
+ *
+ * @typedef {object} ToolContext
+ * @property {string} [runId] - The run this tool execution belongs to.
+ * @property {string} [nodeId] - The node this tool execution belongs to.
+ * @property {number} [iteration] - The node iteration (defaults to 0 in keys).
+ * @property {number} [attempt] - The attempt number for the current node.
+ * @property {string} [rootDir] - The working directory / VCS root for the tool.
+ * @property {string} [idempotencyKey] - Explicit idempotency key override.
+ * @property {number} [seq] - Monotonic per-context tool sequence (mutated by nextToolSeq).
+ * @property {(label?: string, toolUseId?: string) => unknown} [durabilitySnapshot] - Hook to snapshot workspace durability mid-tool.
+ */
+
+/** @type {AsyncLocalStorage<ToolContext>} */
 const storage = new AsyncLocalStorage();
 
 /**
@@ -10,7 +26,7 @@ const storage = new AsyncLocalStorage();
  * run/node/cwd context and a durability snapshot hook.
  *
  * @template T
- * @param {Record<string, any>} ctx
+ * @param {ToolContext} ctx
  * @param {() => T} fn
  * @returns {T}
  */
@@ -19,14 +35,14 @@ export function runWithToolContext(ctx, fn) {
 }
 
 /**
- * @returns {Record<string, any> | undefined}
+ * @returns {ToolContext | undefined}
  */
 export function getToolContext() {
     return storage.getStore();
 }
 
 /**
- * @param {Record<string, any>} [ctx]
+ * @param {ToolContext} [ctx]
  * @returns {string | null}
  */
 export function getToolIdempotencyKey(ctx = getToolContext()) {
@@ -43,7 +59,7 @@ export function getToolIdempotencyKey(ctx = getToolContext()) {
 }
 
 /**
- * @param {Record<string, any>} ctx
+ * @param {ToolContext} ctx
  * @returns {number}
  */
 export function nextToolSeq(ctx) {
