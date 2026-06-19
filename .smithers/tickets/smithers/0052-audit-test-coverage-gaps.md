@@ -30,7 +30,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Non-streaming JSON metering and srk_ api-key proxy authentication branches remain uncovered
 - [ ] **P2** CLI entrypoint and GitHub Action drivers have no tests — `apps/review/src/cli/main.ts, apps/review/src/cli/parseReviewArgs.ts, apps/review/action/src/runAction.ts, runGate.ts, runReview.ts, fetchOidcToken.ts`
   - _remaining:_ main.ts, parseReviewArgs.ts, runAction.ts, runGate.ts, runReview.ts, fetchOidcToken.ts still have no direct tests
-- [ ] **P2** Several pure walkthrough helpers lack direct unit tests — `apps/review/src/walkthrough/classifyChangeRole.ts, buildNarratePrompt.ts, describeChange.ts, escapeHtml.ts, src/diffs/renderFallbackDiffHtml.ts, src/workflow/normalizeReviewInput.ts, writeOpenAiSchemaFile.ts`
+- [x] **P2** Several pure walkthrough helpers lack direct unit tests — `apps/review/src/walkthrough/classifyChangeRole.ts, buildNarratePrompt.ts, describeChange.ts, escapeHtml.ts, src/diffs/renderFallbackDiffHtml.ts, src/workflow/normalizeReviewInput.ts, writeOpenAiSchemaFile.ts`
   - _remaining:_ None of the seven pure walkthrough helpers have direct unit tests
 - [ ] **P2** /api/admin/usage endpoint untested — `apps/review/src/server/admin/handleAdminUsage.ts`
   - _remaining:_ /api/admin/usage endpoint (handleAdminUsage) still untested
