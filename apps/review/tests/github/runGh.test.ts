@@ -5,10 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runGh } from "../../src/github/runGh";
 
-const originalPath = process.env.PATH;
-
 afterEach(() => {
-  process.env.PATH = originalPath;
+  delete process.env.SMITHERS_GH_BIN;
 });
 
 describe("runGh", () => {
@@ -17,11 +15,12 @@ describe("runGh", () => {
     const bin = join(tmp, "bin");
     const log = join(tmp, "gh-log.json");
     await mkdir(bin);
-    // A fake `gh` implemented as a node script: node reliably flushes its pipe
-    // writes on exit (a bun fixture dropped its final stdout write on the Linux
-    // CI runner). It records the invocation and echoes deterministic output.
+    // A fake `gh` as a node script (node flushes its pipe writes on exit). It
+    // records the invocation and echoes deterministic output. Injected by
+    // absolute path via SMITHERS_GH_BIN so it runs regardless of PATH lookup.
+    const ghPath = join(bin, "gh");
     await writeFile(
-      join(bin, "gh"),
+      ghPath,
       `#!/usr/bin/env node
 const { writeFileSync } = require("node:fs");
 let input = "";
@@ -38,12 +37,12 @@ process.stdin.on("end", () => {
 `,
       { mode: 0o755 },
     );
-    process.env.PATH = `${bin}:${originalPath ?? ""}`;
+    process.env.SMITHERS_GH_BIN = ghPath;
 
     try {
       const stdout = await runGh(tmp, ["api", "ok"], "payload");
-      // Surface whether the fixture ran at all (did it write its log?) so a
-      // recurrence is diagnosable instead of a bare Expected/Received mismatch.
+      // Surface whether the fixture ran (did it write its log?) when the output
+      // mismatches, so a recurrence is diagnosable, not a bare Expected/Received.
       if (stdout !== "fixture stdout") {
         const logState = existsSync(log)
           ? readFileSync(log, "utf8")

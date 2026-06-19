@@ -3,8 +3,12 @@ import { execFile } from "node:child_process";
 /** Run the gh CLI in a repo directory; resolves stdout, throws with stderr. */
 export function runGh(repoDir: string, args: string[], stdin?: string): Promise<string> {
   return new Promise((resolvePromise, reject) => {
+    // Honor an explicit gh path (non-standard installs, and hermetic tests that
+    // inject a fake gh by absolute path — bun's execFile does not pick up
+    // runtime process.env.PATH mutations for command lookup on Linux).
+    const ghBin = process.env.SMITHERS_GH_BIN || "gh";
     const child = execFile(
-      "gh",
+      ghBin,
       args,
       { cwd: repoDir, maxBuffer: 32 * 1024 * 1024 },
       (error, stdout, stderr) => {
