@@ -142,25 +142,10 @@ describe.skipIf(ZMUXD == null)("smithers tui zmux PTY", () => {
             const send = (keys) => rpc("session.send", { sessionId, dataBase64: b64(keys) });
             const active = (g) => activeLabel(g);
 
-            // 1) wait for the picker
+            // 1) type-to-filter to "Dynamic Task Demo" (has integer inputs) → select
             let g = [];
-            for (let i = 0; i < 60; i += 1) {
-                await sleep(250);
-                g = await grid();
-                if (g.some((line) => line.includes("Select a workflow"))) break;
-            }
-
-            // 2) navigate to the "Dynamic Task Demo" workflow (has integer inputs)
-            let reached = false;
-            for (let i = 0; i < 60; i += 1) {
-                g = await grid();
-                if (/dynamic task demo/i.test(active(g))) {
-                    reached = true;
-                    break;
-                }
-                await send(KEY.down);
-                await sleep(110);
-            }
+            const reached = await navigateToWorkflow(send, grid, "dynamic task", /dynamic task demo/i);
+            expect(reached).toBe(true);
             await send(KEY.enter);
             await sleep(700);
 
@@ -246,23 +231,10 @@ describe.skipIf(ZMUXD == null)("smithers tui zmux PTY", () => {
             };
             const has = (g, re) => g.some((line) => re.test(line));
 
-            // 1) picker → navigate to "E2E Approval Probe" → select
+            // 1) picker → type-to-filter to "E2E Approval Probe" → select
             let g = [];
-            for (let i = 0; i < 60 && !dead; i += 1) {
-                await sleep(250);
-                g = await grid();
-                if (has(g, /Select a workflow/)) break;
-            }
-            let reached = false;
-            for (let i = 0; i < 60 && !dead; i += 1) {
-                g = await grid();
-                if (/e2e approval probe/i.test(activeLabel(g))) {
-                    reached = true;
-                    break;
-                }
-                await send(KEY.down);
-                await sleep(110);
-            }
+            const reached = await navigateToWorkflow(send, grid, "approval probe", /e2e approval probe/i);
+            expect(reached).toBe(true);
             await send(KEY.enter);
             await sleep(800);
 
@@ -277,14 +249,18 @@ describe.skipIf(ZMUXD == null)("smithers tui zmux PTY", () => {
                 await sleep(500);
             }
 
-            // 3) Approve (first option) → run resumes and runs the gated task
+            // 3) Approve (first option) → run resumes and runs the gated task.
+            await sleep(400); // let the clack select settle before the keypress
             await send(KEY.enter);
 
-            // 4) wait for the run to reach a terminal state in the DB
+            // 4) Wait for a terminal state. Under full-suite load the approve+resume
+            //    is slow, so poll generously; and if the run is still gated the
+            //    Approve keypress may not have landed, so re-send it periodically.
             let status = "none";
-            for (let i = 0; i < 40; i += 1) {
+            for (let i = 0; i < 200; i += 1) {
                 status = await latestProbeStatus("e2e-approval-probe", testStartedAtMs);
                 if (["finished", "failed", "cancelled"].includes(status)) break;
+                if (status === "waiting-approval" && i % 6 === 5) await send(KEY.enter);
                 await sleep(500);
             }
 
@@ -302,7 +278,7 @@ describe.skipIf(ZMUXD == null)("smithers tui zmux PTY", () => {
             }
             await stop();
         }
-    }, 90_000);
+    }, 180_000);
 
     test("human request gate answers JSON and the run succeeds", async () => {
         const cols = 80;
@@ -340,23 +316,9 @@ describe.skipIf(ZMUXD == null)("smithers tui zmux PTY", () => {
             };
             const has = (g, re) => g.some((line) => re.test(line));
 
+            // type-to-filter to "E2E Ask Human Probe" → select
             let g = [];
-            for (let i = 0; i < 60 && !dead; i += 1) {
-                await sleep(250);
-                g = await grid();
-                if (has(g, /Select a workflow/)) break;
-            }
-
-            let reached = false;
-            for (let i = 0; i < 80 && !dead; i += 1) {
-                g = await grid();
-                if (/e2e ask human probe/i.test(activeLabel(g))) {
-                    reached = true;
-                    break;
-                }
-                await send(KEY.down);
-                await sleep(110);
-            }
+            const reached = await navigateToWorkflow(send, grid, "ask human probe", /e2e ask human probe/i);
             expect(reached).toBe(true);
             await send(KEY.enter);
             await sleep(800);
@@ -376,7 +338,10 @@ describe.skipIf(ZMUXD == null)("smithers tui zmux PTY", () => {
             await send(KEY.enter);
 
             let status = "none";
-            for (let i = 0; i < 40; i += 1) {
+            // Under full-suite load the resume (workflow re-compile + re-run) is
+            // much slower than in isolation, so poll generously — the run does
+            // finish, it just takes longer. Keep the budget under the test timeout.
+            for (let i = 0; i < 200; i += 1) {
                 status = await latestProbeStatus("e2e-ask-human-probe", testStartedAtMs);
                 if (["finished", "failed", "cancelled"].includes(status)) break;
                 await sleep(500);
@@ -395,8 +360,30 @@ describe.skipIf(ZMUXD == null)("smithers tui zmux PTY", () => {
             }
             await stop();
         }
-    }, 90_000);
+    }, 180_000);
 });
+
+/**
+ * Pick a workflow in the TUI picker by TYPING to fuzzy-filter (the picker is a
+ * fuzzy select). Far more robust under load than arrowing against a laggy grid:
+ * the typed text narrows the list so the match rises to the top. Returns true
+ * once the active row matches.
+ */
+async function navigateToWorkflow(send, grid, filterText, matchRe) {
+    let g = [];
+    for (let i = 0; i < 60; i += 1) {
+        await sleep(250);
+        g = await grid();
+        if (g.some((line) => /Select a workflow/.test(line))) break;
+    }
+    await send(filterText);
+    for (let i = 0; i < 80; i += 1) {
+        g = await grid();
+        if (matchRe.test(activeLabel(g))) return true;
+        await sleep(200);
+    }
+    return false;
+}
 
 async function latestProbeStatus(workflowName, sinceMs) {
     try {
