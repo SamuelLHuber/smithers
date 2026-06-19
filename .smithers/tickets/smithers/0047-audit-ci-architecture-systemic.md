@@ -24,7 +24,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ .smithers excluded from boundary check and still imports undeclared react.
 - [ ] **P2** Subpath exports point their `types` condition at the barrel index.d.ts, which does not contain the subpath's symbols — `packages/agents/package.json (exports "./BaseCliAgent".types -> ./src/index.d.ts)`
   - _remaining:_ Subpath types still point at barrel index.d.ts (only 3 newer subpaths got own .d.ts).
-- [ ] **P2** Three workspace packages (accounts, usage, tool-context) are missing from the root tsconfig paths map — `tsconfig.json:24-234 (paths)`
+- [x] **P2** Three workspace packages (accounts, usage, tool-context) are missing from the root tsconfig paths map — `tsconfig.json:24-234 (paths)`
   - _remaining:_ All three still missing from root tsconfig paths.
 - [ ] **P2** smithers <-> cli package cycle exists (bin delegates dynamically; cli imports smithers statically) — `packages/smithers/src/bin/smithers.js:138 and apps/cli/src/*.js`
   - _remaining:_ Bidirectional smithers<->cli dependency persists.
@@ -34,11 +34,11 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ ./* wildcard still present on published package.
 - [ ] **P2** No automated guard that every documented public subpath export resolves — `e2e/exports/programmatic-api.test.ts`
   - _remaining:_ No automated guard that every documented subpath export resolves.
-- [ ] **P1** No lint (oxlint) gate in any CI workflow — `.github/workflows/ci.yml:28`
+- [x] **P1** No lint (oxlint) gate in any CI workflow — `.github/workflows/ci.yml:28`
   - _remaining:_ No lint gate in any CI workflow.
 - [ ] **P1** No coverage measurement or gate anywhere in CI — the ~100% bar is unenforced — `.github/workflows/ci.yml:59`
   - _remaining:_ No coverage measurement or gate anywhere in CI.
-- [ ] **P1** typecheck:examples never runs in CI — 22 user-facing example workflows can ship broken — `package.json:67`
+- [x] **P1** typecheck:examples never runs in CI — 22 user-facing example workflows can ship broken — `package.json:67`
   - _remaining:_ typecheck:examples still never runs in CI.
 - [ ] **P2** Gateway OpenAPI drift check is gated only via faults.yml's `pnpm -r build`, not in the primary CI job — `.github/workflows/faults.yml:33`
   - _remaining:_ OpenAPI drift check still gated only via faults.yml build, not primary CI.

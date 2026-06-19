@@ -1,3 +1,9 @@
+// @smithers-type-exports-begin
+/** @typedef {import("./Account.ts").Account} Account */
+/** @typedef {import("./AccountProvider.ts").AccountProvider} AccountProvider */
+/** @typedef {import("./AccountsFile.ts").AccountsFile} AccountsFile */
+// @smithers-type-exports-end
+
 export { accountsRoot } from "./accountsRoot.js";
 export { accountsFilePath } from "./accountsFilePath.js";
 export { defaultConfigDir } from "./defaultConfigDir.js";

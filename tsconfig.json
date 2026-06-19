@@ -230,6 +230,27 @@
       "@smithers-orchestrator/vcs/*": [
         "./packages/vcs/src/*.js",
         "./packages/vcs/src/*/index.js"
+      ],
+      "@smithers-orchestrator/accounts": [
+        "./packages/accounts/src/index.js"
+      ],
+      "@smithers-orchestrator/accounts/*": [
+        "./packages/accounts/src/*.js",
+        "./packages/accounts/src/*/index.js"
+      ],
+      "@smithers-orchestrator/usage": [
+        "./packages/usage/src/index.js"
+      ],
+      "@smithers-orchestrator/usage/*": [
+        "./packages/usage/src/*.js",
+        "./packages/usage/src/*/index.js"
+      ],
+      "@smithers-orchestrator/tool-context": [
+        "./packages/tool-context/src/index.js"
+      ],
+      "@smithers-orchestrator/tool-context/*": [
+        "./packages/tool-context/src/*.js",
+        "./packages/tool-context/src/*/index.js"
       ]
     },
     "typeRoots": [
