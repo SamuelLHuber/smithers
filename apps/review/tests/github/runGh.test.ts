@@ -15,24 +15,33 @@ describe("runGh", () => {
     const bin = join(tmp, "bin");
     const log = join(tmp, "gh-log.json");
     await mkdir(bin);
-    // A fake `gh` as a node script: read stdin synchronously, record the
-    // invocation, then echo deterministic output. Injected by absolute path via
-    // SMITHERS_GH_BIN so it runs regardless of PATH lookup.
+    // A fake `gh` as a POSIX sh script. `/bin/sh` is always present, is named by
+    // an absolute interpreter path (no PATH/`env` lookup), and starts in ~1ms
+    // with no language-runtime cold start. An earlier `#!/usr/bin/env node`
+    // fixture intermittently never executed its body on the Linux CI runner
+    // (exit 0, no output, ~3ms — the node interpreter never ran), which read back
+    // as runGh returning "". The script records the invocation (cwd via `pwd -P`
+    // to match realpath, args, stdin) to a log file, then echoes deterministic
+    // output. Injected by absolute path via SMITHERS_GH_BIN so it runs regardless
+    // of PATH lookup.
     const ghPath = join(bin, "gh");
     await writeFile(
       ghPath,
-      `#!/usr/bin/env node
-const { writeFileSync, readFileSync, writeSync } = require("node:fs");
-let input = "";
-try { input = readFileSync(0, "utf8"); } catch {}
-writeFileSync(${JSON.stringify(log)}, JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2), input }));
-// Write to the fd synchronously: an async process.stdout.write can fail to
-// drain before the spawning bun process captures it on a cold node start.
-if (process.argv.includes("fail")) {
-  writeSync(2, "fixture failure");
-  process.exit(7);
-}
-writeSync(1, "fixture stdout");
+      `#!/bin/sh
+log=${JSON.stringify(log)}
+input=$(cat)
+printf '{"cwd":"%s","args":[' "$(pwd -P)" > "$log"
+first=1
+for a in "$@"; do
+  [ "$first" -eq 1 ] || printf ',' >> "$log"
+  first=0
+  printf '"%s"' "$a" >> "$log"
+done
+printf '],"input":"%s"}' "$input" >> "$log"
+for a in "$@"; do
+  [ "$a" = fail ] && { printf 'fixture failure' >&2; exit 7; }
+done
+printf 'fixture stdout'
 `,
       { mode: 0o755 },
     );
