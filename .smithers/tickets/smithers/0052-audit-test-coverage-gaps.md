@@ -114,7 +114,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ packages/smithers/src/bin/smithers.js local-CLI delegation logic still untested in this package
 - [ ] **P2** Several create.js branches uncovered: anchor-based default dbPath, journalMode option, input ALTER catch — `packages/smithers/src/create.js:372-374, 392, 427-436`
   - _remaining:_ journalMode option override and anchor-based default dbPath resolution branches still untested
-- [ ] **P2** findSmithersAnchorDir fsRoot guard and HOME-unset branch only covered indirectly — `packages/smithers/src/findSmithersAnchorDir.js:18-31`
+- [x] **P2** findSmithersAnchorDir fsRoot guard and HOME-unset branch only covered indirectly — `packages/smithers/src/findSmithersAnchorDir.js:18-31` — added a real-filesystem test (no mocks; temp HOME + dirs, restored in afterEach): walk-up to the nearest `.smithers/` anchor below HOME, the non-directory `.smithers` guard, the at/above-HOME exclusion (incl. sibling-outside-HOME), and the HOME-unset path that walks to the fsRoot guard. 28 smithers tests + root typecheck + lint green.
   - _remaining:_ Within packages/smithers, no direct test for the fsRoot guard or HOME-unset branch
 - [ ] **P2** Public mdxPlugin (and createExternalSmithers) lack package-level coverage / in-repo consumers — `packages/smithers/src/mdx-plugin.js:1-6, packages/smithers/src/external/index.js`
   - _remaining:_ Public mdxPlugin (mdx-plugin.js) still has no package-level test
