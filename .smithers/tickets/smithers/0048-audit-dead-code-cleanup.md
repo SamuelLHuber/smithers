@@ -67,8 +67,10 @@ Each item below is still open in current `main`. Text is the original audit find
 - [x] **P2** tagged.js is an orphan barrel — never imported anywhere — `packages/errors/src/tagged.js`
   - _remaining:_ Orphan barrel still imported nowhere.
 - [ ] **P2** `approve` special-case in getRequiredScopeForGatewayMethod maps a method the runtime never dispatches (vestigial) — `packages/gateway/src/rpc/index.ts:744-746`
+  - _disposition (2026-06-19):_ Keep — not safe to remove. The canonical method is `approvals.decide`, but `rpc-contract.test.ts:175,249` explicitly assert `getRequiredScopeForGatewayMethod("approve") === "approval:submit"`, and `auth/scopes.ts` carries a matching legacy `approve` access level. It's deliberately-retained legacy/compat scope mapping pinned by the contract test (same by-design stance as the gateway RPC "drift"), not vestigial dead code.
   - _remaining:_ Vestigial approve mapping still present.
 - [ ] **P2** JsonSchema type declares anyOf/format/default/maximum fields that no schema sets and the test validator cannot check — `packages/gateway/src/rpc/index.ts:9-25`
+  - _disposition (2026-06-19):_ Low-value, left as-is. `JsonSchema` is a structural representation type; `format`/`maximum`/`default`/`anyOf` are standard JSON-Schema completeness/forward-compat fields. Pruning optional type fields that happen to be unset today is marginal and risks a future schema that legitimately needs them; not worth the churn on a gateway-public type.
   - _remaining:_ Unused JsonSchema fields still declared.
 - [x] **P2** Stale empty src/index.d.ts is checked in and shipped — `packages/gateway-client/src/index.d.ts:1`
   - _remaining:_ Stale empty index.d.ts still checked in.
