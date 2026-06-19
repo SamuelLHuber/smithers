@@ -1342,15 +1342,13 @@ type GetNodeDiffRouteResult$1 = {
  *   emitEffect?: (effect: Effect.Effect<void>) => Promise<unknown>;
  *   computeDiffBundleImpl?: (baseRef: string, cwd: string, seq?: number) => Promise<import("@smithers-orchestrator/engine/effect/DiffBundle").DiffBundle>;
  *   computeDiffBundleBetweenRefsImpl?: (baseRef: string, targetRef: string, cwd: string, seq?: number) => Promise<import("@smithers-orchestrator/engine/effect/DiffBundle").DiffBundle>;
- *   getCurrentPointerImpl?: (cwd: string) => Promise<string | null>;
  *   resolveCommitPointerImpl?: (pointer: string, cwd: string) => Promise<string | null>;
- *   restorePointerImpl?: (pointer: string, cwd: string) => Promise<{ success: boolean; error?: string }>;
  *   nowMs?: () => number;
  *   stat?: boolean;
  * }} opts
  * @returns {Promise<GetNodeDiffRouteResult>}
  */
-declare function getNodeDiffRoute({ runId: rawRunId, nodeId: rawNodeId, iteration: rawIteration, resolveRun, emitEffect, computeDiffBundleImpl, computeDiffBundleBetweenRefsImpl, getCurrentPointerImpl: _getCurrentPointerImpl, resolveCommitPointerImpl, restorePointerImpl: _restorePointerImpl, nowMs, stat, }: {
+declare function getNodeDiffRoute({ runId: rawRunId, nodeId: rawNodeId, iteration: rawIteration, resolveRun, emitEffect, computeDiffBundleImpl, computeDiffBundleBetweenRefsImpl, resolveCommitPointerImpl, nowMs, stat, }: {
     runId: unknown;
     nodeId: unknown;
     iteration: unknown;
@@ -1360,12 +1358,7 @@ declare function getNodeDiffRoute({ runId: rawRunId, nodeId: rawNodeId, iteratio
     emitEffect?: (effect: Effect.Effect<void>) => Promise<unknown>;
     computeDiffBundleImpl?: (baseRef: string, cwd: string, seq?: number) => Promise<_smithers_orchestrator_engine_effect_DiffBundle.DiffBundle>;
     computeDiffBundleBetweenRefsImpl?: (baseRef: string, targetRef: string, cwd: string, seq?: number) => Promise<_smithers_orchestrator_engine_effect_DiffBundle.DiffBundle>;
-    getCurrentPointerImpl?: (cwd: string) => Promise<string | null>;
     resolveCommitPointerImpl?: (pointer: string, cwd: string) => Promise<string | null>;
-    restorePointerImpl?: (pointer: string, cwd: string) => Promise<{
-        success: boolean;
-        error?: string;
-    }>;
     nowMs?: () => number;
     stat?: boolean;
 }): Promise<GetNodeDiffRouteResult>;

@@ -129,7 +129,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Dead file still present.
 - [ ] **P2** Public API (aggregateScores, runScorersBatch, relevancy/toxicity/faithfulness scorers) has no in-repo product consumer — `packages/scorers/src/index.js:18-28; packages/smithers/src/index.js:231`
   - _remaining:_ Cited scorer public API still has no in-repo product consumer.
-- [ ] **P2** getNodeDiffRoute documents and destructures parameters it never uses (getCurrentPointerImpl, restorePointerImpl) — `packages/server/src/gatewayRoutes/getNodeDiff.js:260-262, 276-278`
+- [x] **P2** getNodeDiffRoute documents and destructures parameters it never uses (getCurrentPointerImpl, restorePointerImpl) — `packages/server/src/gatewayRoutes/getNodeDiff.js:260-262, 276-278`
   - _remaining:_ Documented/destructured-but-unused params remain.
 - [x] **P2** ConnectRequest declares a `{ password: string }` auth variant that is never implemented — `packages/server/src/ConnectRequest.ts:11-15`
   - _remaining:_ Unimplemented password auth variant still declared.

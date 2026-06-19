@@ -257,9 +257,7 @@ function scheduleCacheRowGauge(cache, emitEffect, nowMs) {
  *   emitEffect?: (effect: Effect.Effect<void>) => Promise<unknown>;
  *   computeDiffBundleImpl?: (baseRef: string, cwd: string, seq?: number) => Promise<import("@smithers-orchestrator/engine/effect/DiffBundle").DiffBundle>;
  *   computeDiffBundleBetweenRefsImpl?: (baseRef: string, targetRef: string, cwd: string, seq?: number) => Promise<import("@smithers-orchestrator/engine/effect/DiffBundle").DiffBundle>;
- *   getCurrentPointerImpl?: (cwd: string) => Promise<string | null>;
  *   resolveCommitPointerImpl?: (pointer: string, cwd: string) => Promise<string | null>;
- *   restorePointerImpl?: (pointer: string, cwd: string) => Promise<{ success: boolean; error?: string }>;
  *   nowMs?: () => number;
  *   stat?: boolean;
  * }} opts
@@ -273,9 +271,7 @@ export async function getNodeDiffRoute({
     emitEffect = (effect) => runPromise(effect),
     computeDiffBundleImpl,
     computeDiffBundleBetweenRefsImpl,
-    getCurrentPointerImpl: _getCurrentPointerImpl,
     resolveCommitPointerImpl = resolveCommitPointer,
-    restorePointerImpl: _restorePointerImpl,
     nowMs = () => Date.now(),
     // stat: true → return summary only ({ files, filesChanged, added,
     // removed }). Bypasses the cache and the full-bundle JSON size guard
