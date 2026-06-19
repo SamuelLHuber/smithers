@@ -22,15 +22,17 @@ describe("runGh", () => {
     await writeFile(
       ghPath,
       `#!/usr/bin/env node
-const { writeFileSync, readFileSync } = require("node:fs");
+const { writeFileSync, readFileSync, writeSync } = require("node:fs");
 let input = "";
 try { input = readFileSync(0, "utf8"); } catch {}
 writeFileSync(${JSON.stringify(log)}, JSON.stringify({ cwd: process.cwd(), args: process.argv.slice(2), input }));
+// Write to the fd synchronously: an async process.stdout.write can fail to
+// drain before the spawning bun process captures it on a cold node start.
 if (process.argv.includes("fail")) {
-  process.stderr.write("fixture failure");
+  writeSync(2, "fixture failure");
   process.exit(7);
 }
-process.stdout.write("fixture stdout");
+writeSync(1, "fixture stdout");
 `,
       { mode: 0o755 },
     );
