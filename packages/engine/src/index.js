@@ -31,7 +31,7 @@ export * from "./effect/bridge-utils.js";
 export * from "./effect/builder.js";
 export * from "./effect/compute-task-bridge.js";
 // (bridgeApprovalResolve / bridgeTimerResolve namespace comes from workflow-bridge.js via durable-deferred-bridge.js)
-// deferred-bridge.js is intentionally not re-exported to avoid collisions with the durable variants.
+// Only the durable deferred-bridge variants are exported; the non-durable bridge was removed as dead code.
 export * from "./effect/diff-bundle.js";
 export * from "./effect/rpc-schema.js";
 export * from "./effect/static-task-bridge.js";

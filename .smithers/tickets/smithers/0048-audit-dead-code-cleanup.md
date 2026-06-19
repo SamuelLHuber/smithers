@@ -14,7 +14,7 @@ Each item below is still open in current `main`. Text is the original audit find
 
 - [ ] **P2** Capability-registry factory exports are inconsistent: 4 of 10 re-exported from index, and those 4 are consumed nowhere — `packages/agents/src/index.js:48-58`
   - _remaining:_ 4 of the capability-registry factory re-exports remain inconsistent/unused via the barrel.
-- [ ] **P2** Orphaned type files: AskOptions.ts, InitWorkflowPackOptions.ts, InitWorkflowPackResult.ts, and a shebang-only index.d.ts — `apps/cli/src/AskOptions.ts, apps/cli/src/InitWorkflowPackOptions.ts, apps/cli/src/InitWorkflowPackResult.ts, apps/cli/src/index.d.ts`
+- [x] **P2** Orphaned type files: AskOptions.ts, InitWorkflowPackOptions.ts, InitWorkflowPackResult.ts, and a shebang-only index.d.ts — `apps/cli/src/AskOptions.ts, apps/cli/src/InitWorkflowPackOptions.ts, apps/cli/src/InitWorkflowPackResult.ts, apps/cli/src/index.d.ts`
   - _remaining:_ All four orphaned files still present.
 - [ ] **P2** Dead MCP exports: registerSemanticTools and serveSemanticMcpServer — `apps/cli/src/mcp/semantic-server.js:11-21 (registerSemanticTools), 36-41 (serveSemanticMcpServer)`
   - _remaining:_ The genuinely-dead serveSemanticMcpServer export remains.
@@ -24,7 +24,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Dead recordEvent still present.
 - [ ] **P2** _coreMetrics.js catalog is reachable as a published deep import via the './*' subpath export, exposing a stale duplicate metric catalog — `apps/observability/package.json:18-22`
   - _remaining:_ Wildcard subpath export still exposes stale catalog.
-- [ ] **P2** bearerToken.ts is dead code — exported helper imported nowhere — `apps/review/src/server/bearerToken.ts`
+- [x] **P2** bearerToken.ts is dead code — exported helper imported nowhere — `apps/review/src/server/bearerToken.ts`
   - _remaining:_ Exported helper still imported nowhere.
 - [ ] **P2** Orphan jsx stub pages not in any navigation (jsx/installation.mdx, jsx/quickstart.mdx) — `docs/jsx/installation.mdx, docs/jsx/quickstart.mdx`
   - _remaining:_ Both jsx stub pages remain orphaned from navigation.
@@ -54,7 +54,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Unreachable createSession branch + relative-path fallback remain.
 - [ ] **P1** Obsolete ~1759-line legacy engine body (runWorkflowBodyLegacy) is unreachable in production — `packages/engine/src/engine.js:5829-7587 (runWorkflowBodyLegacy); gate at 4624-4630`
   - _remaining:_ Legacy engine body still present.
-- [ ] **P2** deferred-bridge.js is entirely dead code (non-durable bridge superseded by durable variant) — `packages/engine/src/effect/deferred-bridge.js:1-64`
+- [x] **P2** deferred-bridge.js is entirely dead code (non-durable bridge superseded by durable variant) — `packages/engine/src/effect/deferred-bridge.js:1-64`
   - _remaining:_ Non-durable deferred-bridge.js still entirely dead.
 - [ ] **P2** Dead exports in durable-deferred-bridge.js (Workflow + success schemas never consumed) — `packages/engine/src/effect/durable-deferred-bridge.js:19 (DurableDeferredBridgeWorkflow), 44 (approvalDurableDeferredSuccessSchema), 51 (waitForEventDurableDeferredSuccessSchema)`
   - _remaining:_ Dead exports still present.
@@ -62,7 +62,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ rpc-schema.js still published with no consumer.
 - [ ] **P2** subscribeTaskWorkerDispatches is a published observability hook with no production consumer — `packages/engine/src/effect/single-runner.js:191-196 (re-exported via workflow-bridge.js:28 and index.js)`
   - _remaining:_ Observability hook still has no production consumer.
-- [ ] **P2** tagged.js is an orphan barrel — never imported anywhere — `packages/errors/src/tagged.js`
+- [x] **P2** tagged.js is an orphan barrel — never imported anywhere — `packages/errors/src/tagged.js`
   - _remaining:_ Orphan barrel still imported nowhere.
 - [ ] **P2** `approve` special-case in getRequiredScopeForGatewayMethod maps a method the runtime never dispatches (vestigial) — `packages/gateway/src/rpc/index.ts:744-746`
   - _remaining:_ Vestigial approve mapping still present.
@@ -82,7 +82,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Dead duplicate type exports remain.
 - [ ] **P2** MemoryService / createMemoryLayer Effect layer and <Task memory> recall/remember are never wired into any runtime — `packages/memory/src/createMemoryLayer.js:11-30, packages/memory/src/MemoryService.js:1`
   - _remaining:_ MemoryService Effect layer still not wired into any runtime.
-- [ ] **P2** react-types.ts is dead code (zero references anywhere) — `packages/memory/src/react-types.ts:1`
+- [x] **P2** react-types.ts is dead code (zero references anywhere) — `packages/memory/src/react-types.ts:1`
   - _remaining:_ Dead file still present.
 - [ ] **P2** Four exported config types have no consumers (speculative public API) — `packages/memory/src/WorkingMemoryConfig.ts, MessageHistoryConfig.ts, MemoryProcessorConfig.ts, SemanticRecallConfig.ts`
   - _remaining:_ Four speculative config types still have no consumer.
@@ -106,7 +106,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Duplicate ProtocolError shape still defined twice.
 - [ ] **P2** Dead host-config method: prepareUpdate is never called by react-reconciler 0.33 — `packages/react-reconciler/src/reconciler.js:181-185`
   - _remaining:_ Dead prepareUpdate still present.
-- [ ] **P2** core-types.js is an orphaned re-export imported by nothing — `packages/react-reconciler/src/core-types.js:1`
+- [x] **P2** core-types.js is an orphaned re-export imported by nothing — `packages/react-reconciler/src/core-types.js:1`
   - _remaining:_ Orphan re-export still imported by nothing.
 - [ ] **P2** SandboxHttpRunner / SandboxSocketRunner are dead pass-through re-exports — `packages/sandbox/src/effect/http-runner.js:108 (export const SandboxHttpRunner = HttpRunner); packages/sandbox/src/effect/socket-runner.js:93 (export const SandboxSocketRunner = SocketRunner)`
   - _remaining:_ Dead pass-through re-exports remain.
