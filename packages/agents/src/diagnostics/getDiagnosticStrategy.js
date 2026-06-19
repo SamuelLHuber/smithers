@@ -190,6 +190,17 @@ const claudeStrategy = {
 // ---------------------------------------------------------------------------
 // Codex strategy
 // ---------------------------------------------------------------------------
+/**
+ * Resolve the OpenAI models endpoint, honoring OPENAI_BASE_URL (Azure, proxies,
+ * OpenAI-compatible gateways, and hermetic test fixtures) the same way the
+ * OpenAI SDK and codex do. Defaults to the public API, so existing behavior is
+ * unchanged when the variable is unset.
+ * @param {Record<string, string | undefined>} env
+ */
+function openaiModelsUrl(env) {
+    const base = (env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").replace(/\/+$/, "");
+    return `${base}/models`;
+}
 // Combined API key validation + rate limit check via GET /v1/models (free, no tokens)
 const codexApiKeyAndRateLimitCheck = [
     {
@@ -206,7 +217,7 @@ const codexApiKeyAndRateLimitCheck = [
                 };
             }
             try {
-                const res = await fetch("https://api.openai.com/v1/models", {
+                const res = await fetch(openaiModelsUrl(ctx.env), {
                     headers: { Authorization: `Bearer ${apiKey}` },
                     signal: AbortSignal.timeout(4_000),
                 });
@@ -258,7 +269,7 @@ const codexApiKeyAndRateLimitCheck = [
                 };
             }
             try {
-                const res = await fetch("https://api.openai.com/v1/models", {
+                const res = await fetch(openaiModelsUrl(ctx.env), {
                     headers: { Authorization: `Bearer ${apiKey}` },
                     signal: AbortSignal.timeout(4_000),
                 });
