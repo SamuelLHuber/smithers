@@ -22,7 +22,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ OTLP integration entry-point layers still have no tests
 - [ ] **P2** _traceEventNormalizers.js: shared/generic normalizer and provider-correlation paths largely untested — `apps/observability/src/_traceEventNormalizers.js:306-397`
   - _remaining:_ shared/generic normalizer and provider-correlation paths still untested
-- [ ] **P2** OTLP severity edge cases untested: truncated-json-stream WARN and session error/warning inference — `apps/observability/src/_otelLogBuilders.js:60-92`
+- [x] **P2** OTLP severity edge cases untested: truncated-json-stream WARN and session error/warning inference — `apps/observability/src/_otelLogBuilders.js:60-92`
   - _remaining:_ The two cited OTLP severity edge cases remain untested
 - [x] **P2** renderPrometheusMetrics Frequency and Summary metric-state branches untested — `apps/observability/src/renderPrometheusMetrics.js:172-188`
   - _remaining:_ renderPrometheusMetrics Frequency (src:172-178) and Summary (src:179-188) MetricState branches still untested
