@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import { createScorer, llmJudge } from "../src/create-scorer.js";
+import { createScorer, llmJudge } from "../src/index.js";
 describe("createScorer", () => {
     it("creates a scorer from a config object", () => {
         const scorer = createScorer({

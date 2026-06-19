@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 import { z } from "zod";
-import { schemaAdherenceScorer, latencyScorer, relevancyScorer, toxicityScorer, faithfulnessScorer, } from "../src/builtins.js";
+import { schemaAdherenceScorer, latencyScorer, relevancyScorer, toxicityScorer, faithfulnessScorer, } from "../src/index.js";
 describe("schemaAdherenceScorer", () => {
     const scorer = schemaAdherenceScorer();
     it("returns 1.0 when output matches schema", async () => {

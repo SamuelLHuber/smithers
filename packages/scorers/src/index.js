@@ -15,9 +15,14 @@
 // @smithers-type-exports-end
 
 // Factories
-export { createScorer, llmJudge } from "./create-scorer.js";
+export { createScorer } from "./createScorer.js";
+export { llmJudge } from "./llmJudge.js";
 // Built-in scorers
-export { relevancyScorer, toxicityScorer, faithfulnessScorer, schemaAdherenceScorer, latencyScorer, } from "./builtins.js";
+export { relevancyScorer } from "./relevancyScorer.js";
+export { toxicityScorer } from "./toxicityScorer.js";
+export { faithfulnessScorer } from "./faithfulnessScorer.js";
+export { schemaAdherenceScorer } from "./schemaAdherenceScorer.js";
+export { latencyScorer } from "./latencyScorer.js";
 // Execution
 export { runScorersAsync, runScorersBatch } from "./run-scorers.js";
 // Aggregation

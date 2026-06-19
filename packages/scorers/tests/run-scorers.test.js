@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import { createScorer } from "../src/create-scorer.js";
+import { createScorer } from "../src/index.js";
 import { runScorersAsync, runScorersBatch } from "../src/run-scorers.js";
 // Mock DB adapter — only needs insertScorerResult for our tests
 function createMockAdapter() {
