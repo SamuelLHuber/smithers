@@ -29,9 +29,15 @@ jobs:
 
       - run: pnpm check:deps
 
+      - run: pnpm lint
+
       - run: pnpm -r typecheck
 
       - run: pnpm --filter ./.smithers typecheck
+
+      - run: pnpm typecheck:examples
+
+      - run: pnpm typecheck:evals
 
   test:
     runs-on: ubuntu-latest
