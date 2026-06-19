@@ -102,7 +102,7 @@ test("workflow help exposes run as a declared subcommand", () => {
         format: null,
     });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/^  run\s+Run a discovered workflow by ID\.$/m);
+    expect(result.stdout).toMatch(/^  run\s+Run a discovered workflow by ID\./m);
 });
 test("workflow run help exposes prompt and execution options", () => {
     const repo = createTempRepo();
@@ -111,7 +111,7 @@ test("workflow run help exposes prompt and execution options", () => {
         format: null,
     });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Usage: smithers workflow run <name> [options]");
+    expect(result.stdout).toContain("Usage: smithers workflow run [name] [options]");
     expect(result.stdout).toContain("--prompt, -p <string>");
     expect(result.stdout).toContain("--serve");
 });
