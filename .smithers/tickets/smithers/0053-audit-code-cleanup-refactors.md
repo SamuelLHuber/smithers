@@ -42,7 +42,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ No-op pathname assignment not removed.
 - [ ] **P2** Inconsistent subpath module layout between /devtools and /errors — `packages/protocol/src/devtools.js + devtools/*.ts vs src/errors.ts + errors/index.js + errors/*.ts`
   - _remaining:_ Two different conventions for sibling subpaths remain.
-- [ ] **P2** DevToolsNodeType union is duplicated inline in index.d.ts instead of being a single declared type — `packages/protocol/src/index.d.ts:1 vs src/devtools/DevToolsNodeType.ts:1-17`
+- [x] **P2** DevToolsNodeType union is duplicated inline in index.d.ts instead of being a single declared type — `packages/protocol/src/index.d.ts:1 vs src/devtools/DevToolsNodeType.ts:1-17`
   - _remaining:_ Duplicated union literal; two sources of truth remain.
 - [ ] **P2** directorySize misnamed and dangling WalkResult typedef — `packages/sandbox/src/execute.js:106-113 (directorySize); packages/sandbox/src/bundle.js:19 (@returns {Promise<WalkResult>})`
   - _remaining:_ Neither the misnaming nor the dangling typedef addressed.
@@ -58,7 +58,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Constants still missing from main barrel + types (only reachable via subpath).
 - [ ] **P2** Public type surface is Record<string,any> — direct importers of the package get zero type safety — `packages/tool-context/src/index.d.ts:12-26`
   - _remaining:_ Public type surface still Record<string,any>; zero type safety for importers.
-- [ ] **P2** package.json ./* subpath export maps every subpath's types to index.d.ts (latent mis-mapping, currently unused) — `packages/tool-context/package.json:13-17`
+- [x] **P2** package.json ./* subpath export maps every subpath's types to index.d.ts (latent mis-mapping, currently unused) — `packages/tool-context/package.json:13-17`
   - _remaining:_ Latent ./* types mis-mapping not fixed.
 - [ ] **P2** findVcsRoot is wrapped in Effect.sync but every consumer immediately Effect.runSync's it — pure ceremony with no Effect benefit — `packages/vcs/src/find-root.js:12-29 ; packages/engine/src/engine.js:709,733,1697`
   - _remaining:_ Effect ceremony not removed; not converted to a plain sync function.
