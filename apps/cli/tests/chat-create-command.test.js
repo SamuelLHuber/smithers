@@ -47,6 +47,14 @@ test("chat create starts an auto-hijacked run and returns JSON metadata", async 
             SMITHERS_CHAT_CREATE_FILE: launchFile,
         },
     });
+    // Surface the spawned CLI's output when it fails: a bare exit-code
+    // assertion hides why `smithers chat create` died, which makes
+    // environment-specific failures (e.g. CI-only) impossible to diagnose.
+    if (result.exitCode !== 0) {
+        throw new Error(
+            `smithers chat create exited ${result.exitCode}\n--- stdout ---\n${result.stdout}\n--- stderr ---\n${result.stderr}`,
+        );
+    }
     expect(result.exitCode).toBe(0);
     expect(result.json).toMatchObject({
         workflowName: "chat",
