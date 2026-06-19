@@ -46,7 +46,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Both exports still unused.
 - [x] **P2** SmithersDb.buildEventHistoryWhere duplicates SqlMessageStorage logic but is SQLite-hardcoded and unused — ``
   - _remaining:_ Duplicate SQLite-hardcoded method still unused.
-- [ ] **P2** react-output.js stripAutoColumns is a third copy of the same function — ``
+- [x] **P2** react-output.js stripAutoColumns is a third copy of the same function — `packages/db/src/react-output.js` — replaced the standalone copy with `export { stripAutoColumns } from "./output.js"` (the canonical public one). The remaining `output.js` (monolith) vs `output/stripAutoColumns.js` (modular) pair is part of the deferred output.js-vs-output/ half-migration. db + components typecheck + 376 db tests + lint green.
   - _remaining:_ Third copy / duplication still present; not consolidated.
 - [ ] **P2** Five package exports have no consumers anywhere in the repo (effectively dead public API) — `packages/devtools/src/index.js:18-23`
   - _remaining:_ All five exports still have no consumers.

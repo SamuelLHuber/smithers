@@ -1,10 +1,3 @@
-/**
- * @param {unknown} payload
- */
-export function stripAutoColumns(payload) {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-        return payload;
-    }
-    const { runId: _runId, nodeId: _nodeId, iteration: _iteration, ...rest } = payload;
-    return rest;
-}
+// Re-export the canonical stripAutoColumns from the output barrel so this
+// React-facing subpath does not carry a third, drifting copy of the helper.
+export { stripAutoColumns } from "./output.js";
