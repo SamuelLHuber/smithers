@@ -71,4 +71,65 @@ describe("snapshotToGatewayRunNode", () => {
     expect(done?.status).toBe("ok");
     expect(done?.children?.[0]?.status).toBe("ok");
   });
+
+  test("maps every structural tag onto the graph palette (default compute)", () => {
+    const cases: Array<[string | undefined, string]> = [
+      ["Approval", "approval"],
+      ["Signal", "signal"],
+      ["WaitForEvent", "signal"],
+      ["Human", "human"],
+      ["HumanTask", "human"],
+      ["Loop", "loop"],
+      ["ForEach", "loop"],
+      ["Task", "agent"],
+      ["Agent", "agent"],
+      ["SomethingElse", "compute"],
+      [undefined, "compute"],
+    ];
+    for (const [type, kind] of cases) {
+      const tree = snapshotToGatewayRunNode({
+        root: { id: 1, name: "n", type, task: { nodeId: "n" }, children: [] },
+      });
+      expect(tree?.kind, `type ${String(type)} -> ${kind}`).toBe(kind);
+    }
+  });
+
+  test("nodeName falls back label -> props.label -> props.name -> task.nodeId -> node.name", () => {
+    // task.label wins over everything.
+    expect(snapshotToGatewayRunNode({ root: { id: 1, name: "struct", type: "Task", task: { nodeId: "n", label: "L" }, props: { label: "P", name: "Q" }, children: [] } })?.name).toBe("L");
+    // No task.label -> props.label.
+    expect(snapshotToGatewayRunNode({ root: { id: 1, name: "struct", type: "Task", task: { nodeId: "n" }, props: { label: "P", name: "Q" }, children: [] } })?.name).toBe("P");
+    // No labels -> props.name.
+    expect(snapshotToGatewayRunNode({ root: { id: 1, name: "struct", type: "Task", task: { nodeId: "n" }, props: { name: "Q" }, children: [] } })?.name).toBe("Q");
+    // No props labels -> task.nodeId.
+    expect(snapshotToGatewayRunNode({ root: { id: 1, name: "struct", type: "Task", task: { nodeId: "n" }, children: [] } })?.name).toBe("n");
+    // No task at all -> structural node.name.
+    expect(snapshotToGatewayRunNode({ root: { id: 7, name: "struct", type: "Sequence", children: [] } })?.name).toBe("struct");
+  });
+
+  test("toRunStatus collapses lifecycle states onto the five UI tones at the root", () => {
+    const cases: Array<[string | undefined, string]> = [
+      ["running", "running"],
+      ["finished", "ok"],
+      ["completed", "ok"],
+      ["ok", "ok"],
+      ["failed", "failed"],
+      ["errored", "failed"],
+      ["cancelled", "failed"],
+      ["canceled", "failed"],
+      ["waiting-event", "waiting"],
+      ["waiting-timer", "waiting"],
+      ["waiting", "waiting"],
+      ["blocked", "waiting"],
+      ["mystery", "queued"],
+      [undefined, "queued"],
+    ];
+    for (const [state, status] of cases) {
+      const tree = snapshotToGatewayRunNode({
+        root: { id: 1, name: "Workflow", type: "Workflow", task: { nodeId: "r" }, children: [] },
+        runState: state === undefined ? {} : { state },
+      });
+      expect(tree?.status, `state ${String(state)} -> ${status}`).toBe(status);
+    }
+  });
 });

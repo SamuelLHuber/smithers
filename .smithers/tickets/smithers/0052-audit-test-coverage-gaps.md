@@ -78,7 +78,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ The objectSchema additionalProperties sub-schema path is still unused, and the generator/validator paths for it are untested
 - [ ] **P2** Untested error/auth/reconnect branches in createGatewayCollection — `packages/gateway-client/src/sync/createGatewayCollection.ts:281-309`
   - _remaining:_ onError non-auth path and error-driven reconnect branch still untested
-- [ ] **P2** snapshotToGatewayRunNode nodeKind/nodeName/nodeStatus branches partially untested — `packages/gateway-client/src/sync/snapshotToGatewayRunNode.ts:49-87`
+- [x] **P2** snapshotToGatewayRunNode nodeKind/nodeName/nodeStatus branches partially untested — `packages/gateway-client/src/sync/snapshotToGatewayRunNode.ts:49-87` — added 3 branch-coverage tests: the full nodeKind switch (Approval/Signal/WaitForEvent/Human/HumanTask/Loop/ForEach/Task/Agent/unknown→compute), the nodeName fallback chain (task.label→props.label→props.name→task.nodeId→node.name), and the toRunStatus mapping (all five tones + unknown→queued). 91 gateway-client tests green.
   - _remaining:_ nodeKind signal/human/loop/ForEach/WaitForEvent branches, running/failed/cancelled statuses, and props-based nodeName fallback still unasserted
 - [ ] **P2** streamExtension and extensionRpc lack reconnect/error-frame and abort coverage — `packages/gateway-client/src/SmithersGatewayClient.ts:562-602`
   - _remaining:_ streamExtension lacks reconnect-after-drop, mid-stream error-frame surfacing, and AbortSignal/abort coverage (SmithersGatewayClient.ts:562-602)
