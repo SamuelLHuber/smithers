@@ -198,7 +198,6 @@ export class DevToolsStore {
   eventsApplied = 0;
   reconnectCount = 0;
   decodeErrorCount = 0;
-  runSupportsRetry = true;
   runStatus = "unknown";
   runStateView: RunStateView | undefined;
   lastToastMessage: string | undefined;
@@ -512,12 +511,6 @@ export class DevToolsStore {
   ghostRecord(node: DevToolsNode) {
     const key = ghostMapKey(node);
     return key ? this.ghostNodes.get(key) : undefined;
-  }
-
-  retryNode(_nodeId: string) {
-    if (!this.runSupportsRetry) {
-      return;
-    }
   }
 
   private startStream(runId: string, afterSeq?: number) {

@@ -90,7 +90,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ deprecated unused; OpenApiToolCalled still never emitted.
 - [x] **P2** Committed generated src/index.d.ts is unreferenced by the exports map (dead generated artifact in source) — `packages/pi-plugin/src/index.d.ts`
   - _remaining:_ Committed generated index.d.ts still dead.
-- [ ] **P2** DevToolsStore.retryNode and runSupportsRetry are effectively dead (no-op feature) — `packages/pi-plugin/src/runtime/DevToolsStore.ts:204,520-524`
+- [x] **P2** DevToolsStore.retryNode and runSupportsRetry are effectively dead (no-op feature) — `packages/pi-plugin/src/runtime/DevToolsStore.ts:204,520-524`
   - _remaining:_ retryNode/runSupportsRetry still effectively no-op/dead.
 - [ ] **P2** DevToolsClient.signal/resume/getNodeOutput/getNodeDiff are unused within the package — `packages/pi-plugin/src/runtime/DevToolsClient.ts:411-425,449-466`
   - _remaining:_ Four DevToolsClient methods still unused within the package.
