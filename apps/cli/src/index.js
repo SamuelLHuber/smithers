@@ -2751,10 +2751,10 @@ const tokenCli = Cli.create({
     },
 });
 // ---------------------------------------------------------------------------
-// DevTools live-run commands (tree / diff / output / rewind / snapshots)
+// DevTools live-run commands (tree / diff / output / rewind / snapshots / restore)
 // ---------------------------------------------------------------------------
 
-const DEVTOOLS_COMMANDS = new Set(["tree", "diff", "output", "rewind", "snapshots"]);
+const DEVTOOLS_COMMANDS = new Set(["tree", "diff", "output", "rewind", "snapshots", "restore"]);
 
 /**
  * Lets `main()` preserve devtools exit codes instead of Incur's generic
@@ -2771,7 +2771,7 @@ let lastDevtoolsCommandOutcome;
  * - Emits an `smithers_cli_command_total{cmd,exit}` counter and a
  *   `smithers_cli_command_duration_ms{cmd}` histogram via the
  *   observability package.
- * @param {"tree"|"diff"|"output"|"rewind"|"snapshots"} cmd
+ * @param {"tree"|"diff"|"output"|"rewind"|"snapshots"|"restore"} cmd
  * @param {{ args: any; options: any }} c
  * @param {() => Promise<number>} handler
  */

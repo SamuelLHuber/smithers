@@ -16,7 +16,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ No OpenCodeAgentOptions.ts; still the only adapter with a hand-written declare file. Not converted to standard pattern.
 - [x] **P2** Detached spawn path resolution is inconsistent (`.pathname` vs fileURLToPath) — `apps/cli/src/index.js:1649 and 2902 vs apps/cli/src/resume-detached.js:17`
   - _remaining:_ Spawn paths not converted to fileURLToPath; inconsistency remains.
-- [ ] **P2** runDevtoolsCommandWithTelemetry is called for snapshots/restore despite its `cmd` type being tree|diff|output|rewind — `apps/cli/src/index.js:2606 (JSDoc), 4978 (snapshots), 5006 (restore), 2589 (DEVTOOLS_COMMANDS)`
+- [x] **P2** runDevtoolsCommandWithTelemetry is called for snapshots/restore despite its `cmd` type being tree|diff|output|rewind — `apps/cli/src/index.js:2606 (JSDoc), 4978 (snapshots), 5006 (restore), 2589 (DEVTOOLS_COMMANDS)`
   - _remaining:_ Partially widened (snapshots added) but 'restore' still missing from JSDoc/DEVTOOLS_COMMANDS; type/contract mismatch persists.
 - [x] **P2** Redaction 'secret-ish' rule carries a misleading dead replace:'' field — `apps/observability/src/_traceRedaction.js:27-31`
   - _remaining:_ Dead/misleading replace field not removed.
@@ -30,7 +30,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ parallel still not given a distinct glyph.
 - [x] **P2** printTree prints props.name/props.id without type-narrowing (Record<string,unknown> values) — `packages/devtools/src/printTree.js:24-29`
   - _remaining:_ No type-narrowing added.
-- [ ] **P2** Confusing snapshot-handle defaults: public snapshot() hardcodes source 'watch'/tier 2 while its comment says Tier 1/wrap — `packages/engine/src/startDurability.js:125-127 (and undocumented withSocket/createSocketServer options at 77-78)`
+- [x] **P2** Confusing snapshot-handle defaults: public snapshot() hardcodes source 'watch'/tier 2 while its comment says Tier 1/wrap — `packages/engine/src/startDurability.js:125-127 (and undocumented withSocket/createSocketServer options at 77-78)`
   - _remaining:_ Default/comment mismatch and undocumented options both remain.
 - [ ] **P2** Duplicated helper functions copy-pasted across files (isObject x3, isGatewayResponseFrame x2 identical, withoutVirtualFields x3, asRecord x2) — `packages/gateway-client/src/SmithersGatewayConnection.ts:50-63`
   - _remaining:_ No shared internal module; helpers still copy-pasted across files.

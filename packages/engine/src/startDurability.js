@@ -54,6 +54,8 @@ const NOOP_HANDLE = {
  * @property {(cwd: string) => Promise<boolean>} [isJjRepoFn]
  * @property {(cwd: string) => Promise<{ commitId: string, changeId: string, operationId: string } | null>} [captureSnapshot]
  * @property {(deps: { cwd: string, onSettle: () => void }) => { close: () => void, watching?: boolean }} [createWatcher]
+ * @property {boolean} [withSocket] When true, open a snapshot socket server so a CLI agent's hook can request strict Tier 1 snapshots.
+ * @property {(deps: { runId: string, nodeId: string, snapshot: Function }) => Promise<{ socketPath: string, close: () => void }>} [createSocketServer]
  */
 
 /**
@@ -122,8 +124,10 @@ export async function startDurability(opts) {
         active: true,
         // Socket path for a CLI agent's hook to call back into (null if no socket).
         socketPath: socketServer?.socketPath ?? null,
-        // Tier 1 entry point for the in-process tool wrap (Phase 2) and CLI hooks
-        // (Phase 3): pass source "wrap"/"hook", tier 1, plus label / toolUseId.
+        // Request a durability snapshot. Defaults to a Tier 2 "watch" snapshot
+        // (the debounced filesystem watcher's own writes); the in-process tool
+        // wrap and CLI hooks override `source` ("wrap"/"hook"), `tier` (1),
+        // `label`, and `toolUseId` via `req`.
         snapshot: (req = {}) => service.snapshot({ ...base, source: "watch", tier: 2, label: null, toolUseId: null, ...req }),
         async stop() {
             watcher.close();
