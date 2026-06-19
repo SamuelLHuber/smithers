@@ -14,7 +14,7 @@ Each item below is still open in current `main`. Text is the original audit find
 
 - [ ] **P2** index.js is a 6,439-line monolith mixing parsing, ~60 command bodies, MCP wiring, and helpers — `apps/cli/src/index.js (6439 lines)`
   - _remaining:_ No extraction performed; monolith remains and grew larger.
-- [ ] **P1** dependency-boundary check scans ZERO files for the e2e workspace (directWorkspaceDirs entry is effectively dead) — `scripts/check-dependency-boundaries.mjs:101 (filesForPackage)`
+- [x] **P1** dependency-boundary check scans ZERO files for the e2e workspace (directWorkspaceDirs entry is effectively dead) — `scripts/check-dependency-boundaries.mjs:101 (filesForPackage)`
   - _remaining:_ e2e tests live outside src/; check still scans zero e2e files.
 - [ ] **P2** Circular dependency between @smithers-orchestrator/agents and @smithers-orchestrator/observability ships to npm — `packages/agents/src/BaseCliAgent/BaseCliAgent.js:5-6 and apps/observability/src/_traceEventNormalizers.js:1-2`
   - _remaining:_ Published circular dependency still ships.

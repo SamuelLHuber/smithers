@@ -44,7 +44,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ case08 and case24 remain hybrids — real predicate against fabricated in-memory storage; not booted through the real product path
 - [ ] **P2** Reconnect-afterSeq / ws-drop / webhook behaviors are fabricated in e2e/faults but exist as real (non-e2e) tests elsewhere — duplicate-but-fake instead of promoting the real ones — `e2e/faults/case09-reconnect-afterseq.test.ts; case15-ws-drop-reconnect.test.ts; case17-webhook-bad-signature.test.ts; e2e/budgets/latency.json`
   - _remaining:_ case09 and case15 reconnect/ws-drop behaviors are still fabricated in e2e/faults rather than promoting the real non-e2e tests
-- [ ] **P2** e2e package.json omits the smithers-orchestrator dependency that case25 imports, so the real-gateway e2e relies on hoisting — `e2e/package.json; e2e/faults/case25-approval-scope-denial.test.ts:7`
+- [x] **P2** e2e package.json omits the smithers-orchestrator dependency that case25 imports, so the real-gateway e2e relies on hoisting — `e2e/package.json; e2e/faults/case25-approval-scope-denial.test.ts:7`
   - _remaining:_ e2e/package.json still omits the smithers-orchestrator dependency; case25 relies on workspace hoisting
 - [ ] **P2** OpenAPI 'e2e' test mocks globalThis.fetch, so it is not a strict no-mock e2e — `packages/openapi/tests/e2e.test.js:9-18,30-42`
   - _remaining:_ OpenAPI 'e2e' still mocks globalThis.fetch — not a strict no-mock e2e

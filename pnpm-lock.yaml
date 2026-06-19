@@ -585,6 +585,9 @@ importers:
       '@smithers-orchestrator/server':
         specifier: workspace:*
         version: link:../packages/server
+      '@smithers-orchestrator/time-travel':
+        specifier: workspace:*
+        version: link:../packages/time-travel
       better-sqlite3:
         specifier: ^11.5.0
         version: 11.10.0
@@ -594,9 +597,18 @@ importers:
       effect:
         specifier: 3.21.1
         version: 3.21.1
+      react:
+        specifier: ^19.2.5
+        version: 19.2.5
+      smithers-orchestrator:
+        specifier: workspace:*
+        version: link:../packages/smithers
       ws:
         specifier: ^8.18.0
         version: 8.20.0
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.11

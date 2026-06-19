@@ -98,8 +98,17 @@ function collectSourceFiles(dir, out) {
 function filesForPackage(pkg) {
   /** @type {string[]} */
   const files = [];
-  const roots = pkg.dir === "." ? ["scripts"] : ["src"];
-  for (const root of roots) collectSourceFiles(join(pkg.dir, root), files);
+  if (pkg.dir === ".") {
+    // The root workspace's own sources live under scripts/.
+    collectSourceFiles("scripts", files);
+  } else if (isDirectory(join(repoRoot, pkg.dir, "src"))) {
+    collectSourceFiles(join(pkg.dir, "src"), files);
+  } else {
+    // Some workspaces (e.g. e2e) have no src/ and keep their sources at the
+    // package root (faults/, exports/, …). Scan the whole package dir; the
+    // recursive collector already skips node_modules/dist/coverage.
+    collectSourceFiles(pkg.dir, files);
+  }
   return files.sort();
 }
 
