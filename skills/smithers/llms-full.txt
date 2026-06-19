@@ -1451,7 +1451,7 @@ If no Gateway is reachable on the default local port, `bunx smithers-orchestrato
 Commands listed by dotted name. `human` and `alerts` use an action positional instead of nested subcommands.
 
 ```toon
-commands[75]:
+commands[78]:
   - name: init
     purpose: Install the workflow pack into .smithers/ (local) or ~/.smithers/ (--global)
     flags[6]{name,short,type,default,desc}:
@@ -1994,6 +1994,29 @@ commands[75]:
     purpose: List all memory facts in a namespace
     args[1]{name,type,required,desc}:
       namespace,string,true,Namespace such as workflow:my-flow
+    flags[1]{name,short,type,default,desc}:
+      workflow,w,string,,Path to workflow file that locates the DB
+  - name: memory.get
+    purpose: Get a single memory fact by namespace and key
+    args[2]{name,type,required,desc}:
+      namespace,string,true,Namespace such as workflow:my-flow
+      key,string,true,Fact key
+    flags[1]{name,short,type,default,desc}:
+      workflow,w,string,,Path to workflow file that locates the DB
+  - name: memory.set
+    purpose: Set a memory fact (value stored verbatim as the fact's JSON value)
+    args[3]{name,type,required,desc}:
+      namespace,string,true,Namespace such as workflow:my-flow
+      key,string,true,Fact key
+      value,string,true,Fact value stored as-is
+    flags[2]{name,short,type,default,desc}:
+      workflow,w,string,,Path to workflow file that locates the DB
+      ttl,,number,,Time-to-live in milliseconds
+  - name: memory.rm
+    purpose: Delete a memory fact by namespace and key
+    args[2]{name,type,required,desc}:
+      namespace,string,true,Namespace such as workflow:my-flow
+      key,string,true,Fact key
     flags[1]{name,short,type,default,desc}:
       workflow,w,string,,Path to workflow file that locates the DB
   - name: openapi.list

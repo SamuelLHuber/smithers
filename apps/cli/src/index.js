@@ -2336,6 +2336,91 @@ const memoryCli = Cli.create({
             return c.error({ code: "MEMORY_LIST_FAILED", message: err?.message ?? String(err) });
         }
     },
+})
+    .command("get", {
+    description: "Get a single memory fact by namespace + key.",
+    args: z.object({
+        namespace: z.string().describe("Namespace (e.g. 'workflow:my-flow')"),
+        key: z.string().describe("Fact key"),
+    }),
+    options: memoryListOptions,
+    alias: { workflow: "w" },
+    async run(c) {
+        try {
+            const { createMemoryStore } = await import("@smithers-orchestrator/memory/store");
+            const { parseNamespace } = await import("@smithers-orchestrator/memory/types");
+            const workflow = await loadWorkflowAsync(c.options.workflow);
+            ensureSmithersTables(workflow.db);
+            setupSqliteCleanup(workflow);
+            const store = createMemoryStore(workflow.db);
+            const fact = await store.getFact(parseNamespace(c.args.namespace), c.args.key);
+            if (!fact) {
+                console.log(`No fact "${c.args.key}" in namespace "${c.args.namespace}".`);
+                return c.ok({ fact: null, namespace: c.args.namespace, key: c.args.key });
+            }
+            console.log(fact.valueJson);
+            return c.ok({ fact, namespace: c.args.namespace, key: c.args.key });
+        }
+        catch (err) {
+            console.error(`Error: ${err?.message ?? String(err)}`);
+            return c.error({ code: "MEMORY_GET_FAILED", message: err?.message ?? String(err) });
+        }
+    },
+})
+    .command("set", {
+    description: "Set a memory fact (value is stored verbatim as the fact's JSON value).",
+    args: z.object({
+        namespace: z.string().describe("Namespace (e.g. 'workflow:my-flow')"),
+        key: z.string().describe("Fact key"),
+        value: z.string().describe("Fact value (stored as-is)"),
+    }),
+    options: memoryListOptions.extend({
+        ttl: z.coerce.number().int().positive().optional().describe("Time-to-live in milliseconds"),
+    }),
+    alias: { workflow: "w" },
+    async run(c) {
+        try {
+            const { createMemoryStore } = await import("@smithers-orchestrator/memory/store");
+            const { parseNamespace } = await import("@smithers-orchestrator/memory/types");
+            const workflow = await loadWorkflowAsync(c.options.workflow);
+            ensureSmithersTables(workflow.db);
+            setupSqliteCleanup(workflow);
+            const store = createMemoryStore(workflow.db);
+            await store.setFact(parseNamespace(c.args.namespace), c.args.key, c.args.value, c.options.ttl);
+            console.log(`Set ${pc.bold(c.args.key)} in "${c.args.namespace}".`);
+            return c.ok({ namespace: c.args.namespace, key: c.args.key });
+        }
+        catch (err) {
+            console.error(`Error: ${err?.message ?? String(err)}`);
+            return c.error({ code: "MEMORY_SET_FAILED", message: err?.message ?? String(err) });
+        }
+    },
+})
+    .command("rm", {
+    description: "Delete a memory fact by namespace + key.",
+    args: z.object({
+        namespace: z.string().describe("Namespace (e.g. 'workflow:my-flow')"),
+        key: z.string().describe("Fact key"),
+    }),
+    options: memoryListOptions,
+    alias: { workflow: "w" },
+    async run(c) {
+        try {
+            const { createMemoryStore } = await import("@smithers-orchestrator/memory/store");
+            const { parseNamespace } = await import("@smithers-orchestrator/memory/types");
+            const workflow = await loadWorkflowAsync(c.options.workflow);
+            ensureSmithersTables(workflow.db);
+            setupSqliteCleanup(workflow);
+            const store = createMemoryStore(workflow.db);
+            await store.deleteFact(parseNamespace(c.args.namespace), c.args.key);
+            console.log(`Deleted ${pc.bold(c.args.key)} from "${c.args.namespace}".`);
+            return c.ok({ namespace: c.args.namespace, key: c.args.key });
+        }
+        catch (err) {
+            console.error(`Error: ${err?.message ?? String(err)}`);
+            return c.error({ code: "MEMORY_RM_FAILED", message: err?.message ?? String(err) });
+        }
+    },
 });
 const cronCli = Cli.create({
     name: "cron",
