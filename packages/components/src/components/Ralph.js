@@ -11,7 +11,16 @@ import React from "react";
 export function Loop(props) {
     if (props.skipIf)
         return null;
-    return React.createElement("smithers:ralph", props, props.children);
+    // Sanitize to the loop's host props (align with other structural components);
+    // key/skipIf are React/control props and children are passed separately.
+    const next = {
+        id: props.id,
+        until: props.until,
+        maxIterations: props.maxIterations,
+        onMaxReached: props.onMaxReached,
+        continueAsNewEvery: props.continueAsNewEvery,
+    };
+    return React.createElement("smithers:ralph", next, props.children);
 }
 /** @deprecated Use `Loop` instead. */
 export const Ralph = Loop;

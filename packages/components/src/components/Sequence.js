@@ -7,5 +7,7 @@ import React from "react";
 export function Sequence(props) {
     if (props.skipIf)
         return null;
-    return React.createElement("smithers:sequence", props, props.children);
+    // Sequence carries no host props of its own; pass an empty bag (align with
+    // the sanitizing structural components) so control props don't leak through.
+    return React.createElement("smithers:sequence", {}, props.children);
 }

@@ -8,5 +8,7 @@ export function Branch(props) {
     if (props.skipIf)
         return null;
     const chosen = props.if ? props.then : (props.else ?? null);
-    return React.createElement("smithers:branch", props, chosen);
+    // The branch is resolved to `chosen` at render time, so the host element
+    // carries no props of its own (align with the sanitizing structural components).
+    return React.createElement("smithers:branch", {}, chosen);
 }
