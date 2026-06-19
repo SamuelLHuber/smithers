@@ -125,7 +125,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Dead provisioning unchanged (Tags provided but never consumed).
 - [ ] **P2** ~9 session methods are dead in production; the package ships a much larger API than is used — ``
   - _remaining:_ Larger session API still ships beyond what's used.
-- [ ] **P2** Dead file: src/react-types.ts is never imported anywhere — `packages/scorers/src/react-types.ts:1`
+- [x] **P2** Dead file: src/react-types.ts is never imported anywhere — `packages/scorers/src/react-types.ts:1`
   - _remaining:_ Dead file still present.
 - [ ] **P2** Public API (aggregateScores, runScorersBatch, relevancy/toxicity/faithfulness scorers) has no in-repo product consumer — `packages/scorers/src/index.js:18-28; packages/smithers/src/index.js:231`
   - _remaining:_ Cited scorer public API still has no in-repo product consumer.
@@ -141,7 +141,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ No consumer for resolveWorkflowAtRevision.
 - [ ] **P2** formatDiffAsJson is an identity-spread export with no production caller — `packages/time-travel/src/diff.js:206-208`
   - _remaining:_ Identity-spread export still has no production caller.
-- [ ] **P2** Declared dependency @smithers-orchestrator/errors is unused — `packages/usage/package.json:29`
+- [x] **P2** Declared dependency @smithers-orchestrator/errors is unused — `packages/usage/package.json:29`
   - _remaining:_ Declared dependency still unused.
 - [ ] **P2** WorkspaceSnapshot.ts is orphaned dead code with documentation that diverges from (and is richer than) the authoritative inline typedef — `packages/vcs/src/WorkspaceSnapshot.ts:1-16`
   - _remaining:_ Orphaned divergent type file remains.
