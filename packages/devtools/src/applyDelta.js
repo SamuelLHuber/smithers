@@ -80,6 +80,12 @@ export function applyDelta(snapshot, delta) {
             continue;
         }
         if (op.op === "addNode") {
+            if (!op.node || typeof op.node !== "object") {
+                throw new InvalidDeltaError("addNode requires a node.");
+            }
+            if (typeof op.index !== "number" || !Number.isFinite(op.index)) {
+                throw new InvalidDeltaError("addNode requires a numeric index.");
+            }
             const parent = findNode(next.root, op.parentId);
             if (!parent) {
                 throw new InvalidDeltaError(`Unknown parent id: ${op.parentId}`);
@@ -89,6 +95,9 @@ export function applyDelta(snapshot, delta) {
             continue;
         }
         if (op.op === "updateProps") {
+            if (!op.props || typeof op.props !== "object") {
+                throw new InvalidDeltaError("updateProps requires a props object.");
+            }
             const target = findNode(next.root, op.id);
             if (!target) {
                 throw new InvalidDeltaError(`Unknown node id: ${op.id}`);
@@ -103,6 +112,9 @@ export function applyDelta(snapshot, delta) {
             }
             if (op.task === undefined) {
                 delete target.node.task;
+            }
+            else if (typeof op.task !== "object") {
+                throw new InvalidDeltaError("updateTask requires a task object or undefined.");
             }
             else {
                 target.node.task = /** @type {DevToolsNode["task"]} */ (cloneValue(op.task));

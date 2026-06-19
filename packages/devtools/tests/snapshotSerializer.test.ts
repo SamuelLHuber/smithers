@@ -120,6 +120,20 @@ describe("snapshotSerialize", () => {
     expect(warnings).toContainEqual({ code: "MaxEntriesExceeded", path: "$[0]" });
   });
 
+  test("bounds a flat array of scalars by maxEntries (scalars are counted)", () => {
+    // Regression: scalar leaves used to return before the maxEntries check, so
+    // a flat scalar collection bypassed the cap entirely.
+    const serialized = snapshotSerialize([1, 2, 3, 4, 5], { maxEntries: 3 });
+    // array (1) + first two scalars (2,3) fit; the rest are capped.
+    expect(serialized).toEqual([1, 2, "[MaxEntries]", "[MaxEntries]", "[MaxEntries]"]);
+  });
+
+  test("bounds a flat object of scalars by maxEntries", () => {
+    const serialized = snapshotSerialize({ a: 1, b: 2, c: 3, d: 4 }, { maxEntries: 3 });
+    // object (1) + a,b (2,3) fit (keys sorted); c,d capped.
+    expect(serialized).toEqual({ a: 1, b: 2, c: "[MaxEntries]", d: "[MaxEntries]" });
+  });
+
   test("normalizes numeric serializer options", () => {
     expect(snapshotSerialize({ child: true }, { maxDepth: -1 })).toEqual({ child: "[MaxDepth]" });
     expect(snapshotSerialize([{ value: 1 }], { maxEntries: 0 })).toEqual(["[MaxEntries]"]);

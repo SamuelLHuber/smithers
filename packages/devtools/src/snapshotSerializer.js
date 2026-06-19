@@ -53,6 +53,14 @@ function serializeInternal(value, state, depth, path) {
     if (value === null || value === undefined) {
         return value;
     }
+    // Count every value — including scalar leaves — toward maxEntries so a flat
+    // array/object of scalars cannot bypass the cap (scalars used to return
+    // before this check and were never bounded).
+    if (state.traversed >= state.maxEntries) {
+        warn("MaxEntriesExceeded", path, state.onWarning);
+        return "[MaxEntries]";
+    }
+    state.traversed += 1;
     const valueType = typeof value;
     if (valueType === "string" || valueType === "number" || valueType === "boolean") {
         return value;
@@ -73,11 +81,6 @@ function serializeInternal(value, state, depth, path) {
             ? "[Date: Invalid]"
             : `[Date: ${value.toISOString()}]`;
     }
-    if (state.traversed >= state.maxEntries) {
-        warn("MaxEntriesExceeded", path, state.onWarning);
-        return "[MaxEntries]";
-    }
-    state.traversed += 1;
     const objectValue = /** @type {object} */ (value);
     if (state.seen.has(objectValue)) {
         warn("CircularReference", path, state.onWarning);
