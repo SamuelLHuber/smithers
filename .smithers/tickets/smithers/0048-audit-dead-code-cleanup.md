@@ -18,10 +18,10 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ All four orphaned files still present.
 - [ ] **P2** Dead MCP exports: registerSemanticTools and serveSemanticMcpServer — `apps/cli/src/mcp/semantic-server.js:11-21 (registerSemanticTools), 36-41 (serveSemanticMcpServer)`
   - _remaining:_ The genuinely-dead serveSemanticMcpServer export remains.
-- [ ] **P1** Entire in-memory MetricsService in _coreMetrics.js is dead code (only the Tag is used) — `apps/observability/src/_coreMetrics.js:85-510`
-  - _remaining:_ In-memory MetricsService body still dead.
-- [ ] **P2** Dead in-memory recordEvent handles event types that don't exist in the SmithersEvent union — `apps/observability/src/_coreMetrics.js:359-479`
-  - _remaining:_ Dead recordEvent still present.
+- [x] **P1** Entire in-memory MetricsService in _coreMetrics.js is dead code (only the Tag is used) — `apps/observability/src/_coreMetrics.js:85-510`
+  - _done (2026-06-19):_ Removed `makeInMemoryMetricsService` + the in-file `MetricsServiceLive`/`MetricsServiceNoop` and their private helpers (DEFAULT_HISTOGRAM_BUCKETS, labelsKey, metricKey, cloneLabels) and 9 now-dead JSDoc typedef imports. The production `MetricsServiceLive` lives in `MetricsServiceLive.js` (re-exported by index.js), and the heavily-used catalog (smithersMetricCatalog, 9 consumers) + the `MetricsService` Tag are kept. _coreMetrics.js 510→~180 lines; obs typecheck + lint + 157 tests + root typecheck green.
+- [x] **P2** Dead in-memory recordEvent handles event types that don't exist in the SmithersEvent union — `apps/observability/src/_coreMetrics.js:359-479`
+  - _done (2026-06-19):_ Resolved as part of the in-memory MetricsService removal above (recordEvent lived inside makeInMemoryMetricsService).
 - [ ] **P2** _coreMetrics.js catalog is reachable as a published deep import via the './*' subpath export, exposing a stale duplicate metric catalog — `apps/observability/package.json:18-22`
   - _remaining:_ Wildcard subpath export still exposes stale catalog.
 - [x] **P2** bearerToken.ts is dead code — exported helper imported nowhere — `apps/review/src/server/bearerToken.ts`
