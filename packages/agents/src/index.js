@@ -53,17 +53,15 @@ export { AnthropicAgent } from "./AnthropicAgent.js";
 export { OpenAIAgent } from "./OpenAIAgent.js";
 export { HermesAgent } from "./HermesAgent.js";
 export { AmpAgent } from "./AmpAgent.js";
-export { createAmpCapabilityRegistry } from "./AmpAgent.js";
-export { AntigravityAgent, createAntigravityCapabilityRegistry } from "./AntigravityAgent.js";
+export { AntigravityAgent } from "./AntigravityAgent.js";
 export { ClaudeCodeAgent } from "./ClaudeCodeAgent.js";
 export { CodexAgent } from "./CodexAgent.js";
 export { GeminiAgent } from "./GeminiAgent.js";
 export { PiAgent } from "./PiAgent.js";
 export { KimiAgent } from "./KimiAgent.js";
 export { ForgeAgent } from "./ForgeAgent.js";
-export { createForgeCapabilityRegistry } from "./ForgeAgent.js";
 export { OpenCodeAgent } from "./OpenCodeAgent.js";
-export { VibeAgent, createVibeCapabilityRegistry } from "./VibeAgent.js";
+export { VibeAgent } from "./VibeAgent.js";
 export {
   getCliAgentCapabilityReport,
   getCliAgentCapabilityDoctorReport,

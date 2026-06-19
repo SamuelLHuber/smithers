@@ -12,7 +12,7 @@ Each item below is still open in current `main`. Text is the original audit find
 
 ## Open items
 
-- [ ] **P2** Capability-registry factory exports are inconsistent: 4 of 10 re-exported from index, and those 4 are consumed nowhere — `packages/agents/src/index.js:48-58`
+- [x] **P2** Capability-registry factory exports are inconsistent: 4 of 10 re-exported from index, and those 4 are consumed nowhere — `packages/agents/src/index.js:48-58`
   - _remaining:_ 4 of the capability-registry factory re-exports remain inconsistent/unused via the barrel.
 - [x] **P2** Orphaned type files: AskOptions.ts, InitWorkflowPackOptions.ts, InitWorkflowPackResult.ts, and a shebang-only index.d.ts — `apps/cli/src/AskOptions.ts, apps/cli/src/InitWorkflowPackOptions.ts, apps/cli/src/InitWorkflowPackResult.ts, apps/cli/src/index.d.ts`
   - _remaining:_ All four orphaned files still present.

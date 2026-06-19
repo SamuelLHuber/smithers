@@ -1208,10 +1208,6 @@ type AmpAgentOptions$1 = BaseCliAgentOptions$3 & {
 /** @typedef {import("./capability-registry/AgentCapabilityRegistry.ts").AgentCapabilityRegistry} AgentCapabilityRegistry */
 /** @typedef {import("./BaseCliAgent/CliOutputInterpreter.ts").CliOutputInterpreter} CliOutputInterpreter */
 /**
- * @returns {AgentCapabilityRegistry}
- */
-declare function createAmpCapabilityRegistry(): AgentCapabilityRegistry$4;
-/**
  * Agent implementation that wraps the 'amp' CLI executable.
  * It translates generation requests into CLI arguments and executes the process.
  */
@@ -1326,11 +1322,6 @@ type AntigravityAgentOptions$1 = BaseCliAgentOptions$3 & {
     apiKey?: string;
 };
 
-/**
- * @param {AntigravityAgentOptions} [opts]
- * @returns {AgentCapabilityRegistry}
- */
-declare function createAntigravityCapabilityRegistry(opts?: AntigravityAgentOptions): AgentCapabilityRegistry$3;
 declare class AntigravityAgent extends BaseCliAgent {
     /**
    * @param {AntigravityAgentOptions} [opts]
@@ -1382,10 +1373,6 @@ type ForgeAgentOptions$1 = BaseCliAgentOptions$3 & {
 /** @typedef {import("./BaseCliAgent/BaseCliAgentOptions.ts").BaseCliAgentOptions} BaseCliAgentOptions */
 /** @typedef {import("./BaseCliAgent/CliOutputInterpreter.ts").CliOutputInterpreter} CliOutputInterpreter */
 /** @typedef {import("./ForgeAgentOptions.ts").ForgeAgentOptions} ForgeAgentOptions */
-/**
- * @returns {AgentCapabilityRegistry}
- */
-declare function createForgeCapabilityRegistry(): AgentCapabilityRegistry$2;
 declare class ForgeAgent extends BaseCliAgent {
     /**
    * @param {ForgeAgentOptions} [opts]
@@ -1421,11 +1408,6 @@ type ForgeAgentOptions = ForgeAgentOptions$1;
 /** @typedef {import("./BaseCliAgent/index.ts").BaseCliAgentOptions} BaseCliAgentOptions */
 /** @typedef {import("./capability-registry/index.ts").AgentCapabilityRegistry} AgentCapabilityRegistry */
 /** @typedef {import("./BaseCliAgent/index.ts").CliOutputInterpreter} CliOutputInterpreter */
-/**
- * @param {VibeAgentOptions} [opts]
- * @returns {AgentCapabilityRegistry}
- */
-declare function createVibeCapabilityRegistry(opts?: VibeAgentOptions$1): AgentCapabilityRegistry$1;
 /**
  * @typedef {BaseCliAgentOptions & {
  *   agent?: string;
@@ -1644,4 +1626,4 @@ type HttpToolAuth = HttpToolAuth$1;
 type HttpToolInput = HttpToolInput$1;
 type HttpToolOutput = HttpToolOutput$1;
 
-export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, AntigravityAgent, BaseCliAgent, CLI_AGENT_SURFACE_MANIFEST, ClaudeCodeAgent, type CliAgentCapabilityAdapterId, type CliAgentCapabilityDoctorEntry, type CliAgentCapabilityDoctorReport, type CliAgentCapabilityIssue, type CliAgentCapabilityReportEntry, type CliAgentSurfaceManifestEntry, type CliAgentSurfaceOptionMapping, type CliAgentSurfaceResumeContract, type CliAgentUnsupportedFlag, CodexAgent, type CreateHttpToolOptions, ForgeAgent, GeminiAgent, HermesAgent, type HermesAgentOptions, type HttpToolAuth, type HttpToolInput, type HttpToolOutput, type ImageGenerationProvider, type ImageGenerationRequest, type ImageGenerationResult, type ImageGenerationToolOptions, KimiAgent, OpenAIAgent, type OpenAIAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, VibeAgent, type VibeAgentOptions, createAmpCapabilityRegistry, createAntigravityCapabilityRegistry, createBraveSearchProvider, createElevenLabsTextToSpeechTool, createExaSearchProvider, createForgeCapabilityRegistry, createGroundedWebSearchToolset, createHttpTool, createImageGenerationTool, createSerperSearchProvider, createSmithersAgentContract, createTavilySearchProvider, createTranscriptionTool, createVibeCapabilityRegistry, formatCliAgentCapabilityDoctorReport, getCliAgentCapabilityDoctorReport, getCliAgentCapabilityReport, getCliAgentSurfaceManifestEntry, hashCapabilityRegistry, listCliAgentSurfaceManifests, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };
+export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, AntigravityAgent, BaseCliAgent, CLI_AGENT_SURFACE_MANIFEST, ClaudeCodeAgent, type CliAgentCapabilityAdapterId, type CliAgentCapabilityDoctorEntry, type CliAgentCapabilityDoctorReport, type CliAgentCapabilityIssue, type CliAgentCapabilityReportEntry, type CliAgentSurfaceManifestEntry, type CliAgentSurfaceOptionMapping, type CliAgentSurfaceResumeContract, type CliAgentUnsupportedFlag, CodexAgent, type CreateHttpToolOptions, ForgeAgent, GeminiAgent, HermesAgent, type HermesAgentOptions, type HttpToolAuth, type HttpToolInput, type HttpToolOutput, type ImageGenerationProvider, type ImageGenerationRequest, type ImageGenerationResult, type ImageGenerationToolOptions, KimiAgent, OpenAIAgent, type OpenAIAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, VibeAgent, type VibeAgentOptions, createBraveSearchProvider, createElevenLabsTextToSpeechTool, createExaSearchProvider, createGroundedWebSearchToolset, createHttpTool, createImageGenerationTool, createSerperSearchProvider, createSmithersAgentContract, createTavilySearchProvider, createTranscriptionTool, formatCliAgentCapabilityDoctorReport, getCliAgentCapabilityDoctorReport, getCliAgentCapabilityReport, getCliAgentSurfaceManifestEntry, hashCapabilityRegistry, listCliAgentSurfaceManifests, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };
