@@ -143,7 +143,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Identity-spread export still has no production caller.
 - [x] **P2** Declared dependency @smithers-orchestrator/errors is unused — `packages/usage/package.json:29`
   - _remaining:_ Declared dependency still unused.
-- [ ] **P2** WorkspaceSnapshot.ts is orphaned dead code with documentation that diverges from (and is richer than) the authoritative inline typedef — `packages/vcs/src/WorkspaceSnapshot.ts:1-16`
+- [x] **P2** WorkspaceSnapshot.ts is orphaned dead code with documentation that diverges from (and is richer than) the authoritative inline typedef — `packages/vcs/src/WorkspaceSnapshot.ts:1-16`
   - _remaining:_ Orphaned divergent type file remains.
 
 ## Deferred to a focused PR (high-risk)
