@@ -15,9 +15,9 @@ describe("runGh", () => {
     const bin = join(tmp, "bin");
     const log = join(tmp, "gh-log.json");
     await mkdir(bin);
-    // A fake `gh` as a node script: read stdin synchronously (readFileSync(0))
-    // so there is no async event timing, write the invocation log, then echo
-    // deterministic output. node flushes its pipe writes on exit.
+    // A fake `gh` as a node script: read stdin synchronously, record the
+    // invocation, then echo deterministic output. Injected by absolute path via
+    // SMITHERS_GH_BIN so it runs regardless of PATH lookup.
     const ghPath = join(bin, "gh");
     await writeFile(
       ghPath,
@@ -36,32 +36,15 @@ process.stdout.write("fixture stdout");
     );
     process.env.SMITHERS_GH_BIN = ghPath;
 
-    // Ground-truth probe: spawn the fixture directly by absolute path. If this
-    // does not yield "fixture stdout", the fixture/runtime is the problem; if it
-    // does but runGh fails, runGh's exec is the problem.
-    const probe = (() => {
-      try {
-        const p = Bun.spawnSync([ghPath, "api", "ok"], {
-          stdin: new TextEncoder().encode("payload"),
-        });
-        return {
-          exitCode: p.exitCode,
-          stdout: new TextDecoder().decode(p.stdout),
-          stderr: new TextDecoder().decode(p.stderr),
-        };
-      } catch (error) {
-        return { error: error instanceof Error ? error.message : String(error) };
-      }
-    })();
-
     try {
       const stdout = await runGh(tmp, ["api", "ok"], "payload");
+      // Surface whether the fixture ran (did it write its log?) when the output
+      // mismatches, so a recurrence is diagnosable, not a bare Expected/Received.
       if (stdout !== "fixture stdout") {
-        throw new Error(
-          `runGh=${JSON.stringify(stdout)} | SMITHERS_GH_BIN=${process.env.SMITHERS_GH_BIN}` +
-            ` | ghPath exists=${existsSync(ghPath)} | direct probe=${JSON.stringify(probe)}` +
-            ` | log=${existsSync(log) ? readFileSync(log, "utf8") : "<none>"}`,
-        );
+        const logState = existsSync(log)
+          ? readFileSync(log, "utf8")
+          : "<fixture never ran: no log written>";
+        throw new Error(`runGh returned ${JSON.stringify(stdout)}; fixture log: ${logState}`);
       }
       expect(stdout).toBe("fixture stdout");
       await expect(Bun.file(log).json()).resolves.toEqual({
