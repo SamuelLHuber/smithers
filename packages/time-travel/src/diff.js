@@ -38,7 +38,8 @@ export function diffSnapshots(a, b) {
             const bNode = b.nodes[key];
             if (aNode.state !== bNode.state ||
                 aNode.lastAttempt !== bNode.lastAttempt ||
-                aNode.label !== bNode.label) {
+                aNode.label !== bNode.label ||
+                aNode.outputTable !== bNode.outputTable) {
                 nodesChanged.push({ nodeId: key, from: aNode, to: bNode });
             }
         }

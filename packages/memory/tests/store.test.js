@@ -123,7 +123,7 @@ describe("MemoryStore - Working Memory", () => {
             ["listFacts", (brokenStore) => brokenStore.listFacts(WF_NS), /memory listFacts|DB_QUERY_FAILED/],
             ["createThread", (brokenStore) => brokenStore.createThread(WF_NS), /memory createThread|DB_WRITE_FAILED/],
             ["getThread", (brokenStore) => brokenStore.getThread("thread-1"), /memory getThread|DB_QUERY_FAILED/],
-            ["deleteThread", (brokenStore) => brokenStore.deleteThread("thread-1"), /memory deleteThreadMessages|DB_WRITE_FAILED/],
+            ["deleteThread", (brokenStore) => brokenStore.deleteThread("thread-1"), /memory deleteThread|DB_WRITE_FAILED/],
             [
                 "saveMessage",
                 (brokenStore) => brokenStore.saveMessage({

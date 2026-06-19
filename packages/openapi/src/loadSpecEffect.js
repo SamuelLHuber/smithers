@@ -15,8 +15,17 @@ import { parseSpecText } from "./_specHelpers.js";
  * @returns {Effect.Effect<OpenApiSpec, unknown>}
  */
 export function loadSpecEffect(input) {
-    if (typeof input === "object" && input !== null && "openapi" in input) {
-        return Effect.succeed(input);
+    if (typeof input === "object" && input !== null) {
+        if ("openapi" in input) {
+            return Effect.succeed(input);
+        }
+        return Effect.fail(toSmithersError(
+            new Error(
+                "Pre-loaded OpenAPI spec object is missing an 'openapi' field. Only OpenAPI 3.x is supported; "
+                + "Swagger 2.0 specs (which use a 'swagger' field) must be converted to OpenAPI 3.x first.",
+            ),
+            "openapi load spec",
+        ));
     }
     const str = input;
     // URL

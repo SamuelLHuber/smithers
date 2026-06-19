@@ -28,7 +28,8 @@ export function readUsageCache(env = process.env) {
     if (!existsSync(path)) return { version: 1, entries: {} };
     try {
         const parsed = JSON.parse(readFileSync(path, "utf8"));
-        if (parsed && typeof parsed === "object" && parsed.entries && typeof parsed.entries === "object") {
+        if (parsed && typeof parsed === "object" && parsed.version === 1
+            && parsed.entries && typeof parsed.entries === "object" && !Array.isArray(parsed.entries)) {
             return { version: 1, entries: parsed.entries };
         }
     } catch {

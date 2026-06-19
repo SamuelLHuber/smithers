@@ -1203,10 +1203,13 @@ export function workflow(options) {
  * a workflow handle, minus `from` — fragments are values, not workflows. They compile
  * when mounted into a real workflow via `G.scope(instanceId, fragment)`.
  *
- * @param {AnySchema} _inputSchema
+ * The input schema is preserved on the returned fragment as `inputSchema` (rather
+ * than silently discarded) so a mount point can validate the inputs it passes.
+ *
+ * @param {AnySchema} inputSchema
  */
-export function fragment(_inputSchema) {
-    return makeFactory();
+export function fragment(inputSchema) {
+    return { ...makeFactory(), inputSchema };
 }
 
 /**

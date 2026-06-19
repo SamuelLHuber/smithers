@@ -345,7 +345,7 @@ export function makeInMemoryStorageService() {
                 nodeLabel: node?.label ?? null,
             };
         })),
-        answerHumanRequest: (requestId, responseJson, answeredBy = null, answeredAtMs = Date.now()) => Effect.sync(() => {
+        answerHumanRequest: (requestId, responseJson, answeredAtMs = Date.now(), answeredBy = null) => Effect.sync(() => {
             const current = humanRequests.get(requestId);
             if (current) {
                 humanRequests.set(requestId, {

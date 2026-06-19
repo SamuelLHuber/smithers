@@ -214,16 +214,18 @@ function makeMemoryStore(db) {
    * @returns {Effect.Effect<void, SmithersError>}
    */
     function deleteThreadEffect(threadId) {
-        return Effect.gen(function* () {
-            // Delete messages first
-            yield* writeEffect("memory deleteThreadMessages", () => db
-                .delete(smithersMemoryMessages)
-                .where(eq(smithersMemoryMessages.threadId, threadId)));
-            // Delete the thread
-            yield* writeEffect("memory deleteThread", () => db
-                .delete(smithersMemoryThreads)
-                .where(eq(smithersMemoryThreads.threadId, threadId)));
-        });
+        // Delete the messages and the thread row atomically so a failure on the
+        // second write can't leave the thread without its messages (or vice versa).
+        return writeEffect("memory deleteThread", () => Promise.resolve(
+            db.transaction((tx) => {
+                tx.delete(smithersMemoryMessages)
+                    .where(eq(smithersMemoryMessages.threadId, threadId))
+                    .run();
+                tx.delete(smithersMemoryThreads)
+                    .where(eq(smithersMemoryThreads.threadId, threadId))
+                    .run();
+            }),
+        ));
     }
     // --- Message Effects ---
     /**

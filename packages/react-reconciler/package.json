@@ -3,7 +3,9 @@
   "version": "0.24.2",
   "description": "Custom React reconciler that renders Smithers host trees",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/reconciler.js"
+  ],
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
