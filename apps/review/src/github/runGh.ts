@@ -7,22 +7,23 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
  *
  * Works around a Bun subprocess race seen on the Linux CI runner: subprocess
  * spawns issued in an early window after process start silently no-op — spawnSync
- * returns status 0 with empty stdout/stderr and the child never runs (no side
- * effects at all). Proven across CI runs and every spawn mechanism (Bun.spawnSync
- * with pipe or Bun.file, and node:child_process); a later spawn of the same
- * binary always ran. It is timing-based, not a fixed spawn count, so a single
- * warm-up does not clear it.
+ * returns status 0 with empty stdout and the child never runs (no side effects).
+ * Proven across CI runs and every spawn mechanism (Bun.spawnSync with pipe or
+ * Bun.file, and node:child_process); a later spawn of the same binary always ran.
+ * It is timing-based, not a fixed spawn count, so a single warm-up cannot clear
+ * it.
  *
- * Detect the no-op (status 0 with no output — a real gh success prints output, a
- * real failure prints stderr) and retry with small increasing backoff. Retrying
- * is safe because a no-op child never executed, so nothing was applied even for
- * mutating gh calls.
+ * Retry while the child produces no stdout on a status-0 result. A real gh
+ * success prints to stdout, and a real failure exits non-zero (handled
+ * immediately below), so the retry only engages on the no-op. Retrying is safe
+ * even for mutating gh calls because a no-op child never executed.
  */
 export async function runGh(repoDir: string, args: string[], stdin?: string): Promise<string> {
   // Honor an explicit gh path (non-standard installs, and hermetic tests that
   // inject a fake gh by absolute path).
   const ghBin = process.env.SMITHERS_GH_BIN || "gh";
-  const maxAttempts = 8;
+  const maxAttempts = 12;
+  let last: ReturnType<typeof spawnSync> | null = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const result = spawnSync(ghBin, args, {
       cwd: repoDir,
@@ -32,22 +33,28 @@ export async function runGh(repoDir: string, args: string[], stdin?: string): Pr
       // env changes; pass it explicitly to be unambiguous.
       env: process.env,
     });
+    last = result;
     if (result.error) {
       throw new Error(`gh ${args.slice(0, 2).join(" ")} failed: ${result.error.message}`);
     }
     const stdout = result.stdout ?? "";
     const stderr = result.stderr ?? "";
-    if (result.status === 0 && stdout === "" && stderr === "" && attempt < maxAttempts) {
-      await sleep(20 * attempt);
-      continue;
-    }
     if (result.status !== 0) {
       const detail =
         stderr.trim() ||
         `exited with code ${result.status}${result.signal ? `, signal ${result.signal}` : ""}`;
       throw new Error(`gh ${args.slice(0, 2).join(" ")} failed: ${detail}`);
     }
+    if (stdout === "" && attempt < maxAttempts) {
+      await sleep(20 * attempt);
+      continue;
+    }
     return stdout;
   }
-  return "";
+  // Exhausted retries with no stdout — surface the raw spawn result so a
+  // recurrence is diagnosable instead of a silent empty string.
+  throw new Error(
+    `gh ${args.slice(0, 2).join(" ")} produced no stdout after ${maxAttempts} attempts: ` +
+      `status=${last?.status} signal=${last?.signal ?? "none"} stderr=${JSON.stringify(last?.stderr ?? "")}`,
+  );
 }
