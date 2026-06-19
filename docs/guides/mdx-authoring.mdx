@@ -1,6 +1,6 @@
 ---
 title: MDX Workflow Authoring
-description: Author workflows by editing plain Markdown prompt files. No TypeScript required — change the instruction, run again, see it change.
+description: Author workflows by editing plain Markdown prompt files. No TypeScript required - change the instruction, run again, see it change.
 ---
 
 `init` seeds two things side-by-side: a `.tsx` orchestration skeleton that handles execution, and an `.mdx` prompt file you edit to change what the agent does. For most workflows you never touch the `.tsx` file.
@@ -9,10 +9,10 @@ description: Author workflows by editing plain Markdown prompt files. No TypeScr
 
 | File | What it is | Who edits it |
 |---|---|---|
-| `.smithers/workflows/hello.tsx` | Durable run, agent wiring, output schema | Rarely — only when you need branching, schemas, or loops |
-| `.smithers/prompts/hello.mdx` | The agent's instruction — what you actually change | You, always |
+| `.smithers/workflows/hello.tsx` | Durable run, agent wiring, output schema | Rarely - only when you need branching, schemas, or loops |
+| `.smithers/prompts/hello.mdx` | The agent's instruction - what you actually change | You, always |
 
-The `.tsx` file imports and renders the `.mdx` file at runtime. Editing the prompt changes agent behavior on the next run — no build step, no TypeScript.
+The `.tsx` file imports and renders the `.mdx` file at runtime. Editing the prompt changes agent behavior on the next run - no build step, no TypeScript.
 
 ## Your first edit
 
@@ -21,12 +21,12 @@ After `bunx smithers-orchestrator init`, open `.smithers/prompts/hello.mdx`:
 ```markdown
 Write a short, friendly one-sentence greeting for {props.name}.
 
-This is your hello-world workflow. Edit this file to change what the agent does —
+This is your hello-world workflow. Edit this file to change what the agent does -
 it is plain Markdown, no TypeScript required. Anything in {curly braces} is a
 value passed in from the workflow (here, props.name).
 ```
 
-Change the instruction — for example, ask for a haiku:
+Change the instruction - for example, ask for a haiku:
 
 ```markdown
 Write a haiku about {props.name}.
@@ -64,7 +64,7 @@ bunx smithers-orchestrator workflow run create-workflow
 
 Or scaffold by hand:
 
-1. Create `.smithers/prompts/my-task.mdx` — write the instruction.
+1. Create `.smithers/prompts/my-task.mdx` - write the instruction.
 2. Copy `.smithers/workflows/hello.tsx`, rename the workflow name and prompt import.
 3. Run `bunx smithers-orchestrator workflow run my-task`.
 
@@ -72,9 +72,9 @@ Or scaffold by hand:
 
 Stay in MDX as long as possible. Add TypeScript only when you need:
 
-- **Multi-step branching** — different tasks depending on a prior output
-- **Parallel fan-out** — multiple tasks running simultaneously
-- **Validated structured output** — Zod schemas on task results
-- **Loops** — retry until a score threshold passes
+- **Multi-step branching** - different tasks depending on a prior output
+- **Parallel fan-out** - multiple tasks running simultaneously
+- **Validated structured output** - Zod schemas on task results
+- **Loops** - retry until a score threshold passes
 
 See the [TypeScript SDK](/jsx/overview) for all of that. Start with MDX, graduate only when the task demands it.

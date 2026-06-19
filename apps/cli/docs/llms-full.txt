@@ -56,9 +56,9 @@ What Smithers Is.
 
 Smithers runs your workflow on a render loop: each frame it asks "what has finished, and what can start now?" Tasks produce outputs validated by Zod schemas; the runtime persists them to SQLite. Crashes, restarts, and approvals are first-class, and the runtime resumes from the last persisted state without re-running completed work.
 
-**Default authoring path — MDX prompts.** For most workflows you edit a plain Markdown file in `.smithers/prompts/` and the seeded TypeScript skeleton picks it up automatically. No build step, no TypeScript required. See MDX Workflow Authoring.
+**Default authoring path - MDX prompts.** For most workflows you edit a plain Markdown file in `.smithers/prompts/` and the seeded TypeScript skeleton picks it up automatically. No build step, no TypeScript required. See MDX Workflow Authoring.
 
-**Advanced authoring — TypeScript SDK.** When you need branching, schemas, parallel fan-out, or loops, write the workflow as a JSX tree. Smithers renders the tree and drives execution:
+**Advanced authoring - TypeScript SDK.** When you need branching, schemas, parallel fan-out, or loops, write the workflow as a JSX tree. Smithers renders the tree and drives execution:
 
 ```tsx
 <Workflow name="review">
