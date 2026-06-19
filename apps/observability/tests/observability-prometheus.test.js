@@ -50,4 +50,29 @@ describe("renderPrometheusMetrics", () => {
     test("content type constant is correct", () => {
         expect(prometheusContentType).toBe("text/plain; version=0.0.4; charset=utf-8");
     });
+
+    test("renders Frequency metric states as keyed counter lines", () => {
+        const freq = Metric.frequency("smithers.test_prom_freq");
+        Effect.runSync(Metric.update(freq, "alpha"));
+        Effect.runSync(Metric.update(freq, "alpha"));
+        Effect.runSync(Metric.update(freq, "beta"));
+        const result = renderPrometheusMetrics();
+        expect(result).toMatch(/key="alpha"/);
+        expect(result).toMatch(/key="beta"/);
+    });
+
+    test("renders Summary metric states with min/max quantile lines", () => {
+        const summary = Metric.summary({
+            name: "smithers.test_prom_summary",
+            maxAge: "1 minutes",
+            maxSize: 100,
+            error: 0.01,
+            quantiles: [0.5, 0.9],
+        });
+        Effect.runSync(Metric.update(summary, 1));
+        Effect.runSync(Metric.update(summary, 5));
+        const result = renderPrometheusMetrics();
+        expect(result).toMatch(/quantile="min"/);
+        expect(result).toMatch(/quantile="max"/);
+    });
 });

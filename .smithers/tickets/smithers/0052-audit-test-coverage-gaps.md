@@ -24,7 +24,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ shared/generic normalizer and provider-correlation paths still untested
 - [ ] **P2** OTLP severity edge cases untested: truncated-json-stream WARN and session error/warning inference — `apps/observability/src/_otelLogBuilders.js:60-92`
   - _remaining:_ The two cited OTLP severity edge cases remain untested
-- [ ] **P2** renderPrometheusMetrics Frequency and Summary metric-state branches untested — `apps/observability/src/renderPrometheusMetrics.js:172-188`
+- [x] **P2** renderPrometheusMetrics Frequency and Summary metric-state branches untested — `apps/observability/src/renderPrometheusMetrics.js:172-188`
   - _remaining:_ renderPrometheusMetrics Frequency (src:172-178) and Summary (src:179-188) MetricState branches still untested
 - [ ] **P2** Non-streaming JSON metering and srk_ api-key proxy branches untested — `apps/review/src/server/proxy/handleAnthropic.ts:131-146, authenticateProxyRequest.ts:71-75`
   - _remaining:_ Non-streaming JSON metering and srk_ api-key proxy authentication branches remain uncovered
