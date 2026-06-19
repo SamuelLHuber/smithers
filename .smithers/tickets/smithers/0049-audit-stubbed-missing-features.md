@@ -4,6 +4,19 @@
 > Source: GitHub issue [#302](https://github.com/smithersai/smithers/issues/302) · 2026-06-16 bulletproof audit
 > Triaged 2026-06-18 against `main` (post-#442 merge train): **9 of 17 resolved, 8 still open**
 
+## Disposition note (2026-06-19): AlertRuntime / alertPolicy.reactions are by-design
+
+The two alert findings (AlertRuntime is a no-op; `alertPolicy.reactions` never
+consumed) are **not defects against the documented contract**. `docs/guides/alerting.mdx`
+states plainly: *"Rule names are policy keys for your integration; the core engine
+does not attach built-in behavior to those names in this release."* The alert
+policy is intentionally **declarative metadata** that Smithers stores and exposes
+(durable alert rows via the DB adapter + CLI), with rule evaluation/reactions
+delegated to the runtime integration. Implementing engine-side rule evaluation
+would contradict the documented design — it is a **future product feature**, not a
+bug fix, and should be scoped deliberately (with a docs change) rather than slipped
+in. Marked accordingly below; left unchecked because no code change is correct here.
+
 ## Context
 
 Documented features that still ship as no-op stubs or are missing. Memory token-limiting/summarization, semantic-MCP time-travel tools, openapi generate, non-JSON bodies, scorer context/groundTruth, and the gui shortcut all landed; these remain.
