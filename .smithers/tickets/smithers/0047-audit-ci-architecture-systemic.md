@@ -46,7 +46,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ jj platform binary-presence validation still never runs on PRs.
 - [ ] **P2** Full e2e suite runs in the test job without the build step that faults.yml deems necessary — `e2e/package.json:1`
   - _remaining:_ Full e2e suite still runs in test job against un-built packages.
-- [ ] **P2** examples/ bun test (porting-rules.test.ts) never runs in CI — same untested-directory root cause as the smithers gap — `examples/bun-port-smithers/components/porting-rules.test.ts:14`
+- [x] **P2** examples/ bun test (porting-rules.test.ts) never runs in CI — same untested-directory root cause as the smithers gap — `examples/bun-port-smithers/components/porting-rules.test.ts:14`
   - _remaining:_ examples/ bun test still never runs in CI.
 - [ ] **P2** package.json "./*" subpath export is unused and would serve whole-bundle types for any subpath — `packages/accounts/package.json:13-17`
   - _remaining:_ accounts ./* wildcard still present serving whole-bundle types.
