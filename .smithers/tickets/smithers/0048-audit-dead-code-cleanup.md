@@ -133,7 +133,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Documented/destructured-but-unused params remain.
 - [ ] **P2** ConnectRequest declares a `{ password: string }` auth variant that is never implemented — `packages/server/src/ConnectRequest.ts:11-15`
   - _remaining:_ Unimplemented password auth variant still declared.
-- [ ] **P1** Entire src/ide/ subtree is orphaned dead code (zero importers, zero tests, no docs) — `packages/smithers/src/ide/SmithersIdeService.js (433 lines), packages/smithers/src/ide/tools.js (95 lines), packages/smithers/src/ide/index.js, and 13 SmithersIde*.ts type files`
+- [x] **P1** Entire src/ide/ subtree is orphaned dead code (zero importers, zero tests, no docs) — `packages/smithers/src/ide/SmithersIdeService.js (433 lines), packages/smithers/src/ide/tools.js (95 lines), packages/smithers/src/ide/index.js, and 13 SmithersIde*.ts type files` — removed the whole `src/ide/` directory (16 files). Verified zero references anywhere in the monorepo (only reachable via the `./*` glob, which nothing used), not in the index or any d.ts. smithers typecheck + 28 tests + root typecheck + lint green.
   - _remaining:_ Entire ide/ subtree still orphaned.
 - [ ] **P1** VCS-tag write path (tagSnapshotVcs) is orphaned — the whole vcs-version read feature no-ops in production — `packages/time-travel/src/vcs-version/tagSnapshotVcsEffect.js:18; src/vcs-version/loadVcsTagEffect.js; src/vcs-version/rerunAtRevisionEffect.js`
   - _remaining:_ VCS-tag write path still orphaned.
