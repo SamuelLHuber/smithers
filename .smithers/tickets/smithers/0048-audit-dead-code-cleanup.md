@@ -104,7 +104,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Shadowed dead .ts type files remain.
 - [ ] **P2** Duplicate ProtocolError definition: errors.ts and errors/ProtocolError.ts both define the identical shape independently — `packages/protocol/src/errors.ts:51-55 and packages/protocol/src/errors/ProtocolError.ts:6-10`
   - _remaining:_ Duplicate ProtocolError shape still defined twice.
-- [ ] **P2** Dead host-config method: prepareUpdate is never called by react-reconciler 0.33 — `packages/react-reconciler/src/reconciler.js:181-185`
+- [x] **P2** Dead host-config method: prepareUpdate is never called by react-reconciler 0.33 — `packages/react-reconciler/src/reconciler.js:181-185`
   - _remaining:_ Dead prepareUpdate still present.
 - [x] **P2** core-types.js is an orphaned re-export imported by nothing — `packages/react-reconciler/src/core-types.js:1`
   - _remaining:_ Orphan re-export still imported by nothing.
@@ -140,3 +140,13 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Declared dependency still unused.
 - [ ] **P2** WorkspaceSnapshot.ts is orphaned dead code with documentation that diverges from (and is richer than) the authoritative inline typedef — `packages/vcs/src/WorkspaceSnapshot.ts:1-16`
   - _remaining:_ Orphaned divergent type file remains.
+
+## Deferred to a focused PR (high-risk)
+
+- **runWorkflowBodyLegacy (~1759 lines in engine.js)** is verified-dead in
+  production (gated behind `__smithersEngineMode==='legacy'` / `SMITHERS_LEGACY_ENGINE=1`,
+  set only by 3 engine tests), but removing it means surgically excising a
+  1700+-line function from the 7775-line core engine file AND reworking
+  `engine-legacy-mode.test.jsx` (delete) plus the legacy blocks in
+  `aspects-budget.test.jsx` / `parallel-loop-advancement.test.jsx`. That risk
+  profile warrants its own carefully-reviewed PR rather than a sweep commit.

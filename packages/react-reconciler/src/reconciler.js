@@ -230,18 +230,6 @@ const hostConfig = {
         refreshContainerRoot(container);
     },
     /**
-   * @param {MutableHostElement} _instance
-   * @param {string} _type
-   * @param {unknown} oldProps
-   * @param {unknown} newProps
-   * @returns {unknown}
-   */
-    prepareUpdate(_instance, _type, oldProps, newProps) {
-        if (oldProps === newProps)
-            return null;
-        return newProps;
-    },
-    /**
    * @param {MutableHostElement} instance
    * @param {unknown[]} args
    * @returns {void}
