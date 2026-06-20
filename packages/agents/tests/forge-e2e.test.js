@@ -17,7 +17,6 @@ import { ForgeAgent } from "../src/ForgeAgent.js";
 
 let isForgeInstalled = false;
 let supportsForgeE2EFlags = false;
-const realCliE2EEnabled = process.env.SMITHERS_REAL_CLI_E2E === "1";
 try {
   execSync("which forge", { stdio: "pipe" });
   isForgeInstalled = true;
@@ -33,7 +32,7 @@ try {
   supportsForgeE2EFlags = false;
 }
 
-describe.skipIf(!realCliE2EEnabled || !isForgeInstalled || !supportsForgeE2EFlags)(
+describe.skipIf(!isForgeInstalled || !supportsForgeE2EFlags)(
   "ForgeAgent E2E (real CLI)",
   () => {
   /** @type {string} */

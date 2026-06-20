@@ -17,7 +17,6 @@ import { CodexAgent } from "../src/CodexAgent.js";
 
 let isCodexInstalled = false;
 let supportsCodexE2EFlags = false;
-const realCliE2EEnabled = process.env.SMITHERS_REAL_CLI_E2E === "1";
 try {
   execSync("which codex", { stdio: "pipe" });
   isCodexInstalled = true;
@@ -34,7 +33,7 @@ try {
   supportsCodexE2EFlags = false;
 }
 
-describe.skipIf(!realCliE2EEnabled || !isCodexInstalled || !supportsCodexE2EFlags)(
+describe.skipIf(!isCodexInstalled || !supportsCodexE2EFlags)(
   "CodexAgent E2E (real CLI)",
   () => {
   /** @type {string} */

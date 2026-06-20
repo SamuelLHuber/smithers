@@ -17,7 +17,6 @@ import { KimiAgent } from "../src/KimiAgent.js";
 
 let isKimiInstalled = false;
 let supportsKimiE2EFlags = false;
-const realCliE2EEnabled = process.env.SMITHERS_REAL_CLI_E2E === "1";
 try {
   execSync("which kimi", { stdio: "pipe" });
   isKimiInstalled = true;
@@ -34,7 +33,7 @@ try {
   supportsKimiE2EFlags = false;
 }
 
-describe.skipIf(!realCliE2EEnabled || !isKimiInstalled || !supportsKimiE2EFlags)(
+describe.skipIf(!isKimiInstalled || !supportsKimiE2EFlags)(
   "KimiAgent E2E (real CLI)",
   () => {
   /** @type {string} */

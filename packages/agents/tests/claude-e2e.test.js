@@ -17,7 +17,6 @@ import { ClaudeCodeAgent } from "../src/ClaudeCodeAgent.js";
 
 let isClaudeInstalled = false;
 let supportsClaudeE2EFlags = false;
-const realCliE2EEnabled = process.env.SMITHERS_REAL_CLI_E2E === "1";
 try {
   execSync("which claude", { stdio: "pipe" });
   isClaudeInstalled = true;
@@ -34,7 +33,7 @@ try {
   supportsClaudeE2EFlags = false;
 }
 
-describe.skipIf(!realCliE2EEnabled || !isClaudeInstalled || !supportsClaudeE2EFlags)(
+describe.skipIf(!isClaudeInstalled || !supportsClaudeE2EFlags)(
   "ClaudeCodeAgent E2E (real CLI)",
   () => {
   /** @type {string} */

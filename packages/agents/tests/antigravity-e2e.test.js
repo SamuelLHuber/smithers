@@ -17,7 +17,6 @@ import { AntigravityAgent } from "../src/AntigravityAgent.js";
 
 let isAgyInstalled = false;
 let supportsAgyE2EFlags = false;
-const realCliE2EEnabled = process.env.SMITHERS_REAL_CLI_E2E === "1";
 try {
   execSync("which agy", { stdio: "pipe" });
   isAgyInstalled = true;
@@ -33,7 +32,7 @@ try {
   supportsAgyE2EFlags = false;
 }
 
-describe.skipIf(!realCliE2EEnabled || !isAgyInstalled || !supportsAgyE2EFlags)(
+describe.skipIf(!isAgyInstalled || !supportsAgyE2EFlags)(
   "AntigravityAgent E2E (real CLI)",
   () => {
   /** @type {string} */

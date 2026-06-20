@@ -14,9 +14,8 @@ import { HermesAgent } from "../src/HermesAgent.js";
 const hasHermesBackend =
   process.env.HERMES_BASE_URL !== undefined &&
   process.env.HERMES_BASE_URL.trim() !== "";
-const realCliE2EEnabled = process.env.SMITHERS_REAL_CLI_E2E === "1";
 
-describe.skipIf(!realCliE2EEnabled || !hasHermesBackend)(
+describe.skipIf(!hasHermesBackend)(
   "HermesAgent E2E (real backend)",
   () => {
   it("sends a simple prompt and gets a text response", async () => {

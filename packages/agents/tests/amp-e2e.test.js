@@ -17,7 +17,6 @@ import { AmpAgent } from "../src/AmpAgent.js";
 
 let isAmpInstalled = false;
 let supportsAmpE2EFlags = false;
-const realCliE2EEnabled = process.env.SMITHERS_REAL_CLI_E2E === "1";
 try {
   execSync("which amp", { stdio: "pipe" });
   isAmpInstalled = true;
@@ -33,7 +32,7 @@ try {
   supportsAmpE2EFlags = false;
 }
 
-describe.skipIf(!realCliE2EEnabled || !isAmpInstalled || !supportsAmpE2EFlags)(
+describe.skipIf(!isAmpInstalled || !supportsAmpE2EFlags)(
   "AmpAgent E2E (real CLI)",
   () => {
   /** @type {string} */

@@ -17,7 +17,6 @@ import { PiAgent } from "../src/PiAgent.js";
 
 let isPiInstalled = false;
 let supportsPiE2EFlags = false;
-const realCliE2EEnabled = process.env.SMITHERS_REAL_CLI_E2E === "1";
 try {
   execSync("which pi", { stdio: "pipe" });
   isPiInstalled = true;
@@ -34,7 +33,7 @@ try {
   supportsPiE2EFlags = false;
 }
 
-describe.skipIf(!realCliE2EEnabled || !isPiInstalled || !supportsPiE2EFlags)(
+describe.skipIf(!isPiInstalled || !supportsPiE2EFlags)(
   "PiAgent E2E (real CLI)",
   () => {
   /** @type {string} */
@@ -69,7 +68,8 @@ describe.skipIf(!realCliE2EEnabled || !isPiInstalled || !supportsPiE2EFlags)(
     /** @type {import("../src/BaseCliAgent/index.ts").AgentCliEvent[]} */
     const events = [];
 
-    // Passing onEvent switches pi to --mode json so interpreter events are emitted
+    // noSession: false (session mode) so pi emits a JSON "session" event, which
+    // triggers the "started" AgentCliEvent; noSession: true skips that event.
     const agent = new PiAgent({ noSession: false });
 
     const result = await agent.generate({
