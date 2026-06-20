@@ -236,6 +236,117 @@ describe("anthropic proxy", () => {
     expect(session?.spent_usd ?? 0).toBeCloseTo(SINGLE_CALL_COST_USD, 6);
   });
 
+  test("meters non-streaming JSON response and records kind=messages", async () => {
+    const env = await buildTestEnv();
+    const JSON_BODY = JSON.stringify({
+      id: "msg_01",
+      type: "message",
+      role: "assistant",
+      model: "claude-sonnet-4-6",
+      content: [{ type: "text", text: "hello" }],
+      stop_reason: "end_turn",
+      usage: { input_tokens: 150, output_tokens: 30 },
+    });
+    const fixture = serveFixtureAnthropic({ contentType: "application/json", body: JSON_BODY });
+    teardowns.push(() => fixture.stop());
+    const token = await seedSession(env, REPO);
+    const meterings: Promise<unknown>[] = [];
+    const worker = createReviewWorker({
+      jwksUrl: "http://unused",
+      anthropicBaseUrl: fixture.baseUrl,
+      fetchUpstream: fetch,
+      now: () => Date.now(),
+      waitUntil: (p) => meterings.push(p),
+    });
+    const res = await worker.fetch(
+      new Request("https://review.test/anthropic/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": token, "content-type": "application/json" },
+        body: '{"model":"claude-sonnet-4-6","messages":[]}',
+      }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    await res.text();
+    await Promise.all(meterings);
+    const row = await env.DB.prepare("SELECT * FROM usage_events").first<Record<string, unknown>>();
+    expect(row?.kind).toBe("messages");
+    expect(row?.model).toBe("claude-sonnet-4-6");
+    expect(row?.input_tokens).toBe(150);
+    expect(row?.output_tokens).toBe(30);
+    // 150 * 3/1e6 + 30 * 15/1e6 = 0.00045 + 0.00045 = 0.0009
+    expect(row?.cost_usd as number).toBeCloseTo(0.0009, 6);
+  });
+
+  test("authenticates srk_ api-key and proxies request with usage attributed to repo", async () => {
+    const env = await buildTestEnv();
+    const JSON_BODY = JSON.stringify({
+      id: "msg_02",
+      type: "message",
+      role: "assistant",
+      model: "claude-sonnet-4-6",
+      content: [{ type: "text", text: "world" }],
+      stop_reason: "end_turn",
+      usage: { input_tokens: 100, output_tokens: 20 },
+    });
+    const fixture = serveFixtureAnthropic({ contentType: "application/json", body: JSON_BODY });
+    teardowns.push(() => fixture.stop());
+    const apiKey = "srk_testoperatorkey";
+    const keyHash = await sha256Hex(apiKey);
+    await env.DB
+      .prepare("INSERT INTO api_keys (hash, owner, repos_json, created_at) VALUES (?, ?, ?, ?)")
+      .bind(keyHash, "octo", JSON.stringify(["octo/widgets"]), Date.now())
+      .run();
+    const meterings: Promise<unknown>[] = [];
+    const worker = createReviewWorker({
+      jwksUrl: "http://unused",
+      anthropicBaseUrl: fixture.baseUrl,
+      fetchUpstream: fetch,
+      now: () => Date.now(),
+      waitUntil: (p) => meterings.push(p),
+    });
+    const res = await worker.fetch(
+      new Request("https://review.test/anthropic/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "content-type": "application/json" },
+        body: '{"model":"claude-sonnet-4-6","messages":[]}',
+      }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(fixture.requests[0].headers["x-api-key"]).toBe("sk-ant-test");
+    expect(fixture.requests[0].headers["x-api-key"]).not.toBe(apiKey);
+    await res.text();
+    await Promise.all(meterings);
+    const row = await env.DB.prepare("SELECT * FROM usage_events").first<Record<string, unknown>>();
+    expect(row?.repo).toBe("octo/widgets");
+    expect(row?.kind).toBe("messages");
+    expect(row?.input_tokens).toBe(100);
+    expect(row?.output_tokens).toBe(20);
+  });
+
+  test("401s srk_ key not in api_keys table", async () => {
+    const env = await buildTestEnv();
+    const fixture = serveFixtureAnthropic({ contentType: "application/json", body: "{}" });
+    teardowns.push(() => fixture.stop());
+    const worker = createReviewWorker({
+      jwksUrl: "http://unused",
+      anthropicBaseUrl: fixture.baseUrl,
+      fetchUpstream: fetch,
+      now: () => Date.now(),
+      waitUntil: () => undefined,
+    });
+    const res = await worker.fetch(
+      new Request("https://review.test/anthropic/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": "srk_unknownkey" },
+        body: "{}",
+      }),
+      env,
+    );
+    expect(res.status).toBe(401);
+  });
+
   test("402s when session spend cap is already at or above limit", async () => {
     const env = await buildTestEnv();
     const fixture = serveFixtureAnthropic({ contentType: "application/json", body: "{}" });
