@@ -5885,7 +5885,7 @@ const cli = Cli.create({
     description: "Rewind a run to a previous frame.",
     args: z.object({
         runId: z.string().describe("Run ID to rewind"),
-        frameNo: z.number().int().min(0).describe("Target frame number"),
+        frameNo: z.coerce.number().int().min(0).describe("Target frame number"),
     }),
     options: z.object({
         yes: z.boolean().default(false).describe("Skip confirmation"),

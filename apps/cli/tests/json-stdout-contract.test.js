@@ -202,6 +202,7 @@ describe("CLI --json stdout contract", () => {
             const objectCases = [
                 { label: "snapshots", args: ["snapshots", "json-run", "--json"] },
                 { label: "timeline", args: ["timeline", "json-run", "--json"] },
+                { label: "rewind", args: ["rewind", "json-run", "0", "--yes", "--json"] },
             ];
 
             for (const entry of objectCases) {
