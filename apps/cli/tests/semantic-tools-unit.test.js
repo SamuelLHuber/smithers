@@ -186,6 +186,12 @@ function makeSemanticAdapter(overrides = {}) {
             metaJson: "{bad json",
             responseText: null,
         }),
+        attemptRow({
+            runId: "no-pointer-run",
+            nodeId: "no-pointer-node",
+            jjPointer: null,
+            jjCwd: null,
+        }),
     ];
     const events = [
         eventRow(),
@@ -279,6 +285,13 @@ function makeSemanticAdapter(overrides = {}) {
         getLastFrameEffect: () => Effect.succeed(undefined),
         listEventHistoryEffect: () => Effect.succeed([]),
         listAttemptsForRun: async (runId) => state.attempts.filter((attempt) => attempt.runId === runId),
+        getAttempt: (runId, nodeId, iteration, attempt) => Effect.succeed(
+            state.attempts.find(
+                (a) => a.runId === runId && a.nodeId === nodeId && (a.iteration ?? 0) === iteration && a.attempt === attempt,
+            ) ?? null,
+        ),
+        listFrames: (_runId, _limit, _afterFrameNo) => Effect.succeed([]),
+        deleteFramesAfter: (_runId, _frameNo) => Effect.succeed(undefined),
         listEvents: async (_runId, afterSeq) => afterSeq < 0 ? state.events : [],
         listEventHistory: async () => state.historyEvents,
         listWorkspaceCheckpoints: async () => [
@@ -720,5 +733,48 @@ describe("semantic tool definitions", () => {
         });
         expect(ambiguous.isError).toBe(true);
         expect(ambiguous.structuredContent.error.code).toBe("INVALID_INPUT");
+    });
+
+    test("revert_attempt handler covers not-found, no-jjPointer, and jj-failure branches", async () => {
+        const harness = makeHarness();
+
+        // Attempt not found → success: false with descriptive error
+        const notFound = await harness.call("revert_attempt", {
+            runId: "run-1",
+            nodeId: "nonexistent-node",
+            iteration: 0,
+            attempt: 99,
+        });
+        expect(notFound.structuredContent.ok).toBe(true);
+        expect(notFound.structuredContent.data.success).toBe(false);
+        expect(notFound.structuredContent.data.error).toContain("Attempt not found");
+        expect(notFound.structuredContent.data.run).toMatchObject({ runId: "run-1" });
+
+        // Attempt found but has no jjPointer → success: false
+        const noPointer = await harness.call("revert_attempt", {
+            runId: "no-pointer-run",
+            nodeId: "no-pointer-node",
+            iteration: 0,
+            attempt: 1,
+        });
+        expect(noPointer.structuredContent.ok).toBe(true);
+        expect(noPointer.structuredContent.data.success).toBe(false);
+        expect(noPointer.structuredContent.data.error).toContain("jjPointer");
+
+        // Attempt found with jjPointer but jj command fails in test env (no real jj repo)
+        const jjFails = await harness.call("revert_attempt", {
+            runId: "run-1",
+            nodeId: "artifact-node",
+            iteration: 0,
+            attempt: 1,
+        });
+        expect(jjFails.structuredContent.ok).toBe(true);
+        expect(jjFails.structuredContent.data.success).toBe(false);
+        expect(jjFails.structuredContent.data.jjPointer).toBe("jj-1");
+        expect(jjFails.structuredContent.data.error).toBeString();
+        expect(jjFails.structuredContent.data.runId).toBe("run-1");
+        expect(jjFails.structuredContent.data.nodeId).toBe("artifact-node");
+        expect(jjFails.structuredContent.data.attempt).toBe(1);
+        expect(jjFails.structuredContent.data.run).toMatchObject({ runId: "run-1" });
     });
 });
