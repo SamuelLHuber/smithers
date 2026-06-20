@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
 import type { PullRequestReviewPayload } from "../../src/github/buildPullRequestReview";
 import type { PullRequestTarget } from "../../src/github/resolvePullRequest";
 
@@ -26,6 +26,14 @@ afterEach(() => {
   ghCalls.length = 0;
   ghResponses.length = 0;
   runGhMock.mockClear();
+});
+
+afterAll(() => {
+  // `mock.module` is process-global in bun and leaks across test files. Without
+  // this, the runGh mock here replaces the real module for runGh.test.ts (which
+  // runs later in the same process under bun 1.3.13), so that test exercises this
+  // stub instead of the real runGh. Restore the real module after this file.
+  mock.restore();
 });
 
 const pr: PullRequestTarget = {

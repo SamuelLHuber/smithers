@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runGh } from "../../src/github/runGh";
 
+// A checked-in, executable fake `gh`. The log destination is passed via
+// $SMITHERS_FAKE_GH_LOG so the fixture records its invocation without the test
+// writing an executable at runtime.
 const FAKE_GH = fileURLToPath(new URL("./fixtures/fake-gh", import.meta.url));
 
 afterEach(() => {
@@ -23,23 +24,6 @@ describe("runGh", () => {
 
     try {
       const stdout = await runGh(tmp, ["api", "ok"], "payload");
-      if (stdout !== "fixture stdout") {
-        const logState = existsSync(log)
-          ? readFileSync(log, "utf8")
-          : "<fixture never ran: no log written>";
-        const probe = spawnSync(process.env.SMITHERS_GH_BIN ?? FAKE_GH, ["api", "ok"], {
-          cwd: tmp,
-          input: "payload",
-          encoding: "utf8",
-          env: process.env,
-        });
-        throw new Error(
-          `runGh returned ${JSON.stringify(stdout)}; fixture log: ${logState}; ` +
-            `ghBinEnv=${JSON.stringify(process.env.SMITHERS_GH_BIN)} fakeGh=${JSON.stringify(FAKE_GH)} ` +
-            `direct probe via env-bin: status=${probe.status} error=${probe.error?.message ?? "none"} ` +
-            `stdout=${JSON.stringify(probe.stdout)} stderr=${JSON.stringify(probe.stderr)}`,
-        );
-      }
       expect(stdout).toBe("fixture stdout");
       await expect(Bun.file(log).json()).resolves.toEqual({
         cwd: await realpath(tmp),
