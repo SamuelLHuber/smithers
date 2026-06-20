@@ -33,6 +33,15 @@ export async function runGh(repoDir: string, args: string[], stdin?: string): Pr
       // env changes; pass it explicitly to be unambiguous.
       env: process.env,
     });
+    if (attempt === 1) {
+      throw new Error(
+        `RUNGH_MARKER_v67 firstSpawn ghBin=${JSON.stringify(ghBin)} ` +
+          `argv0=${JSON.stringify(args[0])} status=${result.status} signal=${result.signal ?? "·"} ` +
+          `error=${result.error?.message ?? "none"} ` +
+          `stdoutType=${typeof result.stdout} stdout=${JSON.stringify(result.stdout)} ` +
+          `stderr=${JSON.stringify(result.stderr)}`,
+      );
+    }
     if (result.error) {
       throw new Error(`gh ${args.slice(0, 2).join(" ")} failed: ${result.error.message}`);
     }
