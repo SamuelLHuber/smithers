@@ -228,9 +228,6 @@ function itemPrompt(item: BatchItem): string {
   ].filter(Boolean).join("\n");
 }
 
-const reviewPromptFor = (item: BatchItem): string =>
-  `Independently review the change on this branch for the audit item: "${item.itemText}" (${item.ticketFile}). Approve only if the change is correct, minimal, the ticket box/disposition was updated honestly, and the affected package's typecheck + tests + lint actually pass. Reject with concrete, actionable feedback otherwise.`;
-
 /** Per-item done = validation passed AND a reviewer approved (mirrors ValidationLoop semantics). */
 function itemDone(ctx: any, idPrefix: string): { done: boolean; feedback: string | null } {
   const validate = ctx.outputMaybe(outputs.validate, { nodeId: `${idPrefix}:validate` });
