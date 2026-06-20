@@ -1,4 +1,4 @@
-import { runGh } from "./runGh";
+import { runGh as defaultRunGh } from "./runGh";
 
 export type PullRequestTarget = {
   owner: string;
@@ -11,7 +11,11 @@ export type PullRequestTarget = {
 };
 
 /** Resolve a PR (number or URL) to its coordinates via the gh CLI. */
-export async function resolvePullRequest(repoDir: string, prRef: string): Promise<PullRequestTarget> {
+export async function resolvePullRequest(
+  repoDir: string,
+  prRef: string,
+  runGh: typeof defaultRunGh = defaultRunGh,
+): Promise<PullRequestTarget> {
   const raw = await runGh(repoDir, [
     "pr",
     "view",

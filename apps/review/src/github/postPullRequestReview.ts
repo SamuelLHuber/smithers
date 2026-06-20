@@ -1,6 +1,6 @@
 import type { PullRequestReviewPayload } from "./buildPullRequestReview";
 import type { PullRequestTarget } from "./resolvePullRequest";
-import { runGh } from "./runGh";
+import { runGh as defaultRunGh } from "./runGh";
 
 /**
  * Post a review to the PR via `gh api`. GitHub rejects the whole batch (422)
@@ -12,6 +12,7 @@ export async function postPullRequestReview(
   repoDir: string,
   pr: PullRequestTarget,
   payload: PullRequestReviewPayload,
+  runGh: typeof defaultRunGh = defaultRunGh,
 ): Promise<{ url: string; inline: number }> {
   const endpoint = `repos/${pr.owner}/${pr.repo}/pulls/${pr.number}/reviews`;
   const post = async (body: PullRequestReviewPayload) => {

@@ -1,6 +1,8 @@
-import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { PullRequestReviewPayload } from "../../src/github/buildPullRequestReview";
-import type { PullRequestTarget } from "../../src/github/resolvePullRequest";
+import { listPullRequestFiles } from "../../src/github/listPullRequestFiles";
+import { postPullRequestReview } from "../../src/github/postPullRequestReview";
+import { resolvePullRequest, type PullRequestTarget } from "../../src/github/resolvePullRequest";
 
 type GhCall = {
   repoDir: string;
@@ -11,6 +13,9 @@ type GhCall = {
 const ghCalls: GhCall[] = [];
 const ghResponses: Array<string | Error> = [];
 
+// Injected directly into the helpers (they accept runGh as a parameter). This
+// avoids `mock.module`, which is process-global in bun and leaks across test
+// files (on Linux it would replace the real runGh for runGh.test.ts).
 const runGhMock = mock(async (repoDir: string, args: string[], stdin?: string) => {
   ghCalls.push({ repoDir, args, stdin });
   const response = ghResponses.shift();
@@ -18,22 +23,10 @@ const runGhMock = mock(async (repoDir: string, args: string[], stdin?: string) =
   return response ?? "";
 });
 
-mock.module("../../src/github/runGh", () => ({
-  runGh: runGhMock,
-}));
-
 afterEach(() => {
   ghCalls.length = 0;
   ghResponses.length = 0;
   runGhMock.mockClear();
-});
-
-afterAll(() => {
-  // `mock.module` is process-global in bun and leaks across test files. Without
-  // this, the runGh mock here replaces the real module for runGh.test.ts (which
-  // runs later in the same process under bun 1.3.13), so that test exercises this
-  // stub instead of the real runGh. Restore the real module after this file.
-  mock.restore();
 });
 
 const pr: PullRequestTarget = {
@@ -57,9 +50,8 @@ describe("GitHub PR posting helpers", () => {
         headRefOid: "abc123",
       }),
     );
-    const { resolvePullRequest } = await import("../../src/github/resolvePullRequest");
 
-    await expect(resolvePullRequest("/repo", "306")).resolves.toEqual(pr);
+    await expect(resolvePullRequest("/repo", "306", runGhMock)).resolves.toEqual(pr);
     expect(ghCalls).toEqual([
       {
         repoDir: "/repo",
@@ -78,18 +70,16 @@ describe("GitHub PR posting helpers", () => {
         headRefOid: "def456",
       }),
     );
-    const { resolvePullRequest } = await import("../../src/github/resolvePullRequest");
 
-    await expect(resolvePullRequest("/repo", "12")).rejects.toThrow(
+    await expect(resolvePullRequest("/repo", "12", runGhMock)).rejects.toThrow(
       "cannot parse owner/repo from PR url: https://example.test/not-a-github-pr",
     );
   });
 
   test("listPullRequestFiles returns trimmed changed paths from paginated gh api output", async () => {
     ghResponses.push("\nsrc/index.ts\n\n apps/review/src/github/runGh.ts \n");
-    const { listPullRequestFiles } = await import("../../src/github/listPullRequestFiles");
 
-    await expect(listPullRequestFiles("/repo", pr)).resolves.toEqual(
+    await expect(listPullRequestFiles("/repo", pr, runGhMock)).resolves.toEqual(
       new Set(["src/index.ts", "apps/review/src/github/runGh.ts"]),
     );
     expect(ghCalls).toEqual([
@@ -114,9 +104,8 @@ describe("GitHub PR posting helpers", () => {
       comments: [{ path: "src/index.ts", line: 7, side: "RIGHT", body: "Check this." }],
     };
     ghResponses.push(JSON.stringify({ html_url: "https://github.com/smithersai/smithers/pull/306#pullrequestreview-1" }));
-    const { postPullRequestReview } = await import("../../src/github/postPullRequestReview");
 
-    await expect(postPullRequestReview("/repo", pr, payload)).resolves.toEqual({
+    await expect(postPullRequestReview("/repo", pr, payload, runGhMock)).resolves.toEqual({
       url: "https://github.com/smithersai/smithers/pull/306#pullrequestreview-1",
       inline: 1,
     });
@@ -140,9 +129,8 @@ describe("GitHub PR posting helpers", () => {
       ],
     };
     ghResponses.push(new Error("gh api failed: HTTP 422"), JSON.stringify({}));
-    const { postPullRequestReview } = await import("../../src/github/postPullRequestReview");
 
-    await expect(postPullRequestReview("/repo", pr, payload)).resolves.toEqual({
+    await expect(postPullRequestReview("/repo", pr, payload, runGhMock)).resolves.toEqual({
       url: "https://github.com/smithersai/smithers/pull/306",
       inline: 0,
     });
@@ -165,9 +153,8 @@ describe("GitHub PR posting helpers", () => {
       comments: [],
     };
     ghResponses.push(new Error("gh api failed: HTTP 500"));
-    const { postPullRequestReview } = await import("../../src/github/postPullRequestReview");
 
-    await expect(postPullRequestReview("/repo", pr, payload)).rejects.toThrow("gh api failed: HTTP 500");
+    await expect(postPullRequestReview("/repo", pr, payload, runGhMock)).rejects.toThrow("gh api failed: HTTP 500");
     expect(ghCalls).toHaveLength(1);
   });
 });

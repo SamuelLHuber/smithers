@@ -1,8 +1,12 @@
 import type { PullRequestTarget } from "./resolvePullRequest";
-import { runGh } from "./runGh";
+import { runGh as defaultRunGh } from "./runGh";
 
 /** Paths changed in the PR, for filtering which findings can anchor inline. */
-export async function listPullRequestFiles(repoDir: string, pr: PullRequestTarget): Promise<Set<string>> {
+export async function listPullRequestFiles(
+  repoDir: string,
+  pr: PullRequestTarget,
+  runGh: typeof defaultRunGh = defaultRunGh,
+): Promise<Set<string>> {
   const raw = await runGh(repoDir, [
     "api",
     "--paginate",
