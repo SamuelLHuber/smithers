@@ -33,7 +33,7 @@ function select(argv: string[]): Instance[] {
   if (argv.includes("--all")) return all;
   const subIdx = argv.indexOf("--subset");
   const subsetFile = subIdx >= 0 ? argv[subIdx + 1] : undefined;
-  const ids = argv.filter((a, i) => !a.startsWith("--") && i !== subIdx + 1);
+  const ids = argv.filter((a, i) => !a.startsWith("--") && (subIdx < 0 || i !== subIdx + 1));
   if (subsetFile) {
     ids.push(
       ...readFileSync(subsetFile, "utf8")
