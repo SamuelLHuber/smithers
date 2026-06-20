@@ -48,6 +48,13 @@ These hold the **still-open** findings from the 2026-06-16 audit GitHub epics af
 #312–#442 fix/test/refactor wave; each ticket links its source issue and lists only the
 remaining work. Of 443 tracked findings/items, ~155 have landed; the rest live here:
 
+> **Kanban staging (2026-06-20):** the multi-item epics (0022, 0046, 0047, 0052, 0056)
+> were moved to `.epics/` (a dot-dir the kanban workflow skips) so kanban processes one
+> ticket per fix instead of a multi-week epic. The #306 test-coverage epic (0052) was
+> decomposed into per-finding `smithers/cov-*.md` tickets — each is its own kanban
+> worktree and its own commit on `main`. The `.epics/` files remain the source-of-record
+> that map to their GitHub issues.
+
 **Still open (GitHub issue open):**
 
 - [0046](smithers/0046-audit-p0-blockers.md) — P0 critical blockers ([#299](https://github.com/smithersai/smithers/issues/299), **open** — real-product rewrite of the remaining ~17 fabricated-schema fault cases; multi-week e2e infra)
