@@ -48,17 +48,22 @@ These hold the **still-open** findings from the 2026-06-16 audit GitHub epics af
 #312–#442 fix/test/refactor wave; each ticket links its source issue and lists only the
 remaining work. Of 443 tracked findings/items, ~155 have landed; the rest live here:
 
-- [0046](smithers/0046-audit-p0-blockers.md) — P0 critical blockers ([#299](https://github.com/smithersai/smithers/issues/299), 1 of 4 open: real-product rewrite of the remaining ~17 fabricated-schema fault cases)
-- [0047](smithers/0047-audit-ci-architecture-systemic.md) — CI enforcement, architecture & systemic policy ([#300](https://github.com/smithersai/smithers/issues/300), 34 open — no lint/coverage/build/examples CI gates, exports/boundary drift, checkJs off)
-- [0048](smithers/0048-audit-dead-code-cleanup.md) — Dead code cleanup ([#301](https://github.com/smithersai/smithers/issues/301), 64 open)
-- [0049](smithers/0049-audit-stubbed-missing-features.md) — Stubbed & missing features ([#302](https://github.com/smithersai/smithers/issues/302), 8 open — AmpAgent resume, AlertRuntime, sandbox providers, gateway RPC drift)
-- [0050](smithers/0050-audit-bug-fixes.md) — Bug fixes ([#303](https://github.com/smithersai/smithers/issues/303), 15 open)
-- [0051](smithers/0051-audit-docs-skills-accuracy.md) — Documentation & skills accuracy ([#304](https://github.com/smithersai/smithers/issues/304), 11 open — leftover JSDoc/changelog/comment edits)
-- [0052](smithers/0052-audit-test-coverage-gaps.md) — Test coverage gaps ([#306](https://github.com/smithersai/smithers/issues/306), 58 open — OTLP layers, review drivers, fabricated/skip-only e2e, gateway-react branches)
-- [0053](smithers/0053-audit-code-cleanup-refactors.md) — Code cleanup & refactors ([#307](https://github.com/smithersai/smithers/issues/307), 25 open)
-- [0054](smithers/0054-degraded-partial-failure-run-status.md) — Degraded/partial-failure run status ([#295](https://github.com/smithersai/smithers/issues/295), open — masked failed children)
-- [0055](smithers/0055-quota-aware-pause-and-resume.md) — Quota-aware pause & resume ([#324](https://github.com/smithersai/smithers/issues/324), open — don't burn retries on usage-limit errors)
+**Still open (GitHub issue open):**
+
+- [0046](smithers/0046-audit-p0-blockers.md) — P0 critical blockers ([#299](https://github.com/smithersai/smithers/issues/299), **open** — real-product rewrite of the remaining ~17 fabricated-schema fault cases; multi-week e2e infra)
+- [0047](smithers/0047-audit-ci-architecture-systemic.md) — CI enforcement, architecture & systemic policy ([#300](https://github.com/smithersai/smithers/issues/300), **5 of 34 landed since triage, 29 open** — lint/typecheck-examples/examples-bun-test/e2e-boundary-scan/tsconfig-paths gates landed; CLI monolith, checkJs off, exports/boundary drift, agents↔observability publish cycle remain)
+- [0052](smithers/0052-audit-test-coverage-gaps.md) — Test coverage gaps ([#306](https://github.com/smithersai/smithers/issues/306), **open** — OTLP layers, review drivers, fabricated/skip-only e2e, gateway-react branches; examples tree now CI-gated)
+- [0054](smithers/0054-degraded-partial-failure-run-status.md) — Degraded/partial-failure run status ([#295](https://github.com/smithersai/smithers/issues/295), open — masked failed children; not started)
+- [0055](smithers/0055-quota-aware-pause-and-resume.md) — Quota-aware pause & resume ([#324](https://github.com/smithersai/smithers/issues/324), open — don't burn retries on usage-limit errors; not started)
 - [0056](smithers/0056-integrations-tool-catalog.md) — Integrations tool catalog ([#222](https://github.com/smithersai/smithers/issues/222), 72 of 87 open — OAuth plane is the load-bearing gap; Tier 1 connector backlog)
+
+**Closed & archived in `.done/` (source GitHub issue resolved):**
+
+- [0048](.done/0048-audit-dead-code-cleanup.md) — Dead code cleanup ([#301](https://github.com/smithersai/smithers/issues/301) ✅ closed 2026-06-20 — 66 findings dispositioned; half-migrated DB-schema dedup tracked separately as a refactor)
+- [0049](.done/0049-audit-stubbed-missing-features.md) — Stubbed & missing features ([#302](https://github.com/smithersai/smithers/issues/302) ✅ closed)
+- [0050](.done/0050-audit-bug-fixes.md) — Bug fixes ([#303](https://github.com/smithersai/smithers/issues/303) ✅ closed)
+- [0051](.done/0051-audit-docs-skills-accuracy.md) — Documentation & skills accuracy ([#304](https://github.com/smithersai/smithers/issues/304) ✅ closed — 10/11; remaining item is an external installed-skill fix, out of scope here)
+- [0053](.done/0053-audit-code-cleanup-refactors.md) — Code cleanup & refactors ([#307](https://github.com/smithersai/smithers/issues/307) ✅ closed — 24/25 done; approval-continue usage capture deferred with rationale)
 
 ## `jjhub/` — `/Users/williamcory/jjhub`
 

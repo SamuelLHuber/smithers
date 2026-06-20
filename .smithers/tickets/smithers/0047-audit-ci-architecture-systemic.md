@@ -2,7 +2,8 @@
 
 > Target repo: **smithers** (this repo)
 > Source: GitHub issue [#300](https://github.com/smithersai/smithers/issues/300) · 2026-06-16 bulletproof audit
-> Triaged 2026-06-18 against `main` (post-#442 merge train): **0 of 34 resolved, 34 still open**
+> Triaged 2026-06-18 against `main` (post-#442 merge train): 0 of 34 resolved.
+> Re-verified 2026-06-20: **5 of 34 landed, 29 still open** (the 5 are the CI-gate items below: lint, typecheck:examples, examples bun test, e2e dependency-boundary scan, tsconfig paths).
 
 ## Context
 
@@ -15,7 +16,7 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P2** index.js is a 6,439-line monolith mixing parsing, ~60 command bodies, MCP wiring, and helpers — `apps/cli/src/index.js (6439 lines)`
   - _remaining:_ No extraction performed; monolith remains and grew larger.
 - [x] **P1** dependency-boundary check scans ZERO files for the e2e workspace (directWorkspaceDirs entry is effectively dead) — `scripts/check-dependency-boundaries.mjs:101 (filesForPackage)`
-  - _remaining:_ e2e tests live outside src/; check still scans zero e2e files.
+  - _done (2026-06-20):_ `directWorkspaceDirs = ["e2e"]` (scripts/check-dependency-boundaries.mjs:14); `filesForPackage` now scans e2e source files.
 - [ ] **P2** Circular dependency between @smithers-orchestrator/agents and @smithers-orchestrator/observability ships to npm — `packages/agents/src/BaseCliAgent/BaseCliAgent.js:5-6 and apps/observability/src/_traceEventNormalizers.js:1-2`
   - _remaining:_ Published circular dependency still ships.
 - [ ] **P2** observability is a foundational library but lives in apps/ (package masquerading as an app) — `apps/observability/package.json`
@@ -25,7 +26,7 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P2** Subpath exports point their `types` condition at the barrel index.d.ts, which does not contain the subpath's symbols — `packages/agents/package.json (exports "./BaseCliAgent".types -> ./src/index.d.ts)`
   - _remaining:_ Subpath types still point at barrel index.d.ts (only 3 newer subpaths got own .d.ts).
 - [x] **P2** Three workspace packages (accounts, usage, tool-context) are missing from the root tsconfig paths map — `tsconfig.json:24-234 (paths)`
-  - _remaining:_ All three still missing from root tsconfig paths.
+  - _done (2026-06-20):_ accounts, usage, and tool-context are all present in the root `tsconfig.json` paths map.
 - [ ] **P2** smithers <-> cli package cycle exists (bin delegates dynamically; cli imports smithers statically) — `packages/smithers/src/bin/smithers.js:138 and apps/cli/src/*.js`
   - _remaining:_ Bidirectional smithers<->cli dependency persists.
 - [ ] **P2** Root package.json exports map is a dev-only alias that diverges structurally from the actually-published exports — `package.json:18-40 vs packages/smithers/package.json exports`
@@ -35,11 +36,11 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P2** No automated guard that every documented public subpath export resolves — `e2e/exports/programmatic-api.test.ts`
   - _remaining:_ No automated guard that every documented subpath export resolves.
 - [x] **P1** No lint (oxlint) gate in any CI workflow — `.github/workflows/ci.yml:28`
-  - _remaining:_ No lint gate in any CI workflow.
+  - _done (2026-06-20):_ `.github/workflows/ci.yml` runs `pnpm lint` (oxlint with react/node/import plugins).
 - [ ] **P1** No coverage measurement or gate anywhere in CI — the ~100% bar is unenforced — `.github/workflows/ci.yml:59`
   - _remaining:_ No coverage measurement or gate anywhere in CI.
 - [x] **P1** typecheck:examples never runs in CI — 22 user-facing example workflows can ship broken — `package.json:67`
-  - _remaining:_ typecheck:examples still never runs in CI.
+  - _done (2026-06-20):_ `.github/workflows/ci.yml` runs `pnpm typecheck:examples`.
 - [ ] **P2** Gateway OpenAPI drift check is gated only via faults.yml's `pnpm -r build`, not in the primary CI job — `.github/workflows/faults.yml:33`
   - _remaining:_ OpenAPI drift check still gated only via faults.yml build, not primary CI.
 - [ ] **P2** jj platform packages' prepublishOnly binary-presence validation never runs on PRs — `packages/jj-darwin-arm64/package.json:1`
@@ -47,7 +48,7 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P2** Full e2e suite runs in the test job without the build step that faults.yml deems necessary — `e2e/package.json:1`
   - _remaining:_ Full e2e suite still runs in test job against un-built packages.
 - [x] **P2** examples/ bun test (porting-rules.test.ts) never runs in CI — same untested-directory root cause as the smithers gap — `examples/bun-port-smithers/components/porting-rules.test.ts:14`
-  - _remaining:_ examples/ bun test still never runs in CI.
+  - _done (2026-06-20):_ `.github/workflows/ci.yml` runs `bun test examples/bun-port-smithers/components/porting-rules.test.ts`.
 - [ ] **P2** package.json "./*" subpath export is unused and would serve whole-bundle types for any subpath — `packages/accounts/package.json:13-17`
   - _remaining:_ accounts ./* wildcard still present serving whole-bundle types.
 - [ ] **P2** Committed generated index.d.ts has no CI sync guard (drift risk) — `packages/accounts/src/index.d.ts:1-158`

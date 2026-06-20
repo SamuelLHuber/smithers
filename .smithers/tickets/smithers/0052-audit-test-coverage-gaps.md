@@ -2,7 +2,8 @@
 
 > Target repo: **smithers** (this repo)
 > Source: GitHub issue [#306](https://github.com/smithersai/smithers/issues/306) · 2026-06-16 bulletproof audit
-> Triaged 2026-06-18 against `main` (post-#442 merge train): **32 of 90 resolved, 58 still open**
+> Triaged 2026-06-18 against `main` (post-#442 merge train): 32 of 90 resolved, 58 still open.
+> Re-verified 2026-06-20: a further ~12 of those 58 have since landed (the `[x]` items below — devtools/gateway-client/observability/review/smithers branch tests, plus the examples CI gate); **~44 of 90 resolved, ~46 still open**. The remaining bulk (untested OTLP/review drivers, fabricated/skip-only e2e fault cases, operator-UI behavioral coverage, gateway-react sync branches) is genuine open work. Several `_remaining:_` notes below are the original 2026-06-18 finding text and are stale where the box is now `[x]`.
 
 ## Context
 
@@ -51,7 +52,7 @@ Each item below is still open in current `main`. Text is the original audit find
 - [ ] **P1** Neither 'examples smoke test' actually exercises the examples/ tree — both only scan docs/** — `apps/cli/tests/docs-examples-smoke.test.js:155`
   - _remaining:_ Neither smoke test exercises the examples/ tree; both only scan docs
 - [x] **P2** examples/ tree (108 workflows) is in NO CI gate — typecheck:examples script exists but is never invoked — `.github/workflows/ci.yml:34`
-  - _remaining:_ examples/ tree still in NO CI gate; typecheck:examples never invoked
+  - _done (2026-06-20):_ `.github/workflows/ci.yml` now runs `pnpm typecheck:examples`, plus a `bun test` of the examples component tests. (The examples tsconfig still points at `src/*.js` rather than the published package — that narrower gap remains the separate open item below.)
 - [ ] **P2** examples/tsconfig.json points smithers-orchestrator at src/*.js source, not the published package — typecheck:examples does not validate against shipped types — `examples/tsconfig.json`
   - _remaining:_ examples tsconfig still points at src/*.js source, not the published package; does not validate against shipped types
 - [x] **P2** AntigravityAgent stream-json interpreter is untested and effectively dead in practice — ``
