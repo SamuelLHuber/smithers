@@ -85,23 +85,48 @@ function renderContext(state, iterationOverride) {
  * @returns {WaitReason | undefined}
  */
 function findWaitingReason(state, currentTimeMs) {
+    // Do a full pass to accumulate quota count and find the highest-priority
+    // non-quota wait reason. This prevents an early-return from shadowing
+    // quota-blocked tasks when mixed wait types coexist in the same run.
+    let primaryReason;
+    let quotaBlockedCount = 0;
+    let earliestQuotaResetAtMs;
     for (const descriptor of state.descriptors.values()) {
         const taskState = state.states.get(stateKeyFor(descriptor));
-        if (taskState === "waiting-approval") {
-            return { _tag: "Approval", nodeId: descriptor.nodeId };
+        if (taskState === "waiting-approval" && !primaryReason) {
+            primaryReason = { _tag: "Approval", nodeId: descriptor.nodeId };
         }
-        if (taskState === "waiting-event") {
+        else if (taskState === "waiting-event" && !primaryReason) {
             const eventName = typeof descriptor.meta?.__eventName === "string"
                 ? descriptor.meta.__eventName
                 : "";
-            return { _tag: "Event", eventName };
+            primaryReason = { _tag: "Event", eventName };
         }
-        if (taskState === "waiting-timer") {
-            return {
+        else if (taskState === "waiting-timer" && !primaryReason) {
+            primaryReason = {
                 _tag: "Timer",
                 resumeAtMs: timerResumeAtMs(descriptor, currentTimeMs),
             };
         }
+        else if (taskState === "waiting-quota") {
+            quotaBlockedCount += 1;
+            const resetAtMs = state.quotaResetTimes.get(stateKeyFor(descriptor));
+            if (resetAtMs != null) {
+                earliestQuotaResetAtMs = earliestQuotaResetAtMs == null
+                    ? resetAtMs
+                    : Math.min(earliestQuotaResetAtMs, resetAtMs);
+            }
+        }
+    }
+    if (primaryReason) {
+        return primaryReason;
+    }
+    if (quotaBlockedCount > 0) {
+        return {
+            _tag: "Quota",
+            quotaBlockedCount,
+            ...(earliestQuotaResetAtMs != null ? { resetAtMs: earliestQuotaResetAtMs } : {}),
+        };
     }
     return undefined;
 }
@@ -178,6 +203,39 @@ function isRetryableFailure(descriptor, error) {
         return false;
     }
     return true;
+}
+/**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+function isQuotaFailure(error) {
+    const payloadCode = error && typeof error === "object" && typeof error.code === "string"
+        ? error.code
+        : undefined;
+    const payloadDetails = error && typeof error === "object" && error.details && typeof error.details === "object"
+        ? error.details
+        : undefined;
+    const normalized = toSmithersError(error);
+    const code = payloadCode ?? normalized.code;
+    if (code === "AGENT_QUOTA_EXCEEDED")
+        return true;
+    const details = payloadDetails ?? normalized.details;
+    return Boolean(details && typeof details === "object" && details.failureQuota === true);
+}
+/**
+ * @param {unknown} error
+ * @returns {number | undefined}
+ */
+function getQuotaResetAtMs(error) {
+    const payloadDetails = error && typeof error === "object" && error.details && typeof error.details === "object"
+        ? error.details
+        : undefined;
+    const normalized = toSmithersError(error);
+    const details = payloadDetails ?? normalized.details;
+    if (!details || typeof details !== "object")
+        return undefined;
+    const resetAtMs = details.quotaResetAtMs;
+    return typeof resetAtMs === "number" && Number.isFinite(resetAtMs) ? resetAtMs : undefined;
 }
 /**
  * @param {unknown} error
@@ -274,6 +332,8 @@ export function makeWorkflowSession(options = {}) {
         retryWait: new Map(),
         approvals: new Set(),
         ralphState: new Map(options.initialRalphState ?? []),
+        /** @type {Map<string, number>} Maps state key → quota reset timestamp (ms) */
+        quotaResetTimes: new Map(),
         schedule: null,
         cancelled: false,
         lastMountedSignature: null,
@@ -336,6 +396,7 @@ export function makeWorkflowSession(options = {}) {
                 state.approvals.delete(key);
                 state.retryCounts.delete(key);
                 state.failureDescriptors.delete(key);
+                state.quotaResetTimes.delete(key);
             }
         }
         for (const ralph of ralphs) {
@@ -366,6 +427,7 @@ export function makeWorkflowSession(options = {}) {
         state.outputs.set(key, output);
         state.retryWait.delete(key);
         state.failureDescriptors.delete(key);
+        state.quotaResetTimes.delete(key);
     }
     /**
    * @param {number} [iteration]
@@ -437,6 +499,21 @@ export function makeWorkflowSession(options = {}) {
    */
     function applyFailure(descriptor, error) {
         const key = stateKeyFor(descriptor);
+        // Quota/usage-limit errors do not consume the task's retry budget.
+        // Instead, put the task into "waiting-quota" so the run can pause
+        // durably and resume cleanly after the provider resets.
+        if (isQuotaFailure(error)) {
+            state.states.set(key, "waiting-quota");
+            state.failures.set(key, error);
+            const resetAtMs = getQuotaResetAtMs(error);
+            if (resetAtMs != null) {
+                state.quotaResetTimes.set(key, resetAtMs);
+            }
+            else {
+                state.quotaResetTimes.delete(key);
+            }
+            return decide();
+        }
         const failureCount = (state.retryCounts.get(key) ?? 0) + 1;
         state.retryCounts.set(key, failureCount);
         const retryable = isRetryableFailure(descriptor, error);

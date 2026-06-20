@@ -53,12 +53,13 @@ function makeBridgeWorkflow(workflow, runId) {
 }
 /**
  * @param {RunResult["status"] | "continued"} status
- * @returns {status is "waiting-approval" | "waiting-event" | "waiting-timer"}
+ * @returns {status is "waiting-approval" | "waiting-event" | "waiting-timer" | "waiting-quota"}
  */
 function isSuspendingStatus(status) {
     return (status === "waiting-approval" ||
         status === "waiting-event" ||
-        status === "waiting-timer");
+        status === "waiting-timer" ||
+        status === "waiting-quota");
 }
 /**
  * @param {ReturnType<typeof makeBridgeWorkflow>} workflowBridge
@@ -213,7 +214,8 @@ export async function runWorkflowWithMakeBridge(workflow, opts, executeBody) {
         const run = await Effect.runPromise(adapter.getRun(lastRunIdRef.current));
         const status = run?.status === "waiting-approval" ||
             run?.status === "waiting-event" ||
-            run?.status === "waiting-timer"
+            run?.status === "waiting-timer" ||
+            run?.status === "waiting-quota"
             ? run.status
             : "cancelled";
         return {

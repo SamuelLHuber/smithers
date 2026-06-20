@@ -3,6 +3,7 @@ export type TaskState =
   | "waiting-approval"
   | "waiting-event"
   | "waiting-timer"
+  | "waiting-quota"
   | "in-progress"
   | "finished"
   | "failed"

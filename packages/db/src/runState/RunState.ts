@@ -3,6 +3,7 @@ export type RunState =
   | "waiting-approval"
   | "waiting-event"
   | "waiting-timer"
+  | "waiting-quota"
   | "recovering"
   | "stale"
   | "orphaned"

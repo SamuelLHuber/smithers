@@ -8,7 +8,8 @@ export type RunResult = {
     | "continued"
     | "waiting-approval"
     | "waiting-event"
-    | "waiting-timer";
+    | "waiting-timer"
+    | "waiting-quota";
   readonly output?: unknown;
   readonly error?: unknown;
   readonly nextRunId?: string;

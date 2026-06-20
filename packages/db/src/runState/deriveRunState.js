@@ -70,6 +70,31 @@ export function deriveRunState(input) {
             return parkedEventBlock
                 ? { ...base, state: "waiting-event", blocked: parkedEventBlock }
                 : { ...base, state: "waiting-event" };
+        case "waiting-quota": {
+            let quotaMeta;
+            if (run.errorJson) {
+                try { quotaMeta = JSON.parse(run.errorJson); } catch { /* ignore */ }
+            }
+            const quotaBlockedCount = typeof quotaMeta?.quotaBlockedCount === "number"
+                ? quotaMeta.quotaBlockedCount
+                : undefined;
+            const resetAtMs = typeof quotaMeta?.resetAtMs === "number"
+                ? quotaMeta.resetAtMs
+                : undefined;
+            return {
+                ...base,
+                state: "waiting-quota",
+                ...(quotaBlockedCount != null
+                    ? {
+                          blocked: {
+                              kind: "quota",
+                              quotaBlockedCount,
+                              ...(resetAtMs != null ? { resetAtMs } : {}),
+                          },
+                      }
+                    : {}),
+            };
+        }
         case "running":
             return classifyRunning(run, now, staleThresholdMs, base);
         default:

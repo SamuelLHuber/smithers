@@ -458,3 +458,77 @@ describe("engine internals: cancellation maintenance", () => {
         expect(calls.some(([kind, row]) => kind === "insertNode" && row.state === "pending")).toBe(true);
     });
 });
+
+describe("engine internals: quota task failure detection", () => {
+    test("isQuotaTaskFailure returns true for AGENT_QUOTA_EXCEEDED error code", () => {
+        const attempt = {
+            errorJson: JSON.stringify({ code: "AGENT_QUOTA_EXCEEDED", message: "quota hit" }),
+            metaJson: null,
+        };
+        expect(I.isQuotaTaskFailure(attempt)).toBe(true);
+    });
+
+    test("isQuotaTaskFailure returns true for failureQuota: true in error details", () => {
+        const attempt = {
+            errorJson: JSON.stringify({
+                code: "AGENT_CLI_ERROR",
+                message: "rate limit",
+                details: { failureQuota: true },
+            }),
+            metaJson: null,
+        };
+        expect(I.isQuotaTaskFailure(attempt)).toBe(true);
+    });
+
+    test("isQuotaTaskFailure returns false for regular AGENT_CLI_ERROR", () => {
+        const attempt = {
+            errorJson: JSON.stringify({ code: "AGENT_CLI_ERROR", message: "transient" }),
+            metaJson: null,
+        };
+        expect(I.isQuotaTaskFailure(attempt)).toBe(false);
+    });
+
+    test("isQuotaTaskFailure returns false for AGENT_CONFIG_INVALID", () => {
+        const attempt = {
+            errorJson: JSON.stringify({ code: "AGENT_CONFIG_INVALID", message: "bad model" }),
+            metaJson: null,
+        };
+        expect(I.isQuotaTaskFailure(attempt)).toBe(false);
+    });
+
+    test("isQuotaTaskFailure handles null/missing attempt gracefully", () => {
+        expect(I.isQuotaTaskFailure(null)).toBe(false);
+        expect(I.isQuotaTaskFailure(undefined)).toBe(false);
+        expect(I.isQuotaTaskFailure({ errorJson: null, metaJson: null })).toBe(false);
+    });
+
+    test("quota attempts do not decrement retry budget via DB round-trip", async () => {
+        const { adapter } = makeContinueDb();
+        const runId = "test-quota-run";
+        await insertRun(adapter, runId);
+
+        // Simulate a persisted AGENT_QUOTA_EXCEEDED attempt
+        await Effect.runPromise(adapter.insertAttempt({
+            runId,
+            nodeId: "task-1",
+            iteration: 0,
+            attempt: 1,
+            state: "failed",
+            startedAtMs: 1,
+            finishedAtMs: 2,
+            errorJson: JSON.stringify({ code: "AGENT_QUOTA_EXCEEDED", message: "quota hit" }),
+            metaJson: JSON.stringify({ kind: "agent" }),
+            heartbeatDataJson: null,
+            heartbeatDataSizeBytes: null,
+        }));
+
+        const attempts = await Effect.runPromise(adapter.listAttempts(runId, "task-1", 0));
+        expect(attempts).toHaveLength(1);
+
+        // The quota attempt should be recognized as a quota failure
+        const [attempt] = attempts;
+        expect(I.isQuotaTaskFailure(attempt)).toBe(true);
+        // And should still be retryable (not a non-retryable failure)
+        expect(I.isRetryableTaskFailure(attempt)).toBe(true);
+    });
+});

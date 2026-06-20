@@ -3,6 +3,7 @@ export type RunStatus =
   | "waiting-approval"
   | "waiting-event"
   | "waiting-timer"
+  | "waiting-quota"
   | "finished"
   | "continued"
   | "failed"

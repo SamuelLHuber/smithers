@@ -609,6 +609,8 @@ export class WorkflowDriver {
                 return { runId: this.activeRunId, status: "waiting-event" };
             case "Timer":
                 return { runId: this.activeRunId, status: "waiting-timer" };
+            case "Quota":
+                return { runId: this.activeRunId, status: "waiting-quota" };
             case "RetryBackoff": {
                 await sleepWithAbort(reason.waitMs, this.activeOptions?.signal);
                 if (this.activeOptions?.signal?.aborted) {

@@ -5,4 +5,9 @@ export type WaitReason =
   | { readonly _tag: "RetryBackoff"; readonly waitMs: number }
   | { readonly _tag: "HotReload" }
   | { readonly _tag: "OrphanRecovery"; readonly count: number }
-  | { readonly _tag: "ExternalTrigger" };
+  | { readonly _tag: "ExternalTrigger" }
+  | {
+      readonly _tag: "Quota";
+      readonly quotaBlockedCount: number;
+      readonly resetAtMs?: number;
+    };

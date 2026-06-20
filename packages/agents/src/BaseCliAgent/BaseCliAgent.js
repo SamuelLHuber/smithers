@@ -5,6 +5,68 @@ import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { logDebug, logInfo, logWarning } from "@smithers-orchestrator/observability/logging";
 import { agentDurationMs, agentErrorsTotal, agentInvocationsTotal, agentRetriesTotal, agentTokensTotal, } from "@smithers-orchestrator/observability/metrics";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
+
+const QUOTA_PATTERNS = [
+    /\bhit\s+your\s+usage\s+limit\b/i,
+    /\busage\s+limit\s+exceeded\b/i,
+    /\bquota\s+exceeded\b/i,
+    /\brate\s+limit\s+exceeded\b/i,
+    /\byou('ve| have)\s+reached\s+(your\s+)?(usage|rate|quota)\b/i,
+    /\b(usage|quota|rate)\s+(cap|ceiling|limit)\s+(reached|exceeded|hit)\b/i,
+    /\btoo\s+many\s+requests\b/i,
+    /\b(429|rate.limit)\b[\s\S]{0,100}?try\s+again\b/i,
+];
+
+/**
+ * Detects provider quota/rate-limit errors and returns a SmithersError with
+ * AGENT_QUOTA_EXCEEDED code. The reset time is parsed when present.
+ *
+ * @param {string} message
+ * @param {string} command
+ * @param {{ agentId?: string; agentModel?: string; agentEngine?: string; nowMs?: () => number }} [context]
+ * @returns {SmithersError | null}
+ */
+export function classifyQuotaError(message, command, context = {}) {
+    if (!message) return null;
+    const isQuota = QUOTA_PATTERNS.some((re) => re.test(message));
+    if (!isQuota) return null;
+    const { agentId, agentModel, agentEngine, nowMs = () => Date.now() } = context;
+    const now = nowMs();
+    let quotaResetAtMs;
+    let resetHint;
+    // Format: "try again at Jun 18th, 2026 9:54 AM" — strip ordinal suffix before parsing
+    const dateMatch = /try again at\s+([A-Z][a-z]+ \d+(?:st|nd|rd|th)?,?\s+\d{4}\s+\d+:\d+\s+(?:AM|PM))/i.exec(message);
+    if (dateMatch) {
+        const normalized = dateMatch[1].replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
+        const parsed = Date.parse(normalized);
+        if (Number.isFinite(parsed) && parsed > now) {
+            quotaResetAtMs = parsed;
+        }
+        resetHint = dateMatch[0];
+    } else {
+        // Format: "retry after N seconds"
+        const secondsMatch = /retry after\s+(\d+)\s+second/i.exec(message);
+        if (secondsMatch) {
+            const deltaMs = Number(secondsMatch[1]) * 1000;
+            if (deltaMs > 0) {
+                quotaResetAtMs = now + deltaMs;
+            }
+            resetHint = secondsMatch[0];
+        }
+    }
+    const modelLabel = agentModel ?? "<unset>";
+    const idLabel = agentId ?? "<anonymous>";
+    const summary = `Agent "${idLabel}" (${command}, model=${modelLabel}) hit a provider usage/quota limit: ${message.slice(0, 300)}.${resetHint ? ` ${resetHint}.` : ""} Retries are preserved; the run will pause until the quota resets.`;
+    return new SmithersError("AGENT_QUOTA_EXCEEDED", summary, {
+        failureQuota: true,
+        agentId: idLabel,
+        agentEngine: agentEngine ?? "unknown",
+        agentModel: modelLabel,
+        command,
+        underlying: message.slice(0, 500),
+        ...(quotaResetAtMs != null ? { quotaResetAtMs } : {}),
+    });
+}
 import { launchDiagnostics, enrichReportWithErrorAnalysis, formatDiagnosticSummary } from "../diagnostics/index.js";
 import { extractPrompt } from "./extractPrompt.js";
 import { resolveTimeouts } from "./resolveTimeouts.js";
@@ -694,15 +756,8 @@ export class BaseCliAgent {
         const agentId = this.id;
         const agentModel = this.model;
         const agentEngine = resolveAgentEngineTag(this);
-        /**
-     * Detect well-known non-retryable CLI agent configuration errors so the
-     * engine surfaces them with a clear, actionable message and stops retrying
-     * (these errors are deterministic and will never recover by re-running).
-     *
-     * @param {string} message
-     * @param {string} command
-     * @returns {SmithersError | null}
-     */
+        const agentCtx = { agentId, agentModel, agentEngine };
+        const classifyQuota = (message, command) => classifyQuotaError(message, command, agentCtx);
         function classifyNonRetryableAgentError(message, command) {
             if (!message)
                 return null;
@@ -924,6 +979,10 @@ export class BaseCliAgent {
                             filteredStderr ||
                             result.stdout.trim() ||
                             `CLI exited with code ${result.exitCode}`;
+                        const quota = classifyQuota(errorText, commandSpec.command);
+                        if (quota) {
+                            return yield* Effect.fail(quota);
+                        }
                         const nonRetryable = classifyNonRetryableAgentError(errorText, commandSpec.command);
                         if (nonRetryable) {
                             return yield* Effect.fail(nonRetryable);
@@ -951,7 +1010,12 @@ export class BaseCliAgent {
                     }
                 }
                 if (completedEvent?.ok === false) {
-                    return yield* Effect.fail(new SmithersError("AGENT_CLI_ERROR", completedEvent.error || "CLI agent reported an error"));
+                    const completedError = completedEvent.error || "CLI agent reported an error";
+                    const completedQuota = classifyQuota(completedError, commandSpec.command);
+                    if (completedQuota) {
+                        return yield* Effect.fail(completedQuota);
+                    }
+                    return yield* Effect.fail(new SmithersError("AGENT_CLI_ERROR", completedError));
                 }
                 // Some CLIs may print extra banners to stdout. Allow individual agents
                 // to provide patterns so this logic stays opt-in and agent-specific.

@@ -290,6 +290,11 @@ export const smithersErrorDefinitions = {
         category: "agents",
         when: "A CLI-backed agent exits unsuccessfully, streams an explicit error, or its RPC transport fails.",
     },
+    AGENT_QUOTA_EXCEEDED: {
+        category: "agents",
+        when: "An agent provider returns a usage-limit or quota error. The failure is transient; retries are preserved and the run pauses until the reset time.",
+        details: "{ agentId?, agentEngine?, agentModel?, quotaResetAtMs?, resetHint? }",
+    },
     AGENT_CONFIG_INVALID: {
         category: "agents",
         when: "A CLI-backed agent fails with a non-retryable configuration error (e.g. unknown model, missing LLM, unsupported model). Includes agent id, engine and model in details so the offending entry in .smithers/agents.ts can be located.",

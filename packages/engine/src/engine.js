@@ -1986,6 +1986,7 @@ const RESUMABLE_RUN_STATUSES = new Set([
     "waiting-approval",
     "waiting-event",
     "waiting-timer",
+    "waiting-quota",
     "cancelled",
     "finished",
     "failed",
@@ -2326,6 +2327,30 @@ function isRetryableTaskFailure(attempt) {
     return !(kind !== "agent" && errorCode === "INVALID_OUTPUT");
 }
 /**
+ * Quota-limited attempts are transient failures that should never count
+ * against the task's retry budget. The run pauses until the quota resets
+ * and then retries as if the attempt never occurred.
+ * @param {{ errorJson?: string | null; metaJson?: string | null } | null} [attempt]
+ */
+function isQuotaTaskFailure(attempt) {
+    const errorCode = parseAttemptErrorCode(attempt?.errorJson);
+    if (errorCode === "AGENT_QUOTA_EXCEEDED")
+        return true;
+    // Check error details for failureQuota flag (covers agents using a different
+    // error code but still marking the failure as quota-related via details).
+    if (attempt?.errorJson) {
+        try {
+            const errorObj = JSON.parse(attempt.errorJson);
+            if (errorObj?.details?.failureQuota === true)
+                return true;
+        }
+        catch { /* ignore parse errors */ }
+    }
+    // Legacy: some paths may set failureQuota in metaJson instead of errorJson.
+    const meta = parseAttemptMetaJson(attempt?.metaJson);
+    return meta?.failureQuota === true;
+}
+/**
  * @param {SmithersDb} adapter
  * @param {BunSQLiteDatabase} db
  * @param {string} runId
@@ -2457,7 +2482,10 @@ async function computeTaskStates(adapter, db, runId, tasks, eventBus, ralphDone,
         const maxAttempts = desc.retries + 1;
         const failedAttempts = attempts.filter((a) => a.state === "failed");
         const hasNonRetryableFailure = failedAttempts.some((attempt) => !isRetryableTaskFailure(attempt));
-        if (hasNonRetryableFailure || failedAttempts.length >= maxAttempts) {
+        // Quota-limited attempts do not consume the retry budget; exclude them
+        // so a task paused by quota exhaustion resumes with its retries intact.
+        const retryConsumingFailedAttempts = failedAttempts.filter((a) => !isQuotaTaskFailure(a));
+        if (hasNonRetryableFailure || retryConsumingFailedAttempts.length >= maxAttempts) {
             stateMap.set(key, "failed");
             await Effect.runPromise(adapter.insertNode({
                 runId,
@@ -4468,7 +4496,8 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
         const attempts = await Effect.runPromise(adapter.listAttempts(runId, desc.nodeId, desc.iteration));
         const failedAttempts = attempts.filter((a) => a.state === "failed");
         const hasNonRetryableFailure = failedAttempts.some((attempt) => !isRetryableTaskFailure(attempt));
-        if (!hasNonRetryableFailure && failedAttempts.length <= desc.retries) {
+        const retryConsumingFailedAttempts = failedAttempts.filter((a) => !isQuotaTaskFailure(a));
+        if (!hasNonRetryableFailure && retryConsumingFailedAttempts.length <= desc.retries) {
             await Effect.runPromise(eventBus.emitEventWithPersist({
                 type: "NodeRetrying",
                 runId,
@@ -4948,19 +4977,24 @@ async function runWorkflowBodyDriver(workflow, opts) {
         return Effect.runPromise(workflowSession.submitGraph(lastGraph));
     };
     /**
-   * @param {"waiting-approval" | "waiting-event" | "waiting-timer"} status
-   * @param {"approval" | "event" | "timer"} waitReason
+   * @param {"waiting-approval" | "waiting-event" | "waiting-timer" | "waiting-quota"} status
+   * @param {"approval" | "event" | "timer" | "quota"} waitReason
+   * @param {{ quotaMetadataJson?: string }} [opts]
    * @returns {Promise<RunResult>}
    */
-    const markRunWaiting = async (status, waitReason) => {
-        await Effect.runPromise(adapter.updateRun(runId, {
+    const markRunWaiting = async (status, waitReason, opts = {}) => {
+        const patch = {
             status,
             heartbeatAtMs: null,
             runtimeOwnerId: null,
             cancelRequestedAtMs: null,
             hijackRequestedAtMs: null,
             hijackTarget: null,
-        }));
+        };
+        if (opts.quotaMetadataJson != null) {
+            patch.errorJson = opts.quotaMetadataJson;
+        }
+        await Effect.runPromise(adapter.updateRun(runId, patch));
         await Effect.runPromise(eventBus.emitEventWithPersist({
             type: "RunStatusChanged",
             runId,
@@ -5107,6 +5141,13 @@ async function runWorkflowBodyDriver(workflow, opts) {
             case "RetryBackoff":
                 await Bun.sleep(Math.max(0, reason.waitMs));
                 return submitLastGraph();
+            case "Quota":
+                return markRunWaiting("waiting-quota", "quota", {
+                    quotaMetadataJson: JSON.stringify({
+                        quotaBlockedCount: reason.quotaBlockedCount,
+                        ...(reason.resetAtMs != null ? { resetAtMs: reason.resetAtMs } : {}),
+                    }),
+                });
             case "HotReload":
             case "OrphanRecovery":
             case "ExternalTrigger":
@@ -5139,8 +5180,9 @@ async function runWorkflowBodyDriver(workflow, opts) {
             const attempts = await Effect.runPromise(adapter.listAttempts(runId, task.nodeId, task.iteration));
             const failedAttempts = attempts.filter((attempt) => attempt.state === "failed");
             const hasNonRetryableFailure = failedAttempts.some((attempt) => !isRetryableTaskFailure(attempt));
+            const retryConsumingFailedAttempts = failedAttempts.filter((attempt) => !isQuotaTaskFailure(attempt));
             if (hasNonRetryableFailure ||
-                failedAttempts.length >= task.retries + 1) {
+                retryConsumingFailedAttempts.length >= task.retries + 1) {
                 await Effect.runPromise(adapter.insertNode({
                     runId,
                     nodeId: task.nodeId,
@@ -5329,7 +5371,8 @@ async function runWorkflowBodyDriver(workflow, opts) {
         }
         if (result.status === "waiting-approval" ||
             result.status === "waiting-event" ||
-            result.status === "waiting-timer") {
+            result.status === "waiting-timer" ||
+            result.status === "waiting-quota") {
             return result;
         }
         if (result.status === "cancelled") {
@@ -6006,6 +6049,7 @@ export const __engineInternals = {
     buildRalphDoneMap,
     parseAttemptErrorCode,
     isRetryableTaskFailure,
+    isQuotaTaskFailure,
     cancelInProgress,
     cancelStaleAttempts,
 };

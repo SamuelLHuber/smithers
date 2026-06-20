@@ -75,6 +75,7 @@ export const DB_RUN_ALLOWED_STATUSES = [
     "waiting-approval",
     "waiting-event",
     "waiting-timer",
+    "waiting-quota",
     "finished",
     "failed",
     "cancelled",

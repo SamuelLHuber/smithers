@@ -3,7 +3,7 @@ import { Context, Layer, Effect, Schedule } from 'effect';
 import * as _smithers_graph from '@smithers-orchestrator/graph';
 import { TaskDescriptor as TaskDescriptor$3, WorkflowGraph } from '@smithers-orchestrator/graph';
 
-type TaskState$2 = "pending" | "waiting-approval" | "waiting-event" | "waiting-timer" | "in-progress" | "finished" | "failed" | "cancelled" | "skipped";
+type TaskState$2 = "pending" | "waiting-approval" | "waiting-event" | "waiting-timer" | "waiting-quota" | "in-progress" | "finished" | "failed" | "cancelled" | "skipped";
 
 type TaskStateMap$4 = Map<string, TaskState$2>;
 
@@ -126,7 +126,7 @@ type RenderContext$1 = {
 
 type RunResult$1 = {
     readonly runId: string;
-    readonly status: "running" | "finished" | "failed" | "cancelled" | "continued" | "waiting-approval" | "waiting-event" | "waiting-timer";
+    readonly status: "running" | "finished" | "failed" | "cancelled" | "continued" | "waiting-approval" | "waiting-event" | "waiting-timer" | "waiting-quota";
     readonly output?: unknown;
     readonly error?: unknown;
     readonly nextRunId?: string;
@@ -151,6 +151,10 @@ type WaitReason$1 = {
     readonly count: number;
 } | {
     readonly _tag: "ExternalTrigger";
+} | {
+    readonly _tag: "Quota";
+    readonly quotaBlockedCount: number;
+    readonly resetAtMs?: number;
 };
 
 type EngineDecision$1 = {

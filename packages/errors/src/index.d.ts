@@ -599,6 +599,12 @@ declare namespace smithersErrorDefinitions {
         let category: string;
         let when: string;
     }
+    namespace AGENT_QUOTA_EXCEEDED {
+        let category_90: string;
+        export { category_90 as category };
+        let when_90: string;
+        export { when_90 as when };
+    }
     namespace AGENT_RPC_FILE_ARGS {
         let category_59: string;
         export { category_59 as category };

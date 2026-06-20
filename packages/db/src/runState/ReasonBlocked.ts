@@ -9,4 +9,5 @@ export type ReasonBlocked =
       nodeId: string;
       code: "rate-limit" | "auth" | "timeout";
     }
-  | { kind: "tool"; nodeId: string; toolName: string; code: string };
+  | { kind: "tool"; nodeId: string; toolName: string; code: string }
+  | { kind: "quota"; quotaBlockedCount: number; resetAtMs?: number };
