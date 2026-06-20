@@ -5,7 +5,6 @@ import { createServer } from "node:net";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
-  REPO_ROOT,
   createExecutableDir,
   createTempRepo,
   runSmithers,
@@ -35,23 +34,19 @@ import {
  * is the ONLY stub — the repo's standard e2e fixture — everything else is real.
  *
  * Runs under bun (init helpers shell out to bun; the gateway uses bun:sqlite);
- * Chromium comes from the studio-2 Playwright install, resolved via the repo.
+ * Chromium is resolved from the playwright devDependency declared in apps/cli.
+ * If the binary is not installed (e.g. CI), the test is skipped.
  */
 
 const DESCRIPTORS = JSON.parse(readFileSync(resolve(import.meta.dir, "workflow-ui-descriptors.json"), "utf8"));
 const require = createRequire(import.meta.url);
-const STUDIO_PLAYWRIGHT_ENTRY = resolve(REPO_ROOT, "apps/smithers-studio-2/node_modules/playwright/index.js");
 
 function resolveChromium() {
-  const entries = ["playwright"];
-  if (existsSync(STUDIO_PLAYWRIGHT_ENTRY)) entries.push(STUDIO_PLAYWRIGHT_ENTRY);
-  for (const entry of entries) {
-    try {
-      const chromium = require(entry).chromium;
-      const executablePath = chromium?.executablePath?.();
-      if (typeof executablePath === "string" && existsSync(executablePath)) return chromium;
-    } catch {}
-  }
+  try {
+    const chromium = require("playwright").chromium;
+    const executablePath = chromium?.executablePath?.();
+    if (typeof executablePath === "string" && existsSync(executablePath)) return chromium;
+  } catch {}
   return null;
 }
 
