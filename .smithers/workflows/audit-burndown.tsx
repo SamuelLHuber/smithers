@@ -36,13 +36,23 @@ import { reviewOutputSchema } from "../components/Review";
  *     is empty and main is green. Run it with `smithers up … --detach` +
  *     `smithers supervise` and it survives restarts via resume, grinding the
  *     backlog down over days/weeks one verified batch at a time.
+ *  5. NEVER PUSHES — PUSH-SAFE. The workflow ONLY ever merges to LOCAL `main`; a
+ *     human pushes out-of-band after review. Every agent prompt carries an
+ *     absolute push ban + a stay-scoped rule (an early run had an agent wander
+ *     off its item and push a debugging trail to shared origin — that must never
+ *     happen again). A deterministic PUSH FENCE captures origin/main at start and
+ *     the oracle re-checks every iteration for any `burndown/*` branch on origin
+ *     or any origin/main drift; on detection it halts at the `oracle-fix`
+ *     approval. For hard prevention, run the agents with a token that has no push
+ *     scope (or in a sandbox without origin write creds) — prompts alone are not
+ *     a security boundary.
  *
- * Run:
+ * Run (the workflow never pushes; you push after reviewing local main):
  *   smithers up .smithers/workflows/audit-burndown.tsx --detach \
- *     --input '{"batchSize":4,"maxConcurrency":2,"runFullGate":true,"push":false}'
+ *     --input '{"batchSize":4,"maxConcurrency":2,"runFullGate":true,"ticketPrefixes":["0052"]}'
  *   smithers supervise            # auto-resume on owner-process death
  *   smithers ps                   # watch it
- *   smithers node oracle -r RUN   # the completeness proof per iteration
+ *   smithers node oracle -r RUN   # the completeness proof + push-fence status per iteration
  *   smithers logs RUN --follow    # live progress
  */
 
@@ -83,8 +93,17 @@ const completenessSchema = z.object({
   mainTestGreen: z.boolean().default(false),
   mainGateGreen: z.boolean().default(false),
   ranFullGate: z.boolean().default(false),
+  /** Push fence: true if an agent pushed to origin (rogue burndown branch or origin/main drift). */
+  roguePushDetected: z.boolean().default(false),
+  roguePushDetail: z.string().default(""),
   summary: z.string().default(""),
   output: z.string().default(""),
+});
+
+/** Captured once at workflow start: the origin/main SHA the run must never move. */
+const baselineSchema = z.object({
+  originMainSha: z.string().default(""),
+  capturedAt: z.string().default(""),
 });
 
 const approvalSchema = z.object({
@@ -111,6 +130,7 @@ const inputSchema = z.object({
 
 const { Workflow, Task, Approval, smithers, outputs } = createSmithers({
   input: inputSchema,
+  baseline: baselineSchema,
   batch: batchSchema,
   itemResult: itemResultSchema,
   merge: mergeSchema,
@@ -198,8 +218,13 @@ function itemPrompt(item: BatchItem): string {
     `- Follow CLAUDE.md: atomic emoji+conventional commits, NO mocks in product/e2e, keep the committed src/index.d.ts in sync by hand when you change a public export (tsup does not regen it here).`,
     `- VERIFY locally before you finish: run the affected package's \`pnpm -C <pkg> typecheck\` and \`test\`, plus root \`pnpm lint\` and \`node scripts/check-dependency-boundaries.mjs\`. If you touched docs/, run \`node scripts/check-docs.mjs\` and \`node scripts/check-llms.mjs\` (regenerate bundles with \`pnpm docs:llms\`).`,
     `- If the item turns out to be already-done, stale, by-design, or genuinely multi-week, do NOT fake it: instead edit the ticket to replace the \`- [ ]\` with \`- [x]\` (if truly done) or add a \`  - _disposition (date):_ …\` sub-bullet explaining why, and commit that. An honest disposition counts as completing the item.`,
+    `- STAY STRICTLY SCOPED to THIS item. If you discover an unrelated failing test, flaky CI, or a bug in another area, do NOT chase or fix it — write one sentence about it in your result summary and finish THIS item. Do not bundle, refactor, or go on tangents.`,
     `- When the code change is done, CHECK THE BOX: change the item's \`- [ ]\` to \`- [x]\` in ${item.ticketFile} and add a one-line \`— done: …\` note, then commit.`,
-    `- Commit your work to this branch. Do not push.`,
+    ``,
+    `🚫 ABSOLUTE PUSH BAN — read carefully:`,
+    `- NEVER run \`git push\`, \`git push --force\`, \`gh pr create\`, or anything that writes to the remote/origin. Not now, not "to be safe", not at the end. The orchestrating workflow owns all interaction with origin; an agent push corrupts shared \`main\`.`,
+    `- Do NOT run \`git remote\` mutations, do NOT change branches off your worktree branch, do NOT touch \`main\` directly. Work ONLY on this worktree's branch.`,
+    `- Commit your work to THIS worktree branch with local commits only. That is the entire extent of your git interaction. If you think you need to push, you are wrong — stop and finish without pushing.`,
   ].filter(Boolean).join("\n");
 }
 
@@ -240,15 +265,33 @@ export default smithers((ctx) => {
   const items = (batch?.items ?? []) as BatchItem[];
   const ticketResults = (ctx.outputs.itemResult ?? []) as Array<z.infer<typeof itemResultSchema>>;
 
+  // Push fence baseline: the origin/main SHA captured once at run start. The
+  // workflow itself NEVER pushes, so if origin moves, an agent (or a human)
+  // pushed — the oracle flags it and the run halts.
+  const baseline = ctx.outputMaybe(outputs.baseline, { nodeId: "baseline" });
+  const baselineSha = baseline?.originMainSha ?? "";
+
   // Outer-loop termination: the latest oracle proves an empty, green backlog.
   const oracle = ctx.outputMaybe(outputs.completeness, { nodeId: "oracle" });
   const backlogEmpty = oracle?.openCountAfter === 0;
   const mainGreen = oracle?.mainGateGreen === true;
-  const burndownDone = backlogEmpty && mainGreen;
-  const oracleBrokeMain = oracle !== undefined && oracle.ranFullGate && oracle.mainGateGreen === false;
+  const roguePush = oracle?.roguePushDetected === true;
+  // Done only when backlog empty, main green, AND no rogue push ever detected.
+  const burndownDone = backlogEmpty && mainGreen && !roguePush;
+  const oracleHalt = oracle !== undefined && ((oracle.ranFullGate && oracle.mainGateGreen === false) || oracle.roguePushDetected === true);
 
   return (
     <Workflow name="audit-burndown">
+      <Sequence>
+      {/* 0. PUSH-FENCE BASELINE — capture origin/main once; the run must never move it. */}
+      <Task id="baseline" output={outputs.baseline}>
+        {async () => {
+          const { spawnSync } = await import("node:child_process");
+          spawnSync("bash", ["-lc", "git fetch -q origin main"], { cwd: process.cwd(), encoding: "utf8", timeout: 120_000 });
+          const res = spawnSync("bash", ["-lc", "git rev-parse origin/main"], { cwd: process.cwd(), encoding: "utf8", timeout: 60_000 });
+          return { originMainSha: (res.stdout ?? "").trim(), capturedAt: new Date().toISOString() };
+        }}
+      </Task>
       <Loop id="burndown" until={burndownDone} maxIterations={maxOuterIterations} onMaxReached="return-last">
         <Sequence>
           {/* 1. DISCOVER — deterministic scan for small actionable items, pick a batch. */}
@@ -298,19 +341,21 @@ export default smithers((ctx) => {
             })}
           </Parallel>
 
-          {/* 3. MERGE — land only the green+approved branches onto LOCAL main. */}
+          {/* 3. MERGE — land only the green+approved branches onto LOCAL main. NEVER push. */}
           <Task id="merge" output={outputs.merge} agent={agents.smart}>
             {[
-              `Merge the completed burndown branches from this batch into local \`main\`. Do NOT push to origin.`,
+              `Merge the completed burndown branches from this batch into LOCAL \`main\` only.`,
+              ``,
+              `🚫 ABSOLUTE PUSH BAN: NEVER run \`git push\`, \`git push --force\`, or anything that writes to origin/remote. Pushing to shared \`main\` is forbidden and corrupts everyone's tree. A human pushes out-of-band after reviewing; your job ends at the local merge.`,
               ``,
               `Batch results:`,
               ticketResults.map((r) => `- ${r.slug} [${r.status}] branch "${r.branch}" — ${r.summary}`).join("\n") || "(none)",
               ``,
               `Rules:`,
               `- Only merge branches whose status is "success". Skip "partial"/"failed" and list them in \`skipped\`.`,
-              `- Merge each onto main with a fast-forward or a clean merge commit; resolve trivial ticket-file conflicts by unioning the checkbox/disposition edits.`,
-              `- After merging, run \`pnpm typecheck\` and \`pnpm lint\` at the repo root and fix any trivial merge fallout before finishing.`,
-              `- Report \`merged\` (slugs landed on main), \`skipped\` (slugs left behind + why), and a short \`summary\`.`,
+              `- Merge each onto LOCAL main with a fast-forward or a clean merge commit; resolve trivial ticket-file conflicts by unioning the checkbox/disposition edits.`,
+              `- After merging, run \`pnpm typecheck\` and \`pnpm lint\` at the repo root and fix any trivial merge fallout before finishing. STAY SCOPED — do not chase unrelated failures.`,
+              `- Report \`merged\` (slugs landed on local main), \`skipped\` (slugs left behind + why), and a short \`summary\`. Do NOT push.`,
             ].join("\n")}
           </Task>
 
@@ -334,6 +379,19 @@ export default smithers((ctx) => {
                 const combined = `${res.stdout ?? ""}\n${res.stderr ?? ""}`.trim();
                 return { code: typeof res.status === "number" ? res.status : null, out: combined };
               };
+              // ── PUSH FENCE ── the workflow never pushes, so any origin movement
+              // or any burndown/* branch on origin means an agent pushed. Detect + halt.
+              run("git fetch -q origin main");
+              const remoteBurndown = run("git ls-remote --heads origin 'burndown/*'").out.trim();
+              const currentOriginSha = run("git rev-parse origin/main").out.trim();
+              const originMoved = baselineSha.length > 0 && currentOriginSha.length > 0 && currentOriginSha !== baselineSha;
+              const roguePushDetected = remoteBurndown.length > 0 || originMoved;
+              const roguePushDetail = roguePushDetected
+                ? [
+                    remoteBurndown.length > 0 ? `burndown/* branch(es) pushed to origin:\n${remoteBurndown}` : "",
+                    originMoved ? `origin/main moved off baseline ${baselineSha.slice(0, 10)} → ${currentOriginSha.slice(0, 10)} (the workflow never pushes — an agent or a human did)` : "",
+                  ].filter(Boolean).join("\n")
+                : "";
               let typecheckGreen = true;
               let testGreen = true;
               let tail = "";
@@ -359,37 +417,45 @@ export default smithers((ctx) => {
                 mainTestGreen: testGreen,
                 mainGateGreen,
                 ranFullGate: runFullGate,
-                summary: `open ${openBefore}→${openAfter} (closed ${Math.max(0, openBefore - openAfter)}); main gate ${mainGateGreen ? "GREEN" : "RED"}${runFullGate ? "" : " (full gate skipped)"}`,
-                output: tail.slice(-12000),
+                roguePushDetected,
+                roguePushDetail,
+                summary: `open ${openBefore}→${openAfter} (closed ${Math.max(0, openBefore - openAfter)}); main gate ${mainGateGreen ? "GREEN" : "RED"}${runFullGate ? "" : " (full gate skipped)"}${roguePushDetected ? "; ⚠️ ROGUE PUSH DETECTED" : ""}`,
+                output: (roguePushDetail ? `=== PUSH FENCE ===\n${roguePushDetail}\n` : "") + tail.slice(-12000),
               };
             }}
           </Task>
 
-          {/* 5. SAFETY — if the batch turned main red, stop and ask a human before
-              continuing (never push a red main; never grind on a broken base). */}
-          {oracleBrokeMain ? (
+          {/* 5. SAFETY — halt for a human if the batch turned main RED *or* the push
+              fence detected a rogue push. Never grind on a broken base; never let an
+              agent push to shared origin go unnoticed. */}
+          {oracleHalt ? (
             <Approval
               id="oracle-fix"
               output={outputs.approval}
               request={{
-                title: `Audit burndown turned main RED after the last batch`,
+                title: roguePush
+                  ? `Audit burndown PUSH FENCE tripped — an agent pushed to origin`
+                  : `Audit burndown turned main RED after the last batch`,
                 summary: [
-                  `The completeness oracle ran the full gate on main and it FAILED.`,
+                  roguePush
+                    ? `🚨 The push fence detected a write to origin. The workflow never pushes, so an agent (or a human) moved the remote. Investigate and reconcile origin before continuing.`
+                    : `The completeness oracle ran the full gate on main and it FAILED.`,
                   oracle?.summary ?? "",
                   ``,
-                  `APPROVE once you have fixed/reverted main back to green to continue the burndown,`,
+                  `APPROVE once you have reconciled origin / fixed main back to green to continue the burndown,`,
                   `or DENY to stop the run for manual takeover.`,
                   ``,
-                  `--- gate output (tail) ---`,
+                  `--- oracle / fence output (tail) ---`,
                   (oracle?.output ?? "").slice(-4000),
                 ].join("\n"),
-                metadata: { openCountAfter: oracle?.openCountAfter ?? null },
+                metadata: { openCountAfter: oracle?.openCountAfter ?? null, roguePush },
               }}
               onDeny="fail"
             />
           ) : null}
         </Sequence>
       </Loop>
+      </Sequence>
     </Workflow>
   );
 });
