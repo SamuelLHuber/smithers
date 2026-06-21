@@ -33,13 +33,13 @@
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: 69;
   background: rgba(0, 0, 0, 0.38);
   animation: overlay-dim-in var(--motion-base) var(--ease);
 }
 .chat-shell--overlay.chat-shell--full .overlay-host {
   position: absolute;
-  z-index: 41;
+  z-index: 70;
   inset: var(--space-7);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -523,6 +523,8 @@
 /* ---- Overlay host ---- */
 
 .overlay-host {
+  position: relative;
+  z-index: 70;
   display: flex;
   flex-direction: column;
   min-width: 0;

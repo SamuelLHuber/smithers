@@ -5,6 +5,7 @@ import { TagFilterBar } from "./tags/TagFilterBar";
 import { ViewsMenu } from "./ViewsMenu";
 import { useOverlayStore } from "./overlay/overlayStore";
 import type { Tag } from "./tags/Tag";
+import { StatsStrip } from "./StatsStrip";
 
 /**
  * The TopBar — the only persistent chrome in the chat shell (Product spec §3,
@@ -36,6 +37,7 @@ export function ProjectBar({ tags }: { tags: Tag[] }) {
       </div>
 
       <TagFilterBar tags={tags} />
+      <StatsStrip projectId={current.id} />
 
       <div className="project-bar-right">
         <ViewsMenu />

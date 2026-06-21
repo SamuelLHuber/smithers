@@ -57,8 +57,8 @@ test.describe("Chat-first shell", () => {
     await page.getByTestId("chat-composer-send").click();
 
     await expect(page.getByTestId("overlay-host")).toBeVisible();
-    // The overlay reuses the real, gateway-backed Runs surface verbatim.
-    await expect(page.getByTestId("overlay-surface")).toBeVisible();
+    // The chat shell opens the populated run-board dashboard in the overlay.
+    await expect(page.getByTestId("overlay-dashboard")).toBeVisible();
     await expect(page.getByTestId("chat-shell")).toHaveClass(/chat-shell--split/);
 
     // Toggle to full then close.
