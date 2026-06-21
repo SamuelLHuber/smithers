@@ -122,6 +122,69 @@ describe("MemoryStore concurrency: setFact", () => {
 	});
 });
 
+describe("MemoryStore concurrency: saveMessage", () => {
+	test("concurrent saveMessage on the same id → single row, one of the writers wins", async () => {
+		// saveMessage upserts on the id PK (replay/resume safety), so concurrent
+		// saves of the same deterministically-derived id must collapse to one row
+		// rather than racing into a UNIQUE-constraint crash.
+		const { sqlite, store } = createTestStore();
+		try {
+			const thread = await store.createThread(NS);
+			const N = 20;
+			await Promise.all(
+				Array.from({ length: N }, (_, i) =>
+					store.saveMessage({
+						id: "dup",
+						threadId: thread.threadId,
+						role: "user",
+						contentJson: JSON.stringify({ from: i }),
+						createdAtMs: 1,
+					}),
+				),
+			);
+			const messages = await store.listMessages(thread.threadId);
+			expect(messages).toHaveLength(1);
+			const value = JSON.parse(messages[0].contentJson);
+			expect(value.from).toBeGreaterThanOrEqual(0);
+			expect(value.from).toBeLessThan(N);
+
+			const count = sqlite
+				.query(
+					"SELECT COUNT(*) AS c FROM _smithers_memory_messages WHERE id = ?",
+				)
+				.get("dup");
+			expect(count?.c).toBe(1);
+		} finally {
+			sqlite.close();
+		}
+	});
+
+	test("concurrent saveMessage on distinct ids → all persisted, no lost writes", async () => {
+		const { sqlite, store } = createTestStore();
+		try {
+			const thread = await store.createThread(NS);
+			const N = 30;
+			await Promise.all(
+				Array.from({ length: N }, (_, i) =>
+					store.saveMessage({
+						id: `m-${i}`,
+						threadId: thread.threadId,
+						role: "user",
+						contentJson: JSON.stringify({ i }),
+						createdAtMs: i,
+					}),
+				),
+			);
+			const messages = await store.listMessages(thread.threadId);
+			expect(messages).toHaveLength(N);
+			const seen = messages.map((m) => JSON.parse(m.contentJson).i).sort((a, b) => a - b);
+			expect(seen).toEqual(Array.from({ length: N }, (_, i) => i));
+		} finally {
+			sqlite.close();
+		}
+	});
+});
+
 describe("MemoryStore concurrency: namespace encoding", () => {
 	test("namespaceToString round-trips for all enumerated kinds (no colon-in-id ambiguity for fixed kinds)", () => {
 		// MemoryNamespaceKind enum in parseNamespace: workflow|agent|user|global.

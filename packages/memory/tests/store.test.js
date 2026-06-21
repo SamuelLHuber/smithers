@@ -267,6 +267,31 @@ describe("MemoryStore - Messages", () => {
         });
         expect(await store.countMessages(thread.threadId)).toBe(2);
     });
+    test("saveMessage is idempotent: re-saving the same id does not throw and keeps a single row", async () => {
+        // Crash-resume / deterministic replay / fork-restore re-emit the same
+        // message id; saving it again must be a safe no-op upsert, not a
+        // UNIQUE-constraint crash that turns a recoverable resume into a hard fail.
+        const thread = await store.createThread(WF_NS);
+        await store.saveMessage({
+            id: "replayed",
+            threadId: thread.threadId,
+            role: "user",
+            contentJson: JSON.stringify({ text: "first" }),
+            createdAtMs: 1,
+        });
+        await expect(store.saveMessage({
+            id: "replayed",
+            threadId: thread.threadId,
+            role: "user",
+            contentJson: JSON.stringify({ text: "second" }),
+            createdAtMs: 1,
+        })).resolves.toBeUndefined();
+        expect(await store.countMessages(thread.threadId)).toBe(1);
+        const messages = await store.listMessages(thread.threadId);
+        expect(messages).toHaveLength(1);
+        // Upsert semantics: the latest content wins (replay-safe overwrite).
+        expect(JSON.parse(messages[0].contentJson)).toEqual({ text: "second" });
+    });
 });
 describe("Memory namespace codec", () => {
     test("roundtrips percent-encoded ids for enumerated namespace kinds", () => {

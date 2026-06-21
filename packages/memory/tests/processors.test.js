@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
+import { Effect } from "effect";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { createMemoryStore } from "../src/store/index.js";
 import { TtlGarbageCollector, TokenLimiter, Summarizer, } from "../src/processors.js";
@@ -146,5 +147,108 @@ describe("Summarizer", () => {
             text: "The user asked for a status update.",
         });
         expect(messages.slice(1).map((message) => message.id)).toEqual(["msg-3", "msg-4"]);
+    });
+    test("no data-loss window: if the summary save fails the original messages survive", async () => {
+        // Failure-injection against the real store: wrap it and make the summary
+        // save fail. The delete-then-save ordering had a window where the old
+        // messages were already gone when the summary write blew up, losing them
+        // forever with no summary to replace them. The summary must be persisted
+        // before (or atomically with) the delete so the originals are never lost.
+        const sqlite = new Database(":memory:");
+        const db = drizzle(sqlite);
+        ensureSmithersTables(db);
+        const realStore = createMemoryStore(db);
+        const thread = await realStore.createThread(WF_NS);
+        const original = [
+            [1, "user", "Can you check the rollout?"],
+            [2, "assistant", "I will check it."],
+            [3, "user", "Any update?"],
+            [4, "assistant", "The rollout is healthy."],
+        ];
+        for (const [index, role, content] of original) {
+            await realStore.saveMessage({
+                id: `msg-${index}`,
+                threadId: thread.threadId,
+                role,
+                contentJson: JSON.stringify(content),
+                createdAtMs: index,
+            });
+        }
+
+        // Real store everywhere except the summary write, which fails once.
+        const failingStore = {
+            ...realStore,
+            saveMessageEffect: () =>
+                Effect.fail(new Error("summary write failed")),
+        };
+        const mockAgent = { run: async () => ({ text: "summary" }) };
+        const summarizer = Summarizer(mockAgent);
+
+        await expect(summarizer.process(failingStore)).rejects.toThrow();
+
+        // Originals must still be present — never the gone-with-no-summary state.
+        const surviving = await realStore.listMessages(thread.threadId);
+        expect(surviving.map((m) => m.id)).toEqual([
+            "msg-1",
+            "msg-2",
+            "msg-3",
+            "msg-4",
+        ]);
+    });
+    test("recovers cleanly after a failed delete: no data lost and the summary chain converges", async () => {
+        // With save-before-delete, a crash after the summary save but before the
+        // delete leaves the summary + the originals coexisting (run1). Re-running
+        // (run2) compresses the leftovers into a single summary and prunes them.
+        // A third run is a stable no-op. The summary chain never grows unbounded
+        // and no message is ever lost.
+        const sqlite = new Database(":memory:");
+        const db = drizzle(sqlite);
+        ensureSmithersTables(db);
+        const realStore = createMemoryStore(db);
+        const thread = await realStore.createThread(WF_NS);
+        for (const [index, role, content] of [
+            [1, "user", "Can you check the rollout?"],
+            [2, "assistant", "I will check it."],
+            [3, "user", "Any update?"],
+            [4, "assistant", "The rollout is healthy."],
+        ]) {
+            await realStore.saveMessage({
+                id: `msg-${index}`,
+                threadId: thread.threadId,
+                role,
+                contentJson: JSON.stringify(content),
+                createdAtMs: index,
+            });
+        }
+
+        let calls = 0;
+        // Real store except the delete fails on the first run (post-save crash).
+        const flakyStore = {
+            ...realStore,
+            deleteMessagesEffect: (...args) => {
+                calls += 1;
+                if (calls === 1) {
+                    return Effect.fail(new Error("delete failed"));
+                }
+                return realStore.deleteMessagesEffect(...args);
+            },
+        };
+        const summarizer = Summarizer({ run: async () => ({ text: "summary" }) });
+
+        // Run 1: summary saved, delete fails → throws. No original is lost.
+        await expect(summarizer.process(flakyStore)).rejects.toThrow();
+        const afterRun1 = await realStore.listMessages(thread.threadId);
+        expect(afterRun1.filter((m) => m.id.startsWith("msg-")).map((m) => m.id)).toEqual(["msg-1", "msg-2", "msg-3", "msg-4"]);
+        expect(afterRun1.filter((m) => m.role === "system")).toHaveLength(1);
+
+        // Run 2: delete succeeds → old messages compressed into one summary.
+        await summarizer.process(flakyStore);
+        // Run 3: only the summary + recent messages remain → stable no-op.
+        await summarizer.process(flakyStore);
+
+        const final = await realStore.listMessages(thread.threadId);
+        // Converges to exactly one summary followed by the two recent messages.
+        expect(final.filter((m) => m.role === "system")).toHaveLength(1);
+        expect(final.map((m) => m.id).filter((id) => id.startsWith("msg-"))).toEqual(["msg-3", "msg-4"]);
     });
 });

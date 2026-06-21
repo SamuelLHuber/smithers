@@ -69,7 +69,12 @@ export function Summarizer(agent) {
                 ].join("\n");
                 const result = yield* Effect.tryPromise(() => agent.run(prompt));
                 const summary = extractSummary(result);
-                yield* store.deleteMessagesEffect(thread.threadId, oldMessages.map((message) => message.id));
+                // Save the summary BEFORE deleting the old messages so there is no
+                // data-loss window: if the summary write fails the originals are
+                // still present (recoverable), and if the delete fails afterwards
+                // the originals plus the summary coexist (harmless — the next run
+                // re-summarizes and deletes them). The state where the old
+                // messages are gone and no summary exists is never reachable.
                 yield* store.saveMessageEffect({
                     id: `summary-${crypto.randomUUID()}`,
                     threadId: thread.threadId,
@@ -77,6 +82,7 @@ export function Summarizer(agent) {
                     contentJson: JSON.stringify({ type: "summary", text: summary }),
                     createdAtMs: oldMessages[0].createdAtMs,
                 });
+                yield* store.deleteMessagesEffect(thread.threadId, oldMessages.map((message) => message.id));
                 yield* Effect.logInfo(`Summarizer: compressed ${oldMessages.length} messages before ${recentMessages[0]?.id ?? "end"}`);
                 summarized += 1;
             }

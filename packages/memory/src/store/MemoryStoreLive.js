@@ -235,14 +235,32 @@ function makeMemoryStore(db) {
     function saveMessageEffect(msg) {
         return Effect.gen(function* () {
             yield* Metric.increment(memoryMessageSaves);
-            yield* writeEffect("memory saveMessage", () => db.insert(smithersMemoryMessages).values({
+            const createdAtMs = msg.createdAtMs ?? nowMs();
+            // Idempotent: re-saving a message with the same id (e.g. on
+            // crash-resume, deterministic replay, or fork/restore where ids are
+            // derived deterministically) must be a safe no-op upsert rather than
+            // a UNIQUE-constraint crash. Mirrors setFact's onConflictDoUpdate.
+            yield* writeEffect("memory saveMessage", () => db
+                .insert(smithersMemoryMessages)
+                .values({
                 id: msg.id,
                 threadId: msg.threadId,
                 role: msg.role,
                 contentJson: msg.contentJson,
                 runId: msg.runId ?? null,
                 nodeId: msg.nodeId ?? null,
-                createdAtMs: msg.createdAtMs ?? nowMs(),
+                createdAtMs,
+            })
+                .onConflictDoUpdate({
+                target: smithersMemoryMessages.id,
+                set: {
+                    threadId: msg.threadId,
+                    role: msg.role,
+                    contentJson: msg.contentJson,
+                    runId: msg.runId ?? null,
+                    nodeId: msg.nodeId ?? null,
+                    createdAtMs,
+                },
             }));
         });
     }
