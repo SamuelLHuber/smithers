@@ -125,13 +125,14 @@ export default smithers((ctx) => {
             const { feedback, done } = buildFeedback(ctx, ticket.slug);
             return (
               <Worktree
-                path={`.worktrees/${ticket.slug}`}
+                key={ticket.slug}
+                path={resolve(process.cwd(), ".worktrees", ticket.slug)}
                 branch={`ticket/${ticket.slug}`}
               >
                 <Sequence>
                   <ValidationLoop
                     idPrefix={ticket.slug}
-                    prompt={`Implement the ticket below.\n\nTICKET FILE: .smithers/tickets/${ticket.id}\n\n${ticket.content}`}
+                    prompt={`Implement the ticket below in this worktree, then make it pass.\n\nTICKET FILE: .smithers/tickets/${ticket.id}\n\n${ticket.content}\n\n--- When the work is complete and green ---\n- COMMIT your changes to THIS worktree branch with one atomic emoji+conventional commit. Local commits only; the workflow lands them on main itself.\n- NEVER push, force-push, or run gh pr create; never switch branches or touch main/origin. An agent push corrupts shared main; the workflow owns all merging.`}
                     implementAgents={agents.smart}
                     validateAgents={agents.smart}
                     reviewAgents={agents.smart}
@@ -144,11 +145,37 @@ export default smithers((ctx) => {
                     output={outputs.ticketResult}
                     continueOnFail
                   >
-                    {{
-                      ticketId: ticket.id,
-                      branch: `ticket/${ticket.slug}`,
-                      status: "success",
-                      summary: `Implemented ${ticket.slug}`,
+                    {async () => {
+                      const { spawnSync } = await import("node:child_process");
+                      const branch = `ticket/${ticket.slug}`;
+                      const wt = resolve(process.cwd(), ".worktrees", ticket.slug);
+                      const git = (args: string[], cwd = wt) =>
+                        spawnSync("git", args, { cwd, encoding: "utf8" });
+                      // Safety net: the implement agent is asked to commit, but if it
+                      // left converged work uncommitted, capture it here so the merge
+                      // step doesn't silently drop it. Only commit once the loop
+                      // converged (validation passed + a reviewer approved).
+                      let committed = false;
+                      if (done) {
+                        git(["add", "-A"]);
+                        const dirty = (git(["status", "--porcelain"]).stdout ?? "").trim().length > 0;
+                        if (dirty) {
+                          git(["commit", "-m", `✅ kanban: ${ticket.id}`]);
+                          committed = true;
+                        }
+                      }
+                      const ahead = ((git(["rev-list", "--count", `main..${branch}`], process.cwd()).stdout) ?? "0").trim();
+                      const hasWork = ahead !== "" && ahead !== "0";
+                      return {
+                        ticketId: ticket.id,
+                        branch,
+                        status: done && hasWork ? "success" : "partial",
+                        summary: done
+                          ? committed
+                            ? `Committed pending work for ${ticket.slug} (${ahead} commit(s))`
+                            : `Implemented ${ticket.slug} (${ahead} commit(s))`
+                          : `Did not converge for ${ticket.slug}`,
+                      };
                     }}
                   </Task>
                 </Sequence>
