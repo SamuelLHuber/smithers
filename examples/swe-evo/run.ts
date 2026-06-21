@@ -61,6 +61,25 @@ function parseArgs(argv: string[]): Args {
   return a;
 }
 
+/**
+ * Strip the gold answer + hidden tests from the engine run input.
+ *
+ * `patch` (the reference solution) and `test_patch` (the hidden tests) must never
+ * reach the agents, and they routinely exceed the engine's 64KB-per-string input
+ * cap (e.g. iterative__dvc_1.0.0a1_1.0.0a2: patch=227KB, test_patch=194KB), which
+ * fails the whole run with INVALID_INPUT before any agent starts. The only
+ * consumer is the deterministic `score` node, which reloads the full row from disk
+ * via harness.loadInstance(). Keeping them out of the input also stops the gold
+ * solution from being persisted into the run DB.
+ */
+function toRunInput(instance: Instance): Instance {
+  const { patch: _patch, test_patch: _testPatch, ...rest } = instance as Instance & {
+    patch?: string;
+    test_patch?: string;
+  };
+  return rest as Instance;
+}
+
 /** Build the workflow api for the selected variant, with a per-variant DB so
  *  baseline and panel runs never share output tables. */
 function createApi(args: Args) {
@@ -178,7 +197,7 @@ async function runDirect(instances: Instance[], args: Args): Promise<RunOutcome[
     process.stderr.write(`[run] ${instance.instance_id} -> ${runId}\n`);
     try {
       const result: { status: string } = await Effect.runPromise(
-        runWorkflow(api.workflow as never, { input: instance, runId, allowNetwork: true }) as never,
+        runWorkflow(api.workflow as never, { input: toRunInput(instance), runId, allowNetwork: true }) as never,
       );
       const score = await readScore((api as { db: unknown }).db, (api as { tables: unknown }).tables, runId);
       return { instance_id: instance.instance_id, repo: instance.repo, status: result.status, score };
@@ -208,7 +227,7 @@ async function runViaGateway(instances: Instance[], args: Args): Promise<RunOutc
       try {
         await (gateway as never as {
           startRun: (k: string, i: unknown, a: unknown, r: string, o: unknown) => Promise<unknown>;
-        }).startRun("swe-evo", instance, auth, runId, { resume: false });
+        }).startRun("swe-evo", toRunInput(instance), auth, runId, { resume: false });
         // The inflight promise reliably resolves only after the run completes, but
         // the gateway deliberately erases its status/error (it stores
         // runPromise.then(() => undefined, () => undefined)), so we cannot read the

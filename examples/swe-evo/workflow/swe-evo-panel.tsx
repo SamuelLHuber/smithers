@@ -39,6 +39,7 @@ import { dirname } from "node:path";
 import { z } from "zod/v4";
 import {
   captureDiff,
+  loadInstance,
   prepareRepo,
   scoreCandidate,
   workdirFor,
@@ -284,10 +285,13 @@ export function createSweEvoPanel(opts: { dbPath?: string } = {}) {
       maxOutputBytes: 8_000_000,
     });
 
+    // Every panelist gets the IDENTICAL plan prompt + system prompt; the only
+    // thing that varies is the model. `role` is a task-id / display label that
+    // never reaches the model, so it names the model, not a fake specialty.
     const panelists = [
-      { agent: opusPlanner, role: "architecture" },
-      { agent: codexPlanner, role: "implementation" },
-      ...(INCLUDE_GEMINI ? [{ agent: geminiPlanner, role: "verification" }] : []),
+      { agent: opusPlanner, role: "panel-opus" },
+      { agent: codexPlanner, role: "panel-codex" },
+      ...(INCLUDE_GEMINI ? [{ agent: geminiPlanner, role: "panel-gemini" }] : []),
     ];
     const reviewers = INCLUDE_GEMINI ? [opusReviewer, geminiReviewer] : [opusReviewer];
 
@@ -355,7 +359,16 @@ export function createSweEvoPanel(opts: { dbPath?: string } = {}) {
           </Task>
           <Task id="score" output={outputs.score}>
             {() =>
-              toScoreRow(scoreCandidate(instance, captureDiff(instance).patch, SCORE_TIMEOUT_S))
+              // The run input carries no gold fields (see run.ts:toRunInput), so
+              // reload the full instance (gold patch + hidden tests) from disk for
+              // the authoritative score. captureDiff only needs the workdir.
+              toScoreRow(
+                scoreCandidate(
+                  loadInstance(instance.instance_id),
+                  captureDiff(instance).patch,
+                  SCORE_TIMEOUT_S,
+                ),
+              )
             }
           </Task>
         </Sequence>

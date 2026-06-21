@@ -5,13 +5,14 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HARNESS = join(HERE, "..", "harness");
+const INSTANCES_DIR = join(HERE, "..", "dataset", "data", "instances");
 const PLATFORM = process.env.SWEEVO_PLATFORM ?? "linux/amd64";
 
 export type Instance = Record<string, unknown> & {
@@ -35,6 +36,18 @@ function sh(cmd: string, args: string[], opts: { cwd?: string; timeoutMs?: numbe
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
+}
+
+/**
+ * Load the full instance row (including the gold `patch` and hidden `test_patch`)
+ * from the dataset on disk, by id. The gold fields are deliberately NOT threaded
+ * through the engine run input: the agents must never see them, and `patch` /
+ * `test_patch` routinely exceed the engine's 64KB-per-string input cap. Only the
+ * deterministic `score` node needs them, so it reloads the full row here at
+ * scoring time. See run.ts:toRunInput for the matching strip on the way in.
+ */
+export function loadInstance(instanceId: string): Instance {
+  return JSON.parse(readFileSync(join(INSTANCES_DIR, `${instanceId}.json`), "utf8")) as Instance;
 }
 
 /** Working directory for an instance's repo checkout (shared across its tasks). */

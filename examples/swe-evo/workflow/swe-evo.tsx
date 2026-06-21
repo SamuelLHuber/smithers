@@ -24,6 +24,7 @@ import { dirname } from "node:path";
 import { z } from "zod/v4";
 import {
   captureDiff,
+  loadInstance,
   prepareRepo,
   scoreCandidate,
   workdirFor,
@@ -166,7 +167,17 @@ export function createSweEvo(opts: { dbPath?: string } = {}) {
             {() => captureDiff(instance)}
           </Task>
           <Task id="score" output={outputs.score}>
-            {() => toScoreRow(scoreCandidate(instance, captureDiff(instance).patch, SCORE_TIMEOUT_S))}
+            {() =>
+              // The run input carries no gold fields (see run.ts:toRunInput), so
+              // reload the full instance (gold patch + hidden tests) from disk.
+              toScoreRow(
+                scoreCandidate(
+                  loadInstance(instance.instance_id),
+                  captureDiff(instance).patch,
+                  SCORE_TIMEOUT_S,
+                ),
+              )
+            }
           </Task>
         </Sequence>
       </Workflow>
