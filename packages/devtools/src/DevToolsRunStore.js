@@ -4,6 +4,57 @@
 /** @typedef {import("./RunExecutionState.ts").RunExecutionState} RunExecutionState */
 /** @typedef {import("./TaskExecutionState.ts").TaskExecutionState} TaskExecutionState */
 
+const TERMINAL_RUN_STATUSES = new Set(["finished", "failed", "cancelled"]);
+const TERMINAL_TASK_STATUSES = new Set(["finished", "failed", "cancelled", "skipped"]);
+/**
+ * Run-level waiting statuses that a NodeWaitingApproval/NodeWaitingTimer event
+ * can raise. These must clear back to "running" once the blocking task resumes.
+ */
+const RUN_WAITING_STATUSES = new Set(["waiting-approval", "waiting-timer"]);
+
+/**
+ * @param {RunExecutionState} run
+ */
+function isTerminalRun(run) {
+    return TERMINAL_RUN_STATUSES.has(run.status);
+}
+
+/**
+ * @param {TaskExecutionState} task
+ */
+function isTerminalTask(task) {
+    return TERMINAL_TASK_STATUSES.has(task.status);
+}
+
+/**
+ * Recompute a run's waiting status after a task transitions out of a waiting
+ * state. Only acts when the run is currently parked in a run-level waiting
+ * status (waiting-approval / waiting-timer) and is not terminal: if no task
+ * remains in a run-blocking waiting state, the run resumes to "running". A
+ * still-waiting sibling keeps the run parked (and may downgrade
+ * waiting-timer -> waiting-approval as appropriate). The engine re-emits a
+ * fresh waiting event if the run blocks again.
+ * @param {RunExecutionState} run
+ * @returns {void}
+ */
+function refreshRunWaitingStatus(run) {
+    if (isTerminalRun(run) || !RUN_WAITING_STATUSES.has(run.status)) {
+        return;
+    }
+    let blocking;
+    for (const task of run.tasks.values()) {
+        if (task.status === "waiting-approval") {
+            // Approval is the strongest block; nothing can override it.
+            blocking = "waiting-approval";
+            break;
+        }
+        if (task.status === "waiting-timer") {
+            blocking = "waiting-timer";
+        }
+    }
+    run.status = blocking ?? "running";
+}
+
 export class DevToolsRunStore {
     /** @type {DevToolsRunStoreOptions} */
     options;
@@ -88,18 +139,26 @@ export class DevToolsRunStore {
         const verbose = this.options.verbose ?? false;
         switch (event.type) {
             case "RunStarted":
+                if (isTerminalRun(run))
+                    break;
                 run.status = "running";
                 run.startedAt = event.timestampMs;
                 break;
             case "RunFinished":
+                if (isTerminalRun(run))
+                    break;
                 run.status = "finished";
                 run.finishedAt = event.timestampMs;
                 break;
             case "RunFailed":
+                if (isTerminalRun(run))
+                    break;
                 run.status = "failed";
                 run.finishedAt = event.timestampMs;
                 break;
             case "RunCancelled":
+                if (isTerminalRun(run))
+                    break;
                 run.status = "cancelled";
                 run.finishedAt = event.timestampMs;
                 break;
@@ -108,14 +167,20 @@ export class DevToolsRunStore {
                 break;
             case "NodePending": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "pending";
+                refreshRunWaitingStatus(run);
                 break;
             }
             case "NodeStarted": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "started";
                 task.attempt = event.attempt;
                 task.startedAt = event.timestampMs;
+                refreshRunWaitingStatus(run);
                 if (verbose) {
                     console.log(`▶️  [smithers-devtools] Task started: ${event.nodeId} (attempt ${event.attempt})`);
                 }
@@ -123,9 +188,12 @@ export class DevToolsRunStore {
             }
             case "NodeFinished": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "finished";
                 task.attempt = event.attempt;
                 task.finishedAt = event.timestampMs;
+                refreshRunWaitingStatus(run);
                 if (verbose) {
                     console.log(`✅ [smithers-devtools] Task finished: ${event.nodeId}`);
                 }
@@ -133,10 +201,13 @@ export class DevToolsRunStore {
             }
             case "NodeFailed": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "failed";
                 task.attempt = event.attempt;
                 task.finishedAt = event.timestampMs;
                 task.error = event.error;
+                refreshRunWaitingStatus(run);
                 if (verbose) {
                     console.log(`❌ [smithers-devtools] Task failed: ${event.nodeId}`);
                 }
@@ -144,35 +215,52 @@ export class DevToolsRunStore {
             }
             case "NodeCancelled": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "cancelled";
+                refreshRunWaitingStatus(run);
                 break;
             }
             case "NodeSkipped": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "skipped";
+                refreshRunWaitingStatus(run);
                 break;
             }
             case "NodeRetrying": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
                 task.status = "retrying";
                 task.attempt = event.attempt;
+                refreshRunWaitingStatus(run);
                 break;
             }
             case "NodeWaitingApproval": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "waiting-approval";
-                run.status = "waiting-approval";
+                if (!isTerminalRun(run)) {
+                    run.status = "waiting-approval";
+                }
                 break;
             }
             case "NodeWaitingEvent": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "waiting-event";
                 break;
             }
             case "NodeWaitingTimer": {
                 const task = this.ensureTask(run, event.nodeId, event.iteration);
+                if (isTerminalTask(task))
+                    break;
                 task.status = "waiting-timer";
-                run.status = "waiting-timer";
+                if (!isTerminalRun(run)) {
+                    run.status = "waiting-timer";
+                }
                 break;
             }
             case "ToolCallStarted": {

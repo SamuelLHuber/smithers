@@ -334,6 +334,206 @@ describe("DevToolsRunStore event processing", () => {
     expect(store.getTaskState("r1", "n2")?.status).toBe("failed");
   });
 
+  test("replayed older run lifecycle events do not resurrect terminal runs", () => {
+    const store = new DevToolsRunStore();
+    store.processEngineEvent({ type: "RunStarted", runId: "r1", timestampMs: 1 });
+    store.processEngineEvent({ type: "RunFinished", runId: "r1", timestampMs: 10 });
+
+    store.processEngineEvent({ type: "RunStarted", runId: "r1", timestampMs: 1 });
+    store.processEngineEvent({
+      type: "NodeWaitingApproval",
+      runId: "r1",
+      nodeId: "approval",
+      iteration: 0,
+      timestampMs: 2,
+    });
+    store.processEngineEvent({ type: "RunFailed", runId: "r1", timestampMs: 11 });
+
+    const run = store.getRun("r1");
+    expect(run?.status).toBe("finished");
+    expect(run?.finishedAt).toBe(10);
+    expect(run?.events).toHaveLength(5);
+    expect(store.getTaskState("r1", "approval")?.status).toBe("waiting-approval");
+  });
+
+  test("replayed older task lifecycle events do not unfinish terminal tasks", () => {
+    const store = new DevToolsRunStore();
+    const base = { runId: "r1", nodeId: "task", iteration: 0 };
+    store.processEngineEvent({ ...base, type: "NodeStarted", timestampMs: 1, attempt: 1 });
+    store.processEngineEvent({ ...base, type: "NodeFinished", timestampMs: 5, attempt: 1 });
+
+    store.processEngineEvent({ ...base, type: "NodeStarted", timestampMs: 1, attempt: 1 });
+    store.processEngineEvent({ ...base, type: "NodeWaitingApproval", timestampMs: 2 });
+    store.processEngineEvent({ ...base, type: "NodePending", timestampMs: 0 });
+
+    const task = store.getTaskState("r1", "task");
+    expect(task?.status).toBe("finished");
+    expect(task?.attempt).toBe(1);
+    expect(task?.finishedAt).toBe(5);
+  });
+
+  test("NodeRetrying is the explicit transition out of a terminal failed task", () => {
+    const store = new DevToolsRunStore();
+    const base = { runId: "r1", nodeId: "flaky", iteration: 0 };
+    store.processEngineEvent({ ...base, type: "NodeStarted", timestampMs: 1, attempt: 1 });
+    store.processEngineEvent({
+      ...base,
+      type: "NodeFailed",
+      timestampMs: 2,
+      attempt: 1,
+      error: { message: "boom" },
+    });
+    store.processEngineEvent({ ...base, type: "NodeStarted", timestampMs: 1, attempt: 1 });
+    expect(store.getTaskState("r1", "flaky")?.status).toBe("failed");
+
+    store.processEngineEvent({ ...base, type: "NodeRetrying", timestampMs: 3, attempt: 2 });
+    store.processEngineEvent({ ...base, type: "NodeStarted", timestampMs: 4, attempt: 2 });
+
+    const task = store.getTaskState("r1", "flaky");
+    expect(task?.status).toBe("started");
+    expect(task?.attempt).toBe(2);
+    expect(task?.startedAt).toBe(4);
+  });
+
+  test("run waiting-approval clears back to running when the gated node finishes", () => {
+    const store = new DevToolsRunStore();
+    const base = { runId: "r1", nodeId: "approval", iteration: 0 };
+    store.processEngineEvent({ type: "RunStarted", runId: "r1", timestampMs: 0 });
+    store.processEngineEvent({ ...base, type: "NodeWaitingApproval", timestampMs: 1 });
+    expect(store.getRun("r1")?.status).toBe("waiting-approval");
+
+    // Operator approves the gate; the engine resumes and the node finishes.
+    store.processEngineEvent({ ...base, type: "NodeFinished", timestampMs: 2, attempt: 1 });
+    expect(store.getRun("r1")?.status).toBe("running");
+    expect(store.getTaskState("r1", "approval")?.status).toBe("finished");
+  });
+
+  test("run waiting-approval clears back to running when the gated node resumes via NodeStarted", () => {
+    const store = new DevToolsRunStore();
+    const base = { runId: "r1", nodeId: "approval", iteration: 0 };
+    store.processEngineEvent({ type: "RunStarted", runId: "r1", timestampMs: 0 });
+    store.processEngineEvent({ ...base, type: "NodeWaitingApproval", timestampMs: 1 });
+    expect(store.getRun("r1")?.status).toBe("waiting-approval");
+
+    store.processEngineEvent({ ...base, type: "NodeStarted", timestampMs: 2, attempt: 1 });
+    expect(store.getRun("r1")?.status).toBe("running");
+    expect(store.getTaskState("r1", "approval")?.status).toBe("started");
+  });
+
+  test("run waiting-timer clears back to running when the timer node resumes", () => {
+    const store = new DevToolsRunStore();
+    const base = { runId: "r1", nodeId: "sleep", iteration: 0 };
+    store.processEngineEvent({ type: "RunStarted", runId: "r1", timestampMs: 0 });
+    store.processEngineEvent({ ...base, type: "NodeWaitingTimer", timestampMs: 1 });
+    expect(store.getRun("r1")?.status).toBe("waiting-timer");
+
+    store.processEngineEvent({ ...base, type: "NodeStarted", timestampMs: 2, attempt: 1 });
+    expect(store.getRun("r1")?.status).toBe("running");
+    expect(store.getTaskState("r1", "sleep")?.status).toBe("started");
+  });
+
+  test("run stays waiting while a sibling node is still blocked, then clears", () => {
+    const store = new DevToolsRunStore();
+    store.processEngineEvent({ type: "RunStarted", runId: "r1", timestampMs: 0 });
+    store.processEngineEvent({ type: "NodeWaitingApproval", runId: "r1", nodeId: "a", iteration: 0, timestampMs: 1 });
+    store.processEngineEvent({ type: "NodeWaitingApproval", runId: "r1", nodeId: "b", iteration: 0, timestampMs: 2 });
+    expect(store.getRun("r1")?.status).toBe("waiting-approval");
+
+    // First gate clears, but the second is still pending: run must remain blocked.
+    store.processEngineEvent({ type: "NodeFinished", runId: "r1", nodeId: "a", iteration: 0, timestampMs: 3, attempt: 1 });
+    expect(store.getRun("r1")?.status).toBe("waiting-approval");
+
+    // Second gate clears too: now the run resumes.
+    store.processEngineEvent({ type: "NodeFinished", runId: "r1", nodeId: "b", iteration: 0, timestampMs: 4, attempt: 1 });
+    expect(store.getRun("r1")?.status).toBe("running");
+  });
+
+  test("waiting-approval downgrades to waiting-timer when only a timer node remains blocked", () => {
+    const store = new DevToolsRunStore();
+    store.processEngineEvent({ type: "RunStarted", runId: "r1", timestampMs: 0 });
+    store.processEngineEvent({ type: "NodeWaitingTimer", runId: "r1", nodeId: "timer", iteration: 0, timestampMs: 1 });
+    store.processEngineEvent({ type: "NodeWaitingApproval", runId: "r1", nodeId: "approval", iteration: 0, timestampMs: 2 });
+    expect(store.getRun("r1")?.status).toBe("waiting-approval");
+
+    // Approval clears; the timer node is still parked, so the run reflects the timer block.
+    store.processEngineEvent({ type: "NodeFinished", runId: "r1", nodeId: "approval", iteration: 0, timestampMs: 3, attempt: 1 });
+    expect(store.getRun("r1")?.status).toBe("waiting-timer");
+    expect(store.getTaskState("r1", "timer")?.status).toBe("waiting-timer");
+  });
+
+  test("a finished run that was waiting-approval stays finished after the gate clears", () => {
+    const store = new DevToolsRunStore();
+    const base = { runId: "r1", nodeId: "approval", iteration: 0 };
+    store.processEngineEvent({ type: "RunStarted", runId: "r1", timestampMs: 0 });
+    store.processEngineEvent({ ...base, type: "NodeWaitingApproval", timestampMs: 1 });
+    store.processEngineEvent({ type: "RunFinished", runId: "r1", timestampMs: 2 });
+    expect(store.getRun("r1")?.status).toBe("finished");
+
+    // A late NodeFinished must not knock the terminal run back to running.
+    store.processEngineEvent({ ...base, type: "NodeFinished", timestampMs: 3, attempt: 1 });
+    expect(store.getRun("r1")?.status).toBe("finished");
+    expect(store.getRun("r1")?.finishedAt).toBe(2);
+  });
+
+  test("replaying the full lifecycle twice is idempotent (terminal + waiting monotonicity)", () => {
+    const events = [
+      { type: "RunStarted", runId: "r1", timestampMs: 1 },
+      { type: "NodeStarted", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 2, attempt: 1 },
+      { type: "NodeWaitingApproval", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 3 },
+      { type: "NodeFinished", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 4, attempt: 1 },
+      { type: "NodeStarted", runId: "r1", nodeId: "n2", iteration: 0, timestampMs: 5, attempt: 1 },
+      { type: "NodeFinished", runId: "r1", nodeId: "n2", iteration: 0, timestampMs: 6, attempt: 1 },
+      { type: "RunFinished", runId: "r1", timestampMs: 7 },
+    ];
+
+    const singlePass = new DevToolsRunStore();
+    for (const e of events) singlePass.processEngineEvent(e);
+
+    const doublePass = new DevToolsRunStore();
+    for (const e of events) doublePass.processEngineEvent(e);
+    // Re-feed the entire log from the start, as a reconnect-after-seq replay would.
+    for (const e of events) doublePass.processEngineEvent(e);
+
+    const a = singlePass.getRun("r1");
+    const b = doublePass.getRun("r1");
+    // Status, terminal timestamps, and per-task state must match a single clean pass.
+    expect(b?.status).toBe("finished");
+    expect(b?.status).toBe(a?.status);
+    expect(b?.startedAt).toBe(a?.startedAt);
+    expect(b?.finishedAt).toBe(a?.finishedAt);
+    expect(doublePass.getTaskState("r1", "n1")?.status).toBe("finished");
+    expect(doublePass.getTaskState("r1", "n1")?.finishedAt).toBe(4);
+    expect(doublePass.getTaskState("r1", "n2")?.status).toBe("finished");
+    expect(doublePass.getTaskState("r1", "n2")?.finishedAt).toBe(6);
+    // The replay appended its events; the read-model state is still correct.
+    expect(b?.events).toHaveLength(events.length * 2);
+  });
+
+  test("replaying a still-live run (gate cleared, no RunFinished) is idempotent and stays running", () => {
+    // No RunFinished: the only thing keeping the inspector honest is the
+    // waiting-clear logic. A reconnect-after-seq replay must not strand the run
+    // in waiting-approval.
+    const events = [
+      { type: "RunStarted", runId: "r1", timestampMs: 1 },
+      { type: "NodeStarted", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 2, attempt: 1 },
+      { type: "NodeWaitingApproval", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 3 },
+      { type: "NodeFinished", runId: "r1", nodeId: "n1", iteration: 0, timestampMs: 4, attempt: 1 },
+      { type: "NodeStarted", runId: "r1", nodeId: "n2", iteration: 0, timestampMs: 5, attempt: 1 },
+    ];
+
+    const singlePass = new DevToolsRunStore();
+    for (const e of events) singlePass.processEngineEvent(e);
+
+    const doublePass = new DevToolsRunStore();
+    for (const e of events) doublePass.processEngineEvent(e);
+    for (const e of events) doublePass.processEngineEvent(e);
+
+    expect(singlePass.getRun("r1")?.status).toBe("running");
+    expect(doublePass.getRun("r1")?.status).toBe(singlePass.getRun("r1")?.status);
+    expect(doublePass.getTaskState("r1", "n1")?.status).toBe("finished");
+    expect(doublePass.getTaskState("r1", "n2")?.status).toBe("started");
+  });
+
   test("onEngineEvent callback fires for every event", () => {
     const received: unknown[] = [];
     const store = new DevToolsRunStore({
