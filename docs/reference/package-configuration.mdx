@@ -15,7 +15,7 @@ Use the subpath form to import only the surface you need. Entry files in this ta
 
 | Import path | Entry file | Purpose |
 |---|---|---|
-| `smithers-orchestrator` | `./src/index.js` | Core API: `createSmithers`, components, `runWorkflow`, `renderMdx`, errors |
+| `smithers-orchestrator` | `./src/index.js` | Core API: `createSmithers`, `openSmithersBackend`, components, `runWorkflow`, `renderMdx`, errors |
 | `smithers-orchestrator/gateway` | `./src/gateway.js` | Gateway server primitives from `@smithers-orchestrator/server/gateway` |
 | `smithers-orchestrator/gateway-client` | `./src/gateway-client.js` | Typed client helpers from `@smithers-orchestrator/gateway-client` |
 | `smithers-orchestrator/gateway-react` | `./src/gateway-react.js` | React hooks and providers for gateway-backed UIs |
@@ -51,6 +51,7 @@ Most applications should import from `smithers-orchestrator`. The workspace pack
 | `@smithers-orchestrator/db` | SQLite/Drizzle adapter, table setup, run-state derivation, schema helpers, and output tables | [Data Model](/reference/types), [Run State](/runtime/run-state) |
 | `@smithers-orchestrator/devtools` | Snapshot, tree, diff, node lookup, task collection, and DevTools run-store helpers behind the CLI inspect commands | [Debugging](/guides/debugging), [CLI Overview](/cli/overview) |
 | `@smithers-orchestrator/driver` | Runtime driver contracts: `RunOptions`, `RunResult`, `RunStatus`, `SmithersCtx`, outputs, task runtime, interop, and child process helpers | [Run Workflow](/runtime/run-workflow), [Execution Model](/how-it-works) |
+| `@smithers-orchestrator/electric-proxy` | ElectricSQL shape proxy for cloud sync, scoped shape access, rate limits, stripped auth forwarding, and shape metrics | [Production Hardening](/deployment/production-hardening), [Gateway](/integrations/gateway) |
 | `@smithers-orchestrator/engine` | Workflow rendering/execution API: `runWorkflow`, `renderFrame`, `workflow`, `Smithers`, `fragment`, signals, and Effect versioning | [Render Frame](/runtime/render-frame), [Run Workflow](/runtime/run-workflow) |
 | `@smithers-orchestrator/errors` | Error definitions, known codes, JSON serialization, docs URLs, and type guards | [Errors](/reference/errors) |
 | `@smithers-orchestrator/gateway` | Stable Gateway RPC contracts, auth scopes, deployment metadata, and generated OpenAPI schema | [Gateway](/integrations/gateway), [RPC](/rpc/launch-run) |
@@ -86,7 +87,7 @@ Most applications should import from `smithers-orchestrator`. The workspace pack
 
 ```ts
 // Core API
-import { createSmithers, runWorkflow } from "smithers-orchestrator";
+import { createSmithers, openSmithersBackend, runWorkflow } from "smithers-orchestrator";
 
 // Tools
 import { defineTool, bash, read, write } from "smithers-orchestrator/tools";

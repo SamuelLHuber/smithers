@@ -1430,7 +1430,7 @@ If no Gateway is reachable on the default local port, `bunx smithers-orchestrato
 Commands listed by dotted name. `human` and `alerts` use an action positional instead of nested subcommands.
 
 ```toon
-commands[77]:
+commands[78]:
   - name: init
     purpose: Install the workflow pack into .smithers/ (local) or ~/.smithers/ (--global)
     flags[6]{name,short,type,default,desc}:
@@ -1453,7 +1453,7 @@ commands[77]:
     purpose: Start or resume a workflow execution
     args[1]{name,type,required,desc}:
       workflow,string,false,Workflow file path (omit with --interactive to pick one)
-    flags[29]{name,short,type,default,desc}:
+    flags[30]{name,short,type,default,desc}:
       detach,d,boolean,false,Background mode; print runId/pid/logFile and exit
       run-id,r,string,,Explicit run ID
       max-concurrency,c,number,4,Maximum parallel tasks
@@ -1483,6 +1483,13 @@ commands[77]:
       auth-token,,string,,Bearer token for HTTP auth or SMITHERS_API_KEY env
       metrics,,boolean,true,Expose /metrics Prometheus endpoint when --serve
       interactive,,boolean,false,Pick a workflow and inputs interactively then live-render the run
+      backend,,enum,,Storage backend for workflows using openSmithersBackend (sqlite|pglite|postgres)
+  - name: migrate
+    purpose: Copy the legacy bun:sqlite smithers.db into PGlite or Postgres and write the migrated.json marker
+    flags[3]{name,short,type,default,desc}:
+      to,,enum,pglite,Target backend (pglite|postgres)
+      url,,string,,Postgres connection URL when --to postgres
+      keep-sqlite,,boolean,true,Keep the legacy SQLite database after a successful copy
   - name: eval
     purpose: Run a workflow over JSON/JSONL cases and write a regression report
     args[1]{name,type,required,desc}:
@@ -1535,9 +1542,10 @@ commands[77]:
       max-concurrent,c,number,3,Max runs resumed per poll
   - name: gateway
     purpose: Serve the multi-run Gateway RPC/WS control plane for the workspace DB; unlike up --serve, this is not tied to one run
-    flags[2]{name,short,type,default,desc}:
+    flags[3]{name,short,type,default,desc}:
       host,H,string,127.0.0.1,Gateway bind address
       port,p,number,7331,Gateway port
+      backend,,enum,,Workspace storage backend (sqlite|pglite|postgres)
   - name: monitor
     purpose: Watch a single run, diagnose a stall or failure, and optionally apply the smallest safe self-fix behind an approval gate
     args[1]{name,type,required,desc}:
@@ -1899,7 +1907,7 @@ commands[77]:
     purpose: Run a discovered workflow by ID
     args[1]{name,type,required,desc}:
       name,string,false,Workflow ID (omit with --interactive to pick one)
-    flags[30]{name,short,type,default,desc}:
+    flags[31]{name,short,type,default,desc}:
       detach,d,boolean,false,Background mode; print runId/pid/logFile and exit
       run-id,r,string,,Explicit run ID
       max-concurrency,c,number,4,Maximum parallel tasks
@@ -1928,6 +1936,7 @@ commands[77]:
       host,,string,127.0.0.1,HTTP bind address when --serve
       auth-token,,string,,Bearer token for HTTP auth or SMITHERS_API_KEY env
       metrics,,boolean,true,Expose /metrics Prometheus endpoint when --serve
+      backend,,enum,,Storage backend for workflows using openSmithersBackend (sqlite|pglite|postgres)
       prompt,p,string,,Shorthand for input.prompt when --input is omitted
       interactive,,boolean,false,Pick a workflow and inputs interactively then live-render the run
   - name: workflow.path
@@ -5923,6 +5932,7 @@ type KnownSmithersErrorCode =
   | "TOOL_GIT_REMOTE_DISABLED" | "TOOL_COMMAND_FAILED" | "TOOL_GREP_FAILED"
   | "AGENT_CLI_ERROR" | "AGENT_QUOTA_EXCEEDED" | "AGENT_CONFIG_INVALID" | "AGENT_RPC_FILE_ARGS" | "AGENT_BUILD_COMMAND" | "AGENT_DIAGNOSTIC_TIMEOUT"
   | "DB_MISSING_COLUMNS" | "DB_REQUIRES_BUN_SQLITE" | "DB_QUERY_FAILED" | "DB_WRITE_FAILED"
+  | "SMITHERS_MIGRATION_REQUIRED"
   | "STORAGE_ERROR" | "INTERNAL_ERROR" | "PROCESS_ABORTED" | "PROCESS_TIMEOUT"
   | "PROCESS_IDLE_TIMEOUT" | "PROCESS_SPAWN_FAILED" | "TASK_RUNTIME_UNAVAILABLE"
   | "SCHEMA_CHANGE_HOT" | "HOT_OVERLAY_FAILED" | "HOT_RELOAD_INVALID_MODULE"
@@ -6604,6 +6614,7 @@ try {
 | `DB_REQUIRES_BUN_SQLITE` | The database adapter is not backed by a Bun SQLite client with `exec()`. | -- |
 | `DB_QUERY_FAILED` | A database read query throws or rejects while running inside an Effect. | -- |
 | `DB_WRITE_FAILED` | A database write or migration fails, including after SQLite retry exhaustion. | -- |
+| `SMITHERS_MIGRATION_REQUIRED` | A legacy bun:sqlite store has run data but the resolved backend is PGlite/Postgres, so the history would be invisible until you run `smithers migrate`. | `{ dbPath, runCount, schemaVersion, resolvedBackend }` |
 | `STORAGE_ERROR` | A storage service operation fails before surfacing a more specific database code. | -- |
 
 ## Effect / Runtime
@@ -6698,7 +6709,7 @@ Use the subpath form to import only the surface you need. Entry files in this ta
 
 | Import path | Entry file | Purpose |
 |---|---|---|
-| `smithers-orchestrator` | `./src/index.js` | Core API: `createSmithers`, components, `runWorkflow`, `renderMdx`, errors |
+| `smithers-orchestrator` | `./src/index.js` | Core API: `createSmithers`, `openSmithersBackend`, components, `runWorkflow`, `renderMdx`, errors |
 | `smithers-orchestrator/gateway` | `./src/gateway.js` | Gateway server primitives from `@smithers-orchestrator/server/gateway` |
 | `smithers-orchestrator/gateway-client` | `./src/gateway-client.js` | Typed client helpers from `@smithers-orchestrator/gateway-client` |
 | `smithers-orchestrator/gateway-react` | `./src/gateway-react.js` | React hooks and providers for gateway-backed UIs |
@@ -6734,6 +6745,7 @@ Most applications should import from `smithers-orchestrator`. The workspace pack
 | `@smithers-orchestrator/db` | SQLite/Drizzle adapter, table setup, run-state derivation, schema helpers, and output tables | [Data Model](/reference/types), [Run State](/runtime/run-state) |
 | `@smithers-orchestrator/devtools` | Snapshot, tree, diff, node lookup, task collection, and DevTools run-store helpers behind the CLI inspect commands | [Debugging](/guides/debugging), [CLI Overview](/cli/overview) |
 | `@smithers-orchestrator/driver` | Runtime driver contracts: `RunOptions`, `RunResult`, `RunStatus`, `SmithersCtx`, outputs, task runtime, interop, and child process helpers | [Run Workflow](/runtime/run-workflow), [Execution Model](/how-it-works) |
+| `@smithers-orchestrator/electric-proxy` | ElectricSQL shape proxy for cloud sync, scoped shape access, rate limits, stripped auth forwarding, and shape metrics | [Production Hardening](/deployment/production-hardening), [Gateway](/integrations/gateway) |
 | `@smithers-orchestrator/engine` | Workflow rendering/execution API: `runWorkflow`, `renderFrame`, `workflow`, `Smithers`, `fragment`, signals, and Effect versioning | [Render Frame](/runtime/render-frame), [Run Workflow](/runtime/run-workflow) |
 | `@smithers-orchestrator/errors` | Error definitions, known codes, JSON serialization, docs URLs, and type guards | [Errors](/reference/errors) |
 | `@smithers-orchestrator/gateway` | Stable Gateway RPC contracts, auth scopes, deployment metadata, and generated OpenAPI schema | [Gateway](/integrations/gateway), [RPC](/rpc/launch-run) |
@@ -6769,7 +6781,7 @@ Most applications should import from `smithers-orchestrator`. The workspace pack
 
 ```ts
 // Core API
-import { createSmithers, runWorkflow } from "smithers-orchestrator";
+import { createSmithers, openSmithersBackend, runWorkflow } from "smithers-orchestrator";
 
 // Tools
 import { defineTool, bash, read, write } from "smithers-orchestrator/tools";
