@@ -26,6 +26,9 @@
  * @typedef {import("./CreateSmithersApi.ts").CreateSmithersApi<Schema>} CreateSmithersApi
  */
 /** @typedef {import("./CreateSmithersOptions.ts").CreateSmithersOptions} CreateSmithersOptions */
+/** @typedef {import("./OpenSmithersBackendOptions.ts").OpenSmithersBackendOptions} OpenSmithersBackendOptions */
+/** @typedef {import("./MigrateSmithersStoreOptions.ts").MigrateSmithersStoreOptions} MigrateSmithersStoreOptions */
+/** @typedef {import("./SmithersMigrationResult.ts").SmithersMigrationResult} SmithersMigrationResult */
 /** @typedef {import("@smithers-orchestrator/components").DepsSpec} DepsSpec */
 /** @typedef {import("@smithers-orchestrator/server/gateway").EventFrame} EventFrame */
 /**
@@ -184,6 +187,9 @@ export { AnthropicAgent, OpenAIAgent, HermesAgent, AmpAgent, AntigravityAgent, C
 export { runJj, getJjPointer, revertToJjPointer, isJjRepo, workspaceAdd, workspaceList, workspaceClose, } from "@smithers-orchestrator/vcs/jj";
 // Core API
 export { createSmithers, createSmithersPostgres } from "./create.js";
+export { openSmithersBackend } from "./openSmithersBackend.js";
+export { resolveSmithersBackendChoice } from "./resolveSmithersBackendChoice.js";
+export { migrateSmithersStore } from "./migrateSmithersStore.js";
 export {
   approveNode,
   denyNode,

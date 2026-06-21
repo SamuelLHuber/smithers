@@ -153,6 +153,13 @@ type CreateSmithersOptions$1 = {
     alertPolicy?: SmithersAlertPolicy$1;
     dbPath?: string;
     journalMode?: string;
+    /**
+     * Backend the caller resolved this API to. The synchronous `createSmithers`
+     * only serves `"sqlite"`; `"pglite"`/`"postgres"` require the async
+     * `openSmithersBackend` factory and fail loud here rather than silently
+     * opening bun:sqlite.
+     */
+    backend?: "sqlite" | "pglite" | "postgres";
 };
 
 /**
@@ -192,6 +199,66 @@ type CreateSmithersPostgresOptions = CreateSmithersOptions & ({
 declare function createSmithersPostgres<Schemas extends Record<string, zod.ZodObject<any>>>(schemas: Schemas, opts?: CreateSmithersPostgresOptions): Promise<CreateSmithersApi$1<Schemas> & {
     close: () => Promise<void>;
 }>;
+type OpenSmithersBackendOptions$1 = CreateSmithersOptions & {
+    backend?: "sqlite" | "pglite" | "postgres";
+    cwd?: string;
+    configPath?: string;
+    env?: Record<string, string | undefined>;
+    connectionString?: string;
+    connection?: object;
+    pgliteDataDir?: string;
+};
+declare function openSmithersBackend<Schemas extends Record<string, zod.ZodObject<any>>>(schemas?: Schemas, opts?: OpenSmithersBackendOptions$1): Promise<CreateSmithersApi$1<Schemas> & {
+    close?: () => Promise<void>;
+}>;
+type MigrateSmithersStoreOptions$1 = {
+    cwd?: string;
+    dbPath?: string;
+    to?: "pglite" | "postgres";
+    url?: string;
+    env?: Record<string, string | undefined>;
+    pgliteDataDir?: string;
+    keepSqlite?: boolean;
+    batchSize?: number;
+    onProgress?: (event: {
+        type: "table-start";
+        table?: string;
+        sourceRows?: number;
+    } | {
+        type: "table-copied";
+        table?: string;
+        copiedRows?: number;
+        sourceRows?: number;
+        targetRows?: number;
+        durationMs?: number;
+    } | {
+        type: "done";
+        copiedRows?: number;
+        tableCount?: number;
+        durationMs?: number;
+    }) => void | Promise<void>;
+};
+type SmithersMigrationResult$1 = {
+    backend: "pglite" | "postgres";
+    dbPath: string;
+    markerPath: string;
+    target: {
+        backend: "pglite" | "postgres";
+        dataDir?: string;
+        url?: string;
+    };
+    runCount: number;
+    schemaVersion: string;
+    durationMs: number;
+    tables: Array<{
+        table: string;
+        sourceRows: number;
+        targetRows: number;
+        durationMs: number;
+    }>;
+    sqliteRemoved: boolean;
+};
+declare function migrateSmithersStore(opts?: MigrateSmithersStoreOptions$1): Promise<SmithersMigrationResult$1>;
 
 /**
  * Create a SmithersWorkflow from an external build function.
@@ -356,7 +423,10 @@ type MemoryServiceApi = _smithers_memory.MemoryServiceApi;
 type MemoryStore = _smithers_memory.MemoryStore;
 type MemoryThread = _smithers_memory.MemoryThread;
 type MessageHistoryConfig = _smithers_memory.MessageHistoryConfig;
+type MigrateSmithersStoreOptions = MigrateSmithersStoreOptions$1;
+type SmithersMigrationResult = SmithersMigrationResult$1;
 type OpenAIAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = _smithers_agents.OpenAIAgentOptions<CALL_OPTIONS, TOOLS>;
+type OpenSmithersBackendOptions = OpenSmithersBackendOptions$1;
 type HermesAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = _smithers_agents.HermesAgentOptions<CALL_OPTIONS, TOOLS>;
 type HttpToolAuth = _smithers_agents.HttpToolAuth;
 type HttpToolInput = _smithers_agents.HttpToolInput;
@@ -438,4 +508,4 @@ type XmlElement = _smithers_graph_XmlNode.XmlElement;
 type XmlNode = _smithers_graph_XmlNode.XmlNode;
 type XmlText = _smithers_graph_XmlNode.XmlText;
 
-export { type AgentCapabilityRegistry, type AgentLike, type AgentToolDescriptor, type AggregateOptions, type AggregateScore, type AnthropicAgentOptions, type ApprovalAutoApprove, type ApprovalDecision, type ApprovalMode, type ApprovalOption, type ApprovalProps, type ApprovalRanking, type ApprovalRequest, type ApprovalSelection, type ColumnDef, type ConnectRequest, type ContinueAsNewProps, type CreateHttpToolOptions, type CreateScorerConfig, type CreateSmithersApi, type CreateSmithersOptions, type DepsSpec, type EventFrame, type ExternalSmithersConfig, type GatewayAuthConfig, type GatewayDefaults, type GatewayOperatorUiConfig, type GatewayOptions, type GatewayRegisterOptions, type GatewayTokenGrant, type GatewayUiConfig, type GatewayWebhookConfig, type GatewayWebhookRunConfig, type GatewayWebhookSignalConfig, type GraphSnapshot, type HelloResponse, type HermesAgentOptions, type HostContainer, type HostNodeJson, type HttpToolAuth, type HttpToolInput, type HttpToolOutput, type InferDeps, type InferOutputEntry, type InferRow, type JjRevertResult, type KanbanProps, type KnownSmithersErrorCode, type LlmJudgeConfig, type MemoryFact, type MemoryLayerConfig, type MemoryMessage, type MemoryNamespace, type MemoryNamespaceKind, type MemoryProcessor, type MemoryProcessorConfig, type MemoryServiceApi, type MemoryStore, type MemoryThread, type MessageHistoryConfig, type OpenAIAgentOptions, type OpenApiAuth, type OpenApiSpec, type OpenApiToolsOptions, type OpenCodeAgentOptions, type OutputAccessor, type OutputKey, type OutputTarget, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type PollerProps, type RequestFrame, type ResolvedSmithersObservabilityOptions, type ResponseFrame, type RevertOptions, type RevertResult, type RunJjOptions, type RunJjResult, type RunOptions, type RunResult, type RunStatus, type SagaProps, type SagaStepDef, type SagaStepProps, type SamplingConfig, type SandboxProps, type SandboxRuntime, type SandboxVolumeMount, type SandboxWorkspaceSpec, type SchemaRegistryEntry, type ScoreResult, type ScoreRow, type Scorer, type ScorerBinding, type ScorerContext, type ScorerFn, type ScorerInput, type ScorersMap, type SemanticRecallConfig, type SerializedCtx, type ServeOptions, type ServerOptions, type SignalProps, type SmithersAlertLabels, type SmithersAlertPolicy, type SmithersAlertPolicyDefaults, type SmithersAlertPolicyRule, type SmithersAlertReaction, type SmithersAlertReactionKind, type SmithersAlertReactionRef, type SmithersAlertSeverity, type SmithersCtx, type SmithersError, type SmithersErrorCode, type SmithersEvent, type SmithersLogFormat, type SmithersObservabilityOptions, type SmithersObservabilityService, type SmithersWorkflow, type SmithersWorkflowOptions, type TaskDescriptor, type TaskMemoryConfig, type TaskProps, type TimeTravelOptions, type TimeTravelResult, type TimerProps, type TryCatchFinallyProps, type VibeAgentOptions, type WaitForEventProps, type WorkingMemoryConfig, type WorkspaceAddOptions, type WorkspaceInfo, type WorkspaceResult, type XmlElement, type XmlNode, type XmlText, bash, createExternalSmithers, createSmithers, createSmithersPostgres, defineTool, edit, getDefinedToolMetadata, grep, mdxPlugin, read, tools, write };
+export { type AgentCapabilityRegistry, type AgentLike, type AgentToolDescriptor, type AggregateOptions, type AggregateScore, type AnthropicAgentOptions, type ApprovalAutoApprove, type ApprovalDecision, type ApprovalMode, type ApprovalOption, type ApprovalProps, type ApprovalRanking, type ApprovalRequest, type ApprovalSelection, bash, type ColumnDef, type ConnectRequest, type ContinueAsNewProps, createExternalSmithers, type CreateHttpToolOptions, type CreateScorerConfig, createSmithers, type CreateSmithersApi, type CreateSmithersOptions, createSmithersPostgres, defineTool, type DepsSpec, edit, type EventFrame, type ExternalSmithersConfig, type GatewayAuthConfig, type GatewayDefaults, type GatewayOperatorUiConfig, type GatewayOptions, type GatewayRegisterOptions, type GatewayTokenGrant, type GatewayUiConfig, type GatewayWebhookConfig, type GatewayWebhookRunConfig, type GatewayWebhookSignalConfig, getDefinedToolMetadata, type GraphSnapshot, grep, type HelloResponse, type HermesAgentOptions, type HostContainer, type HostNodeJson, type HttpToolAuth, type HttpToolInput, type HttpToolOutput, type InferDeps, type InferOutputEntry, type InferRow, type JjRevertResult, type KanbanProps, type KnownSmithersErrorCode, type LlmJudgeConfig, mdxPlugin, type MemoryFact, type MemoryLayerConfig, type MemoryMessage, type MemoryNamespace, type MemoryNamespaceKind, type MemoryProcessor, type MemoryProcessorConfig, type MemoryServiceApi, type MemoryStore, type MemoryThread, type MessageHistoryConfig, migrateSmithersStore, type MigrateSmithersStoreOptions, type OpenAIAgentOptions, type OpenApiAuth, type OpenApiSpec, type OpenApiToolsOptions, type OpenCodeAgentOptions, openSmithersBackend, type OpenSmithersBackendOptions, type OutputAccessor, type OutputKey, type OutputTarget, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type PollerProps, read, type RequestFrame, type ResolvedSmithersObservabilityOptions, type ResponseFrame, type RevertOptions, type RevertResult, type RunJjOptions, type RunJjResult, type RunOptions, type RunResult, type RunStatus, type SagaProps, type SagaStepDef, type SagaStepProps, type SamplingConfig, type SandboxProps, type SandboxRuntime, type SandboxVolumeMount, type SandboxWorkspaceSpec, type SchemaRegistryEntry, type Scorer, type ScorerBinding, type ScorerContext, type ScoreResult, type ScorerFn, type ScorerInput, type ScoreRow, type ScorersMap, type SemanticRecallConfig, type SerializedCtx, type ServeOptions, type ServerOptions, type SignalProps, type SmithersAlertLabels, type SmithersAlertPolicy, type SmithersAlertPolicyDefaults, type SmithersAlertPolicyRule, type SmithersAlertReaction, type SmithersAlertReactionKind, type SmithersAlertReactionRef, type SmithersAlertSeverity, type SmithersCtx, type SmithersError, type SmithersErrorCode, type SmithersEvent, type SmithersLogFormat, type SmithersMigrationResult, type SmithersObservabilityOptions, type SmithersObservabilityService, type SmithersWorkflow, type SmithersWorkflowOptions, type TaskDescriptor, type TaskMemoryConfig, type TaskProps, type TimerProps, type TimeTravelOptions, type TimeTravelResult, tools, type TryCatchFinallyProps, type VibeAgentOptions, type WaitForEventProps, type WorkingMemoryConfig, type WorkspaceAddOptions, type WorkspaceInfo, type WorkspaceResult, write, type XmlElement, type XmlNode, type XmlText };
