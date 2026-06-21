@@ -80,8 +80,10 @@ export type GatewayRpcMethod =
   | "submitSignal"
   | "getRun"
   | "listRuns"
+  | "getSchemaSignature"
   | "listWorkflows"
   | "listApprovals"
+  | "listDocs"
   | "streamRunEvents"
   | "streamDevTools"
   | "getNodeOutput"
@@ -187,6 +189,14 @@ export type ListRunsRequest = {
   };
 };
 
+export type GetSchemaSignatureRequest = Record<string, never>;
+
+export type GetSchemaSignatureResponse = {
+  schemaVersion: string;
+  signature: string;
+  components?: Record<string, string>;
+};
+
 export type GatewayWorkflowSummary = {
   key: string;
   readableName?: string;
@@ -227,6 +237,26 @@ export type ListApprovalsRequest = {
 };
 
 export type ListApprovalsResponse = GatewayApprovalSummary[];
+
+export type GatewayDocRow = {
+  path: string;
+  kind: "ticket" | "plan" | "spec" | "proposal" | "conflict" | string;
+  content: string;
+  contentHash: string;
+  updatedAtMs: number;
+  deletedAtMs: number | null;
+};
+
+export type ListDocsRequest = {
+  filter?: {
+    kind?: string;
+    includeDeleted?: boolean;
+    updatedAfterMs?: number;
+    limit?: number;
+  };
+};
+
+export type ListDocsResponse = GatewayDocRow[];
 
 export type StreamRunEventsRequest = {
   runId: string;
@@ -707,6 +737,24 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
   },
   {
     version: SMITHERS_API_VERSION,
+    method: "getSchemaSignature",
+    title: "Get Schema Signature",
+    description: "Return the server Smithers schema migration head and table-catalog signature used by client persistence.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "run:read",
+    requestSchema: objectSchema({}),
+    responseSchema: objectSchema({
+      schemaVersion: stringSchema("Current _smithers_schema_migrations head id."),
+      signature: stringSchema("Stable hash of the server schema catalog."),
+      components: objectSchema({}, [], "Per-table schema component hashes.", true),
+    }, ["schemaVersion", "signature"]),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
+    exampleRequest: {},
+    exampleResponse: { schemaVersion: "0016", signature: "sha256" },
+  },
+  {
+    version: SMITHERS_API_VERSION,
     method: "listWorkflows",
     title: "List Workflows",
     description: "List workflows registered with the Gateway.",
@@ -748,6 +796,34 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
     errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
     exampleRequest: { filter: { workflow: "deploy", limit: 20 } },
     exampleResponse: [{ runId: "run_01", workflowKey: "deploy", nodeId: "approve", iteration: 0, requestTitle: "Approve deploy", requestedAtMs: 1710000000000 }],
+  },
+  {
+    version: SMITHERS_API_VERSION,
+    method: "listDocs",
+    title: "List Docs",
+    description: "List DB-backed Smithers markdown artifacts for tickets, plans, specs, proposals, and conflict markers.",
+    maturity: "stable",
+    transport: "http+websocket",
+    requiredScope: "run:read",
+    requestSchema: objectSchema({
+      filter: objectSchema({
+        kind: stringSchema("Optional doc kind filter."),
+        includeDeleted: booleanSchema("Include tombstone rows."),
+        updatedAfterMs: integerSchema("Only return docs updated after this millisecond timestamp.", 0),
+        limit: integerSchema("Maximum number of docs.", 1),
+      }),
+    }),
+    responseSchema: arraySchema(objectSchema({
+      path: stringSchema("Path relative to .smithers, e.g. tickets/smithers/0030.md."),
+      kind: stringSchema("ticket, plan, spec, proposal, or conflict."),
+      content: stringSchema("Markdown or conflict marker content."),
+      contentHash: stringSchema("SHA-256 hash of content."),
+      updatedAtMs: integerSchema("Last DB update time in milliseconds.", 0),
+      deletedAtMs: { type: ["integer", "null"], description: "Tombstone timestamp when deleted." },
+    }, ["path", "kind", "content", "contentHash", "updatedAtMs"]), "Smithers docs rows."),
+    errors: ["InvalidRequest", "Unauthorized", "Forbidden", "Internal"],
+    exampleRequest: { filter: { kind: "ticket", limit: 100 } },
+    exampleResponse: [{ path: "tickets/smithers/0030-jjhub-sse-seam.md", kind: "ticket", content: "# Ticket", contentHash: "sha256", updatedAtMs: 1710000000000, deletedAtMs: null }],
   },
   {
     version: SMITHERS_API_VERSION,

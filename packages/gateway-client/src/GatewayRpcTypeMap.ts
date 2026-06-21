@@ -35,6 +35,10 @@ import type {
   SubmitApprovalResponse,
   SubmitSignalRequest,
   GetRunRequest,
+  GetSchemaSignatureRequest,
+  GetSchemaSignatureResponse,
+  ListDocsRequest,
+  ListDocsResponse,
 } from "@smithers-orchestrator/gateway/rpc";
 import type { GatewayCronRow } from "./sync/GatewayCronRow.ts";
 import type { GatewayMemoryFactRow } from "./sync/GatewayMemoryFactRow.ts";
@@ -70,6 +74,8 @@ export type GatewayRpcRequestMap = {
   createTicket: CreateTicketRequest;
   updateTicket: UpdateTicketRequest;
   deleteTicket: DeleteTicketRequest;
+  getSchemaSignature: GetSchemaSignatureRequest;
+  listDocs: ListDocsRequest;
 };
 
 export type GatewayRpcResponseMap = {
@@ -100,6 +106,8 @@ export type GatewayRpcResponseMap = {
   createTicket: GatewayTicketRow;
   updateTicket: GatewayTicketRow;
   deleteTicket: { path: string; deleted: boolean };
+  getSchemaSignature: GetSchemaSignatureResponse;
+  listDocs: ListDocsResponse;
 };
 
 export type GatewayRpcParams<Method extends GatewayRpcMethod> = GatewayRpcRequestMap[Method];
