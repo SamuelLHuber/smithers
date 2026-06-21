@@ -117,4 +117,67 @@ describe("streamResultToGenerateResult", () => {
         expect(result.output).toBeUndefined();
         expect(result.experimental_output).toBeUndefined();
     });
+    // Regression: a provider 404 ("model not found") must surface as the real
+    // AI_APICallError, not the SDK's masking NoOutputGeneratedError (which the
+    // engine misreports as a structured-output JSON failure).
+    function createErroringStream(withFullStreamError) {
+        const apiError = Object.assign(new Error("model: gpt-nope not found"), {
+            name: "AI_APICallError",
+            statusCode: 404,
+        });
+        const masking = Object.assign(new Error("No output generated. Check the stream for errors."), { name: "AI_NoOutputGeneratedError" });
+        return {
+            fullStream: (async function* () {
+                if (withFullStreamError)
+                    yield { type: "error", error: apiError };
+            })(),
+            consumeStream: async (opts) => {
+                opts?.onError?.(apiError);
+            },
+            content: Promise.reject(masking),
+            text: Promise.reject(masking),
+            reasoning: Promise.reject(masking),
+            reasoningText: Promise.reject(masking),
+            files: Promise.reject(masking),
+            sources: Promise.reject(masking),
+            toolCalls: Promise.reject(masking),
+            staticToolCalls: Promise.reject(masking),
+            dynamicToolCalls: Promise.reject(masking),
+            toolResults: Promise.reject(masking),
+            staticToolResults: Promise.reject(masking),
+            dynamicToolResults: Promise.reject(masking),
+            finishReason: Promise.reject(masking),
+            rawFinishReason: Promise.reject(masking),
+            usage: Promise.reject(masking),
+            totalUsage: Promise.reject(masking),
+            warnings: Promise.reject(masking),
+            steps: Promise.reject(masking),
+            request: Promise.reject(masking),
+            response: Promise.reject(masking),
+            providerMetadata: Promise.reject(masking),
+            output: Promise.reject(masking),
+        };
+    }
+    test("re-throws the provider error (stdout path) instead of the masking error", async () => {
+        const stream = createErroringStream(true);
+        let caught;
+        try {
+            await streamResultToGenerateResult(stream, () => {});
+        } catch (err) {
+            caught = err;
+        }
+        expect(caught?.name).toBe("AI_APICallError");
+        expect(caught?.statusCode).toBe(404);
+    });
+    test("re-throws the provider error (no-callback path) instead of the masking error", async () => {
+        const stream = createErroringStream(false);
+        let caught;
+        try {
+            await streamResultToGenerateResult(stream);
+        } catch (err) {
+            caught = err;
+        }
+        expect(caught?.name).toBe("AI_APICallError");
+        expect(caught?.statusCode).toBe(404);
+    });
 });
