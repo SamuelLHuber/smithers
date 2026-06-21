@@ -3,6 +3,8 @@
 /** @jsxImportSource smithers-orchestrator */
 import { createSmithers, Sequence } from "smithers-orchestrator";
 import { z } from "zod/v4";
+import { agents } from "../agents";
+import FeatureDocSyncAuditPrompt from "../prompts/feature-doc-sync-audit.mdx";
 
 const inputSchema = z.object({
   bump: z
@@ -25,6 +27,10 @@ const inputSchema = z.object({
     .string()
     .default(".smithers/executions/release-content")
     .describe("Directory containing release-content approved-<version>.json markers."),
+  skipFeatureDocSync: z
+    .boolean()
+    .default(false)
+    .describe("Skip the LLM feature/doc sync audit gate before bumping/publishing."),
 });
 
 const probeSchema = z.object({
@@ -61,12 +67,25 @@ const majorApprovalSchema = z.object({
   decidedAt: z.string().nullable(),
 });
 
+const featureDocSyncSchema = z.object({
+  ok: z.boolean(),
+  missingFeatures: z.array(z.string()).default([]),
+  missingDocs: z.array(z.string()).default([]),
+  notes: z.string().default(""),
+});
+
+const featureDocSyncGateSchema = z.object({
+  ok: z.boolean(),
+});
+
 const { Workflow, Task, Approval, smithers, outputs } = createSmithers({
   input: inputSchema,
   probe: probeSchema,
   changelog: changelogSchema,
   marketingContent: marketingContentSchema,
   majorApproval: majorApprovalSchema,
+  featureDocSync: featureDocSyncSchema,
+  featureDocSyncGate: featureDocSyncGateSchema,
   bumpResult: bumpResultSchema,
   publishResult: publishResultSchema,
 });
@@ -147,6 +166,49 @@ export default smithers((ctx) => {
               );
             }
             return result;
+          }}
+        </Task>
+
+        <Task
+          id="feature-doc-sync"
+          output={outputs.featureDocSync}
+          agent={agents.smartTool}
+          skipIf={ctx.input.skipFeatureDocSync}
+          heartbeatTimeoutMs={300000}
+        >
+          <FeatureDocSyncAuditPrompt />
+        </Task>
+
+        <Task
+          id="feature-doc-sync-gate"
+          output={outputs.featureDocSyncGate}
+          skipIf={ctx.input.skipFeatureDocSync}
+        >
+          {async () => {
+            const audit = ctx.outputMaybe(outputs.featureDocSync, {
+              nodeId: "feature-doc-sync",
+            }) as z.infer<typeof featureDocSyncSchema> | undefined;
+            if (!audit) return { ok: true };
+            if (!audit.ok) {
+              const sections = [
+                audit.missingFeatures.length
+                  ? `Missing from .smithers/specs/features.ts:\n  - ${audit.missingFeatures.join("\n  - ")}`
+                  : "",
+                audit.missingDocs.length
+                  ? `Missing from docs/:\n  - ${audit.missingDocs.join("\n  - ")}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join("\n\n");
+              throw new Error(
+                `Feature/doc sync audit failed before release.\n\n${sections}\n\n` +
+                  `${audit.notes}\n\n` +
+                  `Record the new features in .smithers/specs/features.ts and document them ` +
+                  `under docs/ (the API reference lives in docs/reference/), then re-run release. ` +
+                  `To bypass intentionally, re-run with input { "skipFeatureDocSync": true }.`,
+              );
+            }
+            return { ok: true };
           }}
         </Task>
 
