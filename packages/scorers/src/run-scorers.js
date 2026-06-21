@@ -3,7 +3,7 @@ import { toSmithersError } from "@smithers-orchestrator/errors/toSmithersError";
 import { scorerDuration, scorersFinished, scorersFailed, scorersStarted } from "./metrics.js";
 import { nowMs } from "@smithers-orchestrator/scheduler/nowMs";
 import crypto from "node:crypto";
-/** @typedef {{ emit: (eventName: "event", event: unknown) => unknown }} EventBus */
+/** @typedef {{ emit: (eventName: "event", event: unknown) => unknown, emitEventWithPersist?: (event: unknown) => import("effect").Effect.Effect<void, unknown> }} EventBus */
 /** @typedef {import("./types.js").ScoreResult} ScoreResult */
 /** @typedef {import("./types.js").ScorerContext} ScorerContext */
 /** @typedef {import("./types.js").ScorerBinding} ScorerBinding */
@@ -31,6 +31,22 @@ function shouldRun(binding) {
             return true;
     }
 }
+/**
+ * Emit a scorer lifecycle event through the durable path (DB + NDJSON + live
+ * listeners + metrics) so scorer events appear in the event/NDJSON stream, not
+ * only in _smithers_scorers. Falls back to a bare emit for a third-party bus
+ * that exposes only emit(). Persistence failure must never abort scoring, so the
+ * error channel is ignored.
+ *
+ * @param {EventBus} bus
+ * @param {unknown} event
+ * @returns {Effect.Effect<void, never>}
+ */
+function emitScorerEvent(bus, event) {
+    return Effect.ignore(typeof bus.emitEventWithPersist === "function"
+        ? bus.emitEventWithPersist(event)
+        : Effect.sync(() => bus.emit("event", event)));
+}
 // ---------------------------------------------------------------------------
 // Single scorer execution
 // ---------------------------------------------------------------------------
@@ -52,14 +68,14 @@ function runSingleScorerEffect(key, binding, ctx, adapter, source, eventBus) {
         yield* Metric.increment(scorersStarted);
         // Emit ScorerStarted event
         if (eventBus) {
-            yield* Effect.sync(() => eventBus.emit("event", {
+            yield* emitScorerEvent(eventBus, {
                 type: "ScorerStarted",
                 runId: ctx.runId,
                 nodeId: ctx.nodeId,
                 scorerId: scorer.id,
                 scorerName: scorer.name,
                 timestampMs: nowMs(),
-            }));
+            });
         }
         const start = performance.now();
         const result = yield* Effect.tryPromise({
@@ -83,7 +99,7 @@ function runSingleScorerEffect(key, binding, ctx, adapter, source, eventBus) {
         }).pipe(Effect.tapError((err) => Effect.gen(function* () {
             yield* Metric.increment(scorersFailed);
             if (eventBus) {
-                yield* Effect.sync(() => eventBus.emit("event", {
+                yield* emitScorerEvent(eventBus, {
                     type: "ScorerFailed",
                     runId: ctx.runId,
                     nodeId: ctx.nodeId,
@@ -91,7 +107,7 @@ function runSingleScorerEffect(key, binding, ctx, adapter, source, eventBus) {
                     scorerName: scorer.name,
                     error: err instanceof Error ? err.message : String(err),
                     timestampMs: nowMs(),
-                }));
+                });
             }
         })));
         const durationMs = performance.now() - start;
@@ -99,7 +115,7 @@ function runSingleScorerEffect(key, binding, ctx, adapter, source, eventBus) {
         yield* Metric.update(scorerDuration, durationMs);
         // Emit ScorerFinished event
         if (eventBus) {
-            yield* Effect.sync(() => eventBus.emit("event", {
+            yield* emitScorerEvent(eventBus, {
                 type: "ScorerFinished",
                 runId: ctx.runId,
                 nodeId: ctx.nodeId,
@@ -107,7 +123,7 @@ function runSingleScorerEffect(key, binding, ctx, adapter, source, eventBus) {
                 scorerName: scorer.name,
                 score: result.score,
                 timestampMs: nowMs(),
-            }));
+            });
         }
         // Persist to DB if adapter is available
         if (adapter) {

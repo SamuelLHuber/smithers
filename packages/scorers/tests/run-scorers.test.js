@@ -218,6 +218,34 @@ describe("runScorersBatch", () => {
         expect(adapter.rows[0].outputJson).toBeNull();
         expect(JSON.parse(adapter.rows[0].metaJson)).toEqual({ bucket: "mid" });
     });
+    it("routes lifecycle events through the durable emitEventWithPersist path when available", async () => {
+        const { Effect } = require("effect");
+        const adapter = createMockAdapter();
+        const persisted = [];
+        const bareEmitted = [];
+        const scorers = {
+            durable: {
+                scorer: createScorer({
+                    id: "durable",
+                    name: "Durable",
+                    description: "d",
+                    score: async () => ({ score: 0.7 }),
+                }),
+            },
+        };
+        await runScorersBatch(
+            scorers,
+            makeContext({ input: { a: 1 }, output: undefined }),
+            adapter,
+            {
+                emit: (_name, event) => bareEmitted.push(event),
+                emitEventWithPersist: (event) => Effect.sync(() => persisted.push(event)),
+            },
+        );
+        // Durable path used (DB + NDJSON + metrics); bare live-only emit not used.
+        expect(persisted.map((e) => e.type)).toEqual(["ScorerStarted", "ScorerFinished"]);
+        expect(bareEmitted).toEqual([]);
+    });
     it("emits failure events and runScorersAsync handles empty and non-empty maps", async () => {
         const failureEvents = [];
         await runScorersBatch(
