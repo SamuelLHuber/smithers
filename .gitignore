@@ -84,8 +84,10 @@ observability/data/
 # bare `observability/data/` rule above is root-anchored (mid-path slash) and never
 # matched it, so grafana/prometheus/loki/tempo state kept polluting the worktree.
 apps/observability/data/
-# Server test harness scratch dirs (`.test-serve-<rand>/` with sqlite db + tsx).
+# Server test harness scratch dirs (`.test-serve-<rand>/` and `.test-workflows-<rand>/`
+# with sqlite db + generated tsx).
 packages/server/tests/.test-serve-*/
+packages/server/tests/.test-workflows-*/
 **/tmp/verification/
 .context/
 
