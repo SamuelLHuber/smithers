@@ -46,6 +46,8 @@
 
 import { Database } from "bun:sqlite";
 import { describe, expect, onTestFinished, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 type RunRow = {
   run_id: string;
@@ -214,17 +216,16 @@ describe("case 07: continueAsNew lineage walk", () => {
     expect(ancestry).toEqual([]);
   });
 
-  test.skip("schema migrations under packages/db/migrations/ declare parent_run_id", () => {
-    // SKIP: as of this commit, packages/db/migrations/ contains only
-    //   0011_add_node_diffs.sql
-    //   0012_add_time_travel_audit.sql
-    // The `parent_run_id` column lives only inside the imperative bootstrap
-    // in packages/db/src/SqlMessageStorage.js (CREATE TABLE + ALTER TABLE).
-    // Promote this assertion once a migration file (e.g. one of the
-    // recovery-state-machine migrations from ticket 0018) lands the column
-    // declaratively. Reference: ticket .smithers/tickets/.done/
-    // 0018-recovery-state-machine.md, transition
-    //   "succeeded|failed -> running (new lineage)  (continue-as-new)".
+  test("schema migrations declare parent_run_id and its lookup index", () => {
+    const migrationSource = readFileSync(
+      resolve(process.cwd(), "../packages/db/src/schema-migrations.js"),
+      "utf8",
+    );
+
+    expect(migrationSource).toContain('["parent_run_id", "parent_run_id TEXT"]');
+    expect(migrationSource).toContain(
+      "CREATE INDEX IF NOT EXISTS _smithers_runs_parent_idx ON _smithers_runs (parent_run_id)",
+    );
   });
 
   test.skip("CLI roundtrip: `smithers inspect --lineage <r3>` prints [R1, R2, R3]", () => {

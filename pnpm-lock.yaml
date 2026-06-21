@@ -582,6 +582,9 @@ importers:
       '@smithers-orchestrator/gateway':
         specifier: workspace:*
         version: link:../packages/gateway
+      '@smithers-orchestrator/observability':
+        specifier: workspace:*
+        version: link:../apps/observability
       '@smithers-orchestrator/sandbox':
         specifier: workspace:*
         version: link:../packages/sandbox

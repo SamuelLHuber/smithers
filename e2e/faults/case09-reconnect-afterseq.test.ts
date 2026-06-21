@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import type { AddressInfo } from "node:net";
 import { WebSocket, WebSocketServer } from "ws";
+import { loadBudget } from "../budgets/loadBudget.ts";
 import { dropWebSocket } from "../harness/dropWebSocket.ts";
 
 type EventRow = {
@@ -177,6 +178,9 @@ async function connectAndSubscribe(
 
 describe("case 09: subscriber disconnect, reconnect with afterSeq", () => {
   test("disconnect mid-stream and reconnect with afterSeq replays without gap or dup", async () => {
+    const latencyBudget = (await loadBudget("latency")) as {
+      reconnectAfterSeqMaxMs: number;
+    };
     const db = buildDb();
     let server: SubscriberServer | undefined;
     let firstWs: WebSocket | undefined;
@@ -209,9 +213,12 @@ describe("case 09: subscriber disconnect, reconnect with afterSeq", () => {
 
       insertEvents(db, runId, tailCount, initialCount);
 
+      const reconnectStartedAt = performance.now();
       const second = await connectAndSubscribe(server.port, runId, firstLastSeq, null);
       secondWs = second.ws;
       await second.ended;
+      const reconnectElapsedMs = performance.now() - reconnectStartedAt;
+      expect(reconnectElapsedMs).toBeLessThanOrEqual(latencyBudget.reconnectAfterSeqMaxMs);
 
       const secondSeqs = second.frames
         .filter((f): f is EventFrame => f.type === "event")
