@@ -199,10 +199,14 @@ export async function executeRequest(operation, args, baseUrl, options) {
         }
     }
     const url = buildUrl(baseUrl, operation.path, pathParams, queryParams, options);
+    // Trust boundary: spread LLM-controlled header *parameters* FIRST, then the
+    // operator-injected auth/headers, so an LLM-supplied header param (e.g. a
+    // spec that declares an `Authorization` header parameter, or an apiKey
+    // header name) can never override or strip the operator-injected secret.
     /** @type {Record<string, string>} */
     const headers = {
-        ...buildAuthHeaders(options),
         ...headerParams,
+        ...buildAuthHeaders(options),
     };
     /** @type {RequestInit} */
     const fetchInit = {
@@ -218,10 +222,22 @@ export async function executeRequest(operation, args, baseUrl, options) {
     }
     const response = await fetch(url, fetchInit);
     const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-        return response.json();
+    /** @type {unknown} */
+    const payload = contentType.includes("application/json")
+        ? await response.json()
+        : await response.text();
+    // Surface non-2xx HTTP responses as errors so the agent cannot mistake a
+    // 401/403/429/500 for a successful side-effecting call. The status and
+    // response body are included; the error never embeds the RequestInit (which
+    // carries the injected Authorization header), so the secret cannot leak.
+    if (!response.ok) {
+        const bodyText = typeof payload === "string" ? payload : JSON.stringify(payload);
+        const err = new Error(`HTTP ${response.status} ${response.statusText}: ${bodyText}`);
+        /** @type {Error & { status?: number; body?: unknown }} */ (err).status = response.status;
+        /** @type {Error & { status?: number; body?: unknown }} */ (err).body = payload;
+        throw err;
     }
-    return response.text();
+    return payload;
 }
 // ---------------------------------------------------------------------------
 // Effect-wrapped execution with metrics
