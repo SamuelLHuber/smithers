@@ -90,6 +90,8 @@ For React hook patterns see [/recipes#custom-hooks-over-ctx](/recipes#custom-hoo
 
 CLI-backed agent classes wrap external AI command-line tools and implement the [AI SDK](https://ai-sdk.dev) `Agent` interface. Use them anywhere Smithers accepts an agent, including [`<Task>`](/components/task). Reach for these for a vendor's full CLI surface (sessions, sandboxes, slash commands, MCP). For API-billed provider wrappers, see [SDK Agents](/integrations/sdk-agents).
 
+<Note>API reference: [Agents](/reference/agents) lists every agent class, its options, and links to source and tests.</Note>
+
 ## Quick Start
 
 ```tsx
@@ -552,6 +554,8 @@ On clean exit the workflow resumes in detached mode. Vibe and OpenCode stream ca
 
 `AnthropicAgent`, `OpenAIAgent`, and `HermesAgent` are provider-backed [AI SDK](https://ai-sdk.dev) agents with class-style ergonomics matching the [CLI agents](/integrations/cli-agents). `AnthropicAgent` and `OpenAIAgent` wrap `ToolLoopAgent` directly; `HermesAgent` extends the OpenAI-compatible path with Hermes defaults.
 
+<Note>API reference: [Agents](/reference/agents) lists every agent class, its options, and links to source and tests.</Note>
+
 ## Import
 
 ```ts
@@ -973,6 +977,8 @@ import { tools, read, write, edit, grep, bash, defineTool, getDefinedToolMetadat
 const { read, write, edit, grep, bash } = tools;
 ```
 
+<Note>API reference: [Tools](/reference/tools) lists every built-in tool and helper, its options, and links to source and tests.</Note>
+
 The `smithers-orchestrator/tools` subpath also exports lower-level helpers for advanced integrations:
 
 | Export | Purpose |
@@ -1337,6 +1343,8 @@ const result = await Effect.runPromise(runWorkflow(workflow, {
 ## Common External Tools
 
 > Patterns for hitting GitHub, Linear, Notion, Slack, Obsidian as tools.
+
+<Note>API reference: [Tools](/reference/tools) lists every built-in tool and helper, its options, and links to source and tests.</Note>
 
 For each external service, you have three choices:
 

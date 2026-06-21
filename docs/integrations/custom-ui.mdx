@@ -5,6 +5,8 @@ description: Build third-party UIs on top of the Smithers Gateway with the gatew
 
 The Smithers Gateway is a versioned RPC + WebSocket contract: any UI (`apps/smithers`, an Electron shell, a Slack bot, your own dashboard) talks to it through the same typed surface. This page is the contract for third-party UIs.
 
+<Note>API reference: [Gateway React](/reference/gateway-react) lists every hook and component, its options, and links to source and tests.</Note>
+
 There are two SDKs:
 
 - **`@smithers-orchestrator/gateway-client`**: framework-neutral. One small class (`SmithersGatewayClient`) with typed RPC methods, a resilient event stream, and no React dependency. Use it from vanilla JS, Node, Bun, workers, Svelte, Solid, anywhere.

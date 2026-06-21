@@ -10,6 +10,8 @@
 
 `startServer` boots a multi-workflow HTTP server with REST endpoints for run lifecycle, SSE event streams, and [human-in-the-loop approvals](/components/approval). For a single-workflow variant alongside `bunx smithers-orchestrator up`, see [Serve Mode](/integrations/serve).
 
+<Note>API reference: [Server & Gateway](/reference/server-gateway) lists every server and gateway export, its options, and links to source and tests.</Note>
+
 ## Quick start
 
 ```ts
@@ -121,6 +123,8 @@ Missing or invalid tokens return `401`. No scopes; for finer access control use 
 > Run a single workflow as an HTTP server with Hono. Interact with it over REST, stream events via SSE, and manage approvals remotely.
 
 Serve mode starts a Hono-based HTTP server alongside a running workflow. Every route operates on the single active run, with no workflow path or run ID in requests.
+
+<Note>API reference: [Server & Gateway](/reference/server-gateway) lists every server and gateway export, its options, and links to source and tests.</Note>
 
 ## CLI
 
@@ -336,6 +340,8 @@ curl http://localhost:8080/health
 > WebSocket / RPC gateway for connecting clients and custom UIs to Smithers runs, providing pushed updates, subscriptions, metrics, and resilient reconnection.
 
 `Gateway` is Smithers' headless control plane. Reach for it (instead of [`startServer()`](/integrations/server)) when long-lived clients (bots, dashboards, schedulers, and custom UIs) need to authenticate once, stream events over WebSocket with resilient reconnection, decide [approvals](/components/approval), inject [signals](/runtime/events), access metrics, and manage cron schedules across many registered workflows. Custom UIs, whether using the vanilla SDK or React hooks, rely on the Gateway to provide pushed updates and a stale-data-free model. For the single-workflow Hono-based HTTP surface, see [Serve Mode](/integrations/serve) (`createServeApp()` / `bunx smithers-orchestrator up --serve`).
+
+<Note>API reference: [Server & Gateway](/reference/server-gateway) and [Gateway Client](/reference/gateway-client) list every gateway and client export, its options, and links to source and tests.</Note>
 
 ## Quick start
 

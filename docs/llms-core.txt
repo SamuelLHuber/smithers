@@ -622,6 +622,8 @@ It auto-resumes runs whose owner process died.
 
 Smithers is a React reconciler whose host elements are tasks instead of DOM nodes. Each render produces a snapshot of the workflow plan; the runtime extracts ready tasks from that plan, executes them, persists their outputs, and re-renders. The plan evolves because each render reads the persisted state.
 
+<Note>API reference: [Types](/reference/types) lists every public type, its fields, and links to source and tests.</Note>
+
 <Frame caption="The whole runtime in one loop: render the tree, extract the ready tasks, execute them, persist their outputs, then re-render against the new state. State is the source of truth; the plan is a pure function of state.">
   <img src="/images/why/render-loop.svg" alt="A four-stage loop: render the workflow tree, extract ready tasks, execute them, persist outputs to SQLite, then re-render against the new state" />
 </Frame>
@@ -1750,6 +1752,8 @@ Before closing:
 > Author workflows as JSX trees. Smithers renders the tree, dispatches ready tasks, persists outputs, and re-renders. Branching and parallelism are plain JSX conditionals.
 
 Workflows are JSX trees. Smithers renders the tree, extracts ready tasks, executes them, persists their outputs, and re-renders. Branching, looping, and parallelism are normal JSX.
+
+<Note>API reference: [Authoring](/reference/authoring) and [Components](/reference/components) list every authoring helper and JSX element, their options, and links to source and tests.</Note>
 
 ## Setup
 
@@ -4853,6 +4857,8 @@ const columns = [
 > Tight, reusable patterns. Copy, paste, adapt.
 
 Each recipe is a working snippet plus one line of context. They compose freely.
+
+<Note>API reference: [Reference overview](/reference/overview) maps every package to its exhaustive API page, each with links to source and tests.</Note>
 
 If you want a ready-to-run outcome before writing workflow code, start with [Starters](/starters) or run `bunx smithers-orchestrator starters`.
 
@@ -7964,6 +7970,8 @@ bunx smithers-orchestrator graph workflow.tsx --input '{"task":"preview"}'
 > Restore the workspace to a previous task attempt's filesystem state via JJ.
 
 Each successful task attempt captures the current [JJ](https://jj-vcs.github.io/jj/) change ID into `_smithers_attempts.jj_pointer`. `revert` restores the workspace to that state and discards any graph snapshots recorded after the attempt began, so the run's timeline rolls back to the point-in-time of that attempt.
+
+<Note>API reference: [Time Travel](/reference/time-travel) lists every revert and time-travel export, its options, and links to source and tests.</Note>
 
 ```bash
 bunx smithers-orchestrator revert workflow.tsx \

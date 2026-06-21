@@ -5,6 +5,8 @@ description: The render → execute → persist loop, in one page.
 
 Smithers is a React reconciler whose host elements are tasks instead of DOM nodes. Each render produces a snapshot of the workflow plan; the runtime extracts ready tasks from that plan, executes them, persists their outputs, and re-renders. The plan evolves because each render reads the persisted state.
 
+<Note>API reference: [Types](/reference/types) lists every public type, its fields, and links to source and tests.</Note>
+
 <Frame caption="The whole runtime in one loop: render the tree, extract the ready tasks, execute them, persist their outputs, then re-render against the new state. State is the source of truth; the plan is a pure function of state.">
   <img src="/images/why/render-loop.svg" alt="A four-stage loop: render the workflow tree, extract ready tasks, execute them, persist outputs to SQLite, then re-render against the new state" />
 </Frame>

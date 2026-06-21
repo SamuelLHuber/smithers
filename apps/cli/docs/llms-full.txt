@@ -643,6 +643,8 @@ It auto-resumes runs whose owner process died.
 
 Smithers is a React reconciler whose host elements are tasks instead of DOM nodes. Each render produces a snapshot of the workflow plan; the runtime extracts ready tasks from that plan, executes them, persists their outputs, and re-renders. The plan evolves because each render reads the persisted state.
 
+<Note>API reference: Types lists every public type, its fields, and links to source and tests.</Note>
+
 <Frame caption="The whole runtime in one loop: render the tree, extract the ready tasks, execute them, persist their outputs, then re-render against the new state. State is the source of truth; the plan is a pure function of state.">
   <img src="/images/why/render-loop.svg" alt="A four-stage loop: render the workflow tree, extract ready tasks, execute them, persist outputs to SQLite, then re-render against the new state" />
 </Frame>
@@ -1770,6 +1772,8 @@ Before closing:
 > Author workflows as JSX trees. Smithers renders the tree, dispatches ready tasks, persists outputs, and re-renders. Branching and parallelism are plain JSX conditionals.
 
 Workflows are JSX trees. Smithers renders the tree, extracts ready tasks, executes them, persists their outputs, and re-renders. Branching, looping, and parallelism are normal JSX.
+
+<Note>API reference: Authoring and Components list every authoring helper and JSX element, their options, and links to source and tests.</Note>
 
 ## Setup
 
@@ -4873,6 +4877,8 @@ const columns = [
 > Tight, reusable patterns. Copy, paste, adapt.
 
 Each recipe is a working snippet plus one line of context. They compose freely.
+
+<Note>API reference: Reference overview maps every package to its exhaustive API page, each with links to source and tests.</Note>
 
 If you want a ready-to-run outcome before writing workflow code, start with Starters or run `bunx smithers-orchestrator starters`.
 
@@ -7980,6 +7986,8 @@ bunx smithers-orchestrator graph workflow.tsx --input '{"task":"preview"}'
 
 Each successful task attempt captures the current [JJ](https://jj-vcs.github.io/jj/) change ID into `_smithers_attempts.jj_pointer`. `revert` restores the workspace to that state and discards any graph snapshots recorded after the attempt began, so the run's timeline rolls back to the point-in-time of that attempt.
 
+<Note>API reference: Time Travel lists every revert and time-travel export, its options, and links to source and tests.</Note>
+
 ```bash
 bunx smithers-orchestrator revert workflow.tsx \
   --run-id RUN_ID --node-id NODE_ID [--attempt N=1] [--iteration N=0]
@@ -8388,6 +8396,8 @@ Artifacts are Smithers JSON records with baseline score, optimized score, improv
 
 Memory persists state **across runs**. Task outputs are per-run; memory is per-namespace and survives every workflow execution.
 
+<Note>API reference: Memory lists every memory export and type, its options, and links to source and tests.</Note>
+
 ```mermaid
 flowchart LR
   W[workflow] --> ST
@@ -8532,6 +8542,8 @@ This material is now in the opt-in `/llms-memory.txt` fragment.
 > Generate AI SDK tools from an OpenAPI spec. Auth, filtering, observability built in.
 
 `createOpenApiTools` parses an OpenAPI 3.x spec and returns AI SDK tools, one per operation, with Zod schemas converted from the spec's JSON schemas.
+
+<Note>API reference: OpenAPI lists every OpenAPI export and option, and links to source and tests.</Note>
 
 ```ts
 import { ToolLoopAgent } from "ai";
@@ -8694,6 +8706,8 @@ This material is now in the opt-in `/llms-openapi.txt` fragment.
 
 `startServer` boots a multi-workflow HTTP server with REST endpoints for run lifecycle, SSE event streams, and human-in-the-loop approvals. For a single-workflow variant alongside `bunx smithers-orchestrator up`, see Serve Mode.
 
+<Note>API reference: Server & Gateway lists every server and gateway export, its options, and links to source and tests.</Note>
+
 ## Quick start
 
 ```ts
@@ -8804,6 +8818,8 @@ Missing or invalid tokens return `401`. No scopes; for finer access control use 
 > Run a single workflow as an HTTP server with Hono. Interact with it over REST, stream events via SSE, and manage approvals remotely.
 
 Serve mode starts a Hono-based HTTP server alongside a running workflow. Every route operates on the single active run, with no workflow path or run ID in requests.
+
+<Note>API reference: Server & Gateway lists every server and gateway export, its options, and links to source and tests.</Note>
 
 ## CLI
 
@@ -9019,6 +9035,8 @@ curl http://localhost:8080/health
 > WebSocket / RPC gateway for connecting clients and custom UIs to Smithers runs, providing pushed updates, subscriptions, metrics, and resilient reconnection.
 
 `Gateway` is Smithers' headless control plane. Reach for it (instead of `startServer()`) when long-lived clients (bots, dashboards, schedulers, and custom UIs) need to authenticate once, stream events over WebSocket with resilient reconnection, decide approvals, inject signals, access metrics, and manage cron schedules across many registered workflows. Custom UIs, whether using the vanilla SDK or React hooks, rely on the Gateway to provide pushed updates and a stale-data-free model. For the single-workflow Hono-based HTTP surface, see Serve Mode (`createServeApp()` / `bunx smithers-orchestrator up --serve`).
+
+<Note>API reference: Server & Gateway and Gateway Client list every gateway and client export, its options, and links to source and tests.</Note>
 
 ## Quick start
 
@@ -10718,6 +10736,8 @@ Use this when the step is deterministic and you do not need the model involved.
 
 CLI-backed agent classes wrap external AI command-line tools and implement the [AI SDK](https://ai-sdk.dev) `Agent` interface. Use them anywhere Smithers accepts an agent, including `<Task>`. Reach for these for a vendor's full CLI surface (sessions, sandboxes, slash commands, MCP). For API-billed provider wrappers, see SDK Agents.
 
+<Note>API reference: Agents lists every agent class, its options, and links to source and tests.</Note>
+
 ## Quick Start
 
 ```tsx
@@ -11180,6 +11200,8 @@ On clean exit the workflow resumes in detached mode. Vibe and OpenCode stream ca
 
 `AnthropicAgent`, `OpenAIAgent`, and `HermesAgent` are provider-backed AI SDK agents with class-style ergonomics matching the CLI agents. `AnthropicAgent` and `OpenAIAgent` wrap `ToolLoopAgent` directly; `HermesAgent` extends the OpenAI-compatible path with Hermes defaults.
 
+<Note>API reference: Agents lists every agent class, its options, and links to source and tests.</Note>
+
 ## Import
 
 ```ts
@@ -11590,6 +11612,8 @@ import { tools, read, write, edit, grep, bash, defineTool, getDefinedToolMetadat
 const { read, write, edit, grep, bash } = tools;
 ```
 
+<Note>API reference: Tools lists every built-in tool and helper, its options, and links to source and tests.</Note>
+
 The `smithers-orchestrator/tools` subpath also exports lower-level helpers for advanced integrations:
 
 | Export | Purpose |
@@ -11948,6 +11972,8 @@ const result = await Effect.runPromise(runWorkflow(workflow, {
 ## Common External Tools
 
 > Patterns for hitting GitHub, Linear, Notion, Slack, Obsidian as tools.
+
+<Note>API reference: Tools lists every built-in tool and helper, its options, and links to source and tests.</Note>
 
 For each external service, you have three choices:
 

@@ -10,6 +10,8 @@
 
 Memory persists state **across runs**. Task outputs are per-run; memory is per-namespace and survives every workflow execution.
 
+<Note>API reference: [Memory](/reference/memory) lists every memory export and type, its options, and links to source and tests.</Note>
+
 ```mermaid
 flowchart LR
   W[workflow] --> ST
