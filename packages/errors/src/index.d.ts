@@ -671,6 +671,14 @@ declare namespace smithersErrorDefinitions {
         let when_69: string;
         export { when_69 as when };
     }
+    namespace SMITHERS_MIGRATION_REQUIRED {
+        let category_mig: string;
+        export { category_mig as category };
+        let when_mig: string;
+        export { when_mig as when };
+        let details_mig: string;
+        export { details_mig as details };
+    }
     namespace STORAGE_ERROR {
         let category_70: string;
         export { category_70 as category };
