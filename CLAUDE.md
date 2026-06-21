@@ -1,6 +1,7 @@
-# CLAUDE.md
+# CLAUDE.md / AGENTS.md
 
 Guidance for Claude Code (and any AI agent) working in this repository.
+`AGENTS.md` is a symlink to this file, so both stay in sync — edit `CLAUDE.md`.
 
 ## What's in this repo (read first)
 
@@ -34,10 +35,31 @@ POC), `apps/smithers-studio-2` (studio shell POC), `apps/smithers-demo`,
 `apps/smithers-tui-demo`, and `~/gui` (Swift/AppKit). `../plue` (smithers cloud)
 is a separate repo. Ignore all of these unless explicitly asked.
 
+## Source control: this is a jj (Jujutsu) colocated repo
+
+There is a `.jj/` **and** a `.git/`. `jj` owns the working copy; raw `git`
+(and `gh`, CI, hooks) still works — plain `git add`/`commit`/`pull --rebase`/
+`push` is a fine way to land a change here — but when jj and git disagree,
+**trust `jj`**.
+
+- **Diagnose with `jj st` / `jj log`, not `git status`.** In colocated mode the
+  git `HEAD` trails the jj working copy, so a git-only diagnosis lies. A stuck
+  working-copy snapshot can show **phantom `D` deletions** of files that are
+  still on disk (and `jj new`/`abandon`/`restore` won't clear it). Recover with
+  `rm <path> && git checkout HEAD -- <dir>`. Switching the colocated git branch
+  (`git checkout main` when `main` is at the same commit) also resets the index
+  back to `HEAD`, which clears such phantom entries.
+- **Commit with explicit pathspecs** (`git commit <path>` or staged `jj`
+  ranges), never a blanket `git add -A`. This working tree is shared with
+  concurrent agents; a racing catch-all `git add` corrupts the index (duplicate
+  tree entries → GitHub fsck rejects the push). It also keeps phantom deletions
+  out of real commits.
+
 ## Branching & commits
 
-- **Always work directly on `main`.** Do not create feature branches unless the
-  user *explicitly* asks you to. Commit and push to `main`.
+- **Always work directly on `main`** (the `main` bookmark in jj). Do not create
+  feature branches unless the user *explicitly* asks you to. Commit and push to
+  `main`.
 - **Atomic commits.** One logical change per commit — a feature and its test can
   go together, but unrelated changes get separate commits. Never bundle
   unrelated work into one commit.
