@@ -232,4 +232,40 @@ describe("SqlMessageStorage postgres dialect", () => {
         await adapter.deleteOutputRow("pg_adapter_output", { runId: "run-pg", nodeId: "node", iteration: 0 });
         expect(await adapter.getRawNodeOutputForIteration("pg_adapter_output", "run-pg", "node", 0)).toBeNull();
     });
+
+    test("insertEventWithNextSeq allocates gapless seqs under concurrency on the postgres fallback path", async () => {
+        // Force the non-bun:sqlite fallback branch: internalStorage is postgres
+        // and `db` exposes no sqlite exec/query/run client. Without the
+        // transaction-turn fix, concurrent allocations read the same MAX(seq)
+        // and collide on the (run_id, seq) PK, so insertIgnore silently drops
+        // events — the exact bug this regression test guards.
+        const adapter = new SmithersDb(new Database(":memory:"));
+        adapter.internalStorage = storage;
+        adapter.db = { _: { fullSchema: {} } };
+
+        const runId = "pg-race-run";
+        await storage.upsert(
+            "_smithers_runs",
+            { runId, workflowName: "demo", status: "running", createdAtMs: 1 },
+            ["runId"],
+        );
+
+        const N = 8;
+        const seqs = await Promise.all(
+            Array.from({ length: N }, (_, i) =>
+                adapter.insertEventWithNextSeq({
+                    runId,
+                    timestampMs: 3000 + i,
+                    type: "pg.race",
+                    payloadJson: JSON.stringify({ i }),
+                }),
+            ),
+        );
+        const sorted = [...seqs].sort((a, b) => a - b);
+        expect(sorted).toEqual(Array.from({ length: N }, (_, i) => i));
+        expect(new Set(seqs).size).toBe(N); // no two writers got the same seq
+        expect(await adapter.getLastEventSeq(runId)).toBe(N - 1);
+        const history = await adapter.listEventHistory(runId, { limit: N * 2 });
+        expect(history.length).toBe(N); // no event silently dropped
+    }, 60_000);
 });

@@ -1925,17 +1925,30 @@ export class SmithersDb {
             if (typeof client.exec !== "function" ||
                 typeof client.query !== "function" ||
                 typeof client.run !== "function") {
-                const lastSeq = (yield* self.getLastSignalSeq(row.runId)) ?? -1;
-                const seq = lastSeq + 1;
-                yield* Effect.tryPromise({
-                    try: () => self.internalStorage.insertIgnore("_smithers_signals", {
-                        ...row,
-                        receivedBy: row.receivedBy ?? null,
-                        seq,
-                    }),
-                    catch: (cause) => toSmithersError(cause, "insert fallback signal row"),
-                });
-                return seq;
+                // Non-bun:sqlite (Postgres/pglite) fallback. Serialize the
+                // read-MAX-then-insert under the shared transaction turn so two
+                // concurrent allocations can't both read the same lastSeq and
+                // collide on the (run_id, seq) primary key — insertIgnore would
+                // otherwise silently drop the loser, losing a signal.
+                const releaseTurn = yield* self.acquireTransactionTurn();
+                return yield* Effect.gen(function* () {
+                    const lastSeq = (yield* Effect.tryPromise({
+                        try: () => self.internalStorage.getLastSignalSeq(row.runId),
+                        catch: (cause) => toSmithersError(cause, "get fallback last signal seq"),
+                    })) ?? -1;
+                    const seq = lastSeq + 1;
+                    yield* Effect.tryPromise({
+                        try: () => self.internalStorage.insertIgnore("_smithers_signals", {
+                            ...row,
+                            receivedBy: row.receivedBy ?? null,
+                            seq,
+                        }),
+                        catch: (cause) => toSmithersError(cause, "insert fallback signal row"),
+                    });
+                    return seq;
+                }).pipe(Effect.ensuring(Effect.sync(() => {
+                    releaseTurn();
+                })));
             }
             const releaseTurn = yield* self.acquireTransactionTurn();
             return yield* Effect.try({
@@ -2177,13 +2190,28 @@ export class SmithersDb {
             if (typeof client.exec !== "function" ||
                 typeof client.query !== "function" ||
                 typeof client.run !== "function") {
-                const lastSeq = (yield* self.getLastEventSeq(row.runId)) ?? -1;
-                const seq = lastSeq + 1;
-                yield* Effect.tryPromise({
-                    try: () => self.internalStorage.insertIgnore("_smithers_events", { ...row, seq }),
-                    catch: (cause) => toSmithersError(cause, "insert fallback event row"),
-                });
-                return seq;
+                // Non-bun:sqlite (Postgres/pglite) fallback. Serialize the
+                // read-MAX-then-insert under the shared transaction turn — the
+                // same primitive the bun:sqlite path below relies on — so two
+                // concurrent allocations can't both read the same lastSeq and
+                // collide on the (run_id, seq) primary key. Without the turn,
+                // insertIgnore would silently drop the loser, losing an event
+                // from the durable log that replay/live-stream depend on.
+                const releaseTurn = yield* self.acquireTransactionTurn();
+                return yield* Effect.gen(function* () {
+                    const lastSeq = (yield* Effect.tryPromise({
+                        try: () => self.internalStorage.getLastEventSeq(row.runId),
+                        catch: (cause) => toSmithersError(cause, "get fallback last event seq"),
+                    })) ?? -1;
+                    const seq = lastSeq + 1;
+                    yield* Effect.tryPromise({
+                        try: () => self.internalStorage.insertIgnore("_smithers_events", { ...row, seq }),
+                        catch: (cause) => toSmithersError(cause, "insert fallback event row"),
+                    });
+                    return seq;
+                }).pipe(Effect.ensuring(Effect.sync(() => {
+                    releaseTurn();
+                })));
             }
             const releaseTurn = yield* self.acquireTransactionTurn();
             return yield* Effect.try({
