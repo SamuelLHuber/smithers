@@ -24,6 +24,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createSweEvo, schemas } from "./workflow/swe-evo.tsx";
+import { createSweEvoPanel } from "./workflow/swe-evo-panel.tsx";
 import type { Instance } from "./workflow/harness.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -38,10 +39,11 @@ type Args = {
   concurrency: number;
   report?: string;
   port: number;
+  workflow: "baseline" | "panel";
 };
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { ids: [], all: false, direct: false, concurrency: 1, port: 7411 };
+  const a: Args = { ids: [], all: false, direct: false, concurrency: 1, port: 7411, workflow: "baseline" };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--all") a.all = true;
@@ -50,9 +52,20 @@ function parseArgs(argv: string[]): Args {
     else if (t === "--concurrency" || t === "-j") a.concurrency = Number(argv[++i]);
     else if (t === "--report" || t === "-r") a.report = argv[++i];
     else if (t === "--port") a.port = Number(argv[++i]);
+    else if (t === "--workflow" || t === "-w") a.workflow = argv[++i] as Args["workflow"];
     else a.ids.push(t);
   }
+  if (a.workflow !== "baseline" && a.workflow !== "panel") {
+    throw new Error(`--workflow must be "baseline" or "panel", got: ${a.workflow}`);
+  }
   return a;
+}
+
+/** Build the workflow api for the selected variant, with a per-variant DB so
+ *  baseline and panel runs never share output tables. */
+function createApi(args: Args) {
+  const dbPath = join(HERE, ".data", `swe-evo-${args.workflow}.db`);
+  return args.workflow === "panel" ? createSweEvoPanel({ dbPath }) : createSweEvo({ dbPath });
 }
 
 function allInstances(): Instance[] {
@@ -159,7 +172,7 @@ type RunOutcome = {
 };
 
 async function runDirect(instances: Instance[], args: Args): Promise<RunOutcome[]> {
-  const api = createSweEvo({ dbPath: join(HERE, ".data", "swe-evo.db") });
+  const api = createApi(args);
   return poolRun(instances, args.concurrency, async (instance) => {
     const runId = `sweevo-${instance.instance_id}-${Date.now()}`;
     process.stderr.write(`[run] ${instance.instance_id} -> ${runId}\n`);
@@ -182,7 +195,7 @@ async function runDirect(instances: Instance[], args: Args): Promise<RunOutcome[
 }
 
 async function runViaGateway(instances: Instance[], args: Args): Promise<RunOutcome[]> {
-  const api = createSweEvo({ dbPath: join(HERE, ".data", "swe-evo.db") });
+  const api = createApi(args);
   const gateway = new Gateway({ heartbeatMs: 15_000 });
   gateway.register("swe-evo", api.workflow as never);
   await gateway.listen({ port: args.port, host: "127.0.0.1" });
@@ -281,7 +294,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const instances = selectInstances(args);
   process.stderr.write(
-    `[swe-evo] ${instances.length} instance(s), mode=${args.direct ? "direct" : "gateway"}, concurrency=${args.concurrency}\n`,
+    `[swe-evo] workflow=${args.workflow}, ${instances.length} instance(s), mode=${args.direct ? "direct" : "gateway"}, concurrency=${args.concurrency}\n`,
   );
 
   const outcomes = args.direct ? await runDirect(instances, args) : await runViaGateway(instances, args);
@@ -295,15 +308,24 @@ async function main() {
 
   const report = {
     generatedAt: new Date().toISOString(),
+    workflow: args.workflow,
     mode: args.direct ? "direct" : "gateway",
-    models: {
-      implement: process.env.SWEEVO_CLAUDE_MODEL ?? "opus (Claude Opus 4.8, claude-code)",
-      refine: process.env.SWEEVO_CODEX_MODEL ?? "gpt-5.5 (Codex)",
-    },
+    models:
+      args.workflow === "panel"
+        ? {
+            orchestration: "Panel(plan) + ReviewLoop(implement/review)",
+            planners: `Opus + Codex${process.env.SWEEVO_GEMINI !== "0" ? " + Gemini" : ""} (moderator: Opus)`,
+            implement: `${process.env.SWEEVO_CODEX_MODEL ?? "gpt-5.5"} (Codex 5.5)`,
+            review: `Opus${process.env.SWEEVO_GEMINI !== "0" ? " + Gemini" : ""}`,
+          }
+        : {
+            implement: process.env.SWEEVO_CLAUDE_MODEL ?? "opus (Claude Opus 4.8, claude-code)",
+            refine: process.env.SWEEVO_CODEX_MODEL ?? "gpt-5.5 (Codex)",
+          },
     summary,
     results: outcomes,
   };
-  const reportPath = args.report ?? join(HERE, ".data", `report-${Date.now()}.json`);
+  const reportPath = args.report ?? join(HERE, ".data", `swe-evo-${args.workflow}.report.json`);
   mkdirSync(dirname(reportPath), { recursive: true });
   writeFileSync(reportPath, JSON.stringify(report, null, 2));
   console.log(`\nReport written to ${reportPath}`);
