@@ -92,6 +92,40 @@ export function findFirstPositionalIndex(argv, startIndex = 0) {
 }
 
 /**
+ * Lift `--backend <value>` (or `--backend=value`) out of argv and return the
+ * value separately. Only `up`/`gateway`/`monitor`/`workflow` register `--backend`
+ * as an option; read commands (`ps`, `inspect`, `output`, …) do not, so passing
+ * the flag there is otherwise rejected as an unknown flag even though the
+ * SMITHERS_MIGRATION_REQUIRED error tells users to use it. The caller sets
+ * SMITHERS_BACKEND from the returned value so the resolver honors it everywhere.
+ *
+ * @param {string[]} argv
+ * @returns {{ argv: string[]; backend: string | undefined }}
+ */
+export function extractBackendFlag(argv) {
+    /** @type {string | undefined} */
+    let backend;
+    const filtered = [];
+    for (let index = 0; index < argv.length; index++) {
+        const arg = argv[index];
+        if (arg === "--backend") {
+            const next = argv[index + 1];
+            if (next !== undefined && !next.startsWith("-")) {
+                backend = next;
+                index += 1;
+            }
+            continue;
+        }
+        if (arg.startsWith("--backend=")) {
+            backend = arg.slice("--backend=".length);
+            continue;
+        }
+        filtered.push(arg);
+    }
+    return { argv: filtered, backend };
+}
+
+/**
  * Incur treats union-typed options as value-bearing flags, so a bare
  * `--resume --run-id value` would consume `--run-id` as the resume value.
  *

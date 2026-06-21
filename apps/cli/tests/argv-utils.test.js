@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+    extractBackendFlag,
     findFirstPositionalIndex,
     parseMcpSurfaceArgv,
     rewriteBareResumeFlagArgv,
@@ -94,6 +95,36 @@ describe("argv-utils", () => {
 
         test("does not rewrite unrelated flags", () => {
             expect(rewriteBareResumeFlagArgv(["run", "--run-id", "abc"])).toEqual(["run", "--run-id", "abc"]);
+        });
+    });
+
+    describe("extractBackendFlag", () => {
+        test("lifts the separate-form flag and strips it from argv", () => {
+            expect(extractBackendFlag(["inspect", "run-1", "--backend", "sqlite"])).toEqual({
+                argv: ["inspect", "run-1"],
+                backend: "sqlite",
+            });
+        });
+
+        test("lifts the equals-form flag", () => {
+            expect(extractBackendFlag(["ps", "--backend=pglite"])).toEqual({
+                argv: ["ps"],
+                backend: "pglite",
+            });
+        });
+
+        test("returns undefined backend and unchanged argv when absent", () => {
+            expect(extractBackendFlag(["ps", "--json"])).toEqual({
+                argv: ["ps", "--json"],
+                backend: undefined,
+            });
+        });
+
+        test("does not consume a following flag as the backend value", () => {
+            expect(extractBackendFlag(["inspect", "--backend", "--json"])).toEqual({
+                argv: ["inspect", "--json"],
+                backend: undefined,
+            });
         });
     });
 });

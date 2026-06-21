@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { setJsonMode } from "./util/logger.ts";
-import { findFirstPositionalIndex, parseMcpSurfaceArgv, rewriteBareResumeFlagArgv } from "./argv-utils.js";
+import { extractBackendFlag, findFirstPositionalIndex, parseMcpSurfaceArgv, rewriteBareResumeFlagArgv } from "./argv-utils.js";
 import { CLI_JSON_ARGUMENT_MAX_BYTES, parseJsonArgument, parseJsonInput } from "./json-args.js";
 import { resolve, dirname, basename, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -6737,6 +6737,18 @@ async function main() {
     if (command && !KNOWN_COMMANDS.has(command)) {
         console.error(`Unknown command: ${command}`);
         process.exit(4);
+    }
+    // `--backend` is a registered option only on up/gateway/monitor/workflow.
+    // The SMITHERS_MIGRATION_REQUIRED error tells users to run any command with
+    // `--backend sqlite`, so lift it into SMITHERS_BACKEND for every other command
+    // instead of letting incur reject it as an unknown flag.
+    const NATIVE_BACKEND_COMMANDS = new Set(["up", "gateway", "monitor", "workflow"]);
+    if (command && !NATIVE_BACKEND_COMMANDS.has(command)) {
+        const lifted = extractBackendFlag(argv);
+        argv = lifted.argv;
+        if (lifted.backend) {
+            process.env.SMITHERS_BACKEND = lifted.backend;
+        }
     }
     argv = rewriteBareResumeFlagArgv(argv);
     // --mcp mode: the MCP server needs to stay alive listening on stdin.
