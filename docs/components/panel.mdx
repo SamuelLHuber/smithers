@@ -111,7 +111,7 @@ export function Panel(props) {
         ? `\n\nStrategy: VOTE. Count how many panelists agree. ${minAgree ? `Minimum agreement required: ${minAgree}.` : ""}`
         : strategy === "consensus"
             ? `\n\nStrategy: CONSENSUS. All panelists must converge. ${minAgree ? `Minimum agreement required: ${minAgree}.` : ""}`
-            : `\n\nStrategy: SYNTHESIZE. Combine all panelist outputs into a single coherent result.`;
+            : `\n\nStrategy: SYNTHESIZE. Combine all panelist outputs into a single coherent result. Preserve each panelist's concrete, grounded findings verbatim (specific file paths, line numbers, identifiers, prior-PR references, and what already exists); reconcile disagreements with evidence. Do not over-generalize, drop specifics, or change the scope the panelists analyzed.`;
     const moderatorChildren = `Synthesize the following panelist outputs.${strategyPrompt}`;
     const moderatorTask = React.createElement(Task, {
         id: `${prefix}-moderator`,
