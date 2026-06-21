@@ -78,6 +78,7 @@
     "check:docs": "node scripts/check-docs.mjs",
     "check:llms": "node scripts/check-llms.mjs",
     "fetch:jj": "node scripts/fetch-jj-binaries.mjs",
+    "docs:components": "node scripts/generate-component-source.mjs",
     "docs:llms": "bun scripts/generate-llms.ts && bun scripts/optimize-llms-full.ts",
     "docs": "cd docs && bunx mintlify dev",
     "release:content": "bunx smithers-orchestrator up .smithers/workflows/release-content.tsx",

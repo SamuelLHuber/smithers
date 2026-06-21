@@ -183,7 +183,14 @@ function renderPage(relPath: string): string {
   const { fm, body } = parseFrontmatter(src);
   const title = fm.title ?? relPath.replace(/\.mdx?$/, "");
   const desc = fm.description ? `> ${fm.description}\n\n` : "";
-  return `## ${title}\n\n${desc}${body.trimEnd()}\n\n---\n\n`;
+  // Composite component pages embed verbatim package source (the "## Source"
+  // CodeGroup). It lives in the repo already and would bloat the bundles, so
+  // drop the generated region from the agent-facing docs.
+  const prose = body.replace(
+    /\n*\{\/\* GENERATED:COMPONENT-SOURCE START[\s\S]*?GENERATED:COMPONENT-SOURCE END \*\/\}\n*/g,
+    "\n",
+  );
+  return `## ${title}\n\n${desc}${prose.trimEnd()}\n\n---\n\n`;
 }
 
 function renderManifest(name: string, pages: string[], header: string): string {

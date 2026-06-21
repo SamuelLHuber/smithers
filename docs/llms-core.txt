@@ -6890,6 +6890,7 @@ Defined in the root `package.json` for development:
 | `check:docs` | `node scripts/check-docs.mjs` | Verify documentation style and API drift guards |
 | `check:llms` | `node scripts/check-llms.mjs` | Verify generated llms docs are current |
 | `fetch:jj` | `node scripts/fetch-jj-binaries.mjs` | Fetch vendored jj binaries for supported platforms |
+| `docs:components` | `node scripts/generate-component-source.mjs` | Embed composite component source as tabs in their docs pages |
 | `docs:llms` | `bun scripts/generate-llms.ts && bun scripts/optimize-llms-full.ts` | Regenerate `llms-core.txt` and `llms-full.txt` |
 | `docs` | `cd docs && bunx mintlify dev` | Start the Mintlify docs dev server for local preview |
 | `release:content` | `bunx smithers-orchestrator up .smithers/workflows/release-content.tsx` | Run the release-content workflow (changelog, tweet thread, blog) in dry-run mode |

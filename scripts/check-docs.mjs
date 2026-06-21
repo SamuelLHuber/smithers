@@ -186,6 +186,25 @@ for (const script of ["normalize-bunx.ts", "normalize-placeholders.ts"]) {
   if (r.status !== 0) failed = true;
 }
 
+// Composite component docs embed verbatim package source via a generated region;
+// fail if those embeds drift from the source (regenerate: pnpm docs:components).
+{
+  const r = spawnSync("node", [join("scripts", "generate-component-source.mjs"), "--check"], {
+    cwd: root,
+    stdio: "inherit",
+  });
+  if (r.status !== 0) failed = true;
+}
+
+// The generated source-embed regions hold verbatim package source, which is
+// exempt from the prose house-style scans below (em-dashes, documented imports):
+// it is checked against the source itself by generate-component-source.mjs.
+const GENERATED_SOURCE_REGION =
+  /\{\/\* GENERATED:COMPONENT-SOURCE START[\s\S]*?GENERATED:COMPONENT-SOURCE END \*\/\}/g;
+function stripGeneratedSource(text) {
+  return text.replace(GENERATED_SOURCE_REGION, "");
+}
+
 // Em-dash check (house style: none allowed).
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
@@ -198,7 +217,7 @@ function walk(dir, out = []) {
 const offenders = [];
 // The root README follows the same house style, so gate it alongside docs/.
 for (const f of [...walk(DOCS), README]) {
-  if (readFileSync(f, "utf8").includes("—")) offenders.push(f.replace(root + "/", ""));
+  if (stripGeneratedSource(readFileSync(f, "utf8")).includes("—")) offenders.push(f.replace(root + "/", ""));
 }
 if (offenders.length) {
   failed = true;
@@ -382,7 +401,7 @@ function collectDocumentedSmithersImports() {
   const imports = new Map();
   const importPattern = /import\s*\{([^{}]*?)\}\s*from\s*["']smithers-orchestrator["']/g;
   for (const file of currentDocFiles()) {
-    const source = readFileSync(file, "utf8");
+    const source = stripGeneratedSource(readFileSync(file, "utf8"));
     for (const match of source.matchAll(importPattern)) {
       for (const raw of match[1].split(",")) {
         let part = raw.trim();
@@ -412,7 +431,7 @@ function collectDocumentedPackageImports() {
   const importPattern =
     /import\s+(?:type\s+)?\{([^{}]*?)\}\s*from\s*["']((?:smithers-orchestrator\/|@smithers-orchestrator\/)[^"']+)["']/g;
   for (const file of currentDocFiles()) {
-    const source = readFileSync(file, "utf8");
+    const source = stripGeneratedSource(readFileSync(file, "utf8"));
     for (const match of source.matchAll(importPattern)) {
       const specifier = match[2];
       const isTypeImport = /import\s+type\s*\{/.test(match[0]);
