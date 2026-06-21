@@ -73,6 +73,8 @@
     "demo:smithers": "pnpm --filter @smithers-orchestrator/smithers-demo dev",
     "demo:smithers:tui": "pnpm --filter @smithers-orchestrator/smithers-tui-demo tui",
     "test": "node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && node scripts/check-docs.mjs && node scripts/check-llms.mjs && node scripts/check-smithers-test-script.mjs && pnpm -r --no-bail test",
+    "test:e2e:apps": "pnpm --filter @smithers-orchestrator/smithers e2e && pnpm --filter @smithers-orchestrator/smithers-studio-2 e2e && pnpm --filter @smithers-orchestrator/smithers-demo e2e",
+    "coverage": "node scripts/coverage.mjs",
     "check:effect": "node scripts/check-single-effect-version.mjs",
     "check:deps": "node scripts/check-dependency-boundaries.mjs",
     "check:docs": "node scripts/check-docs.mjs",
