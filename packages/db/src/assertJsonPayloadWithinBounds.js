@@ -17,7 +17,7 @@ function validateJsonValue(field, value, bounds, path, seen) {
     if (typeof value === "string") {
         if (typeof bounds.maxStringLength === "number" &&
             value.length > bounds.maxStringLength) {
-            throw new SmithersError("INVALID_INPUT", `${field} contains a string exceeding ${bounds.maxStringLength} characters.`, {
+            throw new SmithersError("INVALID_INPUT", `${field} contains a string exceeding ${bounds.maxStringLength} characters (at ${path}: ${value.length} characters).`, {
                 field,
                 path,
                 maxLength: bounds.maxStringLength,
