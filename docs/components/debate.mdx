@@ -39,3 +39,471 @@ type DebateProps = {
 - Task ids: `{prefix}-proposer`, `{prefix}-opponent`, `{prefix}-judge`, loop `{prefix}-loop`.
 - Loop runs exactly `rounds` iterations with `onMaxReached="return-last"`.
 - Proposer and opponent share `argumentOutput`, differentiated by task id.
+
+{/* GENERATED:COMPONENT-SOURCE START (regenerate: pnpm docs:components) */}
+## Source
+
+The `<Debate>` implementation and the files it imports, straight from the package source. This section is generated; edit the source, not this block.
+
+<CodeGroup>
+```js Debate.js
+// @smithers-type-exports-begin
+/** @typedef {import("./DebateProps.ts").DebateProps} DebateProps */
+// @smithers-type-exports-end
+
+import React from "react";
+import { Sequence } from "./Sequence.js";
+import { Parallel } from "./Parallel.js";
+import { Loop } from "./Ralph.js";
+import { Task } from "./Task.js";
+/**
+ * <Debate> — Adversarial rounds with rebuttals, followed by a judge verdict.
+ *
+ * Composes: Sequence > Loop[Parallel(proposer, opponent)] > Task(judge)
+ * @param {DebateProps} props
+ */
+export function Debate(props) {
+    if (props.skipIf)
+        return null;
+    const { id, proposer, opponent, judge, rounds = 2, argumentOutput, verdictOutput, topic, } = props;
+    const prefix = id ?? "debate";
+    // Build round tasks inside a loop
+    // Each round: proposer and opponent argue in parallel
+    const proposerTask = React.createElement(Task, {
+        id: `${prefix}-proposer`,
+        output: argumentOutput,
+        agent: proposer,
+        label: "Proposer",
+        children: React.createElement(React.Fragment, null, "Argue FOR the following topic:\n\n", topic),
+    });
+    const opponentTask = React.createElement(Task, {
+        id: `${prefix}-opponent`,
+        output: argumentOutput,
+        agent: opponent,
+        label: "Opponent",
+        children: React.createElement(React.Fragment, null, "Argue AGAINST the following topic:\n\n", topic),
+    });
+    const roundParallel = React.createElement(Parallel, null, proposerTask, opponentTask);
+    const roundSequence = React.createElement(Sequence, null, roundParallel);
+    // Loop wraps the round sequence
+    // `until` is always false here — the runtime re-renders the tree each frame,
+    // so the caller controls iteration via their own ctx-based condition.
+    // We set maxIterations to cap the rounds.
+    const loopEl = React.createElement(Loop, {
+        id: `${prefix}-loop`,
+        until: false,
+        maxIterations: rounds,
+        onMaxReached: "return-last",
+    }, roundSequence);
+    // Judge verdict after all rounds
+    const judgeNeeds = {
+        [`${prefix}-proposer`]: `${prefix}-proposer`,
+        [`${prefix}-opponent`]: `${prefix}-opponent`,
+    };
+    const judgeTask = React.createElement(Task, {
+        id: `${prefix}-judge`,
+        output: verdictOutput,
+        agent: judge,
+        needs: judgeNeeds,
+        label: "Judge",
+        children: React.createElement(React.Fragment, null, "Review all arguments from both sides and render a verdict on:\n\n", topic),
+    });
+    return React.createElement(Sequence, null, loopEl, judgeTask);
+}
+```
+
+```js Sequence.js
+import React from "react";
+/** @typedef {import("./SequenceProps.ts").SequenceProps} SequenceProps */
+
+/**
+ * @param {SequenceProps} props
+ */
+export function Sequence(props) {
+    if (props.skipIf)
+        return null;
+    // Sequence carries no host props of its own; pass an empty bag (align with
+    // the sanitizing structural components) so control props don't leak through.
+    return React.createElement("smithers:sequence", {}, props.children);
+}
+```
+
+```js Parallel.js
+import React from "react";
+/** @typedef {import("./ParallelProps.ts").ParallelProps} ParallelProps */
+
+/**
+ * @param {ParallelProps} props
+ */
+export function Parallel(props) {
+    if (props.skipIf)
+        return null;
+    // Align prop sanitization with other structural components
+    const next = {
+        maxConcurrency: props.maxConcurrency,
+        id: props.id,
+    };
+    return React.createElement("smithers:parallel", next, props.children);
+}
+```
+
+```js Ralph.js
+// @smithers-type-exports-begin
+/** @typedef {import("./RalphProps.ts").RalphProps} RalphProps */
+// @smithers-type-exports-end
+
+import React from "react";
+/** @typedef {import("./LoopProps.ts").LoopProps} LoopProps */
+
+/**
+ * @param {LoopProps} props
+ */
+export function Loop(props) {
+    if (props.skipIf)
+        return null;
+    // Sanitize to the loop's host props (align with other structural components);
+    // key/skipIf are React/control props and children are passed separately.
+    const next = {
+        id: props.id,
+        until: props.until,
+        maxIterations: props.maxIterations,
+        onMaxReached: props.onMaxReached,
+        continueAsNewEvery: props.continueAsNewEvery,
+    };
+    return React.createElement("smithers:ralph", next, props.children);
+}
+/** @deprecated Use `Loop` instead. */
+export const Ralph = Loop;
+```
+
+```js Task.js
+// @smithers-type-exports-begin
+/**
+ * @template D
+ * @typedef {import("./InferDeps.ts").InferDeps<D>} InferDeps
+ */
+/** @typedef {import("./OutputTarget.ts").OutputTarget} OutputTarget */
+// @smithers-type-exports-end
+
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { markdownComponents } from "../markdownComponents.js";
+import { zodSchemaToJsonExample } from "../zod-to-example.js";
+import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
+import { SmithersContext } from "@smithers-orchestrator/react-reconciler/context";
+import { AspectContext } from "../aspects/AspectContext.js";
+import { AntigravityAgent } from "@smithers-orchestrator/agents/AntigravityAgent";
+import { ClaudeCodeAgent } from "@smithers-orchestrator/agents/ClaudeCodeAgent";
+import { GeminiAgent } from "@smithers-orchestrator/agents/GeminiAgent";
+import { PiAgent } from "@smithers-orchestrator/agents/PiAgent";
+/** @typedef {import("@smithers-orchestrator/agents/AgentLike").AgentLike} AgentLike */
+/** @typedef {import("./DepsSpec.ts").DepsSpec} DepsSpec */
+/**
+ * @template Row, Output, D
+ * @typedef {import("./TaskProps.ts").TaskProps<Row, Output, D>} TaskProps
+ */
+
+/**
+ * Render a prompt React node to plain markdown text.
+ *
+ * If the prompt is a React element (e.g. a compiled MDX component), we inject
+ * `markdownComponents` via the standard MDX `components` prop so that
+ * renderToStaticMarkup outputs clean markdown instead of HTML.
+ * No HTML tag stripping or entity decoding needed.
+ * @param {unknown} prompt
+ * @returns {string}
+ */
+export function renderPromptToText(prompt) {
+    if (prompt == null)
+        return "";
+    if (typeof prompt === "string")
+        return prompt;
+    if (typeof prompt === "number")
+        return String(prompt);
+    try {
+        let element;
+        if (React.isValidElement(prompt)) {
+            // Inject markdown components into the element so MDX components
+            // render fragments instead of HTML tags.
+            element = React.cloneElement(prompt, {
+                components: markdownComponents,
+            });
+        }
+        else {
+            element = React.createElement(React.Fragment, null, prompt);
+        }
+        return renderToStaticMarkup(element)
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+    }
+    catch (err) {
+        const result = String(prompt ?? "");
+        if (result === "[object Object]") {
+            throw new SmithersError("MDX_PRELOAD_INACTIVE", `MDX prompt could not be rendered — the prompt resolved to [object Object] instead of a React component.\n\n` +
+                `This usually means the MDX preload is not active. Common causes:\n` +
+                `  • bunfig.toml uses [run] preload instead of top-level preload (the [run] section doesn't apply to dynamic imports)\n` +
+                `  • bunfig.toml is not in the current working directory\n` +
+                `  • mdxPlugin() is not registered in the preload script\n` +
+                `  • The MDX file is imported without a default import (use: import MyPrompt from "./prompt.mdx")\n\n` +
+                `Original error: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        return result;
+    }
+}
+/**
+ * @param {unknown} value
+ * @returns {value is import("zod").ZodObject<import("zod").ZodRawShape>}
+ */
+function isZodObject(value) {
+    return Boolean(value && typeof value === "object" && "shape" in value);
+}
+/**
+ * @param {DepsSpec | undefined} deps
+ * @param {Record<string, string> | undefined} needs
+ * @returns {string[] | undefined}
+ */
+function deriveDepNodeIds(deps, needs) {
+    if (!deps)
+        return undefined;
+    const ids = new Set();
+    for (const key of Object.keys(deps)) {
+        const nodeId = needs?.[key] ?? key;
+        if (nodeId)
+            ids.add(nodeId);
+    }
+    return ids.size > 0 ? [...ids] : undefined;
+}
+/**
+ * @param {string[] | undefined} dependsOn
+ * @param {string[] | undefined} depNodeIds
+ * @returns {string[] | undefined}
+ */
+function mergeDependsOn(dependsOn, depNodeIds) {
+    const merged = new Set();
+    for (const id of dependsOn ?? [])
+        merged.add(id);
+    for (const id of depNodeIds ?? [])
+        merged.add(id);
+    return merged.size > 0 ? [...merged] : undefined;
+}
+/**
+ * @param {any} ctx
+ * @param {DepsSpec | undefined} deps
+ * @param {Record<string, string> | undefined} needs
+ * @returns {Record<string, unknown> | null}
+ */
+function resolveDeps(ctx, deps, needs) {
+    if (!deps)
+        return Object.create(null);
+    const keys = Object.keys(deps);
+    if (keys.length === 0)
+        return Object.create(null);
+    const resolved = Object.create(null);
+    for (const key of keys) {
+        const target = deps[key];
+        const nodeId = needs?.[key] ?? key;
+        const value = ctx.outputMaybe(target, { nodeId });
+        if (value === undefined)
+            return null;
+        resolved[key] = value;
+    }
+    return resolved;
+}
+/**
+ * @param {AgentLike} agent
+ * @param {string[] | undefined} allowTools
+ * @returns {AgentLike}
+ */
+function applyCliToolAllowlist(agent, allowTools) {
+    if (!allowTools) {
+        return agent;
+    }
+    if (agent instanceof ClaudeCodeAgent) {
+        const opts = { ...agent.opts };
+        if (allowTools.length === 0) {
+            return new ClaudeCodeAgent({
+                ...opts,
+                allowedTools: [],
+                tools: "",
+            });
+        }
+        return new ClaudeCodeAgent({
+            ...opts,
+            allowedTools: [...allowTools],
+        });
+    }
+    if (agent instanceof PiAgent) {
+        const opts = { ...agent.opts };
+        if (allowTools.length === 0) {
+            return new PiAgent({
+                ...opts,
+                tools: [],
+                noTools: true,
+            });
+        }
+        return new PiAgent({
+            ...opts,
+            tools: [...allowTools],
+            noTools: false,
+        });
+    }
+    if (agent instanceof GeminiAgent) {
+        const opts = { ...agent.opts };
+        return new GeminiAgent({
+            ...opts,
+            allowedTools: [...allowTools],
+        });
+    }
+    if (agent instanceof AntigravityAgent) {
+        const opts = { ...agent.opts };
+        return new AntigravityAgent({
+            ...opts,
+            allowedTools: [...allowTools],
+        });
+    }
+    return agent;
+}
+/**
+ * @param {unknown} ctx
+ * @param {string[] | undefined} allowTools
+ * @returns {string[] | undefined}
+ */
+function resolveCliToolAllowlist(ctx, allowTools) {
+    if (allowTools !== undefined) {
+        return allowTools;
+    }
+    const cliAgentToolsDefault = ctx && typeof ctx === "object"
+        ? ctx.__smithersRuntime?.cliAgentToolsDefault
+        : undefined;
+    return cliAgentToolsDefault === "explicit-only" ? [] : undefined;
+}
+/**
+ * @template Row, Output, D
+ * @param {TaskProps<Row, Output, D>} props
+ * @returns {React.ReactElement | null}
+ */
+export function Task(props) {
+    const { children, agent, fallbackAgent, deps, ...rest } = props;
+    const taskContext = props.smithersContext ?? SmithersContext;
+    const ctx = React.useContext(taskContext);
+    const aspectCtx = React.useContext(AspectContext);
+    const depNodeIds = deriveDepNodeIds(deps, rest.needs);
+    if (deps && !ctx) {
+        throw new SmithersError("CONTEXT_OUTSIDE_WORKFLOW", "Task deps require a workflow context. Build the workflow with createSmithers().");
+    }
+    const resolvedDeps = deps ? resolveDeps(ctx, deps, rest.needs) : undefined;
+    if (deps && resolvedDeps == null) {
+        // Deps not yet available — component defers until upstream tasks complete.
+        // This is normal reactive behavior; the task will re-render once deps are
+        // ready. Record the deferral so the engine can distinguish a transient wait
+        // from a permanent one: a deferral that survives to quiescence means a
+        // dependency that can never resolve (e.g. a deps key that maps to a node id
+        // no task produces), which would otherwise be a silent skip.
+        ctx?.recordDeferredDep?.(props.id, depNodeIds ?? []);
+        return null;
+    }
+    // Build aspect metadata to attach to the task element so the engine can
+    // enforce budgets and track metrics at execution time.
+    const aspectMeta = aspectCtx ? buildAspectMeta(aspectCtx) : undefined;
+    const agentChain = Array.isArray(agent)
+        ? fallbackAgent
+            ? [...agent, fallbackAgent]
+            : agent
+        : agent && fallbackAgent
+            ? [agent, fallbackAgent]
+            : agent;
+    const effectiveAllowTools = resolveCliToolAllowlist(ctx, rest.allowTools);
+    const restrictedAgentChain = Array.isArray(agentChain)
+        ? agentChain.map((entry) => applyCliToolAllowlist(entry, effectiveAllowTools))
+        : agentChain
+            ? applyCliToolAllowlist(agentChain, effectiveAllowTools)
+            : agentChain;
+    const nextDependsOn = mergeDependsOn(rest.dependsOn, depNodeIds);
+    const childValue = typeof children === "function" && (agent || deps)
+        ? children(resolvedDeps ?? Object.create(null))
+        : children;
+    if (agent) {
+        // Auto-inject `schema` prop into React element children when output is a ZodObject
+        let childElement = childValue;
+        const schemaForInjection = props.outputSchema ??
+            (isZodObject(props.output) ? props.output : undefined);
+        if (React.isValidElement(childValue) && schemaForInjection) {
+            childElement = React.cloneElement(childValue, {
+                schema: zodSchemaToJsonExample(schemaForInjection),
+            });
+        }
+        const prompt = renderPromptToText(childElement);
+        return React.createElement("smithers:task", {
+            ...rest,
+            dependsOn: nextDependsOn,
+            waitAsync: rest.async === true,
+            agent: restrictedAgentChain,
+            __smithersKind: "agent",
+            ...aspectMeta,
+        }, prompt);
+    }
+    if (typeof children === "function" && !deps) {
+        const nextProps = {
+            ...rest,
+            dependsOn: nextDependsOn,
+            waitAsync: rest.async === true,
+            __smithersKind: "compute",
+            __smithersComputeFn: children,
+            ...aspectMeta,
+        };
+        return React.createElement("smithers:task", nextProps, null);
+    }
+    const nextProps = {
+        ...rest,
+        dependsOn: nextDependsOn,
+        waitAsync: rest.async === true,
+        __smithersKind: "static",
+        __smithersPayload: childValue,
+        __payload: childValue,
+        ...aspectMeta,
+    };
+    return React.createElement("smithers:task", nextProps, null);
+}
+/**
+ * Build the __aspects metadata object from the current AspectContext.
+ * This is attached to the smithers:task element props so the engine can read
+ * budgets and tracking config at execution time.
+ * @param {{
+ *     tokenBudget?: unknown;
+ *     latencySlo?: unknown;
+ *     tracking?: unknown;
+ *     accumulator?: unknown;
+ * }} aspectCtx
+ * @returns {{ __aspects: Record<string, unknown> }}
+ */
+function buildAspectMeta(aspectCtx) {
+    return {
+        __aspects: {
+            tokenBudget: aspectCtx.tokenBudget,
+            latencySlo: aspectCtx.latencySlo,
+            tracking: aspectCtx.tracking,
+            accumulator: aspectCtx.accumulator,
+        },
+    };
+}
+```
+
+```ts DebateProps.ts
+import type React from "react";
+import type { AgentLike } from "@smithers-orchestrator/agents/AgentLike";
+import type { OutputTarget } from "./OutputTarget.ts";
+
+export type DebateProps = {
+	id?: string;
+	proposer: AgentLike;
+	opponent: AgentLike;
+	judge: AgentLike;
+	rounds?: number;
+	argumentOutput: OutputTarget;
+	verdictOutput: OutputTarget;
+	topic: string | React.ReactNode;
+	skipIf?: boolean;
+};
+```
+</CodeGroup>
+{/* GENERATED:COMPONENT-SOURCE END */}
