@@ -166,6 +166,33 @@ function looksRateLimited(wf: string): boolean {
   }
 }
 
+/**
+ * Deterministic, non-retryable failures from the last round's report. An input
+ * that violates the engine's bounds (INVALID_INPUT) fails identically on every
+ * retry, so it must be dropped as a genuine failure rather than mistaken for a
+ * throttle: ambient "overloaded"/"429"/"quota" noise in concurrent agent traces
+ * can make looksRateLimited() true, which would otherwise pause-and-retry such an
+ * instance forever (this is exactly what stalled the 1.0.0a1 / 0.52.1 instances).
+ */
+const NON_RETRYABLE_RE =
+  /INVALID_INPUT|exceeding \d+ characters|must be JSON-serializable|must not contain circular|Run input must be|contains an array exceeding|maximum JSON depth|exceeds the maximum size/i;
+function nonRetryableFailures(wf: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const p = join(DATA, `_round.${wf}.report.json`);
+  if (!existsSync(p)) return out;
+  try {
+    const report = JSON.parse(readFileSync(p, "utf8")) as {
+      results?: { instance_id: string; error?: string }[];
+    };
+    for (const r of report.results ?? []) {
+      if (r.error && NON_RETRYABLE_RE.test(r.error)) out.set(r.instance_id, r.error);
+    }
+  } catch {
+    /* best-effort: a missing/garbled round report just means "nothing fatal" */
+  }
+  return out;
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function ts() {
   return new Date().toISOString().replace("T", " ").slice(0, 19);
@@ -278,6 +305,16 @@ async function main() {
 
     const afterScored = scoredIds(args.workflow);
     const progressed = afterScored.size - beforeScored;
+
+    // Drop deterministic, non-retryable failures up front so they never get
+    // mistaken for a throttle and retried forever.
+    const fatal = nonRetryableFailures(args.workflow);
+    for (const id of targets) {
+      if (fatal.has(id) && !afterScored.has(id) && !dropped.has(id)) {
+        dropped.add(id);
+        console.error(`[${ts()}] dropping ${id}: non-retryable error — ${fatal.get(id)}`);
+      }
+    }
     const stillRemaining = targets.filter((id) => !afterScored.has(id) && !dropped.has(id));
 
     if (stillRemaining.length === 0) break;
