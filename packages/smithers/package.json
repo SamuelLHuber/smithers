@@ -2,6 +2,31 @@
   "name": "smithers-orchestrator",
   "version": "0.24.2",
   "description": "Public Smithers facade for durable coding-agent workflows and Gateway operation",
+  "license": "MIT",
+  "homepage": "https://smithers.sh",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smithersai/smithers.git",
+    "directory": "packages/smithers"
+  },
+  "bugs": {
+    "url": "https://github.com/smithersai/smithers/issues"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "agents",
+    "coding-agent",
+    "orchestration",
+    "workflow",
+    "durable-execution",
+    "react",
+    "jsx",
+    "llm",
+    "claude",
+    "codex",
+    "bun"
+  ],
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -52,7 +77,8 @@
     }
   },
   "files": [
-    "src/"
+    "src/",
+    "README.md"
   ],
   "bin": {
     "smithers": "./src/bin/smithers.js"
