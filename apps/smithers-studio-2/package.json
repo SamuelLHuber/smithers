@@ -8,6 +8,7 @@
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "pnpm run typecheck && vite build",
+    "test": "bun test --path-ignore-patterns=\"**/tests/**\"",
     "e2e": "playwright test",
     "test:unit": "bun test --path-ignore-patterns=\"**/tests/**\"",
     "preview": "vite preview --host 127.0.0.1",
