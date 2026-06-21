@@ -9,7 +9,11 @@
 //   2. waits for the row to appear (proves the run is in flight)
 //   3. delivers a signal
 //   4. waits for the child to exit
-//   5. re-opens the sqlite db and asserts it is still readable
+//   5. asserts the run row was durably marked `cancelled` with its heartbeat
+//      cleared (graceful shutdown ran — the regression guard for the bug where
+//      a process.exit() signal handler pre-empted the cancelled-status write and
+//      left the run stuck "running" until its heartbeat went stale)
+//   6. re-opens the sqlite db and asserts it is still readable
 //      (no `.db-wal` corruption after a clean signal-driven shutdown)
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
@@ -95,6 +99,40 @@ async function waitForSentinel(dbPath, runId, timeoutMs = 25_000) {
 }
 
 /**
+ * Poll the runs table until the run reaches the expected status (graceful
+ * shutdown writes it during signal handling, so it may lag the process exit).
+ *
+ * @param {string} dbPath
+ * @param {string} runId
+ * @param {string} status
+ * @returns {Promise<{ status: string, heartbeat: number | null } | null>}
+ */
+async function waitForRunStatus(dbPath, runId, status, timeoutMs = 10_000) {
+    const start = Date.now();
+    let last = null;
+    while (Date.now() - start < timeoutMs) {
+        if (existsSync(dbPath)) {
+            try {
+                const db = new Database(dbPath, { readonly: true });
+                try {
+                    const row = db.query(
+                        "SELECT status, heartbeat_at_ms AS heartbeat FROM _smithers_runs WHERE run_id = ?",
+                    ).get(runId);
+                    if (row) {
+                        last = { status: row.status, heartbeat: row.heartbeat ?? null };
+                        if (row.status === status) return last;
+                    }
+                } catch { } finally {
+                    db.close();
+                }
+            } catch { }
+        }
+        await new Promise((r) => setTimeout(r, 100));
+    }
+    return last;
+}
+
+/**
  * @param {"SIGINT" | "SIGTERM"} sig
  */
 async function runSignalScenario(sig) {
@@ -129,11 +167,16 @@ async function runSignalScenario(sig) {
         }
         proc.kill(sig);
         const exitCode = await proc.exited;
-        // SIGINT → 130, SIGTERM → 143 per setupSqliteCleanup in apps/cli/src/index.js.
-        const expected = sig === "SIGINT" ? 130 : 143;
-        // Some bun versions surface signal-driven exits as null/undefined;
-        // accept either the documented numeric exit code or the signal itself.
-        expect([expected, null, undefined]).toContain(exitCode);
+        // Graceful shutdown marks the run `cancelled` (exit code 2). Older
+        // signal-driven exits surfaced as 130/143 or null/undefined depending on
+        // bun version; accept any of these so the test pins the durable state
+        // (asserted below), not the precise process exit code.
+        expect([2, 130, 143, null, undefined]).toContain(exitCode);
+        // The run must be durably `cancelled` with its heartbeat cleared — proof
+        // that the graceful abort handler ran instead of a hard process.exit().
+        const runRow = await waitForRunStatus(dbPath, runId, "cancelled");
+        expect(runRow?.status).toBe("cancelled");
+        expect(runRow?.heartbeat).toBeNull();
         // DB file should reopen cleanly with no WAL corruption.
         expect(existsSync(dbPath)).toBe(true);
         const db = new Database(dbPath);

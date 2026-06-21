@@ -261,9 +261,12 @@ function setupSqliteCleanup(workflow) {
         }
         catch { }
     };
+    // Close sqlite when the process exits naturally (after graceful shutdown).
+    // Do NOT register SIGINT/SIGTERM handlers here: a synchronous process.exit()
+    // on the signal fires before the graceful abort handler (setupAbortSignal /
+    // serve / gateway shutdown), so the run's `status:"cancelled"` write never
+    // happens and the run is left stuck "running" until its heartbeat goes stale.
     process.on("exit", closeSqlite);
-    process.on("SIGINT", () => { closeSqlite(); process.exit(130); });
-    process.on("SIGTERM", () => { closeSqlite(); process.exit(143); });
 }
 function buildProgressReporter() {
     const startTime = Date.now();
@@ -404,19 +407,34 @@ async function listWaitingTimers(adapter, runId) {
 }
 function setupAbortSignal() {
     const abort = new AbortController();
-    let signalHandled = false;
+    let signalCount = 0;
     /**
    * @param {string} signal
    */
     const handleSignal = (signal) => {
-        if (signalHandled)
+        const exitCode = signal === "SIGINT" ? 130 : 143;
+        signalCount += 1;
+        if (signalCount >= 2) {
+            // Second signal: graceful cancellation is taking too long — exit now.
+            process.stderr.write(`\n[smithers] received ${signal} again, exiting immediately.\n`);
+            process.exit(exitCode);
             return;
-        signalHandled = true;
-        process.stderr.write(`\n[smithers] received ${signal}, cancelling run...\n`);
+        }
+        process.stderr.write(`\n[smithers] received ${signal}, cancelling run... (press again to force-exit)\n`);
         abort.abort();
+        // Backstop: if graceful cancellation hangs, force-exit after 5s so a hard
+        // `kill -9` is never required. unref() so this timer never keeps the loop
+        // alive when shutdown completes normally.
+        const deadline = setTimeout(() => {
+            process.stderr.write(`\n[smithers] graceful shutdown timed out, exiting.\n`);
+            process.exit(exitCode);
+        }, 5000);
+        if (typeof deadline.unref === "function")
+            deadline.unref();
     };
-    process.once("SIGINT", () => handleSignal("SIGINT"));
-    process.once("SIGTERM", () => handleSignal("SIGTERM"));
+    // process.on (not once) so a second signal still reaches handleSignal.
+    process.on("SIGINT", () => handleSignal("SIGINT"));
+    process.on("SIGTERM", () => handleSignal("SIGTERM"));
     return abort;
 }
 /**
@@ -2147,6 +2165,15 @@ async function runGatewayCommand(options) {
     process.stderr.write(`[smithers] Registered workflows: ${workflows.join(", ")}\n`);
     await new Promise((resolvePromise) => {
         const shutdown = () => {
+            // Backstop: if gateway/backend close hangs, force-exit after 5s so a
+            // hard `kill -9` is never required. unref() so a clean close isn't held
+            // open by the timer.
+            const deadline = setTimeout(() => {
+                process.stderr.write(`[smithers] Gateway shutdown timed out, exiting.\n`);
+                process.exit(143);
+            }, 5000);
+            if (typeof deadline.unref === "function")
+                deadline.unref();
             gateway.close()
                 .catch((error) => {
                 process.stderr.write(`[smithers] Gateway shutdown error: ${error?.message ?? String(error)}\n`);
