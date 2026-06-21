@@ -464,12 +464,29 @@ export class SmithersRenderer {
     /** @type {ExtractGraph | undefined} */
     extractGraph;
     /**
+   * Error captured by the synchronous flush of the most recent render. An
+   * uncaught render error (no error boundary handled it) is fatal: the host
+   * tree is left in an undefined/partial state, so render() must surface it
+   * rather than resolve with a stale graph.
+   * @type {unknown}
+   */
+    #uncaughtError;
+    /**
    * @param {SmithersRendererOptions} [options]
    */
     constructor(options = {}) {
         this.extractGraph = options.extractGraph;
         this.container = { root: null, roots: [] };
-        this.root = reconciler.createContainer(this.container, 0, null, false, null, "", reconciler.defaultOnUncaughtError, reconciler.defaultOnCaughtError, reconciler.defaultOnRecoverableError, null);
+        this.#uncaughtError = undefined;
+        // Capture uncaught render errors synchronously instead of using
+        // reconciler.defaultOnUncaughtError, which rethrows them out-of-band to
+        // the global error handler. Capturing lets render() reject loudly so a
+        // caller never receives a partial/stale graph as if it were valid.
+        // Errors handled by an error boundary (onCaughtError) and recoverable
+        // errors keep React's default behavior — those are not fatal.
+        this.root = reconciler.createContainer(this.container, 0, null, false, null, "", (error) => {
+            this.#uncaughtError = error;
+        }, reconciler.defaultOnCaughtError, reconciler.defaultOnRecoverableError, null);
     }
     /**
    * @param {React.ReactElement} element
@@ -477,8 +494,16 @@ export class SmithersRenderer {
    * @returns {Promise<WorkflowGraph>}
    */
     async render(element, opts) {
+        this.#uncaughtError = undefined;
         reconciler.updateContainerSync(element, this.root, null, () => { });
         reconciler.flushSyncWork();
+        if (this.#uncaughtError !== undefined) {
+            const error = this.#uncaughtError;
+            // Reset so a subsequent render() on the same instance is not poisoned
+            // by a prior failure.
+            this.#uncaughtError = undefined;
+            throw error;
+        }
         const extractGraph = this.extractGraph ?? (await resolveExtractGraph());
         return extractGraph(this.container.root, opts);
     }
