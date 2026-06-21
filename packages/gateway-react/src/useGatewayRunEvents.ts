@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useLiveQuery } from "@tanstack/react-db";
 import type { GatewayEventFrame, GatewayRunEventRow } from "@smithers-orchestrator/gateway-client";
 import { useSyncClient } from "./sync/useSyncClient.ts";
@@ -31,6 +31,11 @@ export function useGatewayRunEvents(
   streaming: boolean;
 } {
   const registry = useSyncClient();
+  const connection = useSyncExternalStore(
+    registry.subscribeConnection,
+    registry.connection,
+    registry.connection,
+  );
   const afterSeq = options.afterSeq;
   const maxEvents = options.maxEvents ?? DEFAULT_MAX_EVENTS;
   const collection = runId ? registry.runEvents(runId) : undefined;
@@ -52,10 +57,12 @@ export function useGatewayRunEvents(
     };
   }, [rows, afterSeq, maxEvents]);
 
+  const streamFailed = Boolean(runId) && (connection.status === "offline" || connection.status === "unauthorized");
+
   return {
     events,
     lastHeartbeat,
-    error: live.isError ? new Error("Run event stream failed.") : undefined,
-    streaming: Boolean(runId) && !live.isError,
+    error: live.isError || streamFailed ? new Error("Run event stream failed.") : undefined,
+    streaming: Boolean(runId) && !live.isError && !streamFailed,
   };
 }

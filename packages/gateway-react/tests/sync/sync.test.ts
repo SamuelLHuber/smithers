@@ -90,7 +90,7 @@ async function waitFor(predicate: () => boolean): Promise<void> {
 
 /** A controllable fake transport: rpc dispatch + per-(scope,runId) stream channels. */
 function makeTransport(rpc: SyncTransport["rpc"]) {
-  type Channel = { queue: SyncStreamFrame[]; waiters: Array<() => void>; ended: boolean };
+  type Channel = { queue: SyncStreamFrame[]; waiters: Array<() => void>; ended: boolean; error?: Error };
   const channels = new Map<string, Channel>();
   const opens: Array<{ scope: string; params: unknown; afterSeq?: number; signal?: AbortSignal }> = [];
   const channel = (key: string): Channel => {
@@ -120,6 +120,7 @@ function makeTransport(rpc: SyncTransport["rpc"]) {
               continue;
             }
             if (chan.ended) return;
+            if (chan.error) throw chan.error;
             await new Promise<void>((resolve) => {
               chan.waiters.push(resolve);
               options.signal?.addEventListener("abort", () => resolve(), { once: true });
@@ -136,6 +137,11 @@ function makeTransport(rpc: SyncTransport["rpc"]) {
     push(scope: string, runId: string | undefined, frame: SyncStreamFrame) {
       const chan = channel(`${scope}:${runId ?? ""}`);
       chan.queue.push(frame);
+      for (const waiter of chan.waiters.splice(0)) waiter();
+    },
+    fail(scope: string, runId: string | undefined, error: Error) {
+      const chan = channel(`${scope}:${runId ?? ""}`);
+      chan.error = error;
       for (const waiter of chan.waiters.splice(0)) waiter();
     },
   };
@@ -789,6 +795,62 @@ describe("useGatewayRunEvents over the runEvents collection", () => {
     expect(snapshot?.events.every((f) => f.event !== "run.heartbeat")).toBe(true);
     expect(snapshot?.events.map((f) => f.seq)).toEqual([4, 5, 6, 7, 8]);
     expect(snapshot?.streaming).toBe(true);
+
+    await harness.unmount();
+  });
+
+  test("filters run events at or before afterSeq", async () => {
+    const stream = makeTransport(() => Promise.reject(new Error("not used")));
+    const registry = createGatewayCollections({ client: stream.transport });
+
+    let snapshot: ReturnType<typeof useGatewayRunEvents> | undefined;
+    function Probe() {
+      snapshot = useGatewayRunEvents("run-1", { afterSeq: 2 });
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => stream.opens.length === 1);
+
+    await act(async () => {
+      for (let seq = 1; seq <= 4; seq += 1) {
+        stream.push("streamRunEvents", "run-1", {
+          key: gatewayKeys.runEvents("run-1"),
+          seq,
+          event: seq === 2 ? "run.heartbeat" : "run.event",
+          payload: { seq },
+        });
+      }
+    });
+
+    await waitFor(() => snapshot?.events.length === 2);
+    expect(snapshot?.events.map((frame) => frame.seq)).toEqual([3, 4]);
+    expect(snapshot?.lastHeartbeat).toBeUndefined();
+
+    await harness.unmount();
+  });
+
+  test("reports an error and stops streaming when the run event stream fails", async () => {
+    const stream = makeTransport(() => Promise.reject(new Error("not used")));
+    const registry = createGatewayCollections({ client: stream.transport });
+
+    let snapshot: ReturnType<typeof useGatewayRunEvents> | undefined;
+    function Probe() {
+      snapshot = useGatewayRunEvents("run-1");
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => stream.opens.length === 1);
+
+    await act(async () => {
+      stream.fail("streamRunEvents", "run-1", new Error("stream failed"));
+    });
+
+    await waitFor(() => snapshot?.error?.message === "Run event stream failed.");
+    expect(snapshot?.streaming).toBe(false);
 
     await harness.unmount();
   });
