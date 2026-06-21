@@ -14,6 +14,7 @@
 // @smithers-type-exports-end
 
 export * from "./AgentCliError.js";
+export * from "./assertZodV4.js";
 export * from "./DbWriteFailed.js";
 export * from "./EngineError.js";
 export * from "./ERROR_REFERENCE_URL.js";
