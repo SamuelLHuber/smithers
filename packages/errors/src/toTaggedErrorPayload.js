@@ -11,6 +11,20 @@ function isRecord(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 /**
+ * Coerce a value to a finite number. The payload type contract requires these
+ * fields to be `number`, but `Number(undefined)` is `NaN`, which `JSON.stringify`
+ * silently turns into `null` — corrupting the value that retry/backoff logic
+ * reads back after a durable round-trip. Fall back to a defined finite value.
+ *
+ * @param {unknown} value
+ * @param {number} [fallback]
+ * @returns {number}
+ */
+function toFiniteNumber(value, fallback = 0) {
+    const num = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(num) ? num : fallback;
+}
+/**
  * @param {unknown} error
  * @returns {SmithersTaggedErrorPayload | undefined}
  */
@@ -33,19 +47,19 @@ export function toTaggedErrorPayload(error) {
                 _tag: "TaskTimeout",
                 message: String(error.message),
                 nodeId: String(error.nodeId),
-                attempt: Number(error.attempt),
-                timeoutMs: Number(error.timeoutMs),
+                attempt: toFiniteNumber(error.attempt),
+                timeoutMs: toFiniteNumber(error.timeoutMs),
             };
         case "TaskHeartbeatTimeout":
             return {
                 _tag: "TaskHeartbeatTimeout",
                 message: String(error.message),
                 nodeId: String(error.nodeId),
-                iteration: Number(error.iteration),
-                attempt: Number(error.attempt),
-                timeoutMs: Number(error.timeoutMs),
-                staleForMs: Number(error.staleForMs),
-                lastHeartbeatAtMs: Number(error.lastHeartbeatAtMs),
+                iteration: toFiniteNumber(error.iteration),
+                attempt: toFiniteNumber(error.attempt),
+                timeoutMs: toFiniteNumber(error.timeoutMs),
+                staleForMs: toFiniteNumber(error.staleForMs),
+                lastHeartbeatAtMs: toFiniteNumber(error.lastHeartbeatAtMs),
             };
         case "RunNotFound":
             return {

@@ -239,6 +239,16 @@ describe("error code catalog", () => {
     }
   });
 
+  test("optional error definition details stay readable when present", () => {
+    for (const code of knownSmithersErrorCodes) {
+      const details = getSmithersErrorDefinition(code)?.details;
+      if (details === undefined) continue;
+      expect(typeof details).toBe("string");
+      expect(details.length).toBeGreaterThan(0);
+      expect(details).not.toContain("[object Object]");
+    }
+  });
+
   test("recognizes real known codes", () => {
     expect(isKnownSmithersErrorCode("INVALID_INPUT")).toBe(true);
     expect(isKnownSmithersErrorCode("RUN_NOT_FOUND")).toBe(true);
@@ -532,9 +542,12 @@ describe("errorToJson", () => {
     expect(errorToJson(undefined)).toEqual({ message: "undefined" });
   });
 
-  test("returns non-Error objects unchanged", () => {
+  test("sanitizes non-Error objects into a JSON-safe copy", () => {
     const object = { custom: true };
-    expect(errorToJson(object)).toBe(object);
+    const json = errorToJson(object);
+    expect(json).toEqual({ custom: true });
+    // a copy, not the live reference, so the durable log can't be mutated later
+    expect(() => JSON.stringify(json)).not.toThrow();
   });
 
   test("serializes tagged errors through SmithersError shape", () => {
@@ -557,6 +570,9 @@ describe("errorToJson", () => {
     expect(json.code).toBe("SCHEDULER_ERROR");
     expect(json.summary).toBe("bad state");
     expect(json.details).toEqual({ phase: "decide" });
-    expect(json.cause).toBe(cause);
+    // cause is serialized into a JSON-safe shape (not the live Error reference)
+    // so JSON.stringify on the durable write path can never throw.
+    expect(json.cause).toMatchObject({ name: "Error", message: "root" });
+    expect(() => JSON.stringify(json)).not.toThrow();
   });
 });
