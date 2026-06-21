@@ -110,8 +110,11 @@ function loadX86Scores(catalog: Map<string, string>): Map<string, ScoreRow> {
     return out;
   }
   for (const [id, r] of Object.entries(raw)) {
-    if (r == null || r.resolved == null) continue; // unscored / error entry
-    if (r.gold_verify) continue; // gold-patch validation run, not an agent score
+    if (r == null || r.resolved == null) continue; // unscored entry
+    if (r.error) continue; // scoring failed (timeout/exec error) — not a real result
+    // Only real candidate-run scores count: gold-verify runs (gold_verify=true) and
+    // stale/legacy entries (gold_verify undefined) are not agent results.
+    if (r.gold_verify !== false) continue;
     out.set(id, {
       instance_id: id,
       repo: catalog.get(id) ?? r.repo ?? "",

@@ -73,20 +73,37 @@ async function retry<T>(label: string, fn: () => Promise<T>, n = 5): Promise<T> 
 
 const ENV = "HOME=/root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
-/** Write a (possibly large) file on the VM via chunked base64 to stay under arg limits. */
+/**
+ * Write a (possibly large) file on the VM via chunked base64, then VERIFY the
+ * decoded byte count matches and retry the whole upload on mismatch. Without the
+ * verify, a flaky/truncated chunk leaves a stale or partial file — which silently
+ * scored several instances against the WRONG instance's tests (the 2774/5778
+ * contamination bug). base64's alphabet has no single quotes, so single-quoting
+ * each chunk is safe.
+ */
 async function putFile(vm: any, remotePath: string, content: string): Promise<void> {
   const b64 = Buffer.from(content, "utf8").toString("base64");
-  const CHUNK = 60_000;
-  await retry(`mk ${remotePath}`, () => vm.exec(`${ENV} sh -c ': > ${remotePath}.b64'`));
-  for (let i = 0; i < b64.length; i += CHUNK) {
-    const part = b64.slice(i, i + CHUNK);
-    await retry(`put ${remotePath} @${i}`, () =>
-      vm.exec(`${ENV} sh -c 'printf %s ${part} >> ${remotePath}.b64'`),
+  const expectedBytes = Buffer.byteLength(content, "utf8");
+  const CHUNK = 30_000;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await retry(`mk ${remotePath}`, () => vm.exec(`${ENV} sh -c ': > ${remotePath}.b64'`));
+    for (let i = 0; i < b64.length; i += CHUNK) {
+      const part = b64.slice(i, i + CHUNK);
+      await retry(`put ${remotePath} @${i}`, () =>
+        vm.exec(`${ENV} sh -c "printf %s '${part}' >> ${remotePath}.b64"`),
+      );
+    }
+    await retry(`decode ${remotePath}`, () =>
+      vm.exec(`${ENV} sh -c 'base64 -d ${remotePath}.b64 > ${remotePath} && rm -f ${remotePath}.b64'`),
     );
+    const chk = (await retry(`verify ${remotePath}`, () =>
+      vm.exec(`${ENV} sh -c 'wc -c < ${remotePath}'`),
+    ).catch(() => ({ stdout: "" }))) as any;
+    const got = parseInt(String(chk.stdout ?? "").trim(), 10);
+    if (got === expectedBytes) return;
+    log(`  upload ${remotePath}: size ${got} != ${expectedBytes}, retry ${attempt + 1}/4`);
   }
-  await retry(`decode ${remotePath}`, () =>
-    vm.exec(`${ENV} sh -c 'base64 -d ${remotePath}.b64 > ${remotePath} && rm ${remotePath}.b64'`),
-  );
+  throw new Error(`putFile ${remotePath}: integrity check failed after retries`);
 }
 
 function loadResults(): Record<string, any> {
@@ -179,7 +196,7 @@ async function main() {
         log(`  ${id}: resolved=${parsed.resolved} fix=${parsed.fix_rate} F2P=${parsed.f2p_passed}/${parsed.f2p_total} P2P=${parsed.p2p_passed}/${parsed.p2p_total}`);
       } else {
         const t = (await retry(`tail ${id}`, () => vm.exec(`${ENV} tail -5 /root/work/score.log 2>/dev/null`)).catch(() => ({ stdout: "" }))) as any;
-        results[id] = { instance_id: id, resolved: 0, scored_on: "x86", error: String(t.stdout ?? out).slice(-400) };
+        results[id] = { instance_id: id, resolved: 0, scored_on: "x86", gold_verify: args.gold, error: String(t.stdout ?? out).slice(-400) };
         log(`  ${id}: NO RESULT (timeout/err) — ${String(t.stdout ?? "").slice(-200).replace(/\n/g, " ")}`);
       }
       mkdirSync(DATA, { recursive: true });
