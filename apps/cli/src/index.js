@@ -1305,6 +1305,7 @@ const upOptions = z.object({
     host: z.string().default("127.0.0.1").describe("HTTP server bind address (with --serve)"),
     authToken: z.string().optional().describe("Bearer token for HTTP auth (or set SMITHERS_API_KEY)"),
     metrics: z.boolean().default(true).describe("Expose /metrics endpoint (with --serve)"),
+    backend: z.enum(["sqlite", "pglite", "postgres"]).optional().describe("Storage backend for workflows using openSmithersBackend"),
 });
 // Launch the interactive picker + live status card instead of a one-shot run.
 // Shared by `up` and `workflow run`; deliberately NOT folded into `upOptions`
@@ -1342,6 +1343,12 @@ const superviseOptions = z.object({
 const gatewayOptions = z.object({
     host: z.string().default("127.0.0.1").describe("Gateway bind address"),
     port: z.number().int().min(1).default(7331).describe("Gateway port"),
+    backend: z.enum(["sqlite", "pglite", "postgres"]).optional().describe("Workspace storage backend"),
+});
+const migrateOptions = z.object({
+    to: z.enum(["pglite", "postgres"]).default("pglite").describe("Target backend"),
+    url: z.string().optional().describe("Postgres connection URL when --to postgres"),
+    keepSqlite: z.boolean().default(true).describe("Keep the legacy SQLite database after a successful copy"),
 });
 const monitorArgs = z.object({
     runId: z.string().optional().describe("Run ID to monitor (default: the most recent active run)"),
@@ -1742,6 +1749,8 @@ async function executeUpCommand(c, workflowPath, options, fail) {
                 childArgs.push("--auth-token", options.authToken);
             if (options.serve && !options.metrics)
                 childArgs.push("--metrics", "false");
+            if (options.backend)
+                childArgs.push("--backend", options.backend);
             const logFileDir = options.logDir ?? dirname(resolvedWorkflowPath);
             const effectiveRunId = runId ?? `run-${Date.now()}`;
             const logFile = resolve(logFileDir, `${effectiveRunId}.log`);
@@ -1768,6 +1777,9 @@ async function executeUpCommand(c, workflowPath, options, fail) {
         }
         if (options.hot) {
             process.env.SMITHERS_HOT = "1";
+        }
+        if (options.backend) {
+            process.env.SMITHERS_BACKEND = options.backend;
         }
         if (options.supervise && !options.serve) {
             return fail({
@@ -1965,7 +1977,7 @@ async function executeUpCommand(c, workflowPath, options, fail) {
     }
 }
 /**
- * @param {{ host: string; port: number }} options
+ * @param {{ host: string; port: number; backend?: "sqlite" | "pglite" | "postgres" }} options
  * @returns {Promise<{ url: string; workspace: string; dbPath: string; workflows: string[] }>}
  */
 function titleizeWorkflowId(id) {
@@ -2081,12 +2093,19 @@ async function runGatewayCommand(options) {
         : findSmithersDb(process.cwd());
     const workspace = localWorkspace ?? dirname(dbPath);
     process.chdir(workspace);
-    const [{ Gateway }, { createSmithers }] = await Promise.all([
+    if (options.backend) {
+        process.env.SMITHERS_BACKEND = options.backend;
+    }
+    const [{ Gateway }, { openSmithersBackend }] = await Promise.all([
         import("@smithers-orchestrator/server/gateway"),
         import("smithers-orchestrator"),
     ]);
     const gateway = new Gateway({ heartbeatMs: 15_000 });
-    const workspaceApi = createSmithers({}, { dbPath });
+    const workspaceApi = await openSmithersBackend({}, {
+        backend: options.backend,
+        cwd: workspace,
+        dbPath,
+    });
     const workspaceWorkflow = workspaceApi.smithers(() => React.createElement(workspaceApi.Workflow, { name: "workspace" }));
     ensureSmithersTables(workspaceWorkflow.db);
     setupSqliteCleanup(workspaceWorkflow);
@@ -2131,6 +2150,10 @@ async function runGatewayCommand(options) {
             gateway.close()
                 .catch((error) => {
                 process.stderr.write(`[smithers] Gateway shutdown error: ${error?.message ?? String(error)}\n`);
+            })
+                .then(() => workspaceApi.close?.())
+                .catch((error) => {
+                process.stderr.write(`[smithers] Backend shutdown error: ${error?.message ?? String(error)}\n`);
             })
                 .finally(resolvePromise);
         };
@@ -3005,17 +3028,17 @@ function validateDevtoolsArgv(argv) {
     const required = cmd === "diff" || cmd === "output" ? 2 : 1;
     const usage = devtoolsUsage(cmd);
     if (positionals.length < required) {
-        process.stderr.write(`error: missing required argument${required - positionals.length === 1 ? "" : "s"} for \`smithers ${cmd}\`\n`);
-        process.stderr.write(`${usage}\n`);
+        writeStderrSync(`error: missing required argument${required - positionals.length === 1 ? "" : "s"} for \`smithers ${cmd}\`\n`);
+        writeStderrSync(`${usage}\n`);
         process.exit(1);
     }
     // Validate --color enum.
     if ((cmd === "tree" || cmd === "diff") && flags.has("--color")) {
         const val = flags.get("--color");
         if (val !== "auto" && val !== "always" && val !== "never") {
-            process.stderr.write(`error: invalid value for --color: ${val ?? "(missing)"}\n`);
-            process.stderr.write(`expected one of: auto, always, never\n`);
-            process.stderr.write(`${usage}\n`);
+            writeStderrSync(`error: invalid value for --color: ${val ?? "(missing)"}\n`);
+            writeStderrSync(`expected one of: auto, always, never\n`);
+            writeStderrSync(`${usage}\n`);
             process.exit(1);
         }
     }
@@ -3032,9 +3055,9 @@ function validateDevtoolsArgv(argv) {
         const raw = flags.get(flag);
         const num = Number(raw);
         if (!Number.isInteger(num) || num < 0) {
-            process.stderr.write(`error: invalid value for ${flag}: ${raw ?? "(missing)"}\n`);
-            process.stderr.write(`${flag} must be a non-negative integer\n`);
-            process.stderr.write(`${usage}\n`);
+            writeStderrSync(`error: invalid value for ${flag}: ${raw ?? "(missing)"}\n`);
+            writeStderrSync(`${flag} must be a non-negative integer\n`);
+            writeStderrSync(`${usage}\n`);
             process.exit(1);
         }
     }
@@ -3042,9 +3065,9 @@ function validateDevtoolsArgv(argv) {
         const frameRaw = positionals[1];
         const num = Number(frameRaw);
         if (!Number.isInteger(num) || num < 0) {
-            process.stderr.write(`error: invalid value for <frameNo>: ${frameRaw}\n`);
-            process.stderr.write(`frameNo must be a non-negative integer\n`);
-            process.stderr.write(`${usage}\n`);
+            writeStderrSync(`error: invalid value for <frameNo>: ${frameRaw}\n`);
+            writeStderrSync(`frameNo must be a non-negative integer\n`);
+            writeStderrSync(`${usage}\n`);
             process.exit(1);
         }
     }
@@ -3285,6 +3308,51 @@ const cli = Cli.create({
             return runTuiCommand(c, fail, { preselect });
         }
         return executeUpCommand(c, c.args.workflow, c.options, fail);
+    },
+})
+    // =========================================================================
+    // smithers migrate
+    // =========================================================================
+    .command("migrate", {
+    description: "Copy the legacy bun:sqlite smithers.db into PGlite or Postgres and write the migrated.json marker.",
+    options: migrateOptions,
+    async run(c) {
+        const fail = (opts) => {
+            commandExitOverride = opts.exitCode ?? 1;
+            return c.error(opts);
+        };
+        try {
+            const { migrateSmithersStore } = await import("smithers-orchestrator/migrateSmithersStore");
+            const result = await migrateSmithersStore({
+                cwd: process.cwd(),
+                to: c.options.to,
+                url: c.options.url,
+                keepSqlite: c.options.keepSqlite,
+                onProgress(event) {
+                    if (event.type === "table-copied") {
+                        process.stderr.write(`[smithers] migrated ${event.table}: ${event.targetRows}/${event.sourceRows} rows\n`);
+                    }
+                    else if (event.type === "done") {
+                        process.stderr.write(`[smithers] migration completed in ${event.durationMs}ms\n`);
+                    }
+                },
+            });
+            return c.ok(result, {
+                cta: {
+                    description: "Next steps:",
+                    commands: [
+                        { command: "smithers gateway", description: "Start the Gateway on the migrated backend" },
+                        { command: "smithers <cmd> --backend sqlite", description: "Temporarily use the old SQLite store" },
+                    ],
+                },
+            });
+        }
+        catch (err) {
+            if (err instanceof SmithersError) {
+                return fail({ code: err.code, message: err.message, exitCode: 4 });
+            }
+            return fail({ code: "MIGRATION_FAILED", message: err?.message ?? String(err), exitCode: 1 });
+        }
     },
 })
     // =========================================================================
@@ -6606,11 +6674,24 @@ function rewriteChatCreateArgv(argv) {
  * @param {string} s
  */
 function writeStdoutSync(s) {
+    writeFdSync(1, s);
+}
+/**
+ * @param {string} s
+ */
+function writeStderrSync(s) {
+    writeFdSync(2, s);
+}
+/**
+ * @param {number} fd
+ * @param {string} s
+ */
+function writeFdSync(fd, s) {
     const buf = Buffer.from(s, "utf8");
     let offset = 0;
     while (offset < buf.length) {
         try {
-            offset += writeSync(1, buf, offset, buf.length - offset);
+            offset += writeSync(fd, buf, offset, buf.length - offset);
         }
         catch (err) {
             const code = /** @type {NodeJS.ErrnoException} */ (err)?.code;

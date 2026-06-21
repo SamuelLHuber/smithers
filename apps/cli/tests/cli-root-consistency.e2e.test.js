@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
-import { createTempRepo, runSmithers, writeTestWorkflow, } from "../../../packages/smithers/tests/e2e-helpers.js";
+import { createTempRepo, pinSqliteBackend, runSmithers, writeTestWorkflow, } from "../../../packages/smithers/tests/e2e-helpers.js";
 
 /**
  * Regression coverage for #283: the effective task root must not drift between
@@ -13,6 +13,9 @@ const WF_PATH = ".smithers/workflows/root-repro.tsx";
 test("up <path> and workflow run <name> resolve the same task root", () => {
     const repo = createTempRepo();
     writeTestWorkflow(repo, WF_PATH);
+    // `up` writes the legacy bun:sqlite store; pin sqlite so the read-command
+    // migration gate (default pglite) reads it instead of demanding migration.
+    pinSqliteBackend(repo.dir);
 
     const byPath = runSmithers(["up", WF_PATH, "--run-id", "by-path"], {
         cwd: repo.dir,
@@ -62,6 +65,7 @@ test("graph accepts --root (parity with up) and renders", () => {
 test("resume re-uses the root persisted on the run, not the resume context", () => {
     const repo = createTempRepo();
     writeTestWorkflow(repo, WF_PATH);
+    pinSqliteBackend(repo.dir);
     const customRoot = repo.path("custom-root");
     mkdirSync(customRoot, { recursive: true });
 
