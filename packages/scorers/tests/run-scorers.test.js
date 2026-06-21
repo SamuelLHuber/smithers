@@ -1,6 +1,11 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock, beforeEach } from "bun:test";
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
+import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { createScorer } from "../src/index.js";
 import { runScorersAsync, runScorersBatch } from "../src/run-scorers.js";
+import { aggregateScores } from "../src/aggregate.js";
 // Mock DB adapter — only needs insertScorerResult for our tests
 function createMockAdapter() {
     const rows = [];
@@ -94,50 +99,45 @@ describe("runScorersBatch", () => {
         expect(results.always?.score).toBe(1);
         expect(scoreFn).toHaveBeenCalledTimes(1);
     });
-    it("respects ratio sampling and falls back to running unknown sampling types", async () => {
-        const originalRandom = Math.random;
+    it("respects ratio sampling deterministically and falls back to running unknown sampling types", async () => {
         const scoreFn = mock(async () => ({ score: 1 }));
-        try {
-            Math.random = () => 0.75;
-            let results = await runScorersBatch({
-                ratio: {
-                    scorer: createScorer({
-                        id: "ratio",
-                        name: "Ratio",
-                        description: "d",
-                        score: scoreFn,
-                    }),
-                    sampling: { type: "ratio", rate: 0.5 },
-                },
-            }, makeContext(), null);
-            expect(results.ratio).toBeNull();
+        // rate 0 never runs; rate 1 always runs — independent of the context.
+        const never = await runScorersBatch({
+            ratio: {
+                scorer: createScorer({
+                    id: "ratio",
+                    name: "Ratio",
+                    description: "d",
+                    score: scoreFn,
+                }),
+                sampling: { type: "ratio", rate: 0 },
+            },
+        }, makeContext(), null);
+        expect(never.ratio).toBeNull();
+        expect(scoreFn).not.toHaveBeenCalled();
 
-            Math.random = () => 0.25;
-            results = await runScorersBatch({
-                ratio: {
-                    scorer: createScorer({
-                        id: "ratio",
-                        name: "Ratio",
-                        description: "d",
-                        score: scoreFn,
-                    }),
-                    sampling: { type: "ratio", rate: 0.5 },
-                },
-                unknown: {
-                    scorer: createScorer({
-                        id: "unknown",
-                        name: "Unknown",
-                        description: "d",
-                        score: scoreFn,
-                    }),
-                    sampling: { type: "surprise" },
-                },
-            }, makeContext(), null);
-            expect(results.ratio?.score).toBe(1);
-            expect(results.unknown?.score).toBe(1);
-        } finally {
-            Math.random = originalRandom;
-        }
+        const results = await runScorersBatch({
+            ratio: {
+                scorer: createScorer({
+                    id: "ratio",
+                    name: "Ratio",
+                    description: "d",
+                    score: scoreFn,
+                }),
+                sampling: { type: "ratio", rate: 1 },
+            },
+            unknown: {
+                scorer: createScorer({
+                    id: "unknown",
+                    name: "Unknown",
+                    description: "d",
+                    score: scoreFn,
+                }),
+                sampling: { type: "surprise" },
+            },
+        }, makeContext(), null);
+        expect(results.ratio?.score).toBe(1);
+        expect(results.unknown?.score).toBe(1);
     });
     it("handles scorer errors gracefully", async () => {
         const scorers = {
@@ -441,5 +441,220 @@ describe("runScorersBatch", () => {
         expect(JSON.parse(insertedRow.groundTruthJson)).toEqual({
             expected: "answer",
         });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Score validation / clamping (api-contract + crash-safety-durability)
+//
+// A custom scorer's score must be a finite number in [0, 1]. Out-of-range
+// scores are clamped (matching llmJudge); missing/NaN/Infinity scores surface
+// as SCORER_FAILED instead of silently corrupting aggregates or dropping the
+// durable row while still emitting a ScorerFinished event (split-brain).
+// These run against a real in-memory SmithersDb — no mocks of the unit.
+// ---------------------------------------------------------------------------
+describe("runScorersBatch score validation", () => {
+    let adapter;
+    beforeEach(() => {
+        const sqlite = new Database(":memory:");
+        const db = drizzle(sqlite);
+        ensureSmithersTables(db);
+        adapter = new SmithersDb(db);
+    });
+    /**
+     * @param {string} id
+     * @param {number} score
+     */
+    function scorerReturning(id, score) {
+        return {
+            scorer: createScorer({
+                id,
+                name: id,
+                description: "d",
+                score: async () => ({ score }),
+            }),
+        };
+    }
+    it("clamps an above-range score to 1 in the returned result, the DB row, and aggregates", async () => {
+        const events = [];
+        const results = await runScorersBatch({ s: scorerReturning("over", 5) }, makeContext({ runId: "clamp-over" }), adapter, { emit: (_name, event) => events.push(event) });
+        expect(results.s?.score).toBe(1);
+        expect(events.map((e) => e.type)).toEqual(["ScorerStarted", "ScorerFinished"]);
+        expect(events[1].score).toBe(1);
+        const rows = await adapter.listScorerResults("clamp-over");
+        expect(rows).toHaveLength(1);
+        expect(rows[0].score).toBe(1);
+        const agg = await aggregateScores(adapter, { runId: "clamp-over" });
+        expect(agg).toHaveLength(1);
+        expect(agg[0].mean).toBe(1);
+        expect(agg[0].min).toBe(1);
+        expect(agg[0].max).toBe(1);
+        expect(agg[0].p50).toBe(1);
+        expect(agg[0].mean).toBeGreaterThanOrEqual(0);
+        expect(agg[0].mean).toBeLessThanOrEqual(1);
+    });
+    it("clamps a below-range score to 0 in the returned result, the DB row, and aggregates", async () => {
+        const results = await runScorersBatch({ s: scorerReturning("under", -1) }, makeContext({ runId: "clamp-under" }), adapter);
+        expect(results.s?.score).toBe(0);
+        const rows = await adapter.listScorerResults("clamp-under");
+        expect(rows).toHaveLength(1);
+        expect(rows[0].score).toBe(0);
+        const agg = await aggregateScores(adapter, { runId: "clamp-under" });
+        expect(agg[0].mean).toBe(0);
+        expect(agg[0].min).toBe(0);
+        expect(agg[0].max).toBe(0);
+        expect(agg[0].p50).toBe(0);
+    });
+    it("leaves an in-range score untouched and preserves reason/meta", async () => {
+        const results = await runScorersBatch({
+            s: {
+                scorer: createScorer({
+                    id: "ok",
+                    name: "ok",
+                    description: "d",
+                    score: async () => ({ score: 0.42, reason: "fine", meta: { k: "v" } }),
+                }),
+            },
+        }, makeContext({ runId: "in-range" }), adapter);
+        expect(results.s).toMatchObject({ score: 0.42, reason: "fine", meta: { k: "v" } });
+        const rows = await adapter.listScorerResults("in-range");
+        expect(rows[0].score).toBe(0.42);
+        expect(rows[0].reason).toBe("fine");
+        expect(JSON.parse(rows[0].metaJson)).toEqual({ k: "v" });
+    });
+    for (const [label, badScore] of [["NaN", Number.NaN], ["Infinity", Number.POSITIVE_INFINITY], ["-Infinity", Number.NEGATIVE_INFINITY]]) {
+        it(`surfaces a ${label} score as SCORER_FAILED (no Finished event, no row, scorersFailed) instead of corrupting aggregates`, async () => {
+            const events = [];
+            const results = await runScorersBatch({ s: scorerReturning("bad", badScore) }, makeContext({ runId: `bad-${label}` }), adapter, { emit: (_name, event) => events.push(event) });
+            // Failed scorer surfaces as null, not a poisoned score.
+            expect(results.s).toBeNull();
+            const types = events.map((e) => e.type);
+            expect(types).toContain("ScorerStarted");
+            expect(types).toContain("ScorerFailed");
+            // No split-brain: a Finished event must NOT accompany a failure.
+            expect(types).not.toContain("ScorerFinished");
+            const failed = events.find((e) => e.type === "ScorerFailed");
+            expect(failed?.error).toMatch(/non-finite or missing score/i);
+            // Event log and DB agree: zero rows persisted.
+            const rows = await adapter.listScorerResults(`bad-${label}`);
+            expect(rows).toHaveLength(0);
+            // Aggregation is not poisoned.
+            const agg = await aggregateScores(adapter, { runId: `bad-${label}` });
+            expect(agg).toHaveLength(0);
+        });
+    }
+    it("surfaces a missing score (malformed scorer result) as SCORER_FAILED with no silently-dropped row", async () => {
+        const events = [];
+        const results = await runScorersBatch({
+            s: {
+                scorer: createScorer({
+                    id: "noscore",
+                    name: "noscore",
+                    description: "d",
+                    // Forgets to return `score` — a real scorer-author mistake.
+                    score: async () => ({ reason: "oops" }),
+                }),
+            },
+        }, makeContext({ runId: "missing-score" }), adapter, { emit: (_name, event) => events.push(event) });
+        expect(results.s).toBeNull();
+        const types = events.map((e) => e.type);
+        expect(types).toEqual(["ScorerStarted", "ScorerFailed"]);
+        const rows = await adapter.listScorerResults("missing-score");
+        expect(rows).toHaveLength(0);
+    });
+    it("isolates a malformed scorer: sibling healthy scorers still run and persist their rows", async () => {
+        const results = await runScorersBatch({
+            bad: scorerReturning("bad-sib", Number.NaN),
+            good: scorerReturning("good-sib", 0.7),
+        }, makeContext({ runId: "mixed" }), adapter);
+        expect(results.bad).toBeNull();
+        expect(results.good?.score).toBe(0.7);
+        const rows = await adapter.listScorerResults("mixed");
+        expect(rows).toHaveLength(1);
+        expect(rows[0].scorerId).toBe("good-sib");
+        expect(rows[0].score).toBe(0.7);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Deterministic ratio sampling (edge-case / replay-determinism)
+//
+// shouldRun's ratio branch must be a pure function of the scorer's durable
+// identity (runId, nodeId, iteration, attempt, scorerId), NOT global
+// Math.random(). Otherwise replaying/forking a checkpoint can flip a
+// previously-skipped scorer to run (or vice versa), breaking deterministic
+// replay and double-counting aggregates.
+// ---------------------------------------------------------------------------
+describe("ratio sampling determinism", () => {
+    /**
+     * @param {string} id
+     * @param {number} rate
+     */
+    function ratioScorers(id, rate) {
+        return {
+            r: {
+                scorer: createScorer({
+                    id,
+                    name: id,
+                    description: "d",
+                    score: async () => ({ score: 1 }),
+                }),
+                sampling: { type: "ratio", rate },
+            },
+        };
+    }
+    it("makes the SAME run/skip decision for the same identity across repeated runs (replay-stable)", async () => {
+        // Two independent invocations with identical context and scorer identity
+        // must agree — even though no global RNG is monkeypatched.
+        const ctx = makeContext({ runId: "det-run", nodeId: "det-node", attempt: 1 });
+        const decisions = [];
+        for (let i = 0; i < 8; i++) {
+            const res = await runScorersBatch(ratioScorers("det-scorer", 0.5), ctx, null);
+            decisions.push(res.r === null ? "skip" : "run");
+        }
+        const unique = new Set(decisions);
+        expect(unique.size).toBe(1);
+    });
+    it("persists exactly the same number of rows on replay of the same identity", async () => {
+        const ctx = makeContext({ runId: "det-rows", nodeId: "det-node", attempt: 1 });
+        const counts = [];
+        for (let i = 0; i < 4; i++) {
+            const sqlite = new Database(":memory:");
+            const db = drizzle(sqlite);
+            ensureSmithersTables(db);
+            const adapter = new SmithersDb(db);
+            await runScorersBatch(ratioScorers("det-scorer", 0.5), ctx, adapter);
+            counts.push((await adapter.listScorerResults("det-rows")).length);
+        }
+        const unique = new Set(counts);
+        expect(unique.size).toBe(1);
+    });
+    it("rate 0 always skips and rate 1 always runs, regardless of identity", async () => {
+        for (const attempt of [1, 2, 3, 7, 42]) {
+            const ctx = makeContext({ attempt });
+            const skipped = await runScorersBatch(ratioScorers("edge", 0), ctx, null);
+            expect(skipped.r).toBeNull();
+            const ran = await runScorersBatch(ratioScorers("edge", 1), ctx, null);
+            expect(ran.r?.score).toBe(1);
+        }
+    });
+    it("can differ across different durable identities (e.g. attempt) while staying stable per-identity", async () => {
+        // The sampler is seeded off identity, so different attempts may yield
+        // different decisions — but each is itself reproducible. We assert that
+        // across a spread of attempts at rate 0.5 we observe BOTH outcomes,
+        // proving the decision actually varies with identity (not constant), and
+        // that each individual attempt is stable when repeated.
+        const outcomes = new Set();
+        for (let attempt = 1; attempt <= 16; attempt++) {
+            const ctx = makeContext({ runId: "spread", nodeId: "spread", attempt });
+            const first = await runScorersBatch(ratioScorers("spread-scorer", 0.5), ctx, null);
+            const second = await runScorersBatch(ratioScorers("spread-scorer", 0.5), ctx, null);
+            const a = first.r === null ? "skip" : "run";
+            const b = second.r === null ? "skip" : "run";
+            expect(a).toBe(b); // per-identity stability
+            outcomes.add(a);
+        }
+        expect(outcomes.has("run")).toBe(true);
+        expect(outcomes.has("skip")).toBe(true);
     });
 });
