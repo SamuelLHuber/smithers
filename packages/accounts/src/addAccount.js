@@ -1,6 +1,7 @@
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { readAccounts } from "./readAccounts.js";
 import { writeAccounts } from "./writeAccounts.js";
+import { withAccountsLock } from "./withAccountsLock.js";
 import { API_KEY_PROVIDERS, SUBSCRIPTION_PROVIDERS, VALID_PROVIDERS } from "./parseAccountsFile.js";
 
 /** @typedef {import("./Account.ts").Account} Account */
@@ -31,23 +32,29 @@ export function addAccount(account, options = {}) {
     if (API_KEY_PROVIDERS.has(account.provider) && typeof account.apiKey !== "string") {
         throw new SmithersError("ACCOUNT_INVALID", `${account.provider} accounts require apiKey (may be empty string for env-var-only)`);
     }
-    const existing = readAccounts(env);
-    const conflict = existing.accounts.findIndex((entry) => entry.label === account.label);
-    if (conflict >= 0 && !options.replace) {
-        throw new SmithersError("ACCOUNT_DUPLICATE_LABEL", `An account with label "${account.label}" already exists. Pass replace: true to overwrite, or use a different label.`);
-    }
-    /** @type {Account} */
-    const persisted = {
-        label: account.label,
-        provider: account.provider,
-        addedAt: account.addedAt ?? existing.accounts[conflict]?.addedAt ?? new Date().toISOString(),
-    };
-    if (account.configDir) persisted.configDir = account.configDir;
-    if (account.apiKey !== undefined) persisted.apiKey = account.apiKey;
-    if (account.model) persisted.model = account.model;
-    const next = conflict >= 0
-        ? existing.accounts.map((entry, i) => (i === conflict ? persisted : entry))
-        : [...existing.accounts, persisted];
-    writeAccounts({ version: 1, accounts: next }, env);
-    return persisted;
+    // Read-modify-write must be serialized against concurrent mutations or a
+    // second writer's atomic rename clobbers this entry (lost update). The lock
+    // covers read → conflict-check → write so the base state we mutate is the
+    // same one we persist.
+    return withAccountsLock(env, () => {
+        const existing = readAccounts(env);
+        const conflict = existing.accounts.findIndex((entry) => entry.label === account.label);
+        if (conflict >= 0 && !options.replace) {
+            throw new SmithersError("ACCOUNT_DUPLICATE_LABEL", `An account with label "${account.label}" already exists. Pass replace: true to overwrite, or use a different label.`);
+        }
+        /** @type {Account} */
+        const persisted = {
+            label: account.label,
+            provider: account.provider,
+            addedAt: account.addedAt ?? existing.accounts[conflict]?.addedAt ?? new Date().toISOString(),
+        };
+        if (account.configDir) persisted.configDir = account.configDir;
+        if (account.apiKey !== undefined) persisted.apiKey = account.apiKey;
+        if (account.model) persisted.model = account.model;
+        const next = conflict >= 0
+            ? existing.accounts.map((entry, i) => (i === conflict ? persisted : entry))
+            : [...existing.accounts, persisted];
+        writeAccounts({ version: 1, accounts: next }, env);
+        return persisted;
+    });
 }

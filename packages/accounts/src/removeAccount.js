@@ -1,6 +1,7 @@
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { readAccounts } from "./readAccounts.js";
 import { writeAccounts } from "./writeAccounts.js";
+import { withAccountsLock } from "./withAccountsLock.js";
 
 /**
  * Removes an account by label. Throws if no account exists with that label
@@ -12,12 +13,16 @@ import { writeAccounts } from "./writeAccounts.js";
  */
 export function removeAccount(label, options = {}) {
     const env = options.env ?? process.env;
-    const existing = readAccounts(env);
-    const next = existing.accounts.filter((entry) => entry.label !== label);
-    if (next.length === existing.accounts.length) {
-        if (options.silent) return false;
-        throw new SmithersError("ACCOUNT_NOT_FOUND", `No account with label "${label}" is registered.`);
-    }
-    writeAccounts({ version: 1, accounts: next }, env);
-    return true;
+    // Serialized read-modify-write so a concurrent addAccount cannot have its
+    // entry dropped by this remove's whole-file rewrite (lost update).
+    return withAccountsLock(env, () => {
+        const existing = readAccounts(env);
+        const next = existing.accounts.filter((entry) => entry.label !== label);
+        if (next.length === existing.accounts.length) {
+            if (options.silent) return false;
+            throw new SmithersError("ACCOUNT_NOT_FOUND", `No account with label "${label}" is registered.`);
+        }
+        writeAccounts({ version: 1, accounts: next }, env);
+        return true;
+    });
 }

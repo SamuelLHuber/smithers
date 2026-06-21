@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -296,5 +296,195 @@ describe("accountToProviderEnv", () => {
     test("unknown provider throws", () => {
         expect(() => accountToProviderEnv({ label: "x", provider: "nope" }))
             .toThrow(/unknown provider/);
+    });
+});
+
+const addAccountUrl = new URL("../src/addAccount.js", import.meta.url).href;
+const removeAccountUrl = new URL("../src/removeAccount.js", import.meta.url).href;
+
+/**
+ * Runs N addAccount() calls in N separate real OS processes against the same
+ * SMITHERS_HOME, concurrently. This reproduces the actual production race:
+ * multiple `smithers` CLIs / agents mutating ~/.smithers/accounts.json at once.
+ * (A single-process Promise.all cannot interleave because addAccount is fully
+ * synchronous, so it would never expose the lost-update bug.)
+ *
+ * @param {string} home
+ * @param {string[]} labels
+ * @returns {Promise<void>}
+ */
+async function addAccountsConcurrently(home, labels) {
+    const body = `
+const { addAccount } = await import(process.env.ADD_URL);
+addAccount(
+  { label: process.env.LABEL, provider: "codex", configDir: "/c/" + process.env.LABEL },
+  { env: { SMITHERS_HOME: process.env.SMITHERS_HOME } },
+);
+`;
+    const procs = labels.map((label) =>
+        Bun.spawn({
+            cmd: [process.execPath, "--eval", body],
+            env: { ...process.env, ADD_URL: addAccountUrl, LABEL: label, SMITHERS_HOME: home },
+            stdout: "ignore",
+            stderr: "pipe",
+        }),
+    );
+    const codes = await Promise.all(procs.map((p) => p.exited));
+    for (let i = 0; i < codes.length; i++) {
+        if (codes[i] !== 0) {
+            const err = await new Response(procs[i].stderr).text();
+            throw new Error(`child addAccount(${labels[i]}) exited ${codes[i]}: ${err}`);
+        }
+    }
+}
+
+describe("concurrent read-modify-write does not lose updates", () => {
+    test("many interleaved addAccount processes all survive (no lost update)", async () => {
+        const env = newSmithersHome();
+        const home = env.SMITHERS_HOME;
+        const labels = Array.from({ length: 12 }, (_, i) => `acct-${i}`);
+        await addAccountsConcurrently(home, labels);
+        const persisted = listAccounts(env).map((a) => a.label).sort();
+        expect(persisted).toEqual([...labels].sort());
+    }, 30_000);
+
+    test("interleaving addAccount('a') with removeAccount('b') keeps 'a'", async () => {
+        const env = newSmithersHome();
+        const home = env.SMITHERS_HOME;
+        // Seed 'b' so the remove has something real to delete.
+        addAccount({ label: "b", provider: "codex", configDir: "/c/b" }, { env });
+
+        const addBody = `
+const { addAccount } = await import(process.env.ADD_URL);
+addAccount({ label: "a", provider: "codex", configDir: "/c/a" }, { env: { SMITHERS_HOME: process.env.SMITHERS_HOME } });
+`;
+        const removeBody = `
+const { removeAccount } = await import(process.env.REMOVE_URL);
+removeAccount("b", { env: { SMITHERS_HOME: process.env.SMITHERS_HOME } });
+`;
+        const adder = Bun.spawn({
+            cmd: [process.execPath, "--eval", addBody],
+            env: { ...process.env, ADD_URL: addAccountUrl, SMITHERS_HOME: home },
+            stdout: "ignore", stderr: "pipe",
+        });
+        const remover = Bun.spawn({
+            cmd: [process.execPath, "--eval", removeBody],
+            env: { ...process.env, REMOVE_URL: removeAccountUrl, SMITHERS_HOME: home },
+            stdout: "ignore", stderr: "pipe",
+        });
+        expect(await adder.exited).toBe(0);
+        expect(await remover.exited).toBe(0);
+
+        const labels = listAccounts(env).map((a) => a.label);
+        // 'a' must never be lost by the concurrent remove; 'b' must be gone.
+        expect(labels).toContain("a");
+        expect(labels).not.toContain("b");
+    }, 30_000);
+
+    test("two same-millisecond writes use distinct temp paths (collision-safe)", () => {
+        const env = newSmithersHome();
+        // Pin the clock so both writes would have produced an identical
+        // pid+time temp name under the old scheme; the random suffix must
+        // still keep them distinct so neither clobbers the other's bytes.
+        const realNow = Date.now;
+        Date.now = () => 1_700_000_000_000;
+        try {
+            writeAccounts({ version: 1, accounts: [{ label: "a", provider: "codex", configDir: "/c/a" }] }, env);
+            writeAccounts({ version: 1, accounts: [{ label: "b", provider: "codex", configDir: "/c/b" }] }, env);
+        } finally {
+            Date.now = realNow;
+        }
+        // Both writes completed; last one wins the final file, no temp debris.
+        expect(listAccounts(env).map((a) => a.label)).toEqual(["b"]);
+        const debris = readdirSync(env.SMITHERS_HOME).filter((f) => f.includes(".tmp."));
+        expect(debris).toEqual([]);
+    });
+});
+
+describe("writeAccounts secret-safe permissions and crash atomicity", () => {
+    test("overwriting a pre-existing world-readable accounts.json re-tightens to 0600", () => {
+        const env = newSmithersHome();
+        const path = accountsFilePath(env);
+        // Simulate an upgrade/migration where a loose-perm file already exists.
+        writeFileSync(path, JSON.stringify({ version: 1, accounts: [] }), { encoding: "utf8", mode: 0o666 });
+        chmodSync(path, 0o666);
+        expect(statSync(path).mode & 0o777).toBe(0o666);
+
+        addAccount({ label: "k", provider: "openai-api", apiKey: "sk-SECRET-VALUE" }, { env });
+        expect(statSync(path).mode & 0o777).toBe(0o600);
+    });
+
+    test("failed rename cleans up the plaintext-key temp file and leaves the original intact", () => {
+        const env = newSmithersHome();
+        const path = accountsFilePath(env);
+        // Real fault injection (no mocks): make the target a NON-EMPTY directory
+        // so renameSync(tmp -> path) genuinely fails with ENOTEMPTY/EISDIR.
+        mkdirSync(path, { recursive: true });
+        const sentinel = join(path, "keep.txt");
+        writeFileSync(sentinel, "preexisting");
+
+        expect(() =>
+            writeAccounts(
+                { version: 1, accounts: [{ label: "x", provider: "openai-api", apiKey: "sk-MUST-NOT-LEAK" }] },
+                env,
+            ),
+        ).toThrow();
+
+        // Atomicity: the pre-existing target was never touched.
+        expect(existsSync(sentinel)).toBe(true);
+        expect(readFileSync(sentinel, "utf8")).toBe("preexisting");
+        // No orphaned temp file carrying the plaintext API key.
+        const debris = readdirSync(env.SMITHERS_HOME).filter((f) => f.includes(".tmp."));
+        expect(debris).toEqual([]);
+    });
+});
+
+describe("addAccount/removeAccount fail closed on a corrupt accounts.json", () => {
+    test("each mutator throws ACCOUNTS_FILE_INVALID and never clobbers the corrupt file", () => {
+        const env = newSmithersHome();
+        const path = accountsFilePath(env);
+        const corrupt = '{ "version": 1, "accounts": [ { "label": "good", "provider": "codex", "configDir": "/c/good" } ], BROKEN';
+        writeFileSync(path, corrupt, { encoding: "utf8", mode: 0o600 });
+
+        expect(() => addAccount({ label: "new", provider: "codex", configDir: "/c/new" }, { env }))
+            .toThrow(/ACCOUNTS_FILE_INVALID|valid JSON/);
+        expect(() => removeAccount("good", { env })).toThrow(/ACCOUNTS_FILE_INVALID|valid JSON/);
+        expect(() => getAccount("good", env)).toThrow(/ACCOUNTS_FILE_INVALID|valid JSON/);
+        expect(() => listAccounts(env)).toThrow(/ACCOUNTS_FILE_INVALID|valid JSON/);
+
+        // The corrupt file is preserved byte-for-byte for the user to recover,
+        // not silently overwritten with a fresh single-account file.
+        expect(readFileSync(path, "utf8")).toBe(corrupt);
+    });
+});
+
+describe("secret keys never leak into thrown error messages", () => {
+    const SECRET = "sk-SUPER-SECRET-DO-NOT-LEAK-9f8a";
+
+    test("addAccount both-set validation error omits the apiKey value", () => {
+        const env = newSmithersHome();
+        let caught;
+        try {
+            addAccount({ label: "leaky", provider: "claude-code", configDir: "/c/leaky", apiKey: SECRET }, { env });
+        } catch (e) {
+            caught = e;
+        }
+        expect(caught).toBeDefined();
+        expect(caught.message).not.toContain(SECRET);
+    });
+
+    test("parseAccountsFile both-set validation error omits the apiKey value", () => {
+        const raw = JSON.stringify({
+            version: 1,
+            accounts: [{ label: "leaky", provider: "claude-code", configDir: "/c/leaky", apiKey: SECRET }],
+        });
+        let caught;
+        try {
+            parseAccountsFile(raw);
+        } catch (e) {
+            caught = e;
+        }
+        expect(caught).toBeDefined();
+        expect(caught.message).not.toContain(SECRET);
     });
 });
