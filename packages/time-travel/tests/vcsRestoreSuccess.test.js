@@ -26,6 +26,9 @@ mock.module("@smithers-orchestrator/vcs/jj", () => ({
     },
     revertToJjPointer: (pointer, cwd) => {
         restoreCalls.push({ pointer, cwd });
+        if (pointer === "change-fail") {
+            return Effect.succeed({ success: false, error: "restore failed" });
+        }
         return Effect.succeed({ success: true });
     },
     runJj: (args, opts = {}) => {
@@ -62,7 +65,8 @@ function buildDb() {
     return { sqlite, adapter: new SmithersDb(db) };
 }
 
-async function seedRun(adapter, runId) {
+async function seedRun(adapter, runId, opts = {}) {
+    const targetPointer = opts.targetPointer ?? "change-target";
     await adapter.insertRun({
         runId,
         workflowName: "wf",
@@ -99,7 +103,7 @@ async function seedRun(adapter, runId) {
         state: "finished",
         startedAtMs: 200,
         finishedAtMs: 220,
-        jjPointer: "change-target",
+        jjPointer: targetPointer,
         jjCwd: "/repo",
     });
     await adapter.insertAttempt({
@@ -164,6 +168,50 @@ describe("VCS restore success paths", () => {
         }
     });
 
+    test("revertToAttempt flags the run when DB cleanup fails after VCS restore", async () => {
+        restoreCalls.length = 0;
+        const { adapter, sqlite } = buildDb();
+        try {
+            const runId = "run-revert-cleanup-fails";
+            await seedRun(adapter, runId);
+            const beforeFrames = await adapter.listFrames(runId, 10);
+            const failingAdapter = Object.create(adapter);
+            failingAdapter.deleteFramesAfter = () => Effect.fail(new Error("delete frames failed"));
+            const { revertToAttempt } = await import("../src/revert.js");
+            const events = [];
+
+            const result = await revertToAttempt(failingAdapter, {
+                runId,
+                nodeId: "target",
+                iteration: 0,
+                attempt: 1,
+                onProgress: (event) => events.push(event),
+            });
+
+            expect(result.success).toBe(false);
+            expect(result.jjPointer).toBe("change-target");
+            expect(result.error).toContain("DB frame cleanup failed");
+            expect(result.error).toContain("delete frames failed");
+            expect(restoreCalls).toEqual([{ pointer: "change-target", cwd: "/repo" }]);
+            expect(events.map((event) => event.type)).toEqual(["RevertStarted", "RevertFinished"]);
+            expect(events.at(-1)).toMatchObject({
+                success: false,
+                jjPointer: "change-target",
+            });
+
+            const afterFrames = await adapter.listFrames(runId, 10);
+            expect(afterFrames).toEqual(beforeFrames);
+            const run = await Effect.runPromise(adapter.getRun(runId));
+            expect(["needs_attention", "failed"]).toContain(run?.status);
+            expect(JSON.parse(run?.errorJson ?? "{}")).toMatchObject({
+                code: "RevertFailed",
+                needsAttention: true,
+            });
+        } finally {
+            sqlite.close();
+        }
+    });
+
     test("timeTravel reports vcsRestored true after a successful restore", async () => {
         restoreCalls.length = 0;
         const { adapter, sqlite } = buildDb();
@@ -196,6 +244,60 @@ describe("VCS restore success paths", () => {
             expect(frames.map((frame) => frame.frameNo).sort()).toEqual([0, 1]);
             const laterAttempt = (await adapter.listAttempts("run-time-travel-vcs-success", "later", 0))[0];
             expect(laterAttempt?.state).toBe("cancelled");
+        } finally {
+            sqlite.close();
+        }
+    });
+
+    test("timeTravel leaves durable state untouched when VCS restore fails", async () => {
+        restoreCalls.length = 0;
+        const { adapter, sqlite } = buildDb();
+        try {
+            const runId = "run-time-travel-vcs-failure";
+            await seedRun(adapter, runId, { targetPointer: "change-fail" });
+            const { timeTravel } = await import("../src/timetravel.js");
+            const events = [];
+
+            const before = {
+                run: await Effect.runPromise(adapter.getRun(runId)),
+                frames: await adapter.listFrames(runId, 10),
+                nodes: await Effect.runPromise(adapter.listNodes(runId)),
+                attempts: await adapter.listAttemptsForRun(runId),
+            };
+
+            const result = await timeTravel(adapter, {
+                runId,
+                nodeId: "target",
+                restoreVcs: true,
+                onProgress: (event) => events.push(event),
+            });
+
+            expect(result).toEqual({
+                success: false,
+                jjPointer: "change-fail",
+                vcsRestored: false,
+                resetNodes: [],
+                error: "restore failed",
+            });
+            expect(restoreCalls).toEqual([{ pointer: "change-fail", cwd: "/repo" }]);
+            expect(events.map((event) => event.type)).toEqual([
+                "TimeTravelStarted",
+                "TimeTravelFinished",
+            ]);
+            expect(events.at(-1)).toMatchObject({
+                success: false,
+                vcsRestored: false,
+                resetNodes: [],
+                error: "restore failed",
+            });
+
+            const after = {
+                run: await Effect.runPromise(adapter.getRun(runId)),
+                frames: await adapter.listFrames(runId, 10),
+                nodes: await Effect.runPromise(adapter.listNodes(runId)),
+                attempts: await adapter.listAttemptsForRun(runId),
+            };
+            expect(after).toEqual(before);
         } finally {
             sqlite.close();
         }

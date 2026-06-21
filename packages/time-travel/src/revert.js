@@ -6,6 +6,47 @@ import { nowMs } from "@smithers-orchestrator/scheduler/nowMs";
 /** @typedef {import("./RevertResult.ts").RevertResult} RevertResult */
 /** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
 
+function formatError(error) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+    return String(error);
+}
+
+/**
+ * @param {SmithersDb} adapter
+ * @param {string} runId
+ * @param {number} timestampMs
+ * @param {string} reason
+ */
+async function markRunNeedsAttention(adapter, runId, timestampMs, reason) {
+    const payload = JSON.stringify({
+        code: "RevertFailed",
+        needsAttention: true,
+        message: reason,
+        timestampMs,
+    });
+    try {
+        await adapter.updateRun(runId, {
+            status: "needs_attention",
+            finishedAtMs: timestampMs,
+            heartbeatAtMs: null,
+            runtimeOwnerId: null,
+            errorJson: payload,
+        });
+        return;
+    } catch {
+        // Older schemas may not accept needs_attention; preserve the signal in errorJson.
+    }
+    await adapter.updateRun(runId, {
+        status: "failed",
+        finishedAtMs: timestampMs,
+        heartbeatAtMs: null,
+        runtimeOwnerId: null,
+        errorJson: payload,
+    });
+}
+
 /**
  * @param {SmithersDb} adapter
  * @param {RevertOptions} opts
@@ -36,18 +77,18 @@ export async function revertToAttempt(adapter, opts) {
     // Revert must target the same repository/worktree where the attempt ran.
     const cwd = attemptRow.jjCwd ?? undefined;
     const result = await Effect.runPromise(revertToJjPointer(jjPointer, cwd).pipe(Effect.provide(BunContext.layer)));
-    onProgress?.({
-        type: "RevertFinished",
-        runId,
-        nodeId,
-        iteration,
-        attempt,
-        jjPointer,
-        success: result.success,
-        error: result.error,
-        timestampMs: nowMs(),
-    });
     if (!result.success) {
+        onProgress?.({
+            type: "RevertFinished",
+            runId,
+            nodeId,
+            iteration,
+            attempt,
+            jjPointer,
+            success: false,
+            error: result.error,
+            timestampMs: nowMs(),
+        });
         return { success: false, error: result.error, jjPointer };
     }
     // Clean up DB frames recorded after the reverted attempt started.
@@ -62,7 +103,36 @@ export async function revertToAttempt(adapter, opts) {
         }
     }
     if (lastValidFrameNo >= 0) {
-        await Effect.runPromise(adapter.deleteFramesAfter(runId, lastValidFrameNo));
+        try {
+            await Effect.runPromise(adapter.deleteFramesAfter(runId, lastValidFrameNo));
+        } catch (error) {
+            const message = `VCS restored to ${jjPointer}, but DB frame cleanup failed: ${formatError(error)}`;
+            const timestampMs = nowMs();
+            await markRunNeedsAttention(adapter, runId, timestampMs, message);
+            onProgress?.({
+                type: "RevertFinished",
+                runId,
+                nodeId,
+                iteration,
+                attempt,
+                jjPointer,
+                success: false,
+                error: message,
+                timestampMs,
+            });
+            return { success: false, error: message, jjPointer };
+        }
     }
+    onProgress?.({
+        type: "RevertFinished",
+        runId,
+        nodeId,
+        iteration,
+        attempt,
+        jjPointer,
+        success: true,
+        error: undefined,
+        timestampMs: nowMs(),
+    });
     return { success: true, jjPointer };
 }
