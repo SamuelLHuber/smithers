@@ -11,7 +11,10 @@ import {
     googleUsage,
     humanizeDurationShort,
     openaiHeaderUsage,
+    parseAnthropicRateLimitHeaders,
     parseCodexUsage,
+    parseOpenAiRateLimitHeaders,
+    readUsageCache,
     readClaudeCredentials,
     readCodexCredentials,
     writeUsageCache,
@@ -271,6 +274,58 @@ describe("parser and formatter branches", () => {
             id: "primary",
             label: "primary",
         });
+    });
+
+    test("rate-limit header parsers handle partial and inverted count windows", () => {
+        const fixedNow = Date.parse("2026-06-03T00:00:00.000Z");
+        const openai = parseOpenAiRateLimitHeaders((name) => ({
+            "x-ratelimit-limit-requests": "10",
+            "x-ratelimit-remaining-requests": "15",
+            "x-ratelimit-reset-requests": "2m0s",
+            "x-ratelimit-remaining-tokens": "42",
+            "x-ratelimit-reset-tokens": "bad-duration",
+        })[name] ?? null, fixedNow);
+
+        expect(openai).toHaveLength(2);
+        expect(openai[0]).toMatchObject({
+            id: "requests-per-min",
+            limit: 10,
+            remaining: 15,
+            used: 0,
+            resetsAt: "2026-06-03T00:02:00.000Z",
+        });
+        expect(openai[1]).toMatchObject({
+            id: "tokens-per-min",
+            limit: undefined,
+            remaining: 42,
+            used: undefined,
+            resetsAt: undefined,
+        });
+
+        const anthropic = parseAnthropicRateLimitHeaders((name) => ({
+            "anthropic-ratelimit-requests-remaining": "5",
+            "anthropic-ratelimit-output-tokens-limit": "100",
+            "anthropic-ratelimit-output-tokens-remaining": "90",
+            "anthropic-ratelimit-output-tokens-reset": "2026-06-03T00:03:00.000Z",
+        })[name] ?? null);
+
+        expect(anthropic.map((window) => window.id)).toEqual([
+            "requests-per-min",
+            "output-tokens-per-min",
+        ]);
+        expect(anthropic[0]).toMatchObject({ limit: undefined, remaining: 5, used: undefined });
+        expect(anthropic[1]).toMatchObject({ limit: 100, remaining: 90, used: 10 });
+    });
+
+    test("usage cache rejects malformed versions and array entries as cold cache", () => {
+        const root = tempDir();
+        const env = { SMITHERS_HOME: root };
+
+        writeFileSync(join(root, "usage-cache.json"), JSON.stringify({ version: 2, entries: {} }));
+        expect(readUsageCache(env)).toEqual({ version: 1, entries: {} });
+
+        writeFileSync(join(root, "usage-cache.json"), JSON.stringify({ version: 1, entries: [] }));
+        expect(readUsageCache(env)).toEqual({ version: 1, entries: {} });
     });
 });
 

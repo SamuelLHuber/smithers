@@ -38,6 +38,47 @@ async function listEventTypes(adapter, runId) {
     const events = await adapter.listEvents(runId, -1, 500);
     return events.map((event) => event.type);
 }
+/**
+ * Seed a waiting-event run whose approval gate was decided while the run was
+ * detached: the gate node is already "pending" in the DB (the engine moved it
+ * there on approval), but no engine is alive to execute it. The runtime owner
+ * is a dead pid and the heartbeat is stale.
+ *
+ * @param {SmithersDb} adapter
+ * @param {string} runId
+ * @param {{ approvalStatus?: "approved" | "denied" | "requested"; heartbeatAtMs?: number | null }} [opts]
+ */
+async function insertApprovalDecidedRun(adapter, runId, opts = {}) {
+    const approvalStatus = opts.approvalStatus ?? "approved";
+    const decided = approvalStatus === "approved" || approvalStatus === "denied";
+    await adapter.insertRun(runRow(runId, {
+        status: "waiting-event",
+        heartbeatAtMs: opts.heartbeatAtMs ?? now - 60_000,
+        runtimeOwnerId: "pid:99999:owner",
+    }));
+    await adapter.insertNode({
+        runId,
+        nodeId: "review",
+        iteration: 0,
+        // The gate node is "pending" after the decision was recorded; this is
+        // what listDecidedApprovals joins against (n.state = 'pending').
+        state: "pending",
+        lastAttempt: 1,
+        updatedAtMs: now - 2_000,
+        outputTable: "",
+        label: "approval:review",
+    });
+    await adapter.insertOrUpdateApproval({
+        runId,
+        nodeId: "review",
+        iteration: 0,
+        status: approvalStatus,
+        requestedAtMs: now - 2_000,
+        decidedAtMs: decided ? now - 1_000 : null,
+        note: null,
+        decidedBy: decided ? "user:test" : null,
+    });
+}
 describe("supervisor poll core", () => {
     test("auto-resumes stale runs", async () => {
         const { adapter, sqlite } = createTestDb();
@@ -336,6 +377,133 @@ describe("supervisor poll core", () => {
         expect(first.resumedCount).toBe(1);
         expect(second.resumedCount).toBe(0);
         expect(resumed).toEqual(["run-idempotent"]);
+        sqlite.close();
+    });
+    test("resumes a waiting-event run whose approval was decided while detached", async () => {
+        const { adapter, sqlite } = createTestDb();
+        const resumed = [];
+        await insertApprovalDecidedRun(adapter, "run-approval-decided");
+        const summary = await Effect.runPromise(supervisorPollEffect({
+            adapter,
+            staleThresholdMs: 30_000,
+            maxConcurrent: 3,
+            supervisorId: "approval-resume",
+            deps: {
+                now: () => now,
+                workflowExists: () => true,
+                isPidAlive: () => false,
+                spawnResumeDetached: (_workflowPath, runId) => {
+                    resumed.push(runId);
+                    return 9090;
+                },
+            },
+        }));
+        expect(summary.staleCount).toBe(0);
+        expect(summary.resumedCount).toBe(1);
+        expect(summary.skippedCount).toBe(0);
+        expect(resumed).toEqual(["run-approval-decided"]);
+        expect(await listEventTypes(adapter, "run-approval-decided")).toContain("RunAutoResumed");
+        const run = await adapter.getRun("run-approval-decided");
+        expect(run?.runtimeOwnerId).toBe("supervisor:approval-resume");
+        expect(run?.heartbeatAtMs).toBe(now);
+        sqlite.close();
+    });
+    test("does not resume a waiting-event run whose approval is still undecided", async () => {
+        const { adapter, sqlite } = createTestDb();
+        const resumed = [];
+        await insertApprovalDecidedRun(adapter, "run-approval-pending", {
+            approvalStatus: "requested",
+        });
+        const summary = await Effect.runPromise(supervisorPollEffect({
+            adapter,
+            staleThresholdMs: 30_000,
+            maxConcurrent: 3,
+            deps: {
+                now: () => now,
+                workflowExists: () => true,
+                isPidAlive: () => false,
+                spawnResumeDetached: (_workflowPath, runId) => {
+                    resumed.push(runId);
+                    return 9091;
+                },
+            },
+        }));
+        expect(summary.staleCount).toBe(0);
+        expect(summary.resumedCount).toBe(0);
+        expect(resumed).toHaveLength(0);
+        expect(await listEventTypes(adapter, "run-approval-pending")).not.toContain("RunAutoResumed");
+        sqlite.close();
+    });
+    test("rate-limits an approval-decided run behind a stale run when slots are exhausted", async () => {
+        const { adapter, sqlite } = createTestDb();
+        const resumed = [];
+        await adapter.insertRun(runRow("run-stale"));
+        await insertApprovalDecidedRun(adapter, "run-approval-rate-limited");
+        const summary = await Effect.runPromise(supervisorPollEffect({
+            adapter,
+            staleThresholdMs: 30_000,
+            maxConcurrent: 1,
+            deps: {
+                now: () => now,
+                workflowExists: () => true,
+                isPidAlive: () => false,
+                spawnResumeDetached: (_workflowPath, runId) => {
+                    resumed.push(runId);
+                    return 9092;
+                },
+            },
+        }));
+        expect(summary.staleCount).toBe(1);
+        expect(summary.resumedCount).toBe(1);
+        expect(summary.skippedCount).toBe(1);
+        expect(resumed).toEqual(["run-stale"]);
+        expect(await listEventTypes(adapter, "run-approval-rate-limited")).not.toContain("RunAutoResumed");
+        const skip = (await adapter.listEvents("run-approval-rate-limited", -1, 50)).find((event) => event.type === "RunAutoResumeSkipped");
+        expect(skip).toBeDefined();
+        expect(JSON.parse(skip.payloadJson).reason).toBe("rate-limited");
+        sqlite.close();
+    });
+    test("releases the claim when spawn fails so the next poll retries", async () => {
+        const { adapter, sqlite } = createTestDb();
+        const resumed = [];
+        const original = runRow("run-spawn-fail");
+        await adapter.insertRun(original);
+        let throwOnSpawn = true;
+        const options = {
+            adapter,
+            staleThresholdMs: 30_000,
+            maxConcurrent: 3,
+            supervisorId: "spawn-fail",
+            deps: {
+                now: () => now,
+                workflowExists: () => true,
+                isPidAlive: () => false,
+                spawnResumeDetached: (_workflowPath, runId) => {
+                    if (throwOnSpawn) {
+                        throw new Error("spawn boom");
+                    }
+                    resumed.push(runId);
+                    return 9093;
+                },
+            },
+        };
+        const first = await Effect.runPromise(supervisorPollEffect(options));
+        expect(first.staleCount).toBe(1);
+        expect(first.resumedCount).toBe(0);
+        expect(first.skippedCount).toBe(1);
+        expect(resumed).toHaveLength(0);
+        expect(await listEventTypes(adapter, "run-spawn-fail")).not.toContain("RunAutoResumed");
+        // Claim must have been rolled back to the pre-claim owner/heartbeat so the
+        // run still looks stale and a later poll can re-attempt it.
+        const afterFail = await adapter.getRun("run-spawn-fail");
+        expect(afterFail?.runtimeOwnerId).toBe(original.runtimeOwnerId);
+        expect(afterFail?.heartbeatAtMs).toBe(original.heartbeatAtMs);
+        // Second poll with a working spawn must succeed (run was not left stuck).
+        throwOnSpawn = false;
+        const second = await Effect.runPromise(supervisorPollEffect(options));
+        expect(second.resumedCount).toBe(1);
+        expect(resumed).toEqual(["run-spawn-fail"]);
+        expect(await listEventTypes(adapter, "run-spawn-fail")).toContain("RunAutoResumed");
         sqlite.close();
     });
 });

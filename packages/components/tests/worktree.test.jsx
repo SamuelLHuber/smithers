@@ -8,7 +8,7 @@ describe("<Worktree>", () => {
     test("attaches worktreeId/worktreePath to nested tasks", async () => {
         const renderer = new SmithersRenderer();
         const res = await renderer.render(<Workflow name="w">
-        <Worktree id="wt" path="./subdir">
+        <Worktree id="wt" path="./subdir" branch="unit/x" baseBranch="release">
           <Task id="t" output={outputSchemas.outputA}>
             {{ value: 1 }}
           </Task>
@@ -18,6 +18,8 @@ describe("<Worktree>", () => {
         expect(t.worktreeId).toBe("wt");
         expect(typeof t.worktreePath).toBe("string");
         expect(t.worktreePath && t.worktreePath.length > 0).toBe(true);
+        expect(t.worktreeBranch).toBe("unit/x");
+        expect(t.worktreeBaseBranch).toBe("release");
     });
     test("skipIf prevents subtree extraction", async () => {
         const renderer = new SmithersRenderer();
@@ -89,14 +91,14 @@ describe("<Worktree>", () => {
         const t = res.tasks[0];
         expect(t.worktreePath).toBe(abs);
     });
-    test("nested worktrees prefer innermost path", async () => {
+    test("nested worktrees prefer innermost path and branch config", async () => {
         const renderer = new SmithersRenderer();
         const base = process.cwd();
         const outer = "outer-wt";
         const inner = "inner-wt";
         const res = await renderer.render(<Workflow name="w">
-        <Worktree id="outer" path={outer}>
-          <Worktree id="inner" path={inner}>
+        <Worktree id="outer" path={outer} branch="outer/x" baseBranch="main">
+          <Worktree id="inner" path={inner} branch="inner/x" baseBranch="release">
             <Task id="t" output={outputSchemas.outputA}>
               {{ value: 1 }}
             </Task>
@@ -107,6 +109,8 @@ describe("<Worktree>", () => {
         const expectedInner = require("node:path").resolve(base, inner);
         expect(t.worktreeId).toBe("inner");
         expect(t.worktreePath).toBe(expectedInner);
+        expect(t.worktreeBranch).toBe("inner/x");
+        expect(t.worktreeBaseBranch).toBe("release");
     });
     test("tasks outside Worktree do not get worktree fields", async () => {
         const renderer = new SmithersRenderer();

@@ -354,3 +354,66 @@ describeIfJj("captureWorkspaceSnapshot against real jj", () => {
         }
     }, 30_000);
 });
+
+// The producer/consumer durability contract behind crash recovery: the engine
+// records a commitId via captureWorkspaceSnapshot, and on revert/replay feeds
+// that exact commitId back into revertToJjPointer. This pair is what guarantees
+// "your files come back" after a crash, so it must be exercised end-to-end with
+// a *real* commitId — not a hand-picked change_id.
+describeIfJj("captureWorkspaceSnapshot -> revertToJjPointer round-trip (real commitId)", () => {
+    test("restores file content to the captured working-copy state", async () => {
+        const repo = await makeRepo();
+        try {
+            await commitFile(repo, "a.txt", "seed\n", "seed");
+            // Write the state we want to be able to come back to, then capture it.
+            await fs.writeFile(path.join(repo.dir, "work.txt"), "checkpoint-v1\n");
+            const snapshot = await vcs.captureWorkspaceSnapshot(repo.dir);
+            expect(snapshot).not.toBeNull();
+            expect(typeof snapshot.commitId).toBe("string");
+            expect(snapshot.commitId.length).toBeGreaterThan(0);
+
+            // Mutate the working copy away from the captured state.
+            await fs.writeFile(path.join(repo.dir, "work.txt"), "drifted-v2\n");
+            expect(await fs.readFile(path.join(repo.dir, "work.txt"), "utf8")).toBe("drifted-v2\n");
+
+            // Restore using the CAPTURED commitId (the durable handle), not a
+            // change_id we read separately.
+            const result = await vcs.revertToJjPointer(snapshot.commitId, repo.dir);
+            expect(result.success).toBe(true);
+
+            // The working copy must match the captured state byte-for-byte.
+            expect(await fs.readFile(path.join(repo.dir, "work.txt"), "utf8")).toBe("checkpoint-v1\n");
+            expect(await fs.readFile(path.join(repo.dir, "a.txt"), "utf8")).toBe("seed\n");
+        } finally {
+            await repo.cleanup();
+        }
+    }, 30_000);
+
+    test("restore from the captured commitId removes files added after the capture", async () => {
+        const repo = await makeRepo();
+        try {
+            await commitFile(repo, "a.txt", "seed\n", "seed");
+            await fs.writeFile(path.join(repo.dir, "kept.txt"), "kept\n");
+            const snapshot = await vcs.captureWorkspaceSnapshot(repo.dir);
+            expect(snapshot).not.toBeNull();
+
+            // Add a brand-new file after the checkpoint was captured.
+            await fs.writeFile(path.join(repo.dir, "added-later.txt"), "should disappear\n");
+            await fs.writeFile(path.join(repo.dir, "kept.txt"), "kept-but-edited\n");
+
+            const result = await vcs.revertToJjPointer(snapshot.commitId, repo.dir);
+            expect(result.success).toBe(true);
+
+            // The post-capture addition is gone and the edited file is back to the
+            // captured contents — the working copy mirrors the durable handle.
+            const addedExists = await fs
+                .stat(path.join(repo.dir, "added-later.txt"))
+                .then(() => true)
+                .catch(() => false);
+            expect(addedExists).toBe(false);
+            expect(await fs.readFile(path.join(repo.dir, "kept.txt"), "utf8")).toBe("kept\n");
+        } finally {
+            await repo.cleanup();
+        }
+    }, 30_000);
+});

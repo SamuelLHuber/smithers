@@ -218,7 +218,18 @@ class GatewayClient {
  * @param {string} token
  */
 async function connectGateway(port, token) {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+    const { client, hello } = await connectGatewayRaw(port, { token });
+    expect(hello.ok).toBe(true);
+    return { client, hello };
+}
+/**
+ * @param {number} port
+ * @param {{ token?: string; headers?: Record<string, string> }} [options]
+ */
+async function connectGatewayRaw(port, options = {}) {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`, {
+        headers: options.headers,
+    });
     await new Promise((resolve, reject) => {
         ws.once("open", () => resolve());
         ws.once("error", reject);
@@ -234,9 +245,8 @@ async function connectGateway(port, token) {
             version: "1.0.0",
             platform: "bun-test",
         },
-        auth: { token },
+        ...(options.token !== undefined ? { auth: { token: options.token } } : {}),
     });
-    expect(hello.ok).toBe(true);
     return { client, hello };
 }
 /**
@@ -323,6 +333,46 @@ describe("Gateway", () => {
         await operator.close();
         await viewer.close();
     });
+    test("rejects revoked token grants during the connect handshake", async () => {
+        const dbPath = makeDbPath("token-revoked");
+        dbPaths.push(dbPath);
+        gateway = new Gateway({
+            protocol: 1,
+            features: ["runs"],
+            heartbeatMs: 100,
+            auth: {
+                mode: "token",
+                tokens: {
+                    "revoked-token": {
+                        role: "operator",
+                        scopes: ["*"],
+                        userId: "user:revoked",
+                        revokedAtMs: Date.now() - 1_000,
+                    },
+                    "future-revoked-token": {
+                        role: "operator",
+                        scopes: ["*"],
+                        userId: "user:still-valid",
+                        revokedAtMs: Date.now() + 60_000,
+                    },
+                },
+            },
+        });
+        gateway.register("basic", createValueWorkflow(dbPath));
+        server = await gateway.listen({ port: 0, host: "127.0.0.1" });
+        const port = getPort(server);
+
+        const rejected = await connectGatewayRaw(port, { token: "revoked-token" });
+        expect(rejected.hello.ok).toBe(false);
+        expect(rejected.hello.error.code).toBe("UNAUTHORIZED");
+        expect(rejected.hello.error.message).toContain("revoked");
+        await rejected.client.close();
+
+        const accepted = await connectGatewayRaw(port, { token: "future-revoked-token" });
+        expect(accepted.hello.ok).toBe(true);
+        expect(accepted.hello.payload.auth.userId).toBe("user:still-valid");
+        await accepted.client.close();
+    });
     test("validates JWT connect tokens and extracts auth claims", async () => {
         const dbPath = makeDbPath("jwt");
         dbPaths.push(dbPath);
@@ -388,6 +438,119 @@ describe("Gateway", () => {
         expect(helloRejected.error.code).toBe("UNAUTHORIZED");
         await client.close();
         await rejected.close();
+    });
+    test("rejects JWT algorithm confusion, tampering, wrong issuer, and future nbf", async () => {
+        const dbPath = makeDbPath("jwt-rejects");
+        dbPaths.push(dbPath);
+        const secret = "super-secret";
+        gateway = new Gateway({
+            protocol: 1,
+            features: ["runs"],
+            heartbeatMs: 100,
+            auth: {
+                mode: "jwt",
+                issuer: "https://auth.example.com",
+                audience: "smithers",
+                secret,
+                scopesClaim: "permissions",
+                clockSkewSeconds: 0,
+            },
+        });
+        gateway.register("basic", createValueWorkflow(dbPath));
+        server = await gateway.listen({ port: 0, host: "127.0.0.1" });
+        const port = getPort(server);
+        const basePayload = {
+            iss: "https://auth.example.com",
+            aud: "smithers",
+            sub: "user:jwt",
+            permissions: ["runs.create"],
+            exp: Math.floor(Date.now() / 1_000) + 300,
+        };
+        const valid = createJwtToken(basePayload, secret);
+        const cases = [
+            {
+                token: createJwtToken(basePayload, secret, { alg: "none", typ: "JWT" }),
+                message: "algorithm",
+            },
+            {
+                token: `${valid.slice(0, -1)}${valid.endsWith("a") ? "b" : "a"}`,
+                message: "signature",
+            },
+            {
+                token: createJwtToken({ ...basePayload, iss: "https://evil.example.com" }, secret),
+                message: "issuer",
+            },
+            {
+                token: createJwtToken({ ...basePayload, nbf: Math.floor(Date.now() / 1_000) + 3_600 }, secret),
+                message: "not active",
+            },
+        ];
+
+        for (const jwtCase of cases) {
+            const { client, hello } = await connectGatewayRaw(port, { token: jwtCase.token });
+            expect(hello.ok).toBe(false);
+            expect(hello.error.code).toBe("UNAUTHORIZED");
+            expect(hello.error.message.toLowerCase()).toContain(jwtCase.message);
+            await client.close();
+        }
+    });
+    test("trusted-proxy mode enforces allowed origins and maps trusted headers", async () => {
+        const dbPath = makeDbPath("trusted-proxy");
+        dbPaths.push(dbPath);
+        gateway = new Gateway({
+            protocol: 1,
+            features: ["runs"],
+            heartbeatMs: 100,
+            auth: {
+                mode: "trusted-proxy",
+                allowedOrigins: ["https://app.example.com"],
+                trustedHeaders: ["x-user-id", "x-user-scopes", "x-user-role"],
+                defaultRole: "viewer",
+                defaultScopes: ["run:read"],
+            },
+        });
+        gateway.register("basic", createValueWorkflow(dbPath));
+        server = await gateway.listen({ port: 0, host: "127.0.0.1" });
+        const port = getPort(server);
+
+        const rejected = await connectGatewayRaw(port, {
+            headers: {
+                Origin: "https://evil.example.com",
+                "x-user-id": "user:proxy",
+                "x-user-scopes": "run:read",
+            },
+        });
+        expect(rejected.hello.ok).toBe(false);
+        expect(rejected.hello.error.code).toBe("UNAUTHORIZED");
+        expect(rejected.hello.error.message).toContain("Origin");
+        await rejected.client.close();
+
+        const accepted = await connectGatewayRaw(port, {
+            headers: {
+                Origin: "https://app.example.com",
+                "x-user-id": "user:proxy",
+                "x-user-scopes": "run:read approval:submit",
+                "x-user-role": "operator",
+                "x-smithers-token-id": "proxy-token",
+            },
+        });
+        expect(accepted.hello.ok).toBe(true);
+        expect(accepted.hello.payload.auth.userId).toBe("user:proxy");
+        expect(accepted.hello.payload.auth.role).toBe("operator");
+        expect(accepted.hello.payload.auth.scopes).toEqual(["run:read", "approval:submit"]);
+        expect(accepted.hello.payload.auth.tokenId).toBe("proxy-token");
+        await accepted.client.close();
+
+        const defaulted = await connectGatewayRaw(port, {
+            headers: {
+                Origin: "https://app.example.com",
+                "x-user-id": "user:defaulted",
+            },
+        });
+        expect(defaulted.hello.ok).toBe(true);
+        expect(defaulted.hello.payload.auth.role).toBe("viewer");
+        expect(defaulted.hello.payload.auth.scopes).toEqual(["run:read"]);
+        await defaulted.client.close();
     });
     test("supports HTTP /rpc fallback for stateless callers", async () => {
         const dbPath = makeDbPath("http-rpc");

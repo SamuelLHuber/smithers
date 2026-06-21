@@ -534,18 +534,38 @@ describe("composite component expansion coverage", () => {
             provider,
             workflow: { build: () => null },
             output: "sandbox_out",
+            allowNetwork: false,
             allowNested: true,
+            env: { SECRET_TOKEN: "test-secret" },
             egress: {
                 httpsProxy: "http://127.0.0.1:8080",
             },
+            ports: [{ containerPort: 3000, hostPort: 13000 }],
+            volumes: [{ source: "./cache", target: "/cache", readonly: true }],
+            reviewDiffs: true,
+            autoAcceptDiffs: false,
+            memoryLimit: "512m",
+            cpuLimit: "1",
+            command: ["bun", "test"],
+            workspace: { root: "/workspace" },
         });
         expect(sandbox.type).toBe("smithers:sandbox");
         expect(sandbox.props.runtime).toBeUndefined();
         expect(sandbox.props.__smithersSandboxProvider).toBe(provider);
         expect(sandbox.props.__smithersSandboxAllowNested).toBe(true);
+        expect(sandbox.props.allowNetwork).toBe(false);
+        expect(sandbox.props.env).toEqual({ SECRET_TOKEN: "test-secret" });
         expect(sandbox.props.egress).toEqual({
             httpsProxy: "http://127.0.0.1:8080",
         });
+        expect(sandbox.props.ports).toEqual([{ containerPort: 3000, hostPort: 13000 }]);
+        expect(sandbox.props.volumes).toEqual([{ source: "./cache", target: "/cache", readonly: true }]);
+        expect(sandbox.props.reviewDiffs).toBe(true);
+        expect(sandbox.props.autoAcceptDiffs).toBe(false);
+        expect(sandbox.props.memoryLimit).toBe("512m");
+        expect(sandbox.props.cpuLimit).toBe("1");
+        expect(sandbox.props.command).toEqual(["bun", "test"]);
+        expect(sandbox.props.workspace).toEqual({ root: "/workspace" });
 
         expect(SuperSmithers({ skipIf: true })).toBeNull();
         const dryRun = SuperSmithers({

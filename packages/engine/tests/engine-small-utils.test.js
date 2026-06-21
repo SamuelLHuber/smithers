@@ -14,6 +14,7 @@ import {
 } from "../src/human-requests.js";
 import { isPidAlive, parseRuntimeOwnerPid } from "../src/runtime-owner.js";
 import { signalRun } from "../src/signals.js";
+import { isRunHeartbeatFresh } from "../src/engine.js";
 
 function makeSignalAdapter(run = { runId: "run-1" }) {
     return {
@@ -152,5 +153,45 @@ describe("engine small utilities", () => {
         }, { name: "x" });
         expect(invalid.ok).toBe(false);
         expect(invalid.message).toContain("name:");
+    });
+
+    test("isRunHeartbeatFresh pins the resume-vs-takeover liveness boundary", () => {
+        // Pin RUN_HEARTBEAT_STALE_MS=30_000 so a constant change is caught here.
+        // Boundary semantics (engine.js:1937): status must be exactly "running",
+        // heartbeatAtMs must be a number, and now - heartbeatAtMs <= 30_000.
+        const now = 1_000_000_000_000;
+
+        // Staleness boundary: <= 30s is fresh, 30_001ms is stale.
+        expect(isRunHeartbeatFresh({ status: "running", heartbeatAtMs: now - 29_999 }, now)).toBe(true);
+        expect(isRunHeartbeatFresh({ status: "running", heartbeatAtMs: now - 30_000 }, now)).toBe(true);
+        expect(isRunHeartbeatFresh({ status: "running", heartbeatAtMs: now - 30_001 }, now)).toBe(false);
+        // A far-future heartbeat (clock skew) is still treated as fresh (delta <= 30_000).
+        expect(isRunHeartbeatFresh({ status: "running", heartbeatAtMs: now + 60_000 }, now)).toBe(true);
+
+        // Status must be exactly "running" — a recent heartbeat in any waiting/terminal
+        // status is never "fresh" (otherwise a second supervisor could take over a run
+        // whose owner is parked, or vice versa).
+        for (const status of [
+            "waiting-approval",
+            "waiting-event",
+            "waiting-timer",
+            "queued",
+            "failed",
+            "finished",
+            "cancelled",
+            "paused",
+        ]) {
+            expect(isRunHeartbeatFresh({ status, heartbeatAtMs: now }, now)).toBe(false);
+        }
+
+        // heartbeatAtMs must be a number — null/undefined/non-numeric => not fresh.
+        expect(isRunHeartbeatFresh({ status: "running", heartbeatAtMs: null }, now)).toBe(false);
+        expect(isRunHeartbeatFresh({ status: "running", heartbeatAtMs: undefined }, now)).toBe(false);
+        expect(isRunHeartbeatFresh({ status: "running" }, now)).toBe(false);
+        expect(isRunHeartbeatFresh({ status: "running", heartbeatAtMs: "1" }, now)).toBe(false);
+
+        // Missing run => not fresh (never let a null run count as a live owner).
+        expect(isRunHeartbeatFresh(null, now)).toBe(false);
+        expect(isRunHeartbeatFresh(undefined, now)).toBe(false);
     });
 });

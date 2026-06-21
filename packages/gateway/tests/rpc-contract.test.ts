@@ -182,6 +182,44 @@ describe("Gateway RPC contract", () => {
     expect(getGatewayScopeValues()).toEqual(GATEWAY_SCOPE_VALUES);
   });
 
+  test("pins exact required scopes for every stable RPC method", () => {
+    const expectedScopes: Record<string, string> = {
+      launchRun: "run:write",
+      resumeRun: "run:write",
+      cancelRun: "run:write",
+      hijackRun: "run:admin",
+      rewindRun: "run:admin",
+      submitApproval: "approval:submit",
+      submitSignal: "signal:submit",
+      getRun: "run:read",
+      listRuns: "run:read",
+      listWorkflows: "run:read",
+      listApprovals: "run:read",
+      streamRunEvents: "run:read",
+      streamDevTools: "observability:read",
+      getNodeOutput: "run:read",
+      getNodeDiff: "run:read",
+      cronList: "cron:read",
+      cronCreate: "cron:write",
+      cronDelete: "cron:write",
+      cronRun: "cron:write",
+      listAccounts: "account:read",
+      listMemoryFacts: "memory:read",
+      listPrompts: "prompt:read",
+      listScores: "score:read",
+      listTickets: "ticket:read",
+      createTicket: "ticket:write",
+      updateTicket: "ticket:write",
+      deleteTicket: "ticket:write",
+    };
+
+    expect(Object.keys(expectedScopes).toSorted()).toEqual([...listGatewayRpcMethods()].toSorted());
+    for (const [method, requiredScope] of Object.entries(expectedScopes)) {
+      expect(getRequiredScopeForGatewayMethod(method), method).toBe(requiredScope);
+      expect(getGatewayRpcDefinition(method)?.requiredScope, method).toBe(requiredScope);
+    }
+  });
+
   test("enforces scoped auth with legacy compatibility", () => {
     expect(hasGatewayScope([" * "], "run:admin", "hijackRun")).toBe(true);
     expect(hasGatewayScope(["run:write"], "run:read", "getRun")).toBe(true);

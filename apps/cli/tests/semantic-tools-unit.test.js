@@ -26,6 +26,17 @@ function tempCwd() {
     return dir;
 }
 
+function runnableEffect(effect) {
+    const runnable = effect;
+    if (typeof runnable.then !== "function") {
+        Object.defineProperty(runnable, "then", {
+            configurable: true,
+            value: (onfulfilled, onrejected) => Effect.runPromise(effect).then(onfulfilled, onrejected),
+        });
+    }
+    return runnable;
+}
+
 function runRow(overrides = {}) {
     return {
         runId: "run-1",
@@ -243,14 +254,15 @@ function makeSemanticAdapter(overrides = {}) {
         listRuns: async (limit, status) => state.runs
             .filter((run) => !status || run.status === status)
             .slice(0, limit),
-        getRun: async (runId) => {
+        getRun: (runId) => runnableEffect(Effect.sync(() => {
             if (Array.isArray(state.getRunSequence) && state.getRunSequence.length > 0) {
                 return state.getRunSequence.shift();
             }
             return state.runs.find((run) => run.runId === runId);
-        },
+        })),
         listNodes: async (runId) => state.nodes.filter((node) => node.runId === runId),
-        listPendingApprovals: async (runId) => state.approvals.filter((approval) => approval.runId === runId),
+        listPendingApprovals: (runId) => runnableEffect(Effect.sync(() => state.approvals
+            .filter((approval) => approval.runId === runId && approval.status === "requested"))),
         countNodesByState: async (runId) => {
             const counts = new Map();
             for (const node of state.nodes.filter((entry) => entry.runId === runId)) {
@@ -263,10 +275,49 @@ function makeSemanticAdapter(overrides = {}) {
         listRalph: async () => [{ ralphId: "loop-a", iteration: 2, maxIterations: 5 }],
         listRunAncestry: async () => [baseRun, runRow({ runId: "parent-run", workflowName: "parent" })],
         getLatestChildRun: async (runId) => state.latestChildByRunId.get(runId),
-        listAllPendingApprovals: async () => state.approvals,
+        listAllPendingApprovals: async () => state.approvals.filter((approval) => approval.status === "requested"),
         getApproval: (runId, nodeId, iteration) => Effect.succeed(state.approvals.find((approval) => approval.runId === runId &&
             approval.nodeId === nodeId &&
             (approval.iteration ?? 0) === iteration)),
+        getNode: (runId, nodeId, iteration) => runnableEffect(Effect.sync(() => state.nodes.find((node) => node.runId === runId &&
+            node.nodeId === nodeId &&
+            (node.iteration ?? 0) === iteration))),
+        withTransactionEffect: (_writeGroup, operation) => operation,
+        insertOrUpdateApproval: (row) => runnableEffect(Effect.sync(() => {
+            const index = state.approvals.findIndex((approval) => approval.runId === row.runId &&
+                approval.nodeId === row.nodeId &&
+                (approval.iteration ?? 0) === (row.iteration ?? 0));
+            if (index >= 0) {
+                state.approvals[index] = {
+                    ...state.approvals[index],
+                    ...row,
+                    workflowName: state.approvals[index].workflowName,
+                    runStatus: state.approvals[index].runStatus,
+                    nodeLabel: state.approvals[index].nodeLabel,
+                };
+            }
+            else {
+                state.approvals.push(row);
+            }
+        })),
+        insertNode: (row) => runnableEffect(Effect.sync(() => {
+            const index = state.nodes.findIndex((node) => node.runId === row.runId &&
+                node.nodeId === row.nodeId &&
+                (node.iteration ?? 0) === (row.iteration ?? 0));
+            if (index >= 0) state.nodes[index] = { ...state.nodes[index], ...row };
+            else state.nodes.push(row);
+        })),
+        updateRun: (runId, patch) => runnableEffect(Effect.sync(() => {
+            const run = state.runs.find((entry) => entry.runId === runId);
+            if (run) Object.assign(run, patch);
+        })),
+        insertEventWithNextSeq: (row) => runnableEffect(Effect.sync(() => {
+            const seq = Math.max(-1, ...state.events
+                .filter((event) => event.runId === row.runId)
+                .map((event) => Number(event.seq ?? -1))) + 1;
+            state.events.push({ ...row, seq });
+            return seq;
+        })),
         listNodeIterationsEffect: (_runId, nodeId) => Effect.succeed(state.nodes.filter((node) => node.nodeId === nodeId)),
         listAttemptsEffect: (_runId, nodeId, iteration = 0) => Effect.succeed(state.attempts
             .filter((attempt) => attempt.nodeId === nodeId && (attempt.iteration ?? 0) === iteration)),
@@ -776,5 +827,70 @@ describe("semantic tool definitions", () => {
         expect(jjFails.structuredContent.data.nodeId).toBe("artifact-node");
         expect(jjFails.structuredContent.data.attempt).toBe(1);
         expect(jjFails.structuredContent.data.run).toMatchObject({ runId: "run-1" });
+    });
+
+    test("resolve_approval approves exactly one pending gate and will not re-decide it", async () => {
+        const harness = makeHarness();
+
+        const approved = await harness.call("resolve_approval", {
+            action: "approve",
+            runId: "run-1",
+            nodeId: "gate",
+            iteration: 0,
+            note: "ship it",
+            decidedBy: "user:test",
+            decision: { selected: "yes" },
+        });
+
+        expect(approved.isError).toBeFalsy();
+        expect(approved.structuredContent.ok).toBe(true);
+        expect(approved.structuredContent.data.action).toBe("approve");
+        expect(approved.structuredContent.data.approval).toMatchObject({
+            runId: "run-1",
+            nodeId: "gate",
+            iteration: 0,
+            status: "approved",
+            note: "ship it",
+            decidedBy: "user:test",
+            decision: { selected: "yes" },
+        });
+
+        const row = harness.state.approvals.find((approval) => approval.runId === "run-1" && approval.nodeId === "gate");
+        expect(row?.status).toBe("approved");
+        expect(row?.requestedAtMs).toBeNull();
+        expect(row?.note).toBe("ship it");
+        expect(JSON.parse(row?.decisionJson ?? "{}")).toEqual({ selected: "yes" });
+        const node = harness.state.nodes.find((entry) => entry.runId === "run-1" && entry.nodeId === "gate");
+        expect(node?.state).toBe("pending");
+        expect(harness.state.events.some((event) => event.type === "ApprovalGranted")).toBe(true);
+
+        const second = await harness.call("resolve_approval", {
+            action: "approve",
+            runId: "run-1",
+            nodeId: "gate",
+            iteration: 0,
+        });
+        expect(second.isError).toBe(true);
+        expect(second.structuredContent.error.code).toBe("INVALID_INPUT");
+        expect(second.structuredContent.error.message).toContain("No pending approval");
+    });
+
+    test("rewind_run rejects destructive calls without confirm and does not mutate adapter state", async () => {
+        const harness = makeHarness();
+        const beforeRuns = JSON.stringify(harness.state.runs);
+        const beforeFrames = JSON.stringify(await harness.state.adapter?.listFrames?.("run-1", 100) ?? []);
+        const beforeEventCount = harness.state.events.length;
+
+        const rewind = await harness.call("rewind_run", {
+            runId: "run-1",
+            frameNo: 1,
+        });
+
+        expect(rewind.isError).toBe(true);
+        expect(rewind.structuredContent.error.code).toBe("INVALID_INPUT");
+        expect(rewind.structuredContent.error.message).toContain("confirm=true");
+        expect(JSON.stringify(harness.state.runs)).toBe(beforeRuns);
+        expect(JSON.stringify(await harness.state.adapter?.listFrames?.("run-1", 100) ?? [])).toBe(beforeFrames);
+        expect(harness.state.events.length).toBe(beforeEventCount);
     });
 });
