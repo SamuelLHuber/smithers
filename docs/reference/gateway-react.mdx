@@ -1,0 +1,780 @@
+---
+title: Gateway React API
+description: React hooks for driving a Smithers Gateway from a custom workflow UI.
+icon: "react"
+---
+
+The Smithers UI surface is React. This package is the SDK that backs it: a
+provider that holds one `SmithersGatewayClient`, a set of live data hooks that
+read a run (or runs, approvals, crons, scores, …) over TanStack DB collections,
+and action hooks that launch, approve, and cancel. Most hooks return the same
+[`GatewayAsyncState`](#gatewayasyncstate) shape, so once you know one you know
+them all.
+
+<Note>
+Everything on this page lives at the subpath `smithers-orchestrator/gateway-react`,
+**not** on the bare `smithers-orchestrator` facade. Import from the subpath or
+the build fails.
+</Note>
+
+```tsx
+import {
+  SmithersGatewayProvider,
+  useGatewayRun,
+  useGatewayActions,
+} from "smithers-orchestrator/gateway-react";
+
+function App() {
+  return (
+    <SmithersGatewayProvider options={{ baseUrl: "/" }}>
+      <Run runId={RUN_ID} />
+    </SmithersGatewayProvider>
+  );
+}
+
+function Run({ runId }: { runId: string }) {
+  const { data, loading, error } = useGatewayRun(runId);
+  const { launchRun, submitApproval } = useGatewayActions();
+  if (loading) return <p>loading…</p>;
+  if (error) return <p>{error.message}</p>;
+  return <pre>{String(data?.status ?? "")}</pre>;
+}
+```
+
+For a UI bundled and served by the gateway itself, skip the JSX provider and
+mount with [`createGatewayReactRoot`](#creategatewayreactroot) instead. It wires
+both contexts (on-demand hooks **and** the live collections) in one call.
+
+## GatewayAsyncState
+
+The return shape shared by the live data hooks. `data` is `undefined` until the
+first payload lands; `loading` is true only while there is no data yet and a
+fetch is in flight; `refetch()` forces a re-pull.
+
+```ts
+type GatewayAsyncState<T> = {
+  data: T | undefined;
+  error: Error | undefined;
+  loading: boolean;
+  refetch: () => Promise<void>;
+};
+```
+
+<ResponseField name="GatewayAsyncState<T>" type="object">
+  <Expandable title="members">
+    <ResponseField name="data" type="T | undefined">
+      The latest payload, or `undefined` before the first fetch resolves.
+    </ResponseField>
+    <ResponseField name="error" type="Error | undefined">
+      The last fetch error, if any. Live collection hooks resolve via stream and
+      generally leave this `undefined`.
+    </ResponseField>
+    <ResponseField name="loading" type="boolean">
+      True only when there is no `data` yet and a fetch is in flight.
+    </ResponseField>
+    <ResponseField name="refetch" type="() => Promise<void>">
+      Invalidate the backing collection and re-pull.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Source** [`GatewayAsyncState.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/GatewayAsyncState.ts) · **See also** [Custom workflow UI](/guides/custom-workflow-ui)
+
+## Provider & root
+
+### SmithersGatewayProvider
+
+Holds one `SmithersGatewayClient` in context for every hook below. Pass a ready
+`client`, or `options` and it constructs one. The client is memoized on
+`baseUrl`/`token` so an inline `options` literal does not trigger a reconnect
+storm.
+
+```tsx
+function SmithersGatewayProvider(props: {
+  client?: SmithersGatewayClient;
+  options?: SmithersGatewayClientOptions;
+  children?: ReactNode;
+}): ReactElement;
+```
+
+<ParamField path="client" type="SmithersGatewayClient">
+  A pre-built client. Takes precedence over `options`. See the
+  [Gateway Client reference](/reference/gateway-client).
+</ParamField>
+<ParamField path="options" type="SmithersGatewayClientOptions">
+  Client config (`baseUrl`, `token`, …) used to construct a client when none is
+  passed.
+</ParamField>
+<ParamField path="children" type="ReactNode" />
+
+<Note>
+The bare provider mounts only the on-demand context, which feeds
+`useGatewayActions`, `useGatewayNodeOutput`, and `useGatewayRpc`. The live
+collection hooks (`useGatewayRun`, `useGatewayRuns`, …) also need a
+[`SyncProvider`](#syncprovider). Use [`createGatewayReactRoot`](#creategatewayreactroot)
+to mount both at once.
+</Note>
+
+**Source** [`SmithersGatewayProvider.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/SmithersGatewayProvider.ts) · **Tests** [`SmithersGatewayProvider.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/SmithersGatewayProvider.test.ts) · **See also** [`SyncProvider`](#syncprovider)
+
+### createGatewayReactRoot
+
+Mount a full custom UI in one call. Builds a client, a `GatewayCollections`
+registry, and renders your element inside **both** the gateway provider and a
+[`SyncProvider`](#syncprovider), so every hook on this page works. This is what
+a gateway-served `ui` entry uses.
+
+```ts
+function createGatewayReactRoot(
+  element: ReactElement,
+  options?: SmithersGatewayClientOptions & { rootId?: string },
+): SmithersGatewayClient;
+```
+
+<ParamField path="element" type="ReactElement" required>
+  The app root to render.
+</ParamField>
+<ParamField path="options" type="SmithersGatewayClientOptions & { rootId?: string }">
+  Client options plus `rootId` (the DOM element id to mount into; default
+  `"root"`). Throws if the element is not found.
+</ParamField>
+
+<ResponseField name="SmithersGatewayClient" type="object">
+  The client it created, for imperative use outside React.
+</ResponseField>
+
+```tsx
+createGatewayReactRoot(<App />, { baseUrl: "/", rootId: "root" });
+```
+
+**Source** [`createGatewayReactRoot.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/createGatewayReactRoot.ts) · **See also** [Custom UI](/integrations/custom-ui)
+
+### useSmithersGateway
+
+Read the raw `SmithersGatewayClient` from context. Throws if called outside a
+provider. The escape hatch for client methods the hooks do not wrap.
+
+```ts
+function useSmithersGateway(): SmithersGatewayClient;
+```
+
+**Source** [`useSmithersGateway.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useSmithersGateway.ts) · **See also** [Gateway Client](/reference/gateway-client)
+
+### useGatewayConnectionStatus
+
+The link's connection lifecycle, derived from real transport traffic: RPC
+resolves and stream frames mark it `online`, transport errors mark it `offline`,
+auth failures mark it `unauthorized`.
+
+```ts
+function useGatewayConnectionStatus(): {
+  status: "idle" | "connecting" | "online" | "offline" | "unauthorized";
+  isOnline: boolean;
+  reconnectingSince?: number;
+};
+```
+
+<ResponseField name="status" type='"idle" | "connecting" | "online" | "offline" | "unauthorized"'>
+  Current connection state.
+</ResponseField>
+<ResponseField name="isOnline" type="boolean">
+  Shorthand for `status === "online"`.
+</ResponseField>
+<ResponseField name="reconnectingSince" type="number">
+  Epoch ms of the first failure in the current offline streak, when offline.
+</ResponseField>
+
+**Source** [`useGatewayConnectionStatus.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/sync/useGatewayConnectionStatus.ts) · **Tests** [`sync.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/sync/sync.test.ts)
+
+## Data hooks
+
+Each hook reads one gateway resource as a live TanStack DB collection. They
+share the [`GatewayAsyncState`](#gatewayasyncstate) return shape unless noted,
+and may be called unconditionally: pass `undefined` (or an empty `runId`) and
+the hook resolves to an empty, stable state.
+
+### useGatewayRun
+
+Live single-run record. Seeds from `getRun`, then each lifecycle frame upserts
+the row without a whole-tree refetch.
+
+```ts
+function useGatewayRun(
+  runId: string | undefined,
+): GatewayAsyncState<GatewayRunRow>;
+```
+
+<ParamField path="runId" type="string | undefined" required>
+  The run to read. `undefined` yields an empty state.
+</ParamField>
+<ResponseField name="GatewayAsyncState<GatewayRunRow>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate). `data` is the run record.
+</ResponseField>
+
+**Source** [`useGatewayRun.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayRun.ts) · **Tests** [`gateway-react.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/gateway-react.test.ts)
+
+### useGatewayRunEvents
+
+Live, bounded run-event buffer (resilient stream with `afterSeq` resume).
+Heartbeats are surfaced separately and never enter `events`; the array is capped
+to `maxEvents`, most-recent wins. Returns its own shape, not `GatewayAsyncState`.
+
+```ts
+function useGatewayRunEvents(
+  runId: string | undefined,
+  options?: { afterSeq?: number; maxEvents?: number },
+): {
+  events: GatewayEventFrame[];
+  lastHeartbeat: GatewayEventFrame | undefined;
+  error: Error | undefined;
+  streaming: boolean;
+};
+```
+
+<ParamField path="runId" type="string | undefined" required />
+<ParamField path="options.afterSeq" type="number">
+  Drop events at or before this sequence number.
+</ParamField>
+<ParamField path="options.maxEvents" type="number" default="1000">
+  Cap on the retained event buffer.
+</ParamField>
+
+<ResponseField name="events" type="GatewayEventFrame[]">
+  Ordered, capped run events (heartbeats excluded).
+</ResponseField>
+<ResponseField name="lastHeartbeat" type="GatewayEventFrame | undefined">
+  The most recent heartbeat frame, surfaced apart from `events`.
+</ResponseField>
+<ResponseField name="error" type="Error | undefined">
+  Set when the stream fails (offline / unauthorized).
+</ResponseField>
+<ResponseField name="streaming" type="boolean">
+  True while the stream is live.
+</ResponseField>
+
+**Source** [`useGatewayRunEvents.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayRunEvents.ts) · **See also** [Event types](/reference/event-types)
+
+### useGatewayRuns
+
+Live run list. Seeds from `listRuns`, re-pulls on invalidate.
+
+```ts
+function useGatewayRuns(
+  params?: ListRunsRequest,
+): GatewayAsyncState<GatewayRunSummaryRow[]>;
+```
+
+<ParamField path="params" type="ListRunsRequest">
+  Optional filters (status, workflow, paging). Defaults to all runs.
+</ParamField>
+<ResponseField name="GatewayAsyncState<GatewayRunSummaryRow[]>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate). `data` is the run summaries.
+</ResponseField>
+
+**Source** [`useGatewayRuns.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayRuns.ts) · **Tests** [`gateway-react.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/gateway-react.test.ts)
+
+### useGatewayWorkflows
+
+Live registered-workflow list (`listWorkflows`).
+
+```ts
+function useGatewayWorkflows(
+  params?: ListWorkflowsRequest,
+): GatewayAsyncState<ListWorkflowsResponse>;
+```
+
+<ParamField path="params" type="ListWorkflowsRequest">
+  Optional `filter`.
+</ParamField>
+<ResponseField name="GatewayAsyncState<ListWorkflowsResponse>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate).
+</ResponseField>
+
+**Source** [`useGatewayWorkflows.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayWorkflows.ts)
+
+### useGatewayApprovals
+
+Live pending-approval list (`listApprovals`). Re-pulls when a run reaches
+waiting-approval or after a `submitApproval`.
+
+```ts
+function useGatewayApprovals(
+  params?: ListApprovalsRequest,
+): GatewayAsyncState<ListApprovalsResponse>;
+```
+
+<ParamField path="params" type="ListApprovalsRequest">
+  Optional filters (e.g. by run).
+</ParamField>
+<ResponseField name="GatewayAsyncState<ListApprovalsResponse>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate).
+</ResponseField>
+
+**Source** [`useGatewayApprovals.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayApprovals.ts) · **See also** [`useGatewayActions`](#usegatewayactions)
+
+### useGatewayCrons
+
+Live cron-schedule list (`cronList`). Includes enabled **and** disabled rows;
+re-pulls after a `cronCreate` / `cronDelete` / `cronRun`.
+
+```ts
+function useGatewayCrons(
+  params?: CronListRequest,
+): GatewayAsyncState<GatewayCronRow[]>;
+```
+
+<ParamField path="params" type="CronListRequest" />
+<ResponseField name="GatewayAsyncState<GatewayCronRow[]>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate).
+</ResponseField>
+
+**Source** [`useGatewayCrons.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayCrons.ts)
+
+### useGatewayMemoryFacts
+
+Live cross-run memory facts (`listMemoryFacts`). Pass a `namespace` to scope;
+omit it for every namespace. Read-only on the wire, so query-only.
+
+```ts
+function useGatewayMemoryFacts(
+  namespace?: string,
+): GatewayAsyncState<GatewayMemoryFactRow[]>;
+```
+
+<ParamField path="namespace" type="string">
+  Optional namespace filter.
+</ParamField>
+<ResponseField name="GatewayAsyncState<GatewayMemoryFactRow[]>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate). `refetch` works; there is no
+  write RPC.
+</ResponseField>
+
+**Source** [`useGatewayMemoryFacts.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayMemoryFacts.ts)
+
+### useGatewayNodeOutput
+
+On-demand output of one node (`getNodeOutput`). Built on
+[`useGatewayRpc`](#usegatewayrpc); disabled until both ids are set.
+
+```ts
+function useGatewayNodeOutput(params: {
+  runId: string | undefined;
+  nodeId: string | undefined;
+  iteration?: number;
+}): GatewayAsyncState<GatewayRpcPayload<"getNodeOutput">>;
+```
+
+<ParamField path="params.runId" type="string | undefined" required />
+<ParamField path="params.nodeId" type="string | undefined" required />
+<ParamField path="params.iteration" type="number" default="0">
+  Loop iteration to read.
+</ParamField>
+<ResponseField name="GatewayAsyncState<GetNodeOutput>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate).
+</ResponseField>
+
+**Source** [`useGatewayNodeOutput.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayNodeOutput.ts)
+
+### useGatewayScores
+
+Live scorer/eval results for one run (`listScores`). Pass `nodeId` to scope to
+one node. An empty `runId` resolves to a stable empty collection. Read-only, so
+query-only.
+
+```ts
+function useGatewayScores(
+  runId: string,
+  nodeId?: string,
+): GatewayAsyncState<GatewayScoreRow[]>;
+```
+
+<ParamField path="runId" type="string" required>
+  The run to score. Empty string yields an empty state.
+</ParamField>
+<ParamField path="nodeId" type="string">
+  Optional node scope.
+</ParamField>
+<ResponseField name="GatewayAsyncState<GatewayScoreRow[]>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate).
+</ResponseField>
+
+**Source** [`useGatewayScores.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayScores.ts)
+
+### useGatewayTickets
+
+Live work docs (tickets, plans, specs, proposals) via `listTickets`. Tombstones
+are filtered server-side, so every row is renderable. Pass a `kind` to scope.
+
+```ts
+function useGatewayTickets(
+  params?: ListTicketsRequest,
+): GatewayAsyncState<GatewayTicketRow[]>;
+```
+
+<ParamField path="params" type="ListTicketsRequest">
+  Optional `kind` and other filters.
+</ParamField>
+<ResponseField name="GatewayAsyncState<GatewayTicketRow[]>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate).
+</ResponseField>
+
+**Source** [`useGatewayTickets.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayTickets.ts)
+
+### useGatewayPrompts
+
+Live registered-prompt list (`listPrompts`, walked from `.smithers/prompts/`).
+Read-only on the wire, so query-only; takes no arguments.
+
+```ts
+function useGatewayPrompts(): GatewayAsyncState<GatewayPromptRow[]>;
+```
+
+<ResponseField name="GatewayAsyncState<GatewayPromptRow[]>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate).
+</ResponseField>
+
+**Source** [`useGatewayPrompts.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayPrompts.ts)
+
+### useGatewayRpc
+
+The generic escape hatch: call any gateway RPC by name and get its typed payload
+back in `GatewayAsyncState`. The typed hooks above wrap this; reach for it when
+no dedicated hook exists. Disable with `enabled: false`; a disabled or
+key-changed query clears stale data instead of surfacing it.
+
+```ts
+function useGatewayRpc<Method extends GatewayRpcMethod>(
+  method: Method,
+  params: GatewayRpcParams<Method>,
+  options?: { enabled?: boolean; deps?: readonly unknown[] },
+): GatewayAsyncState<GatewayRpcPayload<Method>>;
+```
+
+<ParamField path="method" type="GatewayRpcMethod" required>
+  The RPC method name.
+</ParamField>
+<ParamField path="params" type="GatewayRpcParams<Method>" required>
+  Typed params for that method.
+</ParamField>
+<ParamField path="options.enabled" type="boolean" default="true">
+  Skip the request when false.
+</ParamField>
+<ParamField path="options.deps" type="readonly unknown[]">
+  Re-fetch trigger. Defaults to the serialized `params`.
+</ParamField>
+<ResponseField name="GatewayAsyncState<GatewayRpcPayload<Method>>" type="object">
+  See [`GatewayAsyncState`](#gatewayasyncstate).
+</ResponseField>
+
+**Source** [`useGatewayRpc.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayRpc.ts) · **See also** [Gateway Client](/reference/gateway-client)
+
+## Action hooks
+
+### useGatewayActions
+
+Bound, memoized mutation methods off the client. Call them to drive a run:
+launch, resume, cancel, hijack, rewind, approve/deny, signal, and manage crons.
+Each takes the matching RPC params and returns a promise.
+
+```ts
+function useGatewayActions(): {
+  launchRun: SmithersGatewayClient["launchRun"];
+  resumeRun: SmithersGatewayClient["resumeRun"];
+  cancelRun: SmithersGatewayClient["cancelRun"];
+  hijackRun: SmithersGatewayClient["hijackRun"];
+  rewindRun: SmithersGatewayClient["rewindRun"];
+  submitApproval: SmithersGatewayClient["submitApproval"];
+  submitSignal: SmithersGatewayClient["submitSignal"];
+  cronCreate: SmithersGatewayClient["cronCreate"];
+  cronDelete: SmithersGatewayClient["cronDelete"];
+  cronRun: SmithersGatewayClient["cronRun"];
+};
+```
+
+<ResponseField name="actions" type="object">
+  <Expandable title="methods">
+    <ResponseField name="launchRun" type="(params) => Promise<...>">
+      Start a new run of a registered workflow.
+    </ResponseField>
+    <ResponseField name="resumeRun" type="(params) => Promise<...>">
+      Resume a paused/stopped run.
+    </ResponseField>
+    <ResponseField name="cancelRun" type="(params) => Promise<...>">
+      Halt agents and terminate a run.
+    </ResponseField>
+    <ResponseField name="hijackRun" type="(params) => Promise<...>">
+      Hand off a resumable agent session.
+    </ResponseField>
+    <ResponseField name="rewindRun" type="(params) => Promise<...>">
+      Fork from a checkpoint (time travel).
+    </ResponseField>
+    <ResponseField name="submitApproval" type="(params) => Promise<...>">
+      Approve or deny a paused approval gate.
+    </ResponseField>
+    <ResponseField name="submitSignal" type="(params) => Promise<...>">
+      Send a signal to a waiting node.
+    </ResponseField>
+    <ResponseField name="cronCreate / cronDelete / cronRun" type="(params) => Promise<...>">
+      Manage and trigger background schedules.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```tsx
+const { launchRun, submitApproval } = useGatewayActions();
+await launchRun({ workflow: "research", input: { topic: "smithers" } });
+await submitApproval({ runId: RUN_ID, nodeId: NODE_ID, approved: true });
+```
+
+**Source** [`useGatewayActions.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/useGatewayActions.ts) · **See also** [Gateway Client](/reference/gateway-client)
+
+### useGatewayMutation
+
+Typed mutation for a single RPC by name, with optimistic updates, rollback, and
+invalidate-on-success. Wires the runner to `registry.rpc(method, vars)`.
+
+```ts
+function useGatewayMutation<TVars extends Record<string, unknown>, TData = unknown>(
+  method: string,
+  options?: SyncMutationOptions<TVars, TData>,
+): UseSyncMutationResult<TVars, TData>;
+```
+
+<ParamField path="method" type="string" required>
+  The RPC method to call.
+</ParamField>
+<ParamField path="options" type="SyncMutationOptions<TVars, TData>">
+  `onMutate` / `onSuccess` / `onError` callbacks and `invalidate` keys. See
+  [`useSyncMutation`](#usesyncmutation).
+</ParamField>
+<ResponseField name="UseSyncMutationResult<TVars, TData>" type="object">
+  `{ mutate, mutateSafe, status, isLoading, data, error, reset }`. See
+  [`useSyncMutation`](#usesyncmutation).
+</ResponseField>
+
+**Source** [`useGatewayMutation.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/sync/useGatewayMutation.ts) · **See also** [`useSyncMutation`](#usesyncmutation)
+
+## Declarative Sync SDK
+
+The lower layer the typed hooks are built on: a `GatewayCollections` registry of
+TanStack DB collections plus generic query / mutation / subscription hooks keyed
+by an arbitrary `SyncKey`. Use it for resources the typed hooks do not cover.
+
+### SyncProvider
+
+Wrap a subtree with a `GatewayCollections` registry so descendants can call
+`useSyncQuery`, `useSyncMutation`, `useSyncSubscription`, and the live typed
+hooks against the same collections.
+
+```tsx
+function SyncProvider(props: {
+  client: GatewayCollections;
+  children?: ReactNode;
+}): ReactElement;
+```
+
+<ParamField path="client" type="GatewayCollections" required>
+  The registry, usually from [`createGatewayCollections`](#creategatewaycollections).
+</ParamField>
+<ParamField path="children" type="ReactNode" />
+
+**Source** [`SyncProvider.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/sync/SyncProvider.ts) · **See also** [`createGatewayReactRoot`](#creategatewayreactroot)
+
+### createGatewayCollections
+
+Build the registry: one collection per gateway resource over an instrumented
+transport, plus the generic query/stream collections the sync hooks resolve on
+demand. `createGatewayReactRoot` calls this for you.
+
+```ts
+function createGatewayCollections(
+  options: CreateGatewayCollectionsOptions,
+): GatewayCollections;
+```
+
+<ParamField path="options" type="CreateGatewayCollectionsOptions" required>
+  <Expandable title="CreateGatewayCollectionsOptions">
+    <ParamField path="client" type="SyncTransport" required>
+      The instrumented transport (e.g. `createSmithersGatewayTransport(client)`).
+    </ParamField>
+    <ParamField path="onAuthError" type="(error: Error) => void">
+      Top-level auth bailout.
+    </ParamField>
+    <ParamField path="listGcTime" type="number" default="300000">
+      GC time (ms) for the pollable list/query collections.
+    </ParamField>
+    <ParamField path="persistence" type="{ store: GatewayCollectionStore }">
+      Opt-in client-side persistence so pollable lists hydrate from cache on
+      reload (no fetch flash). Per-run streamed collections are never persisted.
+    </ParamField>
+    <ParamField path="syncSource" type='"gateway" | "electric"' default='"gateway"'>
+      Which source backs the pollable collections. `electric` (cloud mode)
+      requires an `electric` config and only re-routes collections with an
+      Electric twin.
+    </ParamField>
+    <ParamField path="electric" type="ElectricCollectionConfig">
+      Electric shape transport config, required when `syncSource: "electric"`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ResponseField name="GatewayCollections" type="object">
+  The registry. Owns `runs` / `run` / `approvals` / … collections plus `rpc`,
+  `invalidate`, `query`, `stream`, `connect`, and `reset`. Handed to
+  [`SyncProvider`](#syncprovider).
+</ResponseField>
+
+**Source** [`createGatewayCollections.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/sync/createGatewayCollections.ts) · **Tests** [`sync.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/sync/sync.test.ts)
+
+### useSyncQuery
+
+Declarative fetch over the registry. Concurrent components with the same `key`
+share one collection and one in-flight fetch.
+
+```ts
+function useSyncQuery<T>(
+  key: SyncKey,
+  fetcher: () => Promise<T>,
+  options?: { enabled?: boolean; staleTimeMs?: number },
+): UseSyncQueryResult<T>;
+```
+
+<ParamField path="key" type="SyncKey" required>
+  Cache key; identical keys multiplex onto one collection.
+</ParamField>
+<ParamField path="fetcher" type="() => Promise<T>" required>
+  Runs on subscribe and on `refetch`.
+</ParamField>
+<ParamField path="options.enabled" type="boolean" default="true">
+  Skip subscribe + fetch.
+</ParamField>
+<ParamField path="options.staleTimeMs" type="number">
+  Treat cached data as fresh for this long.
+</ParamField>
+<ResponseField name="UseSyncQueryResult<T>" type="object">
+  `{ data, error, status, isLoading, isRefreshing, refetch }`, where `status` is
+  `"idle" | "loading" | "success" | "error"`.
+</ResponseField>
+
+**Source** [`useSyncQuery.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/sync/useSyncQuery.ts) · **Tests** [`sync.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/sync/sync.test.ts)
+
+### useSyncMutation
+
+Mutation with optimistic updates and invalidate-on-success. `runner` performs
+the write; `onMutate` may stage an optimistic value and return a rollback
+context for `onError`.
+
+```ts
+function useSyncMutation<TVars, TData, TContext = unknown>(
+  runner: (vars: TVars) => Promise<TData>,
+  options?: SyncMutationOptions<TVars, TData, TContext>,
+): UseSyncMutationResult<TVars, TData>;
+```
+
+<ParamField path="runner" type="(vars: TVars) => Promise<TData>" required>
+  Performs the write, typically `registry.rpc(method, vars)`.
+</ParamField>
+<ParamField path="options" type="SyncMutationOptions<TVars, TData, TContext>">
+  <Expandable title="SyncMutationOptions">
+    <ParamField path="onMutate" type="(vars, registry) => TContext | Promise<TContext>">
+      Stage optimistic state; return a rollback context.
+    </ParamField>
+    <ParamField path="onSuccess" type="(data, vars, context, registry) => void | Promise<void>" />
+    <ParamField path="onError" type="(error, vars, context, registry) => void | Promise<void>" />
+    <ParamField path="invalidate" type="ReadonlyArray<SyncKey>">
+      Keys (or prefixes) to invalidate after success.
+    </ParamField>
+  </Expandable>
+</ParamField>
+<ResponseField name="UseSyncMutationResult<TVars, TData>" type="object">
+  <Expandable title="members">
+    <ResponseField name="mutate" type="(vars) => Promise<TData>">
+      Run the mutation; throws on failure.
+    </ResponseField>
+    <ResponseField name="mutateSafe" type="(vars) => Promise<TData | undefined>">
+      Like `mutate` but swallows errors and returns `undefined`.
+    </ResponseField>
+    <ResponseField name="status" type='"idle" | "loading" | "success" | "error"' />
+    <ResponseField name="isLoading" type="boolean" />
+    <ResponseField name="data" type="TData | undefined" />
+    <ResponseField name="error" type="Error | undefined" />
+    <ResponseField name="reset" type="() => void">
+      Return to the idle state.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Source** [`useSyncMutation.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/sync/useSyncMutation.ts) · **Tests** [`sync.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/sync/sync.test.ts)
+
+### useSyncSubscription
+
+Subscribe to a streaming source through a bounded collection. Returns the
+rolling buffer of frames; older frames drop off the front past `maxFrames`. N
+components on the same key share one upstream socket.
+
+```ts
+function useSyncSubscription(
+  key: SyncKey,
+  scope: string,
+  params: unknown,
+  options?: { enabled?: boolean; maxFrames?: number },
+): {
+  frames: ReadonlyArray<SyncStreamFrame>;
+  last: SyncStreamFrame | undefined;
+  dropped: number;
+};
+```
+
+<ParamField path="key" type="SyncKey" required>
+  Cache key; identical keys multiplex onto one socket.
+</ParamField>
+<ParamField path="scope" type="string" required>
+  The stream scope (e.g. a run-event channel).
+</ParamField>
+<ParamField path="params" type="unknown" required>
+  Stream params.
+</ParamField>
+<ParamField path="options.enabled" type="boolean" default="true">
+  Drop the subscription when false.
+</ParamField>
+<ParamField path="options.maxFrames" type="number" default="200">
+  Bounded buffer size.
+</ParamField>
+<ResponseField name="result" type="object">
+  `{ frames, last, dropped }`: the bounded buffer, its newest frame, and the
+  count dropped off the front.
+</ResponseField>
+
+**Source** [`useSyncSubscription.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/sync/useSyncSubscription.ts) · **Tests** [`sync.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/sync/sync.test.ts)
+
+## Type exports
+
+These types are exported from the same subpath for typing your own components.
+
+<ResponseField name="GatewayAsyncState<T>" type="type">
+  The shared data-hook return shape. See [above](#gatewayasyncstate).
+</ResponseField>
+<ResponseField name="CreateGatewayCollectionsOptions" type="type">
+  Options for [`createGatewayCollections`](#creategatewaycollections).
+</ResponseField>
+<ResponseField name="GatewayCollections" type="type">
+  The registry handed to [`SyncProvider`](#syncprovider).
+</ResponseField>
+
+```ts
+import type {
+  CreateGatewayCollectionsOptions,
+  GatewayCollections,
+} from "smithers-orchestrator/gateway-react";
+// GatewayAsyncState<T> is generic; see its section above for the full shape.
+```
+
+**Source** [`index.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/src/index.ts) · **Tests** [`gateway-react.test.ts`](https://github.com/smithersai/smithers/blob/main/packages/gateway-react/tests/gateway-react.test.ts)
+
+---
+
+This is the UI side of the control plane. For the underlying transport and its
+imperative methods, see the [Gateway Client reference](/reference/gateway-client);
+to embed a UI in a gateway-served workflow, see
+[Custom UI](/integrations/custom-ui) and the
+[Custom workflow UI guide](/guides/custom-workflow-ui).

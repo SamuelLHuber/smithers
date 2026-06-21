@@ -233,47 +233,6 @@
         ]
       },
       {
-        "group": "Reference",
-        "pages": [
-          "reference/types",
-          "reference/event-types",
-          "reference/errors",
-          "reference/package-configuration",
-          "reference/vcs-helpers",
-          "runtime/run-workflow",
-          "runtime/render-frame",
-          "runtime/events",
-          "runtime/revert",
-          "runtime/run-state",
-          {
-            "group": "Gateway RPC",
-            "pages": [
-              "rpc/launch-run",
-              "rpc/resume-run",
-              "rpc/cancel-run",
-              "rpc/hijack-run",
-              "rpc/rewind-run",
-              "rpc/submit-approval",
-              "rpc/submit-signal",
-              "rpc/get-run",
-              "rpc/list-runs",
-              "rpc/get-schema-signature",
-              "rpc/list-workflows",
-              "rpc/list-approvals",
-              "rpc/list-docs",
-              "rpc/stream-run-events",
-              "rpc/stream-dev-tools",
-              "rpc/get-node-output",
-              "rpc/get-node-diff",
-              "rpc/cron-list",
-              "rpc/cron-create",
-              "rpc/cron-delete",
-              "rpc/cron-run"
-            ]
-          }
-        ]
-      },
-      {
         "group": "Integrations",
         "pages": [
           "integrations/integrations",
@@ -396,6 +355,82 @@
           "changelogs/0.14.0"
         ]
       }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "icon": "book-open",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "reference/overview"
+            ]
+          },
+          {
+            "group": "Core API",
+            "pages": [
+              "reference/authoring",
+              "reference/components",
+              "reference/agents",
+              "reference/tools",
+              "reference/scorers",
+              "reference/memory",
+              "reference/openapi",
+              "reference/observability",
+              "reference/server-gateway",
+              "reference/gateway-client",
+              "reference/gateway-react",
+              "reference/db",
+              "reference/time-travel"
+            ]
+          },
+          {
+            "group": "Runtime",
+            "pages": [
+              "runtime/run-workflow",
+              "runtime/render-frame",
+              "runtime/run-state",
+              "runtime/revert",
+              "runtime/events"
+            ]
+          },
+          {
+            "group": "Types & errors",
+            "pages": [
+              "reference/types",
+              "reference/errors",
+              "reference/event-types",
+              "reference/vcs-helpers",
+              "reference/package-configuration"
+            ]
+          },
+          {
+            "group": "Gateway RPC",
+            "pages": [
+              "rpc/launch-run",
+              "rpc/resume-run",
+              "rpc/cancel-run",
+              "rpc/hijack-run",
+              "rpc/rewind-run",
+              "rpc/submit-approval",
+              "rpc/submit-signal",
+              "rpc/get-run",
+              "rpc/list-runs",
+              "rpc/get-schema-signature",
+              "rpc/list-workflows",
+              "rpc/list-approvals",
+              "rpc/list-docs",
+              "rpc/stream-run-events",
+              "rpc/stream-dev-tools",
+              "rpc/get-node-output",
+              "rpc/get-node-diff",
+              "rpc/cron-list",
+              "rpc/cron-create",
+              "rpc/cron-delete",
+              "rpc/cron-run"
+            ]
+          }
         ]
       }
     ]
