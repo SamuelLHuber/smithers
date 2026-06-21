@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, primaryKey, } from "drizzle-orm/sqlite-core";
+import { assertZodV4 } from "@smithers-orchestrator/errors/assertZodV4";
 import { unwrapZodType } from "./unwrapZodType.js";
 import { camelToSnake } from "./utils/camelToSnake.js";
 /**
@@ -27,6 +28,10 @@ function isIntegerNumberType(zodType, baseTypeName) {
  * runId, nodeId, iteration with a composite primary key.
  */
 export function zodToTable(tableName, schema, opts) {
+    // A Zod v3 schema has no `_zod`, so getZodBaseTypeName below would silently
+    // resolve every field to "unknown" and degrade every column to JSON text.
+    // Reject it up front with an actionable error instead.
+    assertZodV4(schema, tableName);
     const columns = opts?.isInput
         ? { runId: text("run_id").primaryKey() }
         : {

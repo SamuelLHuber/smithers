@@ -18,6 +18,7 @@ import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { POSTGRES } from "@smithers-orchestrator/db/dialect";
 import { resolve, join } from "node:path";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
+import { assertZodV4 } from "@smithers-orchestrator/errors/assertZodV4";
 import { findSmithersAnchorDir } from "./findSmithersAnchorDir.js";
 import { prepareOutputSchemas } from "./prepareOutputSchemas.js";
 /** @typedef {import("@smithers-orchestrator/components").ApprovalProps<any, any>} ApprovalProps */
@@ -150,6 +151,13 @@ function mergeAlertPolicies(base, override) {
  * @param {Record<string, any>} schemas
  */
 function prepareSmithersTables(schemas) {
+    // Fail fast and clearly at workflow construction if any schema is not Zod v4.
+    // smithers reads Zod v4 internals (schema._zod) and uses z.toJSONSchema();
+    // a Zod v3 schema would otherwise silently build wrong columns here and crash
+    // later with a cryptic `schema._zod.def` TypeError deep in the agent path.
+    for (const [name, zodSchema] of Object.entries(schemas)) {
+        assertZodV4(zodSchema, name);
+    }
     const tables = {};
     const inputTable = schemas.input
         ? zodToTable("input", schemas.input, { isInput: true })
