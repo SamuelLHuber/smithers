@@ -47,6 +47,28 @@ describe("sandbox egress config", () => {
         });
     });
 
+    test("secret bindings never leak into the sandbox process env", () => {
+        // secretBindings are proxy-side material: the proxy substitutes them on
+        // outbound requests. They must NEVER be handed to the sandbox process
+        // (otherwise the agent could read the raw secret), so sandboxEgressEnv
+        // must not surface any secretBindings key or value.
+        const env = sandboxEgressEnv({
+            httpsProxy: "http://127.0.0.1:8080",
+            secretBindings: { "sk-real-anthropic-key": "ANTHROPIC_API_KEY" },
+        });
+        expect(env).toEqual({ HTTPS_PROXY: "http://127.0.0.1:8080" });
+        const serialized = JSON.stringify(env);
+        expect(serialized).not.toContain("sk-real-anthropic-key");
+        expect(serialized).not.toContain("secretBindings");
+        // It must also not be promoted into the explicit env passthrough.
+        const withExplicitEnv = sandboxEgressEnv({
+            env: { SAFE: "ok" },
+            secretBindings: { "sk-leak-me": "TOKEN" },
+        });
+        expect(withExplicitEnv).toEqual({ SAFE: "ok" });
+        expect(JSON.stringify(withExplicitEnv)).not.toContain("sk-leak-me");
+    });
+
     test("rejects malformed fields with useful validation errors", () => {
         expect(() => normalizeSandboxEgressConfig("proxy")).toThrow("Sandbox egress must be an object");
         expect(() => normalizeSandboxEgressConfig({ env: [] })).toThrow("egress.env must be a flat object");

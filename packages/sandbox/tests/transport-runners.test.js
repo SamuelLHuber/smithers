@@ -566,4 +566,59 @@ describe("sandbox transport runners", () => {
         expect(profile).toContain('/tmp/sandbox/request\\"quoted');
         expect(profile).toContain("/tmp/sandbox/result\\\\slash");
     });
+
+    test("docker volumes may not override the /workspace or /result runtime mounts", () => {
+        const base = {
+            runtime: "docker",
+            runId: "run",
+            sandboxId: "sandbox",
+            sandboxRoot: "/tmp/sandbox",
+            requestPath: "/tmp/sandbox/request",
+            resultPath: "/tmp/sandbox/result",
+            allowNetwork: false,
+        };
+        for (const container of ["/workspace", "/workspace/sub", "/result", "/result/sub"]) {
+            expect(() =>
+                dockerArgs("npm test", {
+                    ...base,
+                    volumes: [{ host: "/tmp/evil", container, readonly: false }],
+                }),
+            ).toThrow("may not override /workspace or /result");
+        }
+        // Positive control: a prefix-but-not-subpath sibling is allowed through.
+        const args = dockerArgs("npm test", {
+            ...base,
+            volumes: [{ host: "/tmp/cache", container: "/result-sibling", readonly: true }],
+        });
+        expect(args).toContain("/tmp/cache:/result-sibling:ro");
+    });
+
+    test("bubblewrap volumes may not override the /workspace or /result runtime mounts", () => {
+        const base = {
+            runtime: "bubblewrap",
+            runId: "run",
+            sandboxId: "sandbox",
+            sandboxRoot: "/tmp/sandbox",
+            requestPath: "/tmp/sandbox/request",
+            resultPath: "/tmp/sandbox/result",
+            allowNetwork: false,
+        };
+        // A writable bind at /workspace would shadow the --ro-bind request mount
+        // (later bwrap binds win), escaping the read-only isolation.
+        for (const container of ["/workspace", "/workspace/sub", "/result", "/result/sub"]) {
+            expect(() =>
+                bubblewrapArgs("npm test", {
+                    ...base,
+                    volumes: [{ host: "/tmp/evil", container, readonly: false }],
+                }),
+            ).toThrow("may not override /workspace or /result");
+        }
+        // Positive control: a /workspace-sibling prefix is allowed and bound writably.
+        const args = bubblewrapArgs("npm test", {
+            ...base,
+            volumes: [{ host: "/tmp/cache", container: "/workspace-sibling", readonly: false }],
+        });
+        expect(args).toContain("--bind");
+        expect(args).toContain("/workspace-sibling");
+    });
 });

@@ -8,6 +8,7 @@ import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { withTaskRuntime } from "@smithers-orchestrator/driver/task-runtime";
 import { __executeSandboxInternals, executeSandbox, registerSandboxProvider } from "../src/execute.js";
+import { setSmithersLogRunner } from "@smithers-orchestrator/observability/logging";
 
 /**
  * @param {string} prefix
@@ -493,6 +494,94 @@ describe("executeSandbox", () => {
             ).rejects.toThrow("must include either bundlePath or status");
 
             expect(cleanupCalls).toEqual(["sandbox-provider-cleanup"]);
+        }
+        finally {
+            sqlite.close();
+        }
+    });
+
+    test("a failing provider cleanup does not mask a successful run result and is surfaced", async () => {
+        const { adapter, db, sqlite } = createDb();
+        const rootDir = tempDir("smithers-sandbox-cleanup-success-");
+        const runtime = createRuntime(db, { runId: "run-cleanup-success" });
+        let cleanupCalled = false;
+        // Capture fire-and-forget observability logs so we can assert the swallowed
+        // cleanup error is surfaced (a regression that drops the warning fails here).
+        let loggedWarnings = 0;
+        const restoreLogger = setSmithersLogRunner({
+            runFork() {
+                loggedWarnings += 1;
+            },
+            async runPromise() { },
+        });
+        try {
+            // The provider run() succeeds, but cleanup() rejects. The successful
+            // outputs must survive and no rejection may escape executeSandbox.
+            const output = await runInRuntime(runtime, {
+                sandboxId: "sandbox-cleanup-success",
+                provider: {
+                    id: "flaky-cleanup-provider",
+                    run: async () => ({
+                        status: "finished",
+                        output: { answer: 7 },
+                        runId: "remote-cleanup-success",
+                    }),
+                    cleanup: async () => {
+                        cleanupCalled = true;
+                        throw new Error("docker rm raced a locked container");
+                    },
+                },
+                runtime: undefined,
+                reviewDiffs: false,
+            });
+
+            expect(output).toEqual({ answer: 7 });
+            expect(cleanupCalled).toBe(true);
+            // The cleanup failure must be surfaced (logged), not silently swallowed.
+            expect(loggedWarnings).toBeGreaterThanOrEqual(1);
+            // The persisted status reflects the real run, not the cleanup failure.
+            expect(await adapter.getSandbox("run-cleanup-success", "sandbox-cleanup-success")).toMatchObject({
+                status: "finished",
+            });
+            expect(await eventTypes(adapter, "run-cleanup-success")).toEqual([
+                "SandboxCreated",
+                "SandboxShipped",
+                "SandboxBundleReceived",
+                "SandboxCompleted",
+            ]);
+        }
+        finally {
+            restoreLogger();
+            sqlite.close();
+        }
+    });
+
+    test("a failing provider cleanup does not mask the primary run failure", async () => {
+        const { adapter, db, sqlite } = createDb();
+        const runtime = createRuntime(db, { runId: "run-cleanup-failure" });
+        let cleanupCalled = false;
+        try {
+            // The provider run() returns a malformed result (the run fails); cleanup()
+            // also rejects. The original failure error must be the one that surfaces.
+            await expect(
+                runInRuntime(runtime, {
+                    sandboxId: "sandbox-cleanup-failure",
+                    provider: {
+                        id: "flaky-cleanup-failure-provider",
+                        run: async () => ({ output: { missing: "status" } }),
+                        cleanup: async () => {
+                            cleanupCalled = true;
+                            throw new Error("cleanup also failed");
+                        },
+                    },
+                    runtime: undefined,
+                }),
+            ).rejects.toThrow("must include either bundlePath or status");
+
+            expect(cleanupCalled).toBe(true);
+            expect(await adapter.getSandbox("run-cleanup-failure", "sandbox-cleanup-failure")).toMatchObject({
+                status: "failed",
+            });
         }
         finally {
             sqlite.close();

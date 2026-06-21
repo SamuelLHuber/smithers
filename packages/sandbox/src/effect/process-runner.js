@@ -259,9 +259,14 @@ function assertNoVolumes(handle, runtime) {
 }
 
 /**
+ * Reject a user-supplied volume whose container path would shadow the
+ * runtime-managed `/workspace` (read-only request) or `/result` mounts. Both
+ * docker (duplicate `--volume` target) and bubblewrap (later `--bind` wins over
+ * an earlier `--ro-bind` at the same path) would otherwise let a config remap
+ * `/workspace` to a writable host path, escaping the read-only isolation.
  * @param {string} containerPath
  */
-function assertDockerVolumeDoesNotOverrideRuntimeMount(containerPath) {
+function assertVolumeDoesNotOverrideRuntimeMount(containerPath) {
     if (containerPath === "/workspace" || containerPath.startsWith("/workspace/") ||
         containerPath === "/result" || containerPath.startsWith("/result/")) {
         invalidSandboxConfig("Sandbox volumes may not override /workspace or /result.", {
@@ -334,6 +339,7 @@ export function bubblewrapArgs(command, handle) {
         args.push("--setenv", key, value);
     }
     for (const volume of volumes) {
+        assertVolumeDoesNotOverrideRuntimeMount(volume.container);
         args.push(volume.readonly === false ? "--bind" : "--ro-bind", volume.host, volume.container);
     }
     if (!handle.allowNetwork) {
@@ -417,7 +423,7 @@ export function dockerArgs(command, handle) {
         args.push("--publish", `${port.host}:${port.container}`);
     }
     for (const volume of volumes) {
-        assertDockerVolumeDoesNotOverrideRuntimeMount(volume.container);
+        assertVolumeDoesNotOverrideRuntimeMount(volume.container);
         args.push("--volume", `${volume.host}:${volume.container}:${volume.readonly === false ? "rw" : "ro"}`);
     }
     if (handle.memoryLimit) {

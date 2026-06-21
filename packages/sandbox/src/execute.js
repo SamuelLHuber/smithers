@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { Effect, Metric } from "effect";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { trackEvent, sandboxTransportDurationMs } from "@smithers-orchestrator/observability/metrics";
+import { logWarning } from "@smithers-orchestrator/observability/logging";
 import { nowMs } from "@smithers-orchestrator/scheduler/nowMs";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { errorToJson } from "@smithers-orchestrator/errors/errorToJson";
@@ -769,11 +770,29 @@ export async function executeSandbox(options) {
         throw error;
     }
     finally {
+        // Teardown must never mask the primary result (success or failure) and must
+        // never escape as a rejection from the finally block — but a swallowed cleanup
+        // failure can hide leaked resources (orphaned containers, undeleted workspaces),
+        // so surface it as a WARNING instead of discarding it silently.
         if (handle) {
-            await transportCall(selectedRuntime, sandboxTransport((svc) => svc.cleanup(handle))).catch(() => undefined);
+            await transportCall(selectedRuntime, sandboxTransport((svc) => svc.cleanup(handle))).catch((cleanupError) => {
+                logWarning("sandbox transport cleanup failed", {
+                    runId: runtime.runId,
+                    sandboxId: options.sandboxId,
+                    runtime: selectedRuntime,
+                    error: errorToJson(cleanupError),
+                });
+            });
         }
         if (provider && providerRequest && typeof provider.cleanup === "function") {
-            await Promise.resolve(provider.cleanup(providerRequest)).catch(() => undefined);
+            await Promise.resolve(provider.cleanup(providerRequest)).catch((cleanupError) => {
+                logWarning("sandbox provider cleanup failed", {
+                    runId: runtime.runId,
+                    sandboxId: options.sandboxId,
+                    provider: provider.id,
+                    error: errorToJson(cleanupError),
+                });
+            });
         }
     }
 }
