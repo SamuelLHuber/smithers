@@ -352,6 +352,67 @@ describe("deferred state bridge state transitions", () => {
         }
     });
 
+    test("resumes durable timers: still-future stays waiting, elapsed-during-downtime fires", async () => {
+        const { adapter, tables, cleanup } = makeHarness();
+        try {
+            // A timer that was persisted as waiting-timer in a prior process and whose
+            // deadline is still in the future must stay waiting on resume (no re-fire).
+            const futureBus = makeEventBus();
+            const futureDesc = makeDesc(tables, {
+                nodeId: "timer-future",
+                meta: { __timer: true, __timerDuration: "1h" },
+            });
+            await insertAttempt(adapter, "run-future", futureDesc, "waiting-timer", {
+                metaJson: JSON.stringify(I.buildTimerAttemptMeta({
+                    timerId: futureDesc.nodeId,
+                    timerType: "duration",
+                    duration: "1h",
+                    createdAtMs: Date.now() - 1_000,
+                    firesAtMs: Date.now() + 3_600_000,
+                })),
+            });
+            expect(await I.resolveTimerTaskStateBridge(adapter, "run-future", futureDesc, futureBus)).toEqual({
+                handled: true,
+                state: "waiting-timer",
+            });
+            // No TimerFired/NodeFinished emitted while still waiting.
+            expect(futureBus.events.map((event) => event.type)).toEqual([]);
+
+            // A timer whose deadline elapsed while the process was down must fire on
+            // resume (finished + TimerFired + NodeFinished).
+            const elapsedBus = makeEventBus();
+            const elapsedDesc = makeDesc(tables, {
+                nodeId: "timer-elapsed",
+                meta: { __timer: true, __timerDuration: "1ms" },
+            });
+            await insertAttempt(adapter, "run-elapsed", elapsedDesc, "waiting-timer", {
+                metaJson: JSON.stringify(I.buildTimerAttemptMeta({
+                    timerId: elapsedDesc.nodeId,
+                    timerType: "duration",
+                    duration: "1ms",
+                    createdAtMs: Date.now() - 60_000,
+                    firesAtMs: Date.now() - 30_000,
+                })),
+            });
+            expect(await I.resolveTimerTaskStateBridge(adapter, "run-elapsed", elapsedDesc, elapsedBus)).toEqual({
+                handled: true,
+                state: "finished",
+            });
+            expect(elapsedBus.events.map((event) => event.type)).toEqual(["TimerFired", "NodeFinished"]);
+            const firedEvent = elapsedBus.events.find((event) => event.type === "TimerFired");
+            expect(firedEvent?.timerId).toBe("timer-elapsed");
+            // The recorded delay reflects the downtime overshoot (fired well after firesAtMs).
+            expect(firedEvent?.delayMs).toBeGreaterThanOrEqual(30_000);
+
+            // The persisted attempt is now finished (durable, exactly-once on next resume).
+            const attempts = await Effect.runPromise(adapter.listAttempts("run-elapsed", "timer-elapsed", 0));
+            expect(attempts[0]?.state).toBe("finished");
+        }
+        finally {
+            cleanup();
+        }
+    });
+
     test("fails, finishes and times out wait-for-event attempts", async () => {
         const { adapter, db, tables, cleanup } = makeHarness();
         try {
