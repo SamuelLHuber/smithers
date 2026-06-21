@@ -997,6 +997,9 @@ importers:
       '@happy-dom/global-registrator':
         specifier: ^20.9.0
         version: 20.9.0
+      '@smithers-orchestrator/server':
+        specifier: workspace:*
+        version: link:../server
       '@sqlite.org/sqlite-wasm':
         specifier: ^3.53.0-build1
         version: 3.53.0-build1
