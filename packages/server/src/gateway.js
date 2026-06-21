@@ -18,12 +18,13 @@ import { resolveSchema, runWorkflow } from "@smithers-orchestrator/engine";
 import { approveNode, denyNode } from "@smithers-orchestrator/engine/approvals";
 import { signalRun } from "@smithers-orchestrator/engine/signals";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
+import { getSmithersSchemaSignature } from "@smithers-orchestrator/db/getSmithersSchemaSignature";
 import { computeRunStateFromRow } from "@smithers-orchestrator/db/runState";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { loadInput } from "@smithers-orchestrator/db/snapshot";
 import { sha256Hex } from "@smithers-orchestrator/db/sha256Hex";
 import { watchDocsDirectory } from "@smithers-orchestrator/db/docWatcher";
-import { devtoolsActiveSubscribers, devtoolsBackpressureDisconnectTotal, devtoolsDeltaBuildMs, devtoolsEventBytes, devtoolsEventTotal, devtoolsSnapshotBuildMs, devtoolsSubscribeTotal, gatewayApprovalDecisionsTotal, gatewayAuthEventsTotal, gatewayConnectionsActive, gatewayConnectionsClosedTotal, gatewayConnectionsTotal, gatewayCronTriggersTotal, gatewayErrorsTotal, gatewayHeartbeatTicksTotal, gatewayMessagesReceivedTotal, gatewayMessagesSentTotal, gatewayRpcCallsTotal, gatewayRpcDuration, gatewayRunsCompletedTotal, gatewayRunsStartedTotal, gatewaySignalsTotal, gatewayWebhooksReceivedTotal, gatewayWebhooksRejectedTotal, gatewayWebhooksVerifiedTotal, } from "@smithers-orchestrator/observability/metrics";
+import { devtoolsActiveSubscribers, devtoolsBackpressureDisconnectTotal, devtoolsDeltaBuildMs, devtoolsEventBytes, devtoolsEventTotal, devtoolsSnapshotBuildMs, devtoolsSubscribeTotal, gatewayApprovalDecisionsTotal, gatewayAuthEventsTotal, gatewayConnectionsActive, gatewayConnectionsClosedTotal, gatewayConnectionsTotal, gatewayCronTriggersTotal, gatewayErrorsTotal, gatewayHeartbeatTicksTotal, gatewayMessagesReceivedTotal, gatewayMessagesSentTotal, gatewayRpcCallsTotal, gatewayRpcDuration, gatewayRunEventBackpressureDisconnectTotal, gatewayRunsCompletedTotal, gatewayRunsStartedTotal, gatewaySignalsTotal, gatewayWebhooksReceivedTotal, gatewayWebhooksRejectedTotal, gatewayWebhooksVerifiedTotal, } from "@smithers-orchestrator/observability/metrics";
 import { runFork, runPromise } from "./smithersRuntime.js";
 import { prometheusContentType, renderPrometheusMetrics } from "@smithers-orchestrator/observability";
 import { nowMs } from "@smithers-orchestrator/scheduler/nowMs";
@@ -53,6 +54,7 @@ import { DEFAULT_OPERATOR_UI_ENTRY } from "./gatewayUi/defaultOperatorUi.js";
 /** @typedef {import("./GatewayWebhookRunConfig.js").GatewayWebhookRunConfig} GatewayWebhookRunConfig */
 /** @typedef {import("./GatewayWebhookSignalConfig.js").GatewayWebhookSignalConfig} GatewayWebhookSignalConfig */
 /** @typedef {import("./ConnectRequest.js").ConnectRequest} ConnectRequest */
+/** @typedef {{ streamId: string, runId: string, heartbeat: unknown, outboundQueue: Record<string, unknown>[], flushPending: boolean, backpressureDisconnected: boolean }} RunEventStreamState */
 /** @typedef {import("./GatewayAuthConfig.js").GatewayAuthConfig} GatewayAuthConfig */
 /** @typedef {import("./GatewayOperatorUiConfig.js").GatewayOperatorUiConfig} GatewayOperatorUiConfig */
 /** @typedef {import("./GatewayOptions.js").GatewayOptions} GatewayOptions */
@@ -142,6 +144,14 @@ const DEFAULT_REQUEST_TIMEOUT = 60_000;
 const DEFAULT_OUT_OF_PROCESS_EVENT_BRIDGE_POLL_MS = 1_000;
 const OUT_OF_PROCESS_EVENT_BRIDGE_PAGE_LIMIT = 500;
 const RUN_EVENT_HEARTBEAT_MS = 1_000;
+// Per-subscriber outbound backpressure for streamRunEvents. Each run event
+// stream owns a bounded queue drained against the WS socket's bufferedAmount.
+// A consumer that lets the socket stay congested past the high-water mark and
+// overflows the queue is disconnected (run.error: BackpressureDisconnect) so a
+// single slow WebSocket cannot wedge the server with unbounded buffering.
+const RUN_EVENT_STREAM_OUTBOUND_QUEUE_LIMIT = 1_000;
+const RUN_EVENT_STREAM_WS_BUFFERED_HIGH_WATER_BYTES = 8 * 1024 * 1024;
+const RUN_EVENT_STREAM_DRAIN_RETRY_MS = 10;
 const TERMINAL_RUN_STATUSES = new Set(["finished", "failed", "cancelled", "continued"]);
 export const GATEWAY_RPC_MAX_PAYLOAD_BYTES = DEFAULT_MAX_BODY_BYTES;
 export const GATEWAY_RPC_MAX_DEPTH = 32;
@@ -1779,7 +1789,14 @@ export class Gateway {
                 ts: nowMs(),
             });
         }, RUN_EVENT_HEARTBEAT_MS);
-        connection.runEventStreams.set(streamId, { runId, heartbeat });
+        connection.runEventStreams.set(streamId, {
+            streamId,
+            runId,
+            heartbeat,
+            outboundQueue: [],
+            flushPending: false,
+            backpressureDisconnected: false,
+        });
         return () => this.unregisterRunEventSubscriber(connection, streamId);
     }
     /**
@@ -1812,10 +1829,88 @@ export class Gateway {
    * @param {Record<string, unknown>} frame
    */
     sendRunEventStreamFrame(connection, streamId, frame) {
-        this.sendEvent(connection, "run.event", {
-            streamId,
-            ...frame,
+        const stream = connection.runEventStreams?.get(streamId);
+        if (!stream) {
+            // Stream is not (or no longer) registered; deliver directly so any
+            // legacy/out-of-band caller still works, then bail out of the queue.
+            this.sendEvent(connection, "run.event", { streamId, ...frame });
+            return;
+        }
+        if (stream.backpressureDisconnected) {
+            return;
+        }
+        if (stream.outboundQueue.length >= RUN_EVENT_STREAM_OUTBOUND_QUEUE_LIMIT) {
+            this.disconnectRunEventStreamForBackpressure(connection, stream);
+            return;
+        }
+        stream.outboundQueue.push(frame);
+        this.drainRunEventStream(connection, stream);
+    }
+    /**
+   * Drain a run event stream's outbound queue against the socket's buffered
+   * bytes. If the socket is congested past the high-water mark we re-arm a
+   * short retry instead of dropping frames; the queue cap (enforced at enqueue
+   * time) is what bounds memory and trips the slow-consumer disconnect.
+   * @param {ConnectionState} connection
+   * @param {RunEventStreamState} stream
+   */
+    drainRunEventStream(connection, stream) {
+        if (stream.flushPending || stream.backpressureDisconnected) {
+            return;
+        }
+        stream.flushPending = true;
+        try {
+            while (stream.outboundQueue.length > 0 &&
+                !stream.backpressureDisconnected &&
+                connection.ws.readyState === connection.ws.OPEN) {
+                const ws = connection.ws;
+                if (typeof ws.bufferedAmount === "number" &&
+                    ws.bufferedAmount > RUN_EVENT_STREAM_WS_BUFFERED_HIGH_WATER_BYTES) {
+                    setTimeout(() => {
+                        stream.flushPending = false;
+                        this.drainRunEventStream(connection, stream);
+                    }, RUN_EVENT_STREAM_DRAIN_RETRY_MS);
+                    return;
+                }
+                const frame = stream.outboundQueue.shift();
+                if (!frame) {
+                    continue;
+                }
+                this.sendEvent(connection, "run.event", { streamId: stream.streamId, ...frame });
+            }
+        }
+        finally {
+            stream.flushPending = false;
+        }
+    }
+    /**
+   * Tear down a single slow run event subscriber whose outbound queue overflowed.
+   * The WS connection itself stays open so other streams keep receiving events.
+   * @param {ConnectionState} connection
+   * @param {RunEventStreamState} stream
+   */
+    disconnectRunEventStreamForBackpressure(connection, stream) {
+        if (stream.backpressureDisconnected) {
+            return;
+        }
+        stream.backpressureDisconnected = true;
+        stream.outboundQueue.length = 0;
+        emitGatewayEffect(Metric.increment(gatewayRunEventBackpressureDisconnectTotal));
+        emitGatewayLog("warning", "run event stream disconnected for backpressure", {
+            runId: stream.runId,
+            streamId: stream.streamId,
+            queueLimit: RUN_EVENT_STREAM_OUTBOUND_QUEUE_LIMIT,
+        }, "gateway:run-events");
+        this.sendEvent(connection, "run.error", {
+            streamId: stream.streamId,
+            runId: stream.runId,
+            error: {
+                version: SMITHERS_API_VERSION,
+                code: "BackpressureDisconnect",
+                message: `Run event stream outbound queue exceeded ${RUN_EVENT_STREAM_OUTBOUND_QUEUE_LIMIT} frames; disconnecting slow consumer.`,
+            },
         });
+        this.unregisterRunEventSubscriber(connection, stream.streamId);
     }
     /**
    * @param {ConnectionState} connection
@@ -2325,6 +2420,9 @@ export class Gateway {
             }
             if ((req.method ?? "GET") === "POST" && rpcMatch) {
                 return this.handleHttpRpc(req, res, decodeURIComponent(rpcMatch[1]));
+            }
+            if ((req.method ?? "GET") === "POST" && url.pathname === "/v1/electric/write") {
+                return this.handleElectricWrite(req, res);
             }
             if ((req.method ?? "GET") === "POST" && (req.url ?? "/") === "/rpc") {
                 return this.handleHttpRpc(req, res);
@@ -3235,6 +3333,118 @@ export class Gateway {
     /**
    * @param {IncomingMessage} req
    * @param {ServerResponse} res
+   */
+    async handleElectricWrite(req, res) {
+        const requestId = headerValue(req, "x-request-id") ?? randomUUID();
+        const baseContext = {
+            connectionId: `electric-write:${requestId}`,
+            transport: "http",
+            role: null,
+            scopes: [],
+            userId: null,
+            tokenId: null,
+            subscribedRuns: null,
+            devtoolsStreams: null,
+        };
+        let context = baseContext;
+        try {
+            const authResult = await this.authenticateRequest(req, bearerTokenFromHeaders(req));
+            if (authResult.ok === false) {
+                return sendJson(res, statusForRpcError(authResult.code), {
+                    ok: false,
+                    code: authResult.code,
+                    message: authResult.message,
+                    details: authResult.details,
+                });
+            }
+            context = {
+                ...baseContext,
+                role: authResult.role,
+                scopes: [...authResult.scopes],
+                userId: authResult.userId ?? null,
+                tokenId: authResult.tokenId ?? null,
+            };
+            const body = asObject(await readBody(req, this.maxBodyBytes));
+            if (!body) {
+                return sendJson(res, 400, { ok: false, code: "INVALID_REQUEST", message: "Electric write body must be a JSON object" });
+            }
+            const method = validateGatewayMethodName(asString(body.method));
+            const params = body.params ?? body.vars ?? {};
+            if (!hasScope(context.scopes, method, this.extensions)) {
+                const forbidden = responseForbidden(requestId, method, this.extensions);
+                return sendJson(res, statusForRpcError(forbidden.error?.code), {
+                    ok: false,
+                    code: forbidden.error?.code,
+                    message: forbidden.error?.message,
+                    requiredScope: forbidden.error?.requiredScope,
+                });
+            }
+            // Writes always flow through the gateway RPC path, NOT through Electric
+            // shapes (§5.5). The previous implementation opened a raw BEGIN/COMMIT
+            // directly on every workflow's shared Postgres connection to grab a
+            // txid. That bypassed the single-permit semaphore that serializes ALL
+            // access to that one physical connection (SqlMessageStorage), so the
+            // ~1s event-bridge tail, heartbeats, and any concurrent run sharing the
+            // DB interleaved their statements into the manually-opened transaction
+            // — an RPC-failure ROLLBACK could discard unrelated committed-intended
+            // work, and two concurrent electric writes collided on a nested BEGIN.
+            // It also fired on embedded PGlite (dialect "postgres", single
+            // connection), which is never an Electric source. The endpoint now runs
+            // the RPC exactly like any other and lets the engine's own serialized
+            // transactions commit the synced rows.
+            const frame = {
+                type: "req",
+                id: requestId,
+                method,
+                params,
+            };
+            const response = await this.executeRpc(context, frame, () => this.routeRequest(context, frame));
+            if (!response.ok) {
+                return sendJson(res, statusForRpcError(response.error?.code), {
+                    ok: false,
+                    code: response.error?.code,
+                    message: response.error?.message,
+                    details: response.error,
+                });
+            }
+            // Optimistic txid matching needs the txid of the transaction that
+            // actually writes the synced row. For detached RPCs (launchRun
+            // enqueues; run/event/node rows commit later in the engine's own
+            // serialized transactions) the gateway cannot observe that txid
+            // without the engine surfacing it, so it returns null rather than a
+            // fabricated post-hoc txid that would hang awaitTxId until timeout.
+            // The Electric collection reconciles optimistic state when the row
+            // arrives in the shape stream; threading the engine write txid for
+            // tight no-flicker matching is a documented follow-up (§5.5).
+            emitGatewayLog("info", "Gateway Electric write committed", {
+                ...gatewayContextAnnotations(context),
+                requestId,
+                method,
+            }, "gateway:electric-write");
+            return sendJson(res, 200, {
+                ok: true,
+                payload: response.payload,
+                txid: null,
+            });
+        }
+        catch (error) {
+            emitGatewayLog(isSmithersError(error) ? "warning" : "error", "Gateway Electric write failed", {
+                ...gatewayContextAnnotations(context),
+                requestId,
+                ...gatewayErrorAnnotations(error),
+            }, "gateway:electric-write");
+            const message = error?.message ?? "Electric write failed";
+            const status = message.includes("valid JSON") ? 400 : message.includes("exceeds") ? 413 : 500;
+            return sendJson(res, status, {
+                ok: false,
+                code: status === 413 ? "PAYLOAD_TOO_LARGE" : status === 400 ? "INVALID_JSON" : "SERVER_ERROR",
+                message,
+            });
+        }
+    }
+    /**
+   * @param {IncomingMessage} req
+   * @param {ServerResponse} res
    * @param {string} [forcedMethod]
    */
     async handleHttpRpc(req, res, forcedMethod) {
@@ -3850,6 +4060,39 @@ export class Gateway {
         approvals.sort((a, b) => (a.requestedAtMs ?? 0) - (b.requestedAtMs ?? 0));
         return approvals;
     }
+    /**
+   * @param {{ kind?: string; includeDeleted?: boolean; updatedAfterMs?: number; limit?: number }} [options]
+   */
+    async listDocsAcrossWorkflows(options = {}) {
+        const seenAdapters = new Set();
+        const byPath = new Map();
+        const limit = Math.max(1, Math.min(10_000, Math.floor(options.limit ?? 4_096)));
+        for (const entry of this.workflows.values()) {
+            const adapter = this.adapterForWorkflow(entry.workflow);
+            if (seenAdapters.has(adapter)) {
+                continue;
+            }
+            seenAdapters.add(adapter);
+            if (typeof adapter.listDocs !== "function") {
+                continue;
+            }
+            const rows = await adapter.listDocs({
+                kind: options.kind,
+                includeDeleted: options.includeDeleted,
+                updatedAfterMs: options.updatedAfterMs,
+                limit,
+            });
+            for (const row of rows) {
+                const existing = byPath.get(row.path);
+                if (!existing || (row.updatedAtMs ?? 0) >= (existing.updatedAtMs ?? 0)) {
+                    byPath.set(row.path, row);
+                }
+            }
+        }
+        const docs = [...byPath.values()];
+        docs.sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0) || String(a.path).localeCompare(String(b.path)));
+        return docs.slice(0, limit);
+    }
     async listCrons() {
         const rows = [];
         for (const entry of this.workflows.values()) {
@@ -4197,6 +4440,18 @@ export class Gateway {
                 const limit = asOptionalPositiveInt(params.limit ?? filter.limit, "limit") ?? 50;
                 const status = asString(params.status) ?? asString(filter.status);
                 return responseOk(frame.id, await this.listRunsAcrossWorkflows(limit, status));
+            }
+            case "getSchemaSignature": {
+                const firstEntry = this.workflows.values().next().value;
+                if (!firstEntry) {
+                    return responseOk(frame.id, {
+                        schemaVersion: "0000",
+                        signature: createHash("sha256").update("empty").digest("hex"),
+                        components: {},
+                    });
+                }
+                const adapter = firstEntry.adapter ?? this.adapterForWorkflow(firstEntry.workflow);
+                return responseOk(frame.id, await getSmithersSchemaSignature(adapter));
             }
             case "workflows.list":
             case "listWorkflows": {
@@ -4823,6 +5078,19 @@ export class Gateway {
                     approvals = approvals.slice(0, limit);
                 }
                 return responseOk(frame.id, approvals);
+            }
+            case "listDocs": {
+                const filter = asObject(params.filter) ?? {};
+                const kind = asString(params.kind) ?? asString(filter.kind);
+                const includeDeleted = asBoolean(params.includeDeleted) ?? asBoolean(filter.includeDeleted) ?? false;
+                const updatedAfterMs = asNumber(params.updatedAfterMs) ?? asNumber(filter.updatedAfterMs);
+                const limit = asOptionalPositiveInt(params.limit ?? filter.limit, "limit") ?? 4_096;
+                return responseOk(frame.id, await this.listDocsAcrossWorkflows({
+                    kind,
+                    includeDeleted,
+                    updatedAfterMs,
+                    limit,
+                }));
             }
             case "approvals.decide":
             case "submitApproval": {
