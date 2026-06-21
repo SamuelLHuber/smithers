@@ -256,4 +256,67 @@ describe("createGatewayCollection", () => {
       { runId: "run-1", nodeId: "node-1", iteration: 2 },
     ]);
   });
+
+  test("sheds the oldest buffered frames past maxBufferedFrames under backpressure", async () => {
+    let releaseStream: () => void = () => {};
+    const streamGate = new Promise<void>((resolve) => {
+      releaseStream = resolve;
+    });
+    let releaseApply: () => void = () => {};
+    const applyGate = new Promise<void>((resolve) => {
+      releaseApply = resolve;
+    });
+    const appliedSeqs: number[] = [];
+    let allYielded = false;
+
+    const frames: SyncStreamFrame[] = [];
+    for (let seq = 1; seq <= 12; seq += 1) {
+      frames.push({ key: gatewayKeys.runEvents("run-1"), seq, event: "run.event", payload: { seq } });
+    }
+
+    const transport: SyncTransport = {
+      rpc: () => Promise.resolve([]),
+      stream() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            await streamGate;
+            for (const frame of frames) yield frame;
+            allYielded = true;
+          },
+        };
+      },
+    };
+
+    const collection = createCollection<GatewayRunEventRow, number>(
+      createGatewayCollection({
+        key: gatewayKeys.runEvents("run-1"),
+        client: transport,
+        getKey: (row) => row.seq,
+        stream: {
+          scope: "streamRunEvents",
+          params: { runId: "run-1" },
+          maxBufferedFrames: 2,
+          frameToRows: async (frame) => {
+            if (typeof frame.seq !== "number") return [];
+            // Park the single drain loop on the first applied frame so the rest
+            // of the burst piles into the bounded queue and the oldest are shed.
+            if (appliedSeqs.length === 0) await applyGate;
+            appliedSeqs.push(frame.seq);
+            return [{ key: frame.key as GatewayRunEventRow["key"], seq: frame.seq, event: frame.event, payload: frame.payload }];
+          },
+        },
+      }),
+    );
+
+    await collection.preload();
+    releaseStream();
+    await waitFor(() => allYielded && appliedSeqs.length === 0);
+    releaseApply();
+
+    // seq 1 was already in-flight when the burst arrived; the bounded queue kept
+    // only the last two (11, 12) and shed everything between.
+    await waitFor(() => collection.size === 3 && collection.has(12));
+    expect(Array.from(collection.keys()).sort((left, right) => left - right)).toEqual([1, 11, 12]);
+    expect(appliedSeqs).toEqual([1, 11, 12]);
+  });
 });

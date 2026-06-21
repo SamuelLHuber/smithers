@@ -35,8 +35,18 @@ type GatewayCollectionStreamConfig<TRow extends object, TKey extends string | nu
   refetchMode?: "replace" | "upsert";
   reconnectOnGracefulEnd?: boolean;
   maxRows?: number;
+  /**
+   * Hard cap on the in-flight frame queue (frames received but not yet applied,
+   * including those buffered before the initial load commits). On overflow the
+   * OLDEST unapplied frame is shed, so a slow consumer or a burst can never grow
+   * memory without bound. Defaults to `max(maxRows, 1024)`: `maxRows` bounds the
+   * stored rows; this bounds the apply backlog.
+   */
+  maxBufferedFrames?: number;
   backoff?: SyncBackoffOptions;
 };
+
+const DEFAULT_MAX_BUFFERED_FRAMES = 1024;
 
 export type GatewayCollectionConfig<TRow extends object, TKey extends string | number = string> = {
   key: SyncKey;
@@ -134,9 +144,17 @@ export function createGatewayCollection<TRow extends object, TKey extends string
         const controller = new AbortController();
         const signal = controller.signal;
         const stream = config.stream;
-        const buffered: SyncStreamFrame[] = [];
+        // ONE bounded queue for every frame not yet applied — the ones buffered
+        // before the initial load commits AND the live backlog when applying is
+        // slower than the stream. A single drain loop applies them in order; on
+        // overflow the oldest is shed. This replaces an unbounded pre-load array
+        // plus an unbounded promise chain, either of which grew without bound
+        // under a burst.
+        const queue: SyncStreamFrame[] = [];
+        const maxQueued = stream?.maxBufferedFrames
+          ?? Math.max(stream?.maxRows ?? 0, DEFAULT_MAX_BUFFERED_FRAMES);
         let initialComplete = false;
-        let applyChain = Promise.resolve();
+        let draining = false;
 
         const handleError = (cause: unknown) => {
           if (signal.aborted) return;
@@ -252,14 +270,32 @@ export function createGatewayCollection<TRow extends object, TKey extends string
           }
         };
 
-        const enqueueFrame = (frame: SyncStreamFrame) => {
-          if (!initialComplete) {
-            buffered.push(frame);
-            return;
+        const drainQueue = async () => {
+          if (draining) return;
+          draining = true;
+          try {
+            while (initialComplete && !signal.aborted && queue.length > 0) {
+              const frame = queue.shift() as SyncStreamFrame;
+              try {
+                await applyFrame(frame);
+              } catch (cause) {
+                handleError(cause);
+              }
+            }
+          } finally {
+            draining = false;
           }
-          applyChain = applyChain
-            .then(() => applyFrame(frame))
-            .catch(handleError);
+        };
+
+        const enqueueFrame = (frame: SyncStreamFrame) => {
+          queue.push(frame);
+          if (queue.length > maxQueued) {
+            // Shed the oldest unapplied frame so a slow consumer under a burst
+            // cannot grow memory without bound. `maxRows` still bounds stored
+            // rows; this bounds the apply backlog.
+            queue.shift();
+          }
+          void drainQueue();
         };
 
         const openStreamLoop = async () => {
@@ -306,15 +342,12 @@ export function createGatewayCollection<TRow extends object, TKey extends string
               replaceRows(await refetchRows(), stream?.maxRows);
             }
             initialComplete = true;
-            for (const frame of buffered.splice(0)) {
-              applyChain = applyChain
-                .then(() => applyFrame(frame))
-                .catch(handleError);
-            }
-            await applyChain;
+            // Apply frames buffered during the initial load before signaling
+            // ready, so a reload's first paint already reflects them.
+            await drainQueue();
           } catch (cause) {
             initialComplete = true;
-            buffered.length = 0;
+            queue.length = 0;
             handleError(cause);
           } finally {
             if (!signal.aborted) {
