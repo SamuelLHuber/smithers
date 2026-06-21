@@ -326,6 +326,114 @@ describe("engine internals: durability, options and graph helpers", () => {
         }, "/tmp/wf.ts")).toThrow("durable metadata changed");
     });
 
+    test("assertResumeDurabilityMetadata covers matching, missing-hash, legacy and VCS-root branches", () => {
+        // Derive the durability config key from a built config so legacy configs
+        // can be hand-built without coupling to the private constant name.
+        const v2Config = I.buildDurabilityConfig({}, { entryWorkflowHash: "entry" });
+        const [durabilityKey] = Object.keys(v2Config).filter((k) => k !== "maxConcurrency");
+        const legacyConfig = (overrides = {}) => ({ [durabilityKey]: { version: 0, ...overrides } });
+
+        // (a) Matching metadata + matching stored config must NOT throw — a legitimate
+        // resume has to be allowed (otherwise every resume would brick).
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: "graph-1",
+            vcsRoot: "/repo",
+            vcsType: "git",
+            vcsRevision: "abc",
+        }, v2Config, {
+            workflowHash: "graph-1",
+            entryWorkflowHash: "entry",
+            vcsRoot: "/repo",
+            vcsType: "git",
+            vcsRevision: "abc",
+        }, "/tmp/wf.ts")).not.toThrow();
+
+        // (b) version >= current (2): a missing module-graph hash on EITHER side must
+        // be treated as a mismatch (fail closed), not silently allowed.
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: null,
+            vcsRoot: "/repo",
+        }, v2Config, {
+            workflowHash: "graph-1",
+            entryWorkflowHash: "entry",
+            vcsRoot: "/repo",
+        }, "/tmp/wf.ts")).toThrow("workflow module graph unavailable");
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: "graph-1",
+            vcsRoot: "/repo",
+        }, v2Config, {
+            workflowHash: null,
+            entryWorkflowHash: "entry",
+            vcsRoot: "/repo",
+        }, "/tmp/wf.ts")).toThrow("workflow module graph unavailable");
+
+        // (b cont.) a missing entry-workflow hash on EITHER side => entry hash unavailable.
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: "graph-1",
+            vcsRoot: "/repo",
+        }, I.buildDurabilityConfig({}, { entryWorkflowHash: null }), {
+            workflowHash: "graph-1",
+            entryWorkflowHash: "entry",
+            vcsRoot: "/repo",
+        }, "/tmp/wf.ts")).toThrow("workflow entry hash unavailable");
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: "graph-1",
+            vcsRoot: "/repo",
+        }, v2Config, {
+            workflowHash: "graph-1",
+            entryWorkflowHash: null,
+            vcsRoot: "/repo",
+        }, "/tmp/wf.ts")).toThrow("workflow entry hash unavailable");
+
+        // (c) legacy stored version (< 2): compares existingRun.workflowHash against
+        // current.entryWorkflowHash. A differing entry hash => "workflow entry file changed".
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: "old-entry-hash",
+            vcsRoot: "/repo",
+        }, legacyConfig(), {
+            workflowHash: "ignored-graph",
+            entryWorkflowHash: "new-entry-hash",
+            vcsRoot: "/repo",
+        }, "/tmp/wf.ts")).toThrow("workflow entry file changed");
+        // ...and a matching legacy entry hash must NOT throw.
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: "same-entry-hash",
+            vcsRoot: "/repo",
+        }, legacyConfig(), {
+            workflowHash: "ignored-graph",
+            entryWorkflowHash: "same-entry-hash",
+            vcsRoot: "/repo",
+        }, "/tmp/wf.ts")).not.toThrow();
+
+        // (d) VCS root changed in isolation (everything else matching).
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: "graph-1",
+            vcsRoot: "/repo",
+        }, v2Config, {
+            workflowHash: "graph-1",
+            entryWorkflowHash: "entry",
+            vcsRoot: "/repo2",
+        }, "/tmp/wf.ts")).toThrow("VCS root changed");
+        // ...but a trailing-slash-only difference is resolve()-normalized => no throw.
+        expect(() => I.assertResumeDurabilityMetadata({
+            workflowPath: "/tmp/wf.ts",
+            workflowHash: "graph-1",
+            vcsRoot: "/repo",
+        }, v2Config, {
+            workflowHash: "graph-1",
+            entryWorkflowHash: "entry",
+            vcsRoot: "/repo/",
+        }, "/tmp/wf.ts")).not.toThrow();
+    });
+
     test("parses run config/auth and validates run options", () => {
         expect(I.resolveRootDir({ rootDir: "/tmp/root" }, null)).toBe("/tmp/root");
         expect(I.resolveLogDir("/tmp/root", "run", null)).toBeUndefined();
