@@ -3670,6 +3670,12 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     await traceCollector.flush();
                 }
                 agentResult = result;
+                // The agent's resolved model id is authoritative only after the
+                // call returns. Refresh the span-tag model so it isn't the agent's
+                // unset/placeholder model (CLI agents often carry a random-UUID id).
+                if (typeof result?.response?.modelId === "string" && result.response.modelId.length > 0) {
+                    attemptMeta.agentModel = result.response.modelId;
+                }
                 if (!conversationMessages) {
                     const responseMessages = Array.isArray(result?.response?.messages)
                         ? (cloneJsonValue(result.response.messages) ?? result.response.messages)
@@ -3712,14 +3718,24 @@ async function legacyExecuteTask(adapter, db, runId, desc, descriptorMap, inputT
                     const cacheWriteTokens = usage.inputTokenDetails?.cacheWriteTokens ?? usage.cacheWriteTokens ?? undefined;
                     const reasoningTokens = usage.outputTokenDetails?.reasoningTokens ?? usage.reasoningTokens ?? undefined;
                     if (inputTokens > 0 || outputTokens > 0) {
+                        // Prefer the authoritative resolved model id from the result.
+                        // effectiveAgent.model is often unset (SDK agents) or, for CLI
+                        // agents, falls through to a random-UUID id — which both breaks
+                        // per-model cost attribution and explodes metric label
+                        // cardinality. result.response.modelId carries the real id.
+                        const reportedModelId = (typeof result?.response?.modelId === "string" && result.response.modelId.length > 0
+                            ? result.response.modelId
+                            : undefined) ??
+                            (typeof effectiveAgent.model === "string" ? effectiveAgent.model : undefined) ??
+                            "unknown";
                         void eventBus.emitEventQueued({
                             type: "TokenUsageReported",
                             runId,
                             nodeId: desc.nodeId,
                             iteration: desc.iteration,
                             attempt: attemptNo,
-                            model: effectiveAgent.model ?? effectiveAgent.id ?? "unknown",
-                            agent: effectiveAgent.id ?? effectiveAgent.constructor?.name ?? "unknown",
+                            model: reportedModelId,
+                            agent: (typeof effectiveAgent.id === "string" ? effectiveAgent.id : undefined) ?? effectiveAgent.constructor?.name ?? "unknown",
                             inputTokens,
                             outputTokens,
                             cacheReadTokens,
