@@ -1,6 +1,7 @@
 import { unwrapZodType } from "./unwrapZodType.js";
 import { columnType, SQLITE } from "./dialect.js";
 import { camelToSnake } from "./utils/camelToSnake.js";
+import { assertNoReservedColumns } from "./assertNoReservedColumns.js";
 /**
  * Determines the Zod base type name from a (possibly unwrapped) Zod type.
  */
@@ -61,6 +62,7 @@ export function zodSchemaColumns(schema) {
  * (`sqlite`) is byte-identical to the historical output.
  */
 export function zodToCreateTableSQL(tableName, schema, opts) {
+    assertNoReservedColumns(schema, tableName, opts);
     const dialect = opts?.dialect ?? SQLITE;
     const integer = columnType(dialect, "INTEGER");
     const colDefs = opts?.isInput

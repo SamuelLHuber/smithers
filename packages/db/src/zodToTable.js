@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer, real, primaryKey, } from "drizzle-orm/sqlite-core";
 import { assertZodV4 } from "@smithers-orchestrator/errors/assertZodV4";
+import { assertNoReservedColumns } from "./assertNoReservedColumns.js";
 import { unwrapZodType } from "./unwrapZodType.js";
 import { camelToSnake } from "./utils/camelToSnake.js";
 /**
@@ -32,6 +33,7 @@ export function zodToTable(tableName, schema, opts) {
     // resolve every field to "unknown" and degrade every column to JSON text.
     // Reject it up front with an actionable error instead.
     assertZodV4(schema, tableName);
+    assertNoReservedColumns(schema, tableName, opts);
     const columns = opts?.isInput
         ? { runId: text("run_id").primaryKey() }
         : {
