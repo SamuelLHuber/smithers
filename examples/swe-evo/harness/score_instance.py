@@ -121,9 +121,13 @@ def run(instance, patch_text, timeout_s, platform):
         log = proc.stdout + "\n" + proc.stderr
     except subprocess.TimeoutExpired as e:
         timed_out = True
-        log = (e.stdout or "") + "\n" + (e.stderr or "")
-        if isinstance(log, bytes):
-            log = log.decode("utf-8", "replace")
+        # TimeoutExpired.stdout/stderr come back as bytes even with text=True,
+        # so decode each part before concatenating (str + bytes raises TypeError).
+        def _as_text(x):
+            if x is None:
+                return ""
+            return x.decode("utf-8", "replace") if isinstance(x, (bytes, bytearray)) else x
+        log = _as_text(e.stdout) + "\n" + _as_text(e.stderr)
     duration = time.time() - t0
 
     candidate_applied = ("___CANDIDATE_OK_" in log) or ("___CANDIDATE_EMPTY___" in log)

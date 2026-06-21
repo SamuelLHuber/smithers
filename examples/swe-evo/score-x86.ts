@@ -117,95 +117,70 @@ function loadResults(): Record<string, any> {
   return {};
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  log(`x86 scoring ${args.ids.length} instance(s)${args.gold ? " (GOLD patch = candidate)" : ""}`);
+/**
+ * Score one instance on its OWN fresh VM. Per-instance isolation is essential:
+ * a single reused VM gets its 32GB rootfs exhausted by huge images (dask) and a
+ * timeout leaves Docker wedged, which poisoned every later instance with bogus
+ * 0/all results. A fresh VM per instance can't cross-contaminate.
+ */
+async function scoreOne(id: string, gold: boolean): Promise<any | null> {
+  const instPath = join(INSTANCES_DIR, `${id}.json`);
+  if (!existsSync(instPath)) return { instance_id: id, resolved: 0, scored_on: "x86", error: "no dataset entry" };
+  const instance = JSON.parse(readFileSync(instPath, "utf8"));
+  const candidate = gold
+    ? (instance.patch ?? "")
+    : (existsSync(join(CANDIDATES, `${id}.patch`)) ? readFileSync(join(CANDIDATES, `${id}.patch`), "utf8") : null);
+  if (candidate === null) return null; // no candidate generated yet
 
-  const { vm } = await retry("create-vm", () => freestyle.vms.create());
+  const { vm } = await retry(`create-vm ${id}`, () => freestyle.vms.create());
   const vmId = (vm as any).vmId ?? (vm as any).id;
-  log(`VM ${vmId} (x86_64, Docker pre-installed)`);
-
-  const results = loadResults();
+  log(`  ${id}: VM ${vmId} (image ${instance.image})`);
   try {
-    // Grow rootfs toward the 32 GB plan cap so a single large image fits
-    // (we prune between instances). Non-fatal: default 20 GB works for most.
     await retry("resize", () => vm.resize({ storage: 32 }), 2).catch(() => {});
     await retry("mkdir", () => vm.exec(`${ENV} mkdir -p /root/harness /root/work`));
-    // upload the self-contained harness once
     await putFile(vm, "/root/harness/score_instance.py", readFileSync(join(HARNESS, "score_instance.py"), "utf8"));
     await putFile(vm, "/root/harness/parsers.py", readFileSync(join(HARNESS, "parsers.py"), "utf8"));
-    const py = (await retry("py", () => vm.exec(`${ENV} python3 --version 2>&1`))) as any;
-    log(`python: ${py.stdout?.trim()}`);
+    await putFile(vm, "/root/work/inst.json", JSON.stringify(instance));
+    await putFile(vm, "/root/work/cand.patch", candidate);
 
-    for (const id of args.ids) {
-      const instPath = join(INSTANCES_DIR, `${id}.json`);
-      if (!existsSync(instPath)) {
-        log(`SKIP ${id}: no dataset entry`);
-        continue;
-      }
-      const instance = JSON.parse(readFileSync(instPath, "utf8"));
-      const candidate = args.gold
-        ? (instance.patch ?? "")
-        : (existsSync(join(CANDIDATES, `${id}.patch`)) ? readFileSync(join(CANDIDATES, `${id}.patch`), "utf8") : null);
-      if (candidate === null) {
-        log(`SKIP ${id}: no candidate at .data/candidates/${id}.patch (run gen-candidates.ts first)`);
-        continue;
-      }
-
-      log(`scoring ${id} (image ${instance.image}) ...`);
-      await putFile(vm, "/root/work/inst.json", JSON.stringify(instance));
-      await putFile(vm, "/root/work/cand.patch", candidate);
-
-      // vm.exec has a ~4-5 min ceiling, but an image pull + test run can run much
-      // longer. Launch scoring detached, then poll a short exec for the done flag.
-      await retry(`launch ${id}`, () =>
+    // vm.exec has a ~4-5 min ceiling, but an image pull + test run can run much
+    // longer. Launch scoring detached, then poll a short exec for the done flag.
+    await retry(`launch ${id}`, () =>
+      vm.exec(
+        `${ENV} sh -c 'rm -f /root/work/result.json /root/work/done; ` +
+          `nohup sh -c "cd /root/harness && python3 score_instance.py ` +
+          `--instance /root/work/inst.json --patch /root/work/cand.patch ` +
+          `--out /root/work/result.json --timeout ${SCORE_TIMEOUT_S} --platform linux/amd64 ` +
+          `> /root/work/score.log 2>&1; touch /root/work/done" >/dev/null 2>&1 & echo launched'`,
+      ),
+    );
+    const start = Date.now();
+    const deadline = start + (SCORE_TIMEOUT_S + 1200) * 1000; // + image-pull headroom
+    let out = "";
+    let polls = 0;
+    while (Date.now() < deadline) {
+      await sleep(15_000);
+      const p = (await retry(`poll ${id}`, () =>
         vm.exec(
-          `${ENV} sh -c 'rm -f /root/work/result.json /root/work/done; ` +
-            `nohup sh -c "cd /root/harness && python3 score_instance.py ` +
-            `--instance /root/work/inst.json --patch /root/work/cand.patch ` +
-            `--out /root/work/result.json --timeout ${SCORE_TIMEOUT_S} --platform linux/amd64 ` +
-            `> /root/work/score.log 2>&1; touch /root/work/done" >/dev/null 2>&1 & echo launched'`,
+          `${ENV} sh -c 'if [ -f /root/work/done ]; then echo ---DONE---; cat /root/work/result.json 2>/dev/null; else tail -1 /root/work/score.log 2>/dev/null; fi'`,
         ),
-      );
-      const deadline = Date.now() + (SCORE_TIMEOUT_S + 1200) * 1000; // + image-pull headroom
-      let out = "";
-      let polls = 0;
-      while (Date.now() < deadline) {
-        await sleep(15_000);
-        const p = (await retry(`poll ${id}`, () =>
-          vm.exec(
-            `${ENV} sh -c 'if [ -f /root/work/done ]; then echo ---DONE---; cat /root/work/result.json 2>/dev/null; else tail -1 /root/work/score.log 2>/dev/null; fi'`,
-          ),
-        ).catch(() => ({ stdout: "" }))) as any;
-        out = String(p.stdout ?? "");
-        if (out.includes("---DONE---")) break;
-        // heartbeat every ~minute so a slow pull / hang is visible
-        if (++polls % 4 === 0) log(`  ${id} … ${Math.round((Date.now() - (deadline - (SCORE_TIMEOUT_S + 1200) * 1000)) / 1000)}s | ${out.trim().slice(-100) || "(no log yet)"}`);
-      }
-      const marker = out.indexOf("---DONE---");
-      let parsed: any = null;
-      if (marker >= 0) {
-        try {
-          parsed = JSON.parse(out.slice(marker + "---DONE---".length).trim());
-        } catch {
-          /* fall through */
-        }
-      }
-      if (parsed && parsed.resolved != null) {
-        results[id] = { ...parsed, scored_on: "x86", gold_verify: args.gold };
-        log(`  ${id}: resolved=${parsed.resolved} fix=${parsed.fix_rate} F2P=${parsed.f2p_passed}/${parsed.f2p_total} P2P=${parsed.p2p_passed}/${parsed.p2p_total}`);
-      } else {
-        const t = (await retry(`tail ${id}`, () => vm.exec(`${ENV} tail -5 /root/work/score.log 2>/dev/null`)).catch(() => ({ stdout: "" }))) as any;
-        results[id] = { instance_id: id, resolved: 0, scored_on: "x86", gold_verify: args.gold, error: String(t.stdout ?? out).slice(-400) };
-        log(`  ${id}: NO RESULT (timeout/err) — ${String(t.stdout ?? "").slice(-200).replace(/\n/g, " ")}`);
-      }
-      mkdirSync(DATA, { recursive: true });
-      writeFileSync(OUT, JSON.stringify(results, null, 2));
-      // reclaim disk: drop the scored image + any dangling layers (32 GB cap)
-      await retry(`prune ${id}`, () => vm.exec(`${ENV} sh -c 'docker rm -f $(docker ps -aq) 2>/dev/null; docker image rm -f ${instance.image} 2>/dev/null; docker image prune -af 2>/dev/null; true'`)).catch(() => {});
+      ).catch(() => ({ stdout: "" }))) as any;
+      out = String(p.stdout ?? "");
+      if (out.includes("---DONE---")) break;
+      if (++polls % 4 === 0) log(`    ${id} … ${Math.round((Date.now() - start) / 1000)}s | ${out.trim().slice(-100) || "(no log yet)"}`);
     }
+    const marker = out.indexOf("---DONE---");
+    if (marker >= 0) {
+      try {
+        const parsed = JSON.parse(out.slice(marker + "---DONE---".length).trim());
+        if (parsed && parsed.resolved != null) return parsed;
+      } catch {
+        /* fall through */
+      }
+    }
+    const t = (await retry(`tail ${id}`, () => vm.exec(`${ENV} tail -5 /root/work/score.log 2>/dev/null`)).catch(() => ({ stdout: "" }))) as any;
+    return { instance_id: id, resolved: 0, error: String(t.stdout ?? out).slice(-400) || "timeout, no result" };
   } finally {
-    log("destroying VM...");
     try {
       await (vm as any).destroy?.();
     } catch {
@@ -216,8 +191,31 @@ async function main() {
     } catch {
       /* ignore */
     }
-    log(`done. results -> ${OUT}`);
   }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  log(`x86 scoring ${args.ids.length} instance(s)${args.gold ? " (GOLD patch = candidate)" : ""} — fresh VM per instance`);
+  const results = loadResults();
+  for (const id of args.ids) {
+    log(`scoring ${id} ...`);
+    const r = await scoreOne(id, args.gold).catch((e) => ({
+      instance_id: id,
+      resolved: 0,
+      error: String((e as Error)?.message ?? e).slice(0, 400),
+    }));
+    if (r === null) {
+      log(`  SKIP ${id}: no candidate at .data/candidates/${id}.patch`);
+      continue;
+    }
+    results[id] = { ...r, scored_on: "x86", gold_verify: args.gold };
+    mkdirSync(DATA, { recursive: true });
+    writeFileSync(OUT, JSON.stringify(results, null, 2));
+    if (results[id].error) log(`  ${id}: NO RESULT — ${String(results[id].error).slice(-150).replace(/\n/g, " ")}`);
+    else log(`  ${id}: resolved=${r.resolved} fix=${r.fix_rate} F2P=${r.f2p_passed}/${r.f2p_total} P2P=${r.p2p_passed}/${r.p2p_total}`);
+  }
+  log(`done. results -> ${OUT}`);
 }
 
 main().catch((e) => {
