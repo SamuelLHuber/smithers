@@ -1,17 +1,18 @@
 // Drives the extension hooks through React's real reconciler under happy-dom.
-// We provide a hand-rolled client that satisfies the SmithersGatewayClient
-// surface we exercise (extensionRpc, streamExtension) so the hooks see the
-// real shape they ship for production use.
+// Most hook mechanics use narrow clients; action error/order coverage uses an
+// in-process Gateway so HTTP extension RPC behavior is real.
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 // Other tests in this package also register happy-dom into the same bun
 // process. The second register() throws — guard so test order doesn't matter.
 try { GlobalRegistrator.register(); } catch { /* already registered */ }
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import type { Server } from "node:http";
 import { act, createElement, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { SmithersGatewayClient } from "@smithers-orchestrator/gateway-client";
+import { SmithersGatewayClient } from "@smithers-orchestrator/gateway-client";
+import { Gateway } from "@smithers-orchestrator/server/gateway";
 import {
   SmithersGatewayProvider,
   useGatewayExtensionAction,
@@ -25,6 +26,40 @@ type Harness = {
   render: (element: ReactElement) => Promise<void>;
   unmount: () => Promise<void>;
 };
+
+let runningGateway: Gateway | undefined;
+
+afterEach(async () => {
+  if (runningGateway) {
+    await runningGateway.close();
+    runningGateway = undefined;
+  }
+});
+
+function getPort(server: Server): number {
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Gateway test server did not expose a TCP port");
+  }
+  return address.port;
+}
+
+async function startGatewayClient(gateway: Gateway): Promise<SmithersGatewayClient> {
+  runningGateway = gateway;
+  const server = await gateway.listen({ port: 0, host: "127.0.0.1" });
+  return new SmithersGatewayClient({
+    baseUrl: `http://127.0.0.1:${getPort(server)}`,
+    fetch: Bun.fetch,
+  });
+}
+
+async function waitFor(predicate: () => boolean) {
+  for (let i = 0; i < 50; i += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("Timed out waiting for gateway extension call");
+}
 
 async function mountHarness(): Promise<Harness> {
   const container = document.createElement("div");
@@ -151,6 +186,103 @@ describe("useGatewayExtensionAction", () => {
     });
     expect(calls).toEqual([{ namespace: "ops", key: "restart", params: { service: "api" } }]);
     expect(hook?.data).toEqual({ ok: true });
+    expect(hook?.error).toBeUndefined();
+    expect(hook?.pending).toBe(false);
+    await harness.unmount();
+  });
+
+  test("call() surfaces gateway errors and clears pending", async () => {
+    const client = await startGatewayClient(
+      new Gateway().extend("github", {
+        actions: {
+          issue: {
+            handler: () => {
+              throw new Error("Missing scope");
+            },
+          },
+        },
+      }),
+    );
+
+    let hook: ReturnType<typeof useGatewayExtensionAction> | undefined;
+    function Probe() {
+      hook = useGatewayExtensionAction("github", "issue");
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(
+      createElement(SmithersGatewayProvider, { client }, createElement(Probe)),
+    );
+
+    let thrown: unknown;
+    await act(async () => {
+      try {
+        await hook!.call({});
+      } catch (error) {
+        thrown = error;
+      }
+    });
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toBe("Missing scope");
+    expect(hook?.data).toBeUndefined();
+    expect(hook?.error?.message).toBe("Missing scope");
+    expect(hook?.pending).toBe(false);
+    await harness.unmount();
+  });
+
+  test("stale double-call completion does not overwrite fresh data", async () => {
+    let resolveFirst: ((value: unknown) => void) | undefined;
+    const firstResponse = new Promise<unknown>((resolve) => { resolveFirst = resolve; });
+    const calls: Array<{ namespace: string; key: string; params: Record<string, unknown> }> = [];
+    const client = await startGatewayClient(
+      new Gateway().extend("ops", {
+        actions: {
+          restart: {
+            handler: (params, ctx) => {
+              calls.push({ namespace: ctx.namespace, key: ctx.key, params });
+              if (calls.length === 1) return firstResponse;
+              return { tag: params.tag };
+            },
+          },
+        },
+      }),
+    );
+
+    let hook: ReturnType<typeof useGatewayExtensionAction<{ tag: string }>> | undefined;
+    function Probe() {
+      hook = useGatewayExtensionAction<{ tag: string }>("ops", "restart");
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(
+      createElement(SmithersGatewayProvider, { client }, createElement(Probe)),
+    );
+
+    let firstCall: Promise<unknown> | undefined;
+    await act(async () => {
+      firstCall = hook!.call({ tag: "first" });
+      await waitFor(() => calls.length === 1);
+      const secondCall = hook!.call({ tag: "second" });
+      await secondCall;
+    });
+
+    expect(calls).toEqual([
+      { namespace: "ops", key: "restart", params: { tag: "first" } },
+      { namespace: "ops", key: "restart", params: { tag: "second" } },
+    ]);
+    expect(hook?.data).toEqual({ tag: "second" });
+    expect(hook?.error).toBeUndefined();
+    expect(hook?.pending).toBe(false);
+
+    await act(async () => {
+      resolveFirst?.({ tag: "stale" });
+      await firstCall;
+    });
+
+    expect(hook?.data).toEqual({ tag: "second" });
     expect(hook?.error).toBeUndefined();
     expect(hook?.pending).toBe(false);
     await harness.unmount();
