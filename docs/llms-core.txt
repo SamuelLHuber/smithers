@@ -5301,6 +5301,17 @@ The named pools in `.smithers/agents.ts` are intentionally bypass-free for
 interactive use, so do not reach for them in a detached workflow without adding
 the flags.
 
+### `--hot` is for a live process, not for resuming after edits
+
+Hot reload (`up --hot`) applies workflow and prompt edits on the next render
+frame of a process that is still running. It does not let you edit a workflow and
+then `--resume` a previously suspended run (for example a detached run paused at
+an approval gate): resume validates the source hash and rejects the changed file
+with `RESUME_METADATA_MISMATCH`, with or without `--hot`. Changing task IDs or the
+module graph always requires a fresh run. To iterate on a detached run that
+suspends at gates, either keep a live `up --hot` process attached, or start a new
+run and gate the already-finished phases off with an input flag so they skip.
+
 ### Never pin `cwd` on an agent you use inside `<Worktree>`
 
 A pinned `cwd` takes precedence over the per-task root, so the agent reads and
@@ -5325,6 +5336,10 @@ Smithers prefers `.jj` over `.git`. Pure Git repos run fine but cannot use `reve
 ### Worktree runs auto-rebase on resume
 
 On resume of a worktree run, Smithers rebases onto the base branch (default `main`) and continues even if the rebase fails. Expect the branch to move.
+
+### `<Worktree baseBranch>` must be a stable branch, not the current change
+
+`baseBranch` defaults to `main` and should name a committed branch or a described commit. Do not pass the current working-copy commit (for example `jj log -r @` output): a jj `@` snapshots the launcher's uncommitted changes into an undescribed commit, so the worktree inherits that dirty tree and its branch ends up based on a commit jj refuses to push ("Won't push commit ... since it has no description"). Omit `baseBranch` to use `main`, or pass an explicit clean branch name.
 
 ## Outputs
 
@@ -5484,6 +5499,7 @@ type RunOptions = {
   parentRunId?: string | null;
   input: Record<string, unknown>;
   maxConcurrency?: number;          // default 4
+  requireRerenderOnOutputChange?: boolean;  // default true; re-render the frame on every task completion
   onProgress?: (e: SmithersEvent) => void;
   signal?: AbortSignal;
   resume?: boolean;
