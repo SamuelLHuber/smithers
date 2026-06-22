@@ -1,9 +1,9 @@
 import * as react from 'react';
 import { ReactElement, ReactNode } from 'react';
 import * as _smithers_orchestrator_gateway_client from '@smithers-orchestrator/gateway-client';
-import { SmithersGatewayClientOptions, SmithersGatewayClient, GatewayCronRow, GatewayMemoryFactRow, GatewayRpcParams, GatewayRpcPayload, GatewayEventFrame, GatewayBackoffOptions, SyncTransport, SyncKey, GatewayRunSummaryRow, GatewayRunRow, GatewayWorkflowRow, GatewayApprovalRow, GatewayRunNode, GatewayRunEventRow, SyncStreamFrame } from '@smithers-orchestrator/gateway-client';
+import { SmithersGatewayClientOptions, SmithersGatewayClient, GatewayCronRow, GatewayMemoryFactRow, GatewayPromptRow, GatewayScoreRow, GatewayTicketRow, GatewayRpcParams, GatewayRpcPayload, GatewayEventFrame, GatewayBackoffOptions, SyncTransport, SyncKey, GatewayRunSummaryRow, GatewayRunRow, GatewayWorkflowRow, GatewayApprovalRow, GatewayRunNode, GatewayRunEventRow, SyncStreamFrame, ElectricCollectionConfig } from '@smithers-orchestrator/gateway-client';
 import * as _smithers_orchestrator_gateway_rpc from '@smithers-orchestrator/gateway/rpc';
-import { ListApprovalsRequest, ListApprovalsResponse, CronListRequest, GatewayRpcMethod, ListRunsRequest, ListWorkflowsRequest, ListWorkflowsResponse, ListMemoryFactsRequest } from '@smithers-orchestrator/gateway/rpc';
+import { ListApprovalsRequest, ListApprovalsResponse, CronListRequest, ListTicketsRequest, GatewayRpcMethod, ListRunsRequest, ListWorkflowsRequest, ListWorkflowsResponse, ListMemoryFactsRequest, ListPromptsRequest, ListScoresRequest } from '@smithers-orchestrator/gateway/rpc';
 import { Collection } from '@tanstack/react-db';
 
 declare function createGatewayReactRoot(element: ReactElement, options?: SmithersGatewayClientOptions & {
@@ -64,6 +64,39 @@ declare function useGatewayCrons(params?: CronListRequest): GatewayAsyncState<Ga
  * `useGatewayCrons`).
  */
 declare function useGatewayMemoryFacts(namespace?: string): GatewayAsyncState<GatewayMemoryFactRow[]>;
+
+/**
+ * Live registered-prompt list over the `prompts` collection (initial
+ * `listPrompts`, re-pulled on `invalidate`). The gateway enumerates the
+ * `.smithers/prompts/**.{md,mdx}` files on disk, so the rows are read-only on the
+ * wire (no write RPC) and this hook is query-only — the same `GatewayAsyncState`
+ * shape the other typed gateway hooks return (mirrors `useGatewayMemoryFacts`).
+ */
+declare function useGatewayPrompts(): GatewayAsyncState<GatewayPromptRow[]>;
+
+/**
+ * Live scorer/eval results for one run over the `scores` collection (initial
+ * `listScores`, re-pulled on `invalidate`). Pass a `runId` to list every score
+ * the run recorded; pass `nodeId` too to scope to one node. Scores are read-only
+ * on the wire (no write RPC), so this hook is query-only — the same
+ * `GatewayAsyncState` shape the other typed gateway hooks return (mirrors
+ * `useGatewayMemoryFacts`).
+ *
+ * An empty `runId` resolves to a stable, empty collection (no run selected yet),
+ * so consumers can call the hook unconditionally and render the empty state.
+ */
+declare function useGatewayScores(runId: string, nodeId?: string): GatewayAsyncState<GatewayScoreRow[]>;
+
+/**
+ * Live work docs (tickets/plans/specs/proposals) over the `tickets` collection
+ * (initial `listTickets`, re-pulled on `invalidate` — e.g. after a
+ * `createTicket` / `updateTicket` / `deleteTicket` mutation). `listTickets`
+ * returns only LIVE docs (soft-deleted tombstones are filtered server-side), so
+ * every row here is renderable. Pass a `kind` to scope to one doc kind; omit it
+ * to list every kind. Same `GatewayAsyncState` shape the other typed gateway
+ * hooks return (mirrors `useGatewayCrons` / `useGatewayMemoryFacts`).
+ */
+declare function useGatewayTickets(params?: ListTicketsRequest): GatewayAsyncState<GatewayTicketRow[]>;
 
 declare function useGatewayNodeOutput(params: {
     runId: string | undefined;
@@ -248,6 +281,12 @@ type GatewayCollections = {
     crons(params?: CronListRequest): Collection<GatewayCronRow, string>;
     /** Live cross-run memory facts (`listMemoryFacts`); keyed by the composite `${namespace}:${key}` (key is only unique within a namespace). */
     memoryFacts(params?: ListMemoryFactsRequest): Collection<GatewayMemoryFactRow, string>;
+    /** Live registered prompts (`listPrompts`, walked from `.smithers/prompts/`); keyed by `entryFile` (the relative source path WITH extension — unique per file; `id` strips the extension and is not unique). */
+    prompts(params?: ListPromptsRequest): Collection<GatewayPromptRow, string>;
+    /** Live scorer/eval results for one run (`listScores`); keyed by the composite `${runId}:${nodeId}:${iteration}:${scorerId}`. */
+    scores(params?: ListScoresRequest): Collection<GatewayScoreRow, string>;
+    /** Live work docs (`listTickets`, tombstones filtered); keyed by `path` (the doc identity). */
+    tickets(params?: ListTicketsRequest): Collection<GatewayTicketRow, string>;
     /** Flattened devtools run-node tree, reconciled per devtools frame. */
     nodes(runId: string): Collection<GatewayRunNode, string>;
     /** Bounded append-only run-event ring. */
@@ -304,6 +343,90 @@ declare function SyncProvider(props: {
  */
 declare function useSyncClient(): GatewayCollections;
 
+/**
+ * The minimal synchronous SQL surface the persistence store drives. A backend is
+ * an already-open SQLite database handle (the browser path opens one over an OPFS
+ * SAHPool VFS via `@sqlite.org/sqlite-wasm`; tests open an in-process WASM DB over
+ * the same `oo1.DB` API). Keeping the surface this small is what lets the *exact
+ * same* `PersistentCollectionStore` logic run in the browser and under the unit
+ * round-trip test with no mock — only the handle differs.
+ *
+ * Every method is synchronous because both the OPFS SAHPool VFS and the in-memory
+ * VFS expose synchronous `exec`; that is the whole reason the SAHPool VFS exists
+ * (it needs no cross-origin isolation / SharedArrayBuffer, unlike the async OPFS
+ * VFS). See `createSqliteWasmBackend`.
+ */
+type SqlBindValue = string | number | null;
+type PersistenceBackend = {
+    /** Run a statement with no result rows (DDL / INSERT / DELETE). */
+    run(sql: string, bind?: ReadonlyArray<SqlBindValue>): void;
+    /** Run a query, returning every row as a plain object. */
+    query(sql: string, bind?: ReadonlyArray<SqlBindValue>): ReadonlyArray<Record<string, SqlBindValue>>;
+    /** Flush durable state (OPFS SAHPool is durable on `exec`, but a checkpoint is cheap insurance). */
+    flush?(): void;
+    /** Close the underlying handle (best-effort; the page lifecycle usually owns this). */
+    close(): void;
+};
+
+type PersistedRow = {
+    key: string;
+    json: string;
+};
+/**
+ * The synchronous store surface `withPersistence` / `createGatewayCollections`
+ * consume. The in-process {@link PersistentCollectionStore} implements it over a
+ * single SQLite handle. An app that must run SQLite in a Worker (e.g. browser
+ * OPFS, whose synchronous access handles only exist off the main thread) supplies
+ * its own implementation: synchronous reads from an in-memory mirror seeded at
+ * boot, writes forwarded to the worker. Either way the reads MUST be synchronous
+ * so a collection's first sync commit hydrates from cache with no await — that is
+ * what removes the reload flash.
+ */
+interface GatewayCollectionStore {
+    /** All cached rows for one collection id, in stable key order. */
+    read(collectionId: string): PersistedRow[];
+    /** Insert-or-replace one row's JSON for a collection. */
+    put(collectionId: string, key: string, json: string): void;
+    /** Drop one row from a collection's cache. */
+    delete(collectionId: string, key: string): void;
+    /** Reconcile a collection's cache to exactly `rows` (upsert + delete missing). */
+    replace(collectionId: string, rows: ReadonlyArray<PersistedRow>): void;
+    /** Drop every cached row for one collection. */
+    clearCollection(collectionId: string): void;
+    /** Drop every cached row across all collections (sign-out / remote-mode swap). */
+    clearAll(): void;
+}
+declare class PersistentCollectionStore implements GatewayCollectionStore {
+    private readonly backend;
+    readonly schemaVersion: string;
+    private constructor();
+    /**
+     * Open the store over an already-connected backend, creating its tables and
+     * applying schemaVersion invalidation. Synchronous on purpose: the backend's
+     * `run`/`query` are synchronous (SAHPool / in-memory VFS), so the caller can
+     * hydrate a collection's *first* sync commit from cache with no await — that
+     * is what removes the reload flash.
+     */
+    static open(backend: PersistenceBackend, schemaVersion: string): PersistentCollectionStore;
+    /** All cached rows for one collection id, in stable key order. */
+    read(collectionId: string): PersistedRow[];
+    /** Insert-or-replace one row's JSON for a collection. */
+    put(collectionId: string, key: string, json: string): void;
+    /** Drop one row from a collection's cache. */
+    delete(collectionId: string, key: string): void;
+    /**
+     * Reconcile a collection's cache to exactly `rows` (replace semantics): upsert
+     * the given rows and delete any cached key not present. Wrapped in a single
+     * transaction so a reload never sees a half-applied snapshot.
+     */
+    replace(collectionId: string, rows: ReadonlyArray<PersistedRow>): void;
+    /** Drop every cached row for one collection. */
+    clearCollection(collectionId: string): void;
+    /** Drop every cached row across all collections (sign-out / remote-mode swap). */
+    clearAll(): void;
+    close(): void;
+}
+
 type CreateGatewayCollectionsOptions = {
     /**
      * The instrumented transport — apps/smithers passes one built over its
@@ -316,8 +439,162 @@ type CreateGatewayCollectionsOptions = {
     onAuthError?: (error: Error) => void;
     /** gcTime for the pollable list/query collections. Default 5 min. */
     listGcTime?: number;
+    /**
+     * Opt-in client-side persistence. When supplied (the app builds it with
+     * `createGatewayPersistence` over a SQLite-WASM/OPFS store), the *pollable list*
+     * collections (runs/approvals/crons/memory/scores/tickets/prompts/workflows)
+     * hydrate from the cache on the first render after a reload — no re-seed, no
+     * fetch flash — and write through every live change for the next reload.
+     *
+     * Per-run streamed collections (run/nodes/runEvents, `gcTime: 0`) are
+     * deliberately NOT persisted: they are ephemeral and re-stream on demand.
+     *
+     * Omit it and the registry behaves exactly as before (live-only). The live
+     * gateway path is never gated on persistence.
+     */
+    persistence?: {
+        store: GatewayCollectionStore;
+    };
+    /**
+     * Which sync source backs the pollable collections. The DEFAULT is `gateway`
+     * (the RPC + WebSocket transport above) — local builds and the existing
+     * `pnpm e2e:real` path are unchanged. Set `electric` (cloud mode) to feed the
+     * collections that have an Electric twin (today: `memoryFacts`) from an
+     * ElectricSQL shape instead; an `electric` config must accompany it. Any
+     * collection without an Electric twin transparently stays on the gateway, so
+     * the switch is incremental — extend it one `electricCollectionDefs` entry at
+     * a time.
+     */
+    syncSource?: "gateway" | "electric";
+    /**
+     * Electric shape transport config (required when `syncSource: "electric"`).
+     * `shapeUrl` is the absolute Electric shape endpoint (e.g. a same-origin
+     * `/v1/shape` proxy resolved to an absolute URL). Ignored when the source is
+     * `gateway`.
+     */
+    electric?: ElectricCollectionConfig;
 };
 declare function createGatewayCollections(options: CreateGatewayCollectionsOptions): GatewayCollections;
+
+/**
+ * Wire a {@link PersistenceBackend} over `@sqlite.org/sqlite-wasm`. The SQLite
+ * WASM module is *injected*, not imported here, for two reasons:
+ *
+ *   1. `@sqlite.org/sqlite-wasm` ships a `.wasm` asset that only a bundler (the
+ *      consuming app's Vite) can resolve with the right URL/headers — so the app
+ *      owns the import + `sqlite3InitModule()` call and hands us the ready module.
+ *   2. The unit round-trip test injects the *same* module (its Node build) over
+ *      an in-process DB, so the persistence logic is exercised for real with no
+ *      mock — only the VFS differs (browser OPFS SAHPool vs. in-memory).
+ *
+ * This file never references the package, so gateway-react needs no dependency on
+ * it; the app provides it.
+ */
+/** The slice of an `oo1.DB` instance we use — `exec` with the two row modes. */
+type Oo1Db = {
+    exec(opts: {
+        sql: string;
+        bind?: ReadonlyArray<SqlBindValue>;
+        rowMode?: "object";
+        returnValue?: "resultRows";
+    }): unknown;
+    exec(sql: string): unknown;
+    close(): void;
+};
+/** A constructor compatible with `sqlite3.oo1.DB` / `sqlite3.oo1.OpfsSAHPoolDb`. */
+type Oo1DbCtor = new (filename: string, flags?: string) => Oo1Db;
+/** The minimal SQLite-WASM module shape we consume (a subset of `Sqlite3Static`). */
+type SqliteWasmModule = {
+    oo1: {
+        DB: Oo1DbCtor;
+    };
+    installOpfsSAHPoolVfs?: (opts: {
+        name?: string;
+        directory?: string;
+        clearOnInit?: boolean;
+    }) => Promise<{
+        OpfsSAHPoolDb: Oo1DbCtor;
+    }>;
+};
+/**
+ * Open a {@link PersistenceBackend} for the *browser*, backed by an OPFS SAHPool
+ * VFS so writes survive a page reload **without** cross-origin isolation
+ * (SharedArrayBuffer): the SAHPool VFS uses synchronous OPFS access handles, so
+ * no COOP/COEP headers are required.
+ *
+ * **Contract: this NEVER rejects for "OPFS/SAHPool not usable here".** It resolves
+ * `null` whenever a usable OPFS-backed VFS cannot be obtained, so the caller can
+ * run live-only rather than have app startup fail. That covers more than plain
+ * feature absence:
+ *
+ *   - no `navigator.storage.getDirectory` (SSR / locked-down context);
+ *   - the build lacks `installOpfsSAHPoolVfs`;
+ *   - `createSyncAccessHandle` is missing on `FileSystemFileHandle` (the SAHPool
+ *     VFS requires it and `installOpfsSAHPoolVfs()` would otherwise reject);
+ *   - the install **rejects** — a permission failure, or an OPFS pool already
+ *     **locked** by another tab/worker (SAHPool takes an exclusive lock, so a
+ *     second context's install rejects);
+ *   - opening the `OpfsSAHPoolDb` over the installed VFS throws.
+ *
+ * Any of these resolves `null`. We do not feature-probe `createSyncAccessHandle`
+ * separately *instead of* the try/catch — a probe can pass yet the install still
+ * reject (locked pool, quota) — so the try/catch is the real guarantee and the
+ * probe is just an early, allocation-free bail.
+ */
+declare function openOpfsSahPoolBackend(sqlite3: SqliteWasmModule, options?: {
+    directory?: string;
+    dbName?: string;
+}): Promise<PersistenceBackend | null>;
+/**
+ * Open a {@link PersistenceBackend} over a *plain* `oo1.DB` handle (a file name
+ * or `:memory:`). Used by the unit round-trip test to exercise the exact same
+ * `PersistentCollectionStore` logic the browser runs, against a real SQLite-WASM
+ * DB — no mock.
+ */
+declare function openDbBackend(sqlite3: SqliteWasmModule, filename?: string): PersistenceBackend;
+
+/**
+ * The persistence handle `createGatewayCollections` consumes. It is just an
+ * already-open {@link PersistentCollectionStore} plus a `dispose`. Building it is
+ * async (SQLite-WASM init + OPFS VFS install), so the app awaits it *before*
+ * constructing the collections registry — the registry needs the store
+ * synchronously so it can hydrate a collection's first sync commit with no await.
+ */
+type GatewayPersistence = {
+    store: PersistentCollectionStore;
+    dispose(): void;
+};
+type CreateGatewayPersistenceOptions = {
+    /**
+     * The SQLite-WASM module the app already initialized via
+     * `sqlite3InitModule()`. Injected (not imported) so gateway-react carries no
+     * dependency on `@sqlite.org/sqlite-wasm` and the app's bundler owns the
+     * `.wasm` asset resolution.
+     */
+    sqlite3: SqliteWasmModule;
+    /**
+     * Bump whenever a `Gateway*Row` shape or the collection-id scheme changes. A
+     * mismatch with the persisted version drops the whole cache on open, so a
+     * reload after a bump shows live data, never stale-shaped rows.
+     */
+    schemaVersion: string;
+    /** OPFS directory for the SAHPool VFS (default `smithers-gateway-cache`). */
+    directory?: string;
+    /** DB file name inside the VFS (default `gateway-collections.sqlite3`). */
+    dbName?: string;
+    /**
+     * Force a plain (non-OPFS) DB — used by tests to drive the same store logic
+     * over an in-process WASM DB. In the browser, leave this unset.
+     */
+    forcePlainDbFile?: string;
+};
+/**
+ * Open the gateway persistence store. In the browser it uses an OPFS SAHPool VFS
+ * (durable across reload, **no** cross-origin isolation required). Returns `null`
+ * when durable storage is unavailable (SSR / no OPFS) so the caller runs
+ * live-only — the live gateway path is never gated on persistence succeeding.
+ */
+declare function createGatewayPersistence(options: CreateGatewayPersistenceOptions): Promise<GatewayPersistence | null>;
 
 /**
  * Declarative data fetching for the sync registry. Backed by TanStack DB's
@@ -473,4 +750,4 @@ type UseGatewayConnectionStatusResult = {
  */
 declare function useGatewayConnectionStatus(): UseGatewayConnectionStatusResult;
 
-export { type CreateGatewayCollectionsOptions, type GatewayAsyncState, type GatewayCollections, type GatewayConnectionState, type GatewayConnectionStatus, type GatewayExtensionStreamState, type GatewayQueryHandle, type GatewayQueryRow, type GatewayStreamHandle, type GatewayStreamRow, type NodeStatus, SmithersGatewayContext, SmithersGatewayProvider, SyncContext, type SyncMutationOptions, SyncProvider, type UseGatewayConnectionStatusResult, type UseGatewayRunTreeResult, type UseSyncMutationResult, type UseSyncMutationStatus, type UseSyncQueryOptions, type UseSyncQueryResult, type UseSyncSubscriptionOptions, type UseSyncSubscriptionResult, createGatewayCollections, createGatewayReactRoot, useGatewayActions, useGatewayApprovals, useGatewayConnectionStatus, useGatewayCrons, useGatewayExtensionAction, useGatewayExtensionResource, useGatewayExtensionStream, useGatewayMemoryFacts, useGatewayMutation, useGatewayNodeOutput, useGatewayQuery, useGatewayRpc, useGatewayRun, useGatewayRunEvents, useGatewayRunStream, useGatewayRunTree, useGatewayRuns, useGatewayWorkflows, useSmithersGateway, useSyncClient, useSyncMutation, useSyncQuery, useSyncSubscription };
+export { type CreateGatewayCollectionsOptions, type CreateGatewayPersistenceOptions, type GatewayAsyncState, type GatewayCollectionStore, type GatewayCollections, type GatewayConnectionState, type GatewayConnectionStatus, type GatewayExtensionStreamState, type GatewayPersistence, type GatewayQueryHandle, type GatewayQueryRow, type GatewayStreamHandle, type GatewayStreamRow, type NodeStatus, type PersistedRow, type PersistenceBackend, PersistentCollectionStore, SmithersGatewayContext, SmithersGatewayProvider, type SqliteWasmModule, SyncContext, type SyncMutationOptions, SyncProvider, type UseGatewayConnectionStatusResult, type UseGatewayRunTreeResult, type UseSyncMutationResult, type UseSyncMutationStatus, type UseSyncQueryOptions, type UseSyncQueryResult, type UseSyncSubscriptionOptions, type UseSyncSubscriptionResult, createGatewayCollections, createGatewayPersistence, createGatewayReactRoot, openDbBackend, openOpfsSahPoolBackend, useGatewayActions, useGatewayApprovals, useGatewayConnectionStatus, useGatewayCrons, useGatewayExtensionAction, useGatewayExtensionResource, useGatewayExtensionStream, useGatewayMemoryFacts, useGatewayMutation, useGatewayNodeOutput, useGatewayPrompts, useGatewayQuery, useGatewayRpc, useGatewayRun, useGatewayRunEvents, useGatewayRunStream, useGatewayRunTree, useGatewayRuns, useGatewayScores, useGatewayTickets, useGatewayWorkflows, useSmithersGateway, useSyncClient, useSyncMutation, useSyncQuery, useSyncSubscription };

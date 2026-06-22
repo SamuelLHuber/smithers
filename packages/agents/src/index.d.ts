@@ -1352,7 +1352,6 @@ declare class AntigravityAgent extends BaseCliAgent {
         } | undefined;
     }>;
 }
-type AgentCapabilityRegistry$3 = AgentCapabilityRegistry$7;
 type CliOutputInterpreter$2 = CliOutputInterpreter$b;
 type AntigravityAgentOptions = AntigravityAgentOptions$1;
 

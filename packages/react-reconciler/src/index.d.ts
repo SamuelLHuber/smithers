@@ -36,35 +36,15 @@ declare class SmithersRenderer {
    * @returns {HostNode | null}
    */
     getRoot(): HostNode | null;
+    #private;
 }
 type ExtractGraph = _smithers_orchestrator_graph_types.ExtractGraph;
 type ExtractOptions = _smithers_orchestrator_graph_types.ExtractOptions;
 type HostContainer = HostContainer$1;
-type MutableHostElement = _smithers_orchestrator_graph_types.HostElement & {
-    props: Record<string, string>;
-    rawProps: Record<string, unknown>;
-    children: HostNode[];
-};
 type HostNode = _smithers_orchestrator_graph_types.HostNode;
-type MutableHostText = _smithers_orchestrator_graph_types.HostText & {
-    text: string;
-};
 type React = React$1.default;
 type SmithersRendererOptions = SmithersRendererOptions$1;
 type WorkflowGraph = _smithers_orchestrator_graph_types.WorkflowGraph;
-/**
- * Minimal local shape for a react-reconciler instance. `@types/react-reconciler`
- * is not installed here, so we describe only the methods we call.
- */
-type ReconcilerInstance = {
-    createContainer: (rootContainer: unknown, tag: number, hydrationCallbacks: unknown, isStrictMode: boolean, concurrentUpdatesByDefaultOverride: unknown, identifierPrefix: string, onUncaughtError: unknown, onCaughtError: unknown, onRecoverableError: unknown, transitionCallbacks: unknown) => unknown;
-    updateContainerSync: (element: unknown, container: unknown, parentComponent: unknown, callback: () => void) => void;
-    flushSyncWork: () => void;
-    injectIntoDevTools: (devtools: unknown) => void;
-    defaultOnUncaughtError: unknown;
-    defaultOnCaughtError: unknown;
-    defaultOnRecoverableError: unknown;
-};
 
 /**
  * @template [Schema=unknown]
@@ -85,4 +65,4 @@ declare function createSmithersContext<Schema>(): {
 /** @type {React.Context<SmithersCtx<any> | null>} */
 declare const SmithersContext: React__default.Context<SmithersCtx<any> | null>;
 
-export { type ExtractGraph, type ExtractOptions, type HostContainer, type HostNode, type MutableHostElement, type MutableHostText, type React, ReactWorkflowDriver, type ReconcilerInstance, SmithersContext, SmithersRenderer, type SmithersRendererOptions, type WorkflowGraph, createSmithersContext };
+export { ReactWorkflowDriver, SmithersContext, SmithersRenderer, createSmithersContext };

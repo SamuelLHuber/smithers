@@ -269,9 +269,6 @@ type ForkParams$2 = {
     forkDescription?: string;
 };
 
-/** @typedef {import("./RevertOptions.ts").RevertOptions} RevertOptions */
-/** @typedef {import("./RevertResult.ts").RevertResult} RevertResult */
-/** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
 /**
  * @param {SmithersDb} adapter
  * @param {RevertOptions} opts
@@ -985,6 +982,10 @@ declare const smithersVcsTags: drizzle_orm_sqlite_core.SQLiteTableWithColumns<{
     dialect: "sqlite";
 }>;
 
+declare const JUMP_RUN_ID_PATTERN: RegExp;
+
+declare const JUMP_MAX_FRAME_NO: 2147483647;
+
 declare class JumpToFrameError extends Error {
     /**
      * @param {string} code
@@ -1018,8 +1019,6 @@ declare function validateJumpRunId(runId: unknown): string;
  * @returns {number}
  */
 declare function validateJumpFrameNo(frameNo: unknown): number;
-declare const JUMP_RUN_ID_PATTERN: RegExp;
-declare const JUMP_MAX_FRAME_NO: number;
 
 /**
  * Rewind a run to a previous frame and make it resumable from that point.
@@ -1223,4 +1222,4 @@ type RevertResult = RevertResult$2;
 type TimeTravelOptions = TimeTravelOptions$2;
 type TimeTravelResult = TimeTravelResult$2;
 
-export { type BranchInfo, type ForkParams, type JumpResult, type JumpStepName, JumpToFrameError, type JumpToFrameInput, type NodeChange, type NodeSnapshot, type OutputChange, type ParsedSnapshot, REWIND_RATE_LIMIT_MAX, REWIND_RATE_LIMIT_WINDOW_MS, type RalphChange, type RalphSnapshot, type ReplayParams, type ReplayResult, type RevertOptions, type RevertResult, type RewindAuditResult, type RewindLockHandle, type RunTimeline, type Snapshot, type SnapshotData, type SnapshotDiff, type TimeTravelOptions, type TimeTravelResult, type TimelineFrame, type TimelineTree, type VcsTag, acquireRewindLock, buildTimeline, buildTimelineTree, captureSnapshot, countRecentRewindAuditRows, diffRawSnapshots, diffSnapshots, evaluateRewindRateLimit, forkRun, formatDiffAsJson, formatDiffForTui, formatTimelineAsJson, formatTimelineForTui, getBranchInfo, hasRewindLock, jumpToFrame, JUMP_MAX_FRAME_NO, JUMP_RUN_ID_PATTERN, listBranches, listRewindAuditRows, listSnapshots, loadLatestSnapshot, loadSnapshot, loadVcsTag, parseSnapshot, recoverInProgressRewindAudits, replayFromCheckpoint, rerunAtRevision, resetRewindLocksForTests, resolveWorkflowAtRevision, revertToAttempt, smithersBranches, smithersSnapshots, smithersVcsTags, tagSnapshotVcs, timeTravel, updateRewindAuditRow, validateJumpFrameNo, validateJumpRunId, writeRewindAuditRow };
+export { type BranchInfo, type ForkParams, JUMP_MAX_FRAME_NO, JUMP_RUN_ID_PATTERN, type JumpResult, type JumpStepName, JumpToFrameError, type JumpToFrameInput, type NodeChange, type NodeSnapshot, type OutputChange, type ParsedSnapshot, REWIND_RATE_LIMIT_MAX, REWIND_RATE_LIMIT_WINDOW_MS, type RalphChange, type RalphSnapshot, type ReplayParams, type ReplayResult, type RevertOptions, type RevertResult, type RewindAuditResult, type RewindLockHandle, type RunTimeline, type Snapshot, type SnapshotData, type SnapshotDiff, type TimeTravelOptions, type TimeTravelResult, type TimelineFrame, type TimelineTree, type VcsTag, acquireRewindLock, buildTimeline, buildTimelineTree, captureSnapshot, countRecentRewindAuditRows, diffRawSnapshots, diffSnapshots, evaluateRewindRateLimit, forkRun, formatDiffAsJson, formatDiffForTui, formatTimelineAsJson, formatTimelineForTui, getBranchInfo, hasRewindLock, jumpToFrame, listBranches, listRewindAuditRows, listSnapshots, loadLatestSnapshot, loadSnapshot, loadVcsTag, parseSnapshot, recoverInProgressRewindAudits, replayFromCheckpoint, rerunAtRevision, resetRewindLocksForTests, resolveWorkflowAtRevision, revertToAttempt, smithersBranches, smithersSnapshots, smithersVcsTags, tagSnapshotVcs, timeTravel, updateRewindAuditRow, validateJumpFrameNo, validateJumpRunId, writeRewindAuditRow };

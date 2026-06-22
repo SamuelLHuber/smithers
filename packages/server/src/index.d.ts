@@ -737,6 +737,22 @@ declare class Gateway {
    */
     sendRunEventStreamFrame(connection: ConnectionState, streamId: string, frame: Record<string, unknown>): void;
     /**
+   * Drain a run event stream's outbound queue against the socket's buffered
+   * bytes. If the socket is congested past the high-water mark we re-arm a
+   * short retry instead of dropping frames; the queue cap (enforced at enqueue
+   * time) is what bounds memory and trips the slow-consumer disconnect.
+   * @param {ConnectionState} connection
+   * @param {RunEventStreamState} stream
+   */
+    drainRunEventStream(connection: ConnectionState, stream: RunEventStreamState): void;
+    /**
+   * Tear down a single slow run event subscriber whose outbound queue overflowed.
+   * The WS connection itself stays open so other streams keep receiving events.
+   * @param {ConnectionState} connection
+   * @param {RunEventStreamState} stream
+   */
+    disconnectRunEventStreamForBackpressure(connection: ConnectionState, stream: RunEventStreamState): void;
+    /**
    * @param {ConnectionState} connection
    * @param {string} streamId
    * @param {string} runId
@@ -941,6 +957,11 @@ declare class Gateway {
     /**
    * @param {IncomingMessage} req
    * @param {ServerResponse} res
+   */
+    handleElectricWrite(req: IncomingMessage, res: ServerResponse$1): Promise<void>;
+    /**
+   * @param {IncomingMessage} req
+   * @param {ServerResponse} res
    * @param {string} [forcedMethod]
    */
     handleHttpRpc(req: IncomingMessage, res: ServerResponse$1, forcedMethod?: string): Promise<void>;
@@ -1013,6 +1034,25 @@ declare class Gateway {
    * @param {string | null} [namespace]
    */
     listMemoryFactsAcrossWorkflows(namespace?: string | null): Promise<any[]>;
+    /**
+   * Registered agent accounts for the `listAccounts` RPC. Accounts are the rows
+   * in the USER-level `~/.smithers/accounts.json` registry that the
+   * `smithers agents` CLI manages (resolved via `accountsRoot(process.env)`,
+   * honoring `SMITHERS_HOME`/`HOME`) — NOT a per-workspace DB table. So, like
+   * `listPromptsFromDisk` but at the user root, this reads the file directly
+   * through the `@smithers-orchestrator/accounts` package's `listAccounts()` and
+   * maps each entry onto the wire `GatewayAccount` shape.
+   *
+   * SECRET REDACTION: an account may carry a raw `apiKey` (a plaintext
+   * credential stored mode-600 on disk). The key is NEVER returned — instead
+   * `hasApiKey` reports whether a non-empty key is set and `hasConfigDir`
+   * reports whether a subscription account has a config dir, so the client can
+   * render the auth posture without ever receiving the secret. A malformed
+   * registry surfaces as a thrown `SmithersError` (→ the dispatcher's error
+   * envelope); a missing file is a clean empty list (the package's own default).
+   * @returns {Array<Record<string, unknown>>}
+   */
+    listAccountsFromRegistry(): Array<Record<string, unknown>>;
     /**
    * Registered prompts for the `listPrompts` RPC. A prompt is a `.md`/`.mdx`
    * file under the workspace's `.smithers/prompts/` directory — the SAME real
@@ -1130,6 +1170,15 @@ declare class Gateway {
         allowedUsers: any;
         autoApprove: any;
     }[]>;
+    /**
+   * @param {{ kind?: string; includeDeleted?: boolean; updatedAfterMs?: number; limit?: number }} [options]
+   */
+    listDocsAcrossWorkflows(options?: {
+        kind?: string;
+        includeDeleted?: boolean;
+        updatedAfterMs?: number;
+        limit?: number;
+    }): Promise<any[]>;
     listCrons(): Promise<any[]>;
     /**
    * @param {string} cronId
@@ -1241,6 +1290,14 @@ type HelloResponse = HelloResponse$1;
 type GatewayWebhookRunConfig = GatewayWebhookRunConfig$1;
 type GatewayWebhookSignalConfig = GatewayWebhookSignalConfig$1;
 type ConnectRequest = ConnectRequest$1;
+type RunEventStreamState = {
+    streamId: string;
+    runId: string;
+    heartbeat: unknown;
+    outboundQueue: Record<string, unknown>[];
+    flushPending: boolean;
+    backpressureDisconnected: boolean;
+};
 type GatewayAuthConfig = GatewayAuthConfig$1;
 type GatewayOperatorUiConfig = GatewayOperatorUiConfig$1;
 type GatewayOptions = GatewayOptions$1;
@@ -1268,7 +1325,7 @@ type ConnectionState = {
     role: string;
     scopes: string[];
     userId: string | null;
-    subscribe?: Set<string>;
+    subscribedRuns?: Set<string>;
     heartbeat?: unknown;
     lastActivity?: number;
     closed?: boolean;
@@ -1685,4 +1742,4 @@ type RunRow = _smithers_orchestrator_db_adapter_RunRow.RunRow;
 type ServerResponse = node_http.ServerResponse;
 type ServerOptions = ServerOptions$1;
 
-export { type AttemptRow, type ConnectRequest, type ConnectionState, DEVTOOLS_BACKPRESSURE_LIMIT, DEVTOOLS_EMPTY_ROOT_ID, DEVTOOLS_MAX_FRAME_NO, DEVTOOLS_POLL_INTERVAL_MS, DEVTOOLS_REBASELINE_INTERVAL, DEVTOOLS_RUN_ID_PATTERN, DEVTOOLS_TREE_MAX_DEPTH, type DevToolsEvent, type DevToolsNode, type DevToolsNodeType, DevToolsRouteError, type DiffSummary, EXTENSION_BACKPRESSURE_DISCONNECT_CODE, EXTENSION_METHOD_NOT_FOUND_CODE, EXTENSION_METHOD_PREFIX, EXTENSION_PAYLOAD_MAX_BYTES, EXTENSION_STREAM_METHOD_PREFIX, EXTENSION_STREAM_OUTBOUND_QUEUE_LIMIT, EXTENSION_WS_BUFFERED_HIGH_WATER_BYTES, type EventFrame, GATEWAY_FRAME_ID_MAX_LENGTH, GATEWAY_METHOD_NAME_MAX_LENGTH, GATEWAY_RPC_INPUT_MAX_BYTES, GATEWAY_RPC_INPUT_MAX_DEPTH, GATEWAY_RPC_MAX_ARRAY_LENGTH, GATEWAY_RPC_MAX_DEPTH, GATEWAY_RPC_MAX_PAYLOAD_BYTES, GATEWAY_RPC_MAX_STRING_LENGTH, Gateway, type GatewayAuthConfig, type GatewayDefaults, type GatewayExtensionAction, type GatewayExtensionContext, type GatewayExtensionDefinition, type GatewayExtensionResource, type GatewayExtensionStream, type GatewayExtensionStreamContext, GatewayExtensions, type GatewayMetricLabels, type GatewayOperatorUiConfig, type GatewayOptions, type GatewayRegisterOptions, type GatewayRequestContext, type GatewayScope, type GatewayTokenGrant, type GatewayTransport, type GatewayUiConfig, type GatewayUiMount, type GatewayWebhookConfig, type GatewayWebhookRunConfig, type GatewayWebhookSignalConfig, type GetNodeDiffRouteResult, type HelloResponse, ITERATION_MAX, type IncomingMessage, type JumpResult, NODE_ID_PATTERN, NODE_OUTPUT_MAX_BYTES, NODE_OUTPUT_WARN_BYTES, type NodeOutputErrorCode, type NodeOutputResponse, NodeOutputRouteError, RUN_ID_PATTERN, type RegisteredWorkflow, type RequestFrame, type ResolvedExtension, type ResolvedGatewayUiConfig, type ResolvedRun, type ResponseFrame, type RunRow, type RunStartAuthContext, type ServeOptions, type ServerOptions, type ServerResponse, type SmithersWorkflow, assertGatewayInputDepthWithinBounds, createServeApp, emptyDevToolsRoot, extensionMethodName, getDevToolsSnapshotRoute, getGatewayInputDepth, getNodeDiffRoute, getNodeOutputRoute, isExtensionMethod, jumpToFrameRoute, parseGatewayRequestFrame, parseXmlToDevToolsRoot, runFork, runPromise, runSync, snapshotFromFrameRow, startServer, startServerEffect, statusForRpcError, streamDevToolsRoute, summarizeBundle, validateFrameNoInput, validateFromSeqInput, validateGatewayMethodName, validateRequestedFrameNo, validateRunId };
+export { type AttemptRow, type ConnectRequest, type ConnectionState, DEVTOOLS_BACKPRESSURE_LIMIT, DEVTOOLS_EMPTY_ROOT_ID, DEVTOOLS_MAX_FRAME_NO, DEVTOOLS_POLL_INTERVAL_MS, DEVTOOLS_REBASELINE_INTERVAL, DEVTOOLS_RUN_ID_PATTERN, DEVTOOLS_TREE_MAX_DEPTH, type DevToolsEvent, type DevToolsNode, type DevToolsNodeType, DevToolsRouteError, type DiffSummary, EXTENSION_BACKPRESSURE_DISCONNECT_CODE, EXTENSION_METHOD_NOT_FOUND_CODE, EXTENSION_METHOD_PREFIX, EXTENSION_PAYLOAD_MAX_BYTES, EXTENSION_STREAM_METHOD_PREFIX, EXTENSION_STREAM_OUTBOUND_QUEUE_LIMIT, EXTENSION_WS_BUFFERED_HIGH_WATER_BYTES, type EventFrame, GATEWAY_FRAME_ID_MAX_LENGTH, GATEWAY_METHOD_NAME_MAX_LENGTH, GATEWAY_RPC_INPUT_MAX_BYTES, GATEWAY_RPC_INPUT_MAX_DEPTH, GATEWAY_RPC_MAX_ARRAY_LENGTH, GATEWAY_RPC_MAX_DEPTH, GATEWAY_RPC_MAX_PAYLOAD_BYTES, GATEWAY_RPC_MAX_STRING_LENGTH, Gateway, type GatewayAuthConfig, type GatewayDefaults, type GatewayExtensionAction, type GatewayExtensionContext, type GatewayExtensionDefinition, type GatewayExtensionResource, type GatewayExtensionStream, type GatewayExtensionStreamContext, GatewayExtensions, type GatewayMetricLabels, type GatewayOperatorUiConfig, type GatewayOptions, type GatewayRegisterOptions, type GatewayRequestContext, type GatewayScope, type GatewayTokenGrant, type GatewayTransport, type GatewayUiConfig, type GatewayUiMount, type GatewayWebhookConfig, type GatewayWebhookRunConfig, type GatewayWebhookSignalConfig, type GetNodeDiffRouteResult, type HelloResponse, ITERATION_MAX, type IncomingMessage, type JumpResult, NODE_ID_PATTERN, NODE_OUTPUT_MAX_BYTES, NODE_OUTPUT_WARN_BYTES, type NodeOutputErrorCode, type NodeOutputResponse, NodeOutputRouteError, RUN_ID_PATTERN, type RegisteredWorkflow, type RequestFrame, type ResolvedExtension, type ResolvedGatewayUiConfig, type ResolvedRun, type ResponseFrame, type RunEventStreamState, type RunRow, type RunStartAuthContext, type ServeOptions, type ServerOptions, type ServerResponse, type SmithersWorkflow, assertGatewayInputDepthWithinBounds, createServeApp, emptyDevToolsRoot, extensionMethodName, getDevToolsSnapshotRoute, getGatewayInputDepth, getNodeDiffRoute, getNodeOutputRoute, isExtensionMethod, jumpToFrameRoute, parseGatewayRequestFrame, parseXmlToDevToolsRoot, runFork, runPromise, runSync, snapshotFromFrameRow, startServer, startServerEffect, statusForRpcError, streamDevToolsRoute, summarizeBundle, validateFrameNoInput, validateFromSeqInput, validateGatewayMethodName, validateRequestedFrameNo, validateRunId };

@@ -18,8 +18,8 @@ import * as _smithers_orchestrator_graph from '@smithers-orchestrator/graph';
 import * as _smithers_orchestrator_scheduler from '@smithers-orchestrator/scheduler';
 import * as _smithers_orchestrator_scheduler_CachePolicy from '@smithers-orchestrator/scheduler/CachePolicy';
 import { CachePolicy as CachePolicy$1 } from '@smithers-orchestrator/scheduler/CachePolicy';
-import * as React from 'react';
-import React__default from 'react';
+import * as React__default__default from 'react';
+import React__default__default__default from 'react';
 import * as zod from 'zod';
 import { z } from 'zod';
 import { SmithersError } from '@smithers-orchestrator/errors/SmithersError';
@@ -38,13 +38,13 @@ type WorktreeProps$2 = {
     /** Base branch for syncing worktrees (default: "main"). */
     baseBranch?: string;
     skipIf?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type WorkflowProps$2 = {
     name: string;
     cache?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 /** Valid output targets: a Zod schema (recommended), a Drizzle table object, or a string key (escape hatch). */
@@ -80,10 +80,10 @@ type WaitForEventProps$2 = {
 
 type TryCatchFinallyProps$2 = {
     id?: string;
-    try: React__default.ReactElement;
-    catch?: React__default.ReactElement | ((error: SmithersError) => React__default.ReactElement);
+    try: React__default__default__default.ReactElement;
+    catch?: React__default__default__default.ReactElement | ((error: SmithersError) => React__default__default__default.ReactElement);
     catchErrors?: SmithersErrorCode$1[];
-    finally?: React__default.ReactElement;
+    finally?: React__default__default__default.ReactElement;
     skipIf?: boolean;
 };
 
@@ -174,8 +174,8 @@ type TaskProps$2<Row, Output extends OutputTarget$1 = OutputTarget$1, D extends 
     label?: string;
     meta?: Record<string, unknown>;
     /** @internal Used by createSmithers() to bind tasks to the correct workflow context. */
-    smithersContext?: React__default.Context<SmithersCtx$1<unknown> | null>;
-    children?: string | Row | (() => Row | Promise<Row>) | React__default.ReactNode | ((deps: InferDeps$1<D>) => Row | React__default.ReactNode);
+    smithersContext?: React__default__default__default.Context<SmithersCtx$1<unknown> | null>;
+    children?: string | Row | (() => Row | Promise<Row>) | React__default__default__default.ReactNode | ((deps: InferDeps$1<D>) => Row | React__default__default__default.ReactNode);
 };
 
 type SupervisorProps$2 = {
@@ -200,14 +200,14 @@ type SupervisorProps$2 = {
     useWorktrees?: boolean;
     skipIf?: boolean;
     /** Goal/prompt for the boss agent. */
-    children: string | React__default.ReactNode;
+    children: string | React__default__default__default.ReactNode;
 };
 
 type SuperSmithersProps$2 = {
     /** Optional ID prefix for all generated task IDs. */
     id?: string;
     /** Markdown string or MDX component describing the intervention strategy. */
-    strategy: string | React__default.ReactElement;
+    strategy: string | React__default__default__default.ReactElement;
     /** Agent that reads code and decides modifications. */
     agent: AgentLike;
     /** Glob patterns of files the agent can modify. */
@@ -245,7 +245,7 @@ type SubflowProps$2 = {
     label?: string;
     meta?: Record<string, unknown>;
     key?: string;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type SourceDef$1 = {
@@ -254,7 +254,7 @@ type SourceDef$1 = {
     prompt?: string;
     /** Output schema for this specific source. Overrides `gatherOutput`. */
     output?: OutputTarget$1;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type SignalProps$2<Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>> = {
@@ -271,8 +271,8 @@ type SignalProps$2<Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.Zod
     label?: string;
     meta?: Record<string, unknown>;
     key?: string;
-    children?: (data: z.infer<Schema>) => React__default.ReactNode;
-    smithersContext?: React__default.Context<SmithersCtx$1<unknown> | null>;
+    children?: (data: z.infer<Schema>) => React__default__default__default.ReactNode;
+    smithersContext?: React__default__default__default.Context<SmithersCtx$1<unknown> | null>;
 };
 
 type SidecarProps$2 = {
@@ -282,15 +282,15 @@ type SidecarProps$2 = {
     output: OutputTarget$1;
     sidecarOutput?: OutputTarget$1;
     scorers?: ScorersMap$1;
-    prompt?: string | React__default.ReactNode;
-    input?: string | React__default.ReactNode;
+    prompt?: string | React__default__default__default.ReactNode;
+    input?: string | React__default__default__default.ReactNode;
     maxConcurrency?: number;
     groundTruth?: unknown;
     context?: unknown;
     primaryLabel?: string;
     sidecarLabel?: string;
     skipIf?: boolean;
-    children?: string | React__default.ReactNode;
+    children?: string | React__default__default__default.ReactNode;
 };
 
 type SidecarDelta$1 = {
@@ -303,7 +303,7 @@ type SidecarDelta$1 = {
 type SequenceProps$2 = {
     key?: string;
     skipIf?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type ScanFixVerifyProps$2 = {
@@ -330,7 +330,7 @@ type ScanFixVerifyProps$2 = {
     /** Skip the entire component. */
     skipIf?: boolean;
     /** Prompt/context describing what to scan for. */
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type SandboxWorkspaceSpec$1 = {
@@ -399,19 +399,19 @@ type SandboxProps$2 = {
     label?: string;
     meta?: Record<string, unknown>;
     key?: string;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type SagaStepProps$2 = {
     id: string;
-    compensation: React__default.ReactElement;
-    children: React__default.ReactElement;
+    compensation: React__default__default__default.ReactElement;
+    children: React__default__default__default.ReactElement;
 };
 
 type SagaStepDef$1 = {
     id: string;
-    action: React__default.ReactElement;
-    compensation: React__default.ReactElement;
+    action: React__default__default__default.ReactElement;
+    compensation: React__default__default__default.ReactElement;
     label?: string;
 };
 
@@ -420,7 +420,7 @@ type SagaProps$2 = {
     steps?: SagaStepDef$1[];
     onFailure?: "compensate" | "compensate-and-fail" | "fail";
     skipIf?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type RunbookStep$1 = {
@@ -476,7 +476,7 @@ type ReviewLoopProps$2 = {
     /** Skip the entire review loop. */
     skipIf?: boolean;
     /** Initial prompt for the producer (string or ReactNode). */
-    children: string | React__default.ReactNode;
+    children: string | React__default__default__default.ReactNode;
 };
 
 type LoopProps$2 = {
@@ -487,7 +487,7 @@ type LoopProps$2 = {
     onMaxReached?: "fail" | "return-last";
     continueAsNewEvery?: number;
     skipIf?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 /** @deprecated Use `LoopProps` instead. */
@@ -511,14 +511,14 @@ type PollerProps$2 = {
     /** Skip the entire component. */
     skipIf?: boolean;
     /** Prompt/condition description for the check agent. */
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type ParallelProps$2 = {
     id?: string;
     maxConcurrency?: number;
     skipIf?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type PanelistConfig$1 = {
@@ -537,7 +537,7 @@ type PanelProps$2 = {
     minAgree?: number;
     maxConcurrency?: number;
     skipIf?: boolean;
-    children: string | React__default.ReactNode;
+    children: string | React__default__default__default.ReactNode;
 };
 
 type OptimizerProps$2 = {
@@ -559,7 +559,7 @@ type OptimizerProps$2 = {
     /** Skip the entire optimization loop. */
     skipIf?: boolean;
     /** Initial generation prompt (string or ReactNode). */
-    children: string | React__default.ReactNode;
+    children: string | React__default__default__default.ReactNode;
 };
 
 /**
@@ -570,7 +570,7 @@ type MergeQueueProps$2 = {
     id?: string;
     maxConcurrency?: number;
     skipIf?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type ColumnTaskProps = Omit<Partial<TaskProps$2<unknown>>, "agent" | "children" | "id" | "key" | "output" | "smithersContext">;
@@ -608,7 +608,7 @@ type KanbanProps$2 = {
     /** Max iterations through the column pipeline. */
     maxIterations?: number;
     skipIf?: boolean;
-    children?: React__default.ReactNode | Record<string, unknown>;
+    children?: React__default__default__default.ReactNode | Record<string, unknown>;
 };
 
 type HumanTaskProps$2 = {
@@ -618,7 +618,7 @@ type HumanTaskProps$2 = {
     /** Zod schema the human must conform to. Used for validation. */
     outputSchema?: z.ZodObject<z.ZodRawShape>;
     /** Instructions for the human (string or ReactNode). */
-    prompt: string | React__default.ReactNode;
+    prompt: string | React__default__default__default.ReactNode;
     /** Max validation retries before failure. */
     maxAttempts?: number;
     /** Do not block unrelated downstream flow while waiting for human input. */
@@ -652,7 +652,7 @@ type GatherAndSynthesizeProps$2 = {
     /** Prompt for the synthesis task. If omitted, a default prompt is generated. */
     synthesisPrompt?: string;
     skipIf?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type EscalationLevel$1 = {
@@ -679,7 +679,7 @@ type EscalationChainProps$2 = {
     escalationOutput: OutputTarget$1;
     skipIf?: boolean;
     /** Prompt / input passed to each agent level. */
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type DriftDetectorProps$2 = {
@@ -698,7 +698,7 @@ type DriftDetectorProps$2 = {
     /** Condition function that determines whether to fire the alert. If omitted, uses `comparison.drifted === true`. */
     alertIf?: (comparison: unknown) => boolean;
     /** Element to render when drift is detected (e.g. a Task that sends a notification). */
-    alert?: React__default.ReactElement;
+    alert?: React__default__default__default.ReactElement;
     /** If set, wraps the detector in a Loop for periodic polling. */
     poll?: {
         /** Reserved for future delayed polling; maxPolls currently controls Loop iterations. */
@@ -713,7 +713,7 @@ type DecisionRule$1 = {
     /** Condition evaluated at render time. */
     when: boolean;
     /** Element to render when this rule matches. */
-    then: React__default.ReactElement;
+    then: React__default__default__default.ReactElement;
     /** Optional display label for the rule. */
     label?: string;
 };
@@ -724,7 +724,7 @@ type DecisionTableProps$2 = {
     /** Ordered list of rules. Each rule has a `when` condition and a `then` element. */
     rules: DecisionRule$1[];
     /** Fallback element rendered when no rules match. */
-    default?: React__default.ReactElement;
+    default?: React__default__default__default.ReactElement;
     /** `"first-match"` (default): first matching rule wins. `"all-match"`: all matching rules run in parallel. */
     strategy?: "first-match" | "all-match";
     skipIf?: boolean;
@@ -738,7 +738,7 @@ type DebateProps$2 = {
     rounds?: number;
     argumentOutput: OutputTarget$1;
     verdictOutput: OutputTarget$1;
-    topic: string | React__default.ReactNode;
+    topic: string | React__default__default__default.ReactNode;
     skipIf?: boolean;
 };
 
@@ -767,7 +767,7 @@ type ContentPipelineProps$2 = {
     /** Skip the entire pipeline. */
     skipIf?: boolean;
     /** Initial prompt/content for the first stage (string or ReactNode). */
-    children: string | React__default.ReactNode;
+    children: string | React__default__default__default.ReactNode;
 };
 
 type CategoryConfig$1 = {
@@ -801,7 +801,7 @@ type ClassifyAndRouteProps$2 = {
     /** Max parallel routes. */
     maxConcurrency?: number;
     skipIf?: boolean;
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type CheckConfig$1 = {
@@ -823,8 +823,8 @@ type CheckSuiteProps$2 = {
 
 type BranchProps$2 = {
     if: boolean;
-    then: React__default.ReactElement;
-    else?: React__default.ReactElement | null;
+    then: React__default__default__default.ReactElement;
+    else?: React__default__default__default.ReactElement | null;
     skipIf?: boolean;
 };
 
@@ -876,7 +876,7 @@ type AspectsProps$2 = {
     /** Which metrics to track. Defaults to all enabled. */
     tracking?: TrackingConfig;
     /** Workflow content these aspects apply to. */
-    children?: React__default.ReactNode;
+    children?: React__default__default__default.ReactNode;
 };
 
 type ApprovalMode$1 = "approve" | "select" | "rank";
@@ -926,8 +926,8 @@ type ApprovalProps$2<_Row = ApprovalDecision$1, Output extends OutputTarget$1 = 
     label?: string;
     meta?: Record<string, unknown>;
     key?: string;
-    children?: React__default.ReactNode;
-    smithersContext?: React__default.Context<SmithersCtx$1<unknown> | null>;
+    children?: React__default__default__default.ReactNode;
+    smithersContext?: React__default__default__default.Context<SmithersCtx$1<unknown> | null>;
 };
 
 type ApprovalRanking$1 = z.infer<typeof approvalRankingSchema>;
@@ -937,7 +937,7 @@ type ApprovalRanking$1 = z.infer<typeof approvalRankingSchema>;
  * @param {ApprovalProps<Row>} props
  * @returns {React.ReactElement | null}
  */
-declare function Approval<Row>(props: ApprovalProps$1<Row>): React__default.ReactElement | null;
+declare function Approval<Row>(props: ApprovalProps$1<Row>): React__default__default__default.ReactElement | null;
 /** @typedef {import("./ApprovalAutoApprove.ts").ApprovalAutoApprove} ApprovalAutoApprove */
 /** @typedef {import("./ApprovalMode.ts").ApprovalMode} ApprovalMode */
 /** @typedef {import("./ApprovalOption.ts").ApprovalOption} ApprovalOption */
@@ -987,7 +987,7 @@ type ApprovalGateProps$2 = {
  * @param {WorkflowProps} props
  * @returns {React.DOMElement<WorkflowProps, Element>}
  */
-declare function Workflow(props: WorkflowProps$1): React__default.DOMElement<WorkflowProps$1, Element>;
+declare function Workflow(props: WorkflowProps$1): React__default__default__default.DOMElement<WorkflowProps$1, Element>;
 type WorkflowProps$1 = WorkflowProps$2;
 
 /**
@@ -995,53 +995,53 @@ type WorkflowProps$1 = WorkflowProps$2;
  * @param {TaskProps<Row, Output, D>} props
  * @returns {React.ReactElement | null}
  */
-declare function Task<Row, Output, D>(props: TaskProps$1<Row, Output, D>): React__default.ReactElement | null;
+declare function Task<Row, Output, D>(props: TaskProps$1<Row, Output, D>): React__default__default__default.ReactElement | null;
 type TaskProps$1<Row, Output, D> = TaskProps$2<Row, Output, D>;
 
 /** @typedef {import("./SequenceProps.ts").SequenceProps} SequenceProps */
 /**
  * @param {SequenceProps} props
  */
-declare function Sequence(props: SequenceProps$1): React__default.DOMElement<{}, Element> | null;
+declare function Sequence(props: SequenceProps$1): React__default__default__default.DOMElement<{}, Element> | null;
 type SequenceProps$1 = SequenceProps$2;
 
 /** @typedef {import("./ParallelProps.ts").ParallelProps} ParallelProps */
 /**
  * @param {ParallelProps} props
  */
-declare function Parallel(props: ParallelProps$1): React__default.ReactElement<{
+declare function Parallel(props: ParallelProps$1): React__default__default__default.ReactElement<{
     maxConcurrency: number | undefined;
     id: string | undefined;
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type ParallelProps$1 = ParallelProps$2;
 
 /** @typedef {import("./MergeQueueProps.ts").MergeQueueProps} MergeQueueProps */
 /**
  * @param {MergeQueueProps} props
  */
-declare function MergeQueue(props: MergeQueueProps$1): React__default.ReactElement<{
+declare function MergeQueue(props: MergeQueueProps$1): React__default__default__default.ReactElement<{
     maxConcurrency: any;
     id: string | undefined;
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type MergeQueueProps$1 = MergeQueueProps$2;
 
 /** @typedef {import("./BranchProps.ts").BranchProps} BranchProps */
 /**
  * @param {BranchProps} props
  */
-declare function Branch(props: BranchProps$1): React__default.DOMElement<{}, Element> | null;
+declare function Branch(props: BranchProps$1): React__default__default__default.DOMElement<{}, Element> | null;
 type BranchProps$1 = BranchProps$2;
 
 /** @typedef {import("./WorktreeProps.ts").WorktreeProps} WorktreeProps */
 /**
  * @param {WorktreeProps} props
  */
-declare function Worktree(props: WorktreeProps$1): React__default.ReactElement<{
+declare function Worktree(props: WorktreeProps$1): React__default__default__default.ReactElement<{
     id: string | undefined;
     path: string;
     branch: string | undefined;
     baseBranch: string | undefined;
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type WorktreeProps$1 = WorktreeProps$2;
 
 /**
@@ -1052,7 +1052,7 @@ type WorktreeProps$1 = WorktreeProps$2;
  * Items in the same column can be processed in parallel.
  * @param {KanbanProps} props
  */
-declare function Kanban(props: KanbanProps$1): React__default.FunctionComponentElement<SequenceProps$2> | React__default.FunctionComponentElement<LoopProps$2> | null;
+declare function Kanban(props: KanbanProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | React__default__default__default.FunctionComponentElement<LoopProps$2> | null;
 type KanbanProps$1 = KanbanProps$2;
 
 /**
@@ -1063,7 +1063,7 @@ type KanbanProps$1 = KanbanProps$2;
  * appropriate category agent.
  * @param {ClassifyAndRouteProps} props
  */
-declare function ClassifyAndRoute(props: ClassifyAndRouteProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function ClassifyAndRoute(props: ClassifyAndRouteProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type ClassifyAndRouteProps$1 = ClassifyAndRouteProps$2;
 
 /**
@@ -1075,7 +1075,7 @@ type ClassifyAndRouteProps$1 = ClassifyAndRouteProps$2;
  * and produces a combined output.
  * @param {GatherAndSynthesizeProps} props
  */
-declare function GatherAndSynthesize(props: GatherAndSynthesizeProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function GatherAndSynthesize(props: GatherAndSynthesizeProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type GatherAndSynthesizeProps$1 = GatherAndSynthesizeProps$2;
 
 /**
@@ -1084,7 +1084,7 @@ type GatherAndSynthesizeProps$1 = GatherAndSynthesizeProps$2;
  * Composes: Sequence > Parallel[Task per panelist] > Task(moderator)
  * @param {PanelProps} props
  */
-declare function Panel(props: PanelProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function Panel(props: PanelProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type PanelProps$1 = PanelProps$2;
 
 /**
@@ -1093,7 +1093,7 @@ type PanelProps$1 = PanelProps$2;
  * Composes: Sequence > Parallel[Task per check] > Task(verdict aggregator)
  * @param {CheckSuiteProps} props
  */
-declare function CheckSuite(props: CheckSuiteProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function CheckSuite(props: CheckSuiteProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type CheckSuiteProps$1 = CheckSuiteProps$2;
 
 /**
@@ -1102,7 +1102,7 @@ type CheckSuiteProps$1 = CheckSuiteProps$2;
  * Composes: Sequence > Loop[Parallel(proposer, opponent)] > Task(judge)
  * @param {DebateProps} props
  */
-declare function Debate(props: DebateProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function Debate(props: DebateProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type DebateProps$1 = DebateProps$2;
 
 /**
@@ -1113,7 +1113,7 @@ type DebateProps$1 = DebateProps$2;
  * feedback on subsequent iterations.
  * @param {ReviewLoopProps} props
  */
-declare function ReviewLoop(props: ReviewLoopProps$1): React__default.FunctionComponentElement<LoopProps$2> | null;
+declare function ReviewLoop(props: ReviewLoopProps$1): React__default__default__default.FunctionComponentElement<LoopProps$2> | null;
 type ReviewLoopProps$1 = ReviewLoopProps$2;
 
 /**
@@ -1124,7 +1124,7 @@ type ReviewLoopProps$1 = ReviewLoopProps$2;
  * score and feedback to guide improvement.
  * @param {OptimizerProps} props
  */
-declare function Optimizer(props: OptimizerProps$1): React__default.FunctionComponentElement<LoopProps$2> | null;
+declare function Optimizer(props: OptimizerProps$1): React__default__default__default.FunctionComponentElement<LoopProps$2> | null;
 type OptimizerProps$1 = OptimizerProps$2;
 
 /**
@@ -1135,7 +1135,7 @@ type OptimizerProps$1 = OptimizerProps$2;
  * the previous stage, passing output forward through the pipeline.
  * @param {ContentPipelineProps} props
  */
-declare function ContentPipeline(props: ContentPipelineProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function ContentPipeline(props: ContentPipelineProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type ContentPipelineProps$1 = ContentPipelineProps$2;
 
 /**
@@ -1145,7 +1145,7 @@ type ContentPipelineProps$1 = ContentPipelineProps$2;
  * Composes Branch + Approval + Task internally.
  * @param {ApprovalGateProps} props
  */
-declare function ApprovalGate(props: ApprovalGateProps$1): React__default.FunctionComponentElement<BranchProps$2> | null;
+declare function ApprovalGate(props: ApprovalGateProps$1): React__default__default__default.FunctionComponentElement<BranchProps$2> | null;
 type ApprovalGateProps$1 = ApprovalGateProps$2;
 
 /**
@@ -1155,7 +1155,7 @@ type ApprovalGateProps$1 = ApprovalGateProps$2;
  * Composes Sequence + Task (with `continueOnFail`) + Branch + Approval.
  * @param {EscalationChainProps} props
  */
-declare function EscalationChain(props: EscalationChainProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function EscalationChain(props: EscalationChainProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type EscalationChainProps$1 = EscalationChainProps$2;
 
 /**
@@ -1168,26 +1168,26 @@ type EscalationChainProps$1 = EscalationChainProps$2;
  * Composes Branch and Parallel internally.
  * @param {DecisionTableProps} props
  */
-declare function DecisionTable(props: DecisionTableProps$1): React__default.ReactElement<unknown, string | React__default.JSXElementConstructor<any>> | React__default.FunctionComponentElement<ParallelProps$2> | null;
+declare function DecisionTable(props: DecisionTableProps$1): React__default__default__default.ReactElement<unknown, string | React__default__default__default.JSXElementConstructor<any>> | React__default__default__default.FunctionComponentElement<ParallelProps$2> | null;
 type DecisionTableProps$1 = DecisionTableProps$2;
 
 /**
  * @param {DriftDetectorProps} props
  */
-declare function DriftDetector(props: DriftDetectorProps$1): React__default.FunctionComponentElement<SequenceProps$2> | React__default.FunctionComponentElement<LoopProps$2> | null;
+declare function DriftDetector(props: DriftDetectorProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | React__default__default__default.FunctionComponentElement<LoopProps$2> | null;
 type DriftDetectorProps$1 = DriftDetectorProps$2;
 
 /** @typedef {import("./ScanFixVerifyProps.ts").ScanFixVerifyProps} ScanFixVerifyProps */
 /**
  * @param {ScanFixVerifyProps} props
  */
-declare function ScanFixVerify(props: ScanFixVerifyProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function ScanFixVerify(props: ScanFixVerifyProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type ScanFixVerifyProps$1 = ScanFixVerifyProps$2;
 
 /**
  * @param {PollerProps} props
  */
-declare function Poller(props: PollerProps$1): React__default.FunctionComponentElement<LoopProps$2> | null;
+declare function Poller(props: PollerProps$1): React__default__default__default.FunctionComponentElement<LoopProps$2> | null;
 type PollerProps$1 = PollerProps$2;
 
 /**
@@ -1196,7 +1196,7 @@ type PollerProps$1 = PollerProps$2;
  * Composes: Sequence → [plan Task, Loop(until allDone) [Parallel worker Tasks, review Task], final Task]
  * @param {SupervisorProps} props
  */
-declare function Supervisor(props: SupervisorProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function Supervisor(props: SupervisorProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type SupervisorProps$1 = SupervisorProps$2;
 
 /**
@@ -1206,7 +1206,7 @@ type SupervisorProps$1 = SupervisorProps$2;
  * Composes: Sequence of [Approval? → Task] per step, chained via `needs`.
  * @param {RunbookProps} props
  */
-declare function Runbook(props: RunbookProps$1): React__default.FunctionComponentElement<SequenceProps$2> | null;
+declare function Runbook(props: RunbookProps$1): React__default__default__default.FunctionComponentElement<SequenceProps$2> | null;
 type RunbookProps$1 = RunbookProps$2;
 
 /**
@@ -1217,7 +1217,7 @@ type RunbookProps$1 = RunbookProps$2;
  *
  * @param {SidecarProps} props
  */
-declare function Sidecar(props: SidecarProps$1): React__default.FunctionComponentElement<ParallelProps$2> | null;
+declare function Sidecar(props: SidecarProps$1): React__default__default__default.FunctionComponentElement<ParallelProps$2> | null;
 type SidecarProps$1 = SidecarProps$2;
 
 type RowLike = {
@@ -1240,7 +1240,7 @@ declare function computeSidecarDelta(rows: RowLike[], opts: ComputeSidecarDeltaO
 /**
  * @param {SubflowProps} props
  */
-declare function Subflow(props: SubflowProps$1): React__default.ReactElement<{
+declare function Subflow(props: SubflowProps$1): React__default__default__default.ReactElement<{
     id: string;
     key: string | undefined;
     workflow: _smithers_orchestrator_driver.WorkflowDefinition<unknown>;
@@ -1264,14 +1264,14 @@ declare function Subflow(props: SubflowProps$1): React__default.ReactElement<{
     __smithersSubflowWorkflow: _smithers_orchestrator_driver.WorkflowDefinition<unknown>;
     __smithersSubflowInput: unknown;
     __smithersSubflowMode: "childRun" | "inline";
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type SubflowProps$1 = SubflowProps$2;
 
 /** @typedef {import("./SandboxProps.ts").SandboxProps} SandboxProps */
 /**
  * @param {SandboxProps} props
  */
-declare function Sandbox(props: SandboxProps$1): React__default.ReactElement<{
+declare function Sandbox(props: SandboxProps$1): React__default__default__default.ReactElement<{
     id: string;
     key: string | undefined;
     output: OutputTarget$1;
@@ -1312,15 +1312,15 @@ declare function Sandbox(props: SandboxProps$1): React__default.ReactElement<{
     __smithersSandboxInput: unknown;
     __smithersSandboxRuntime: SandboxRuntime$1 | undefined;
     __smithersSandboxAllowNested: boolean | undefined;
-    __smithersSandboxChildren: React__default.ReactNode;
-}, string | React__default.JSXElementConstructor<any>> | null;
+    __smithersSandboxChildren: React__default__default__default.ReactNode;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type SandboxProps$1 = SandboxProps$2;
 
 /** @typedef {import("./WaitForEventProps.ts").WaitForEventProps} WaitForEventProps */
 /**
  * @param {WaitForEventProps} props
  */
-declare function WaitForEvent(props: WaitForEventProps$1): React__default.ReactElement<{
+declare function WaitForEvent(props: WaitForEventProps$1): React__default__default__default.ReactElement<{
     id: string;
     key: string | undefined;
     event: string;
@@ -1343,7 +1343,7 @@ declare function WaitForEvent(props: WaitForEventProps$1): React__default.ReactE
     __smithersEventName: string;
     __smithersCorrelationId: string | undefined;
     __smithersOnTimeout: "fail" | "continue" | "skip";
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type WaitForEventProps$1 = WaitForEventProps$2;
 
 /**
@@ -1354,14 +1354,14 @@ type WaitForEventProps$1 = WaitForEventProps$2;
  * @template Schema
  * @param {SignalProps<Schema>} props
  */
-declare function Signal<Schema>(props: SignalProps$1<Schema>): React__default.DetailedReactHTMLElement<React__default.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement> | React__default.FunctionComponentElement<React__default.FragmentProps> | null;
+declare function Signal<Schema>(props: SignalProps$1<Schema>): React__default__default__default.DetailedReactHTMLElement<React__default__default__default.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement> | React__default__default__default.FunctionComponentElement<React__default__default__default.FragmentProps> | null;
 type SignalProps$1<Schema> = SignalProps$2<Schema>;
 
 /** @typedef {import("./TimerProps.ts").TimerProps} TimerProps */
 /**
  * @param {TimerProps} props
  */
-declare function Timer(props: TimerProps$1): React__default.ReactElement<{
+declare function Timer(props: TimerProps$1): React__default__default__default.ReactElement<{
     id: string;
     key: string | undefined;
     duration: string | undefined;
@@ -1376,14 +1376,14 @@ declare function Timer(props: TimerProps$1): React__default.ReactElement<{
     } | undefined;
     __smithersTimerDuration: string | undefined;
     __smithersTimerUntil: string | undefined;
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type TimerProps$1 = TimerProps$2;
 
 /**
  * @param {HumanTaskProps} props
  * @returns {React.ReactElement | null}
  */
-declare function HumanTask(props: HumanTaskProps$1): React__default.ReactElement | null;
+declare function HumanTask(props: HumanTaskProps$1): React__default__default__default.ReactElement | null;
 type HumanTaskProps$1 = HumanTaskProps$2;
 
 /**
@@ -1395,7 +1395,7 @@ type HumanTaskProps$1 = HumanTaskProps$2;
  * Renders to `<smithers:saga>`.
  * @param {SagaProps} props
  */
-declare function Saga(props: SagaProps$1): React__default.ReactElement<{
+declare function Saga(props: SagaProps$1): React__default__default__default.ReactElement<{
     id: string | undefined;
     onFailure: "fail" | "compensate" | "compensate-and-fail";
     __sagaSteps: {
@@ -1403,7 +1403,7 @@ declare function Saga(props: SagaProps$1): React__default.ReactElement<{
         label: any;
     }[];
     skipIf?: boolean;
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 declare namespace Saga {
     export { SagaStep as Step };
 }
@@ -1414,7 +1414,7 @@ type SagaProps$1 = SagaProps$2;
  * @param {SagaStepProps} _props
  * @returns {React.ReactElement | null}
  */
-declare function SagaStep(_props: SagaStepProps$1): React__default.ReactElement | null;
+declare function SagaStep(_props: SagaStepProps$1): React__default__default__default.ReactElement | null;
 declare namespace SagaStep {
     let __isSagaStep: boolean;
 }
@@ -1430,12 +1430,12 @@ declare namespace SagaStep {
  * Renders to `<smithers:try-catch-finally>`.
  * @param {TryCatchFinallyProps} props
  */
-declare function TryCatchFinally(props: TryCatchFinallyProps$1): React__default.ReactElement<{
+declare function TryCatchFinally(props: TryCatchFinallyProps$1): React__default__default__default.ReactElement<{
     id: string | undefined;
     __tcfCatchErrors: ("INVALID_INPUT" | "MISSING_INPUT" | "MISSING_INPUT_TABLE" | "RESUME_METADATA_MISMATCH" | "UNKNOWN_OUTPUT_SCHEMA" | "INVALID_OUTPUT" | "WORKTREE_CREATE_FAILED" | "VCS_NOT_FOUND" | "SNAPSHOT_NOT_FOUND" | "VCS_WORKSPACE_CREATE_FAILED" | "TASK_TIMEOUT" | "TASK_HIJACK_UNSUPPORTED" | "TASK_FORK_SOURCE_NOT_FOUND" | "TASK_FORK_SOURCE_NOT_COMPLETE" | "TASK_FORK_SESSION_UNAVAILABLE" | "TASK_FORK_CYCLE" | "RUN_NOT_FOUND" | "NODE_NOT_FOUND" | "INVALID_EVENTS_OPTIONS" | "SANDBOX_BUNDLE_INVALID" | "SANDBOX_BUNDLE_TOO_LARGE" | "WORKFLOW_EXECUTION_FAILED" | "SANDBOX_EXECUTION_FAILED" | "TASK_HEARTBEAT_TIMEOUT" | "HEARTBEAT_PAYLOAD_TOO_LARGE" | "HEARTBEAT_PAYLOAD_NOT_JSON_SERIALIZABLE" | "TASK_ABORTED" | "RUN_CANCELLED" | "RUN_NOT_RESUMABLE" | "RUN_OWNER_ALIVE" | "RUN_STILL_RUNNING" | "RUN_RESUME_CLAIM_LOST" | "RUN_RESUME_CLAIM_FAILED" | "RUN_RESUME_ACTIVATION_FAILED" | "RUN_HIJACKED" | "CONTINUATION_STATE_TOO_LARGE" | "INVALID_CONTINUATION_STATE" | "RALPH_MAX_REACHED" | "SCHEDULER_ERROR" | "SESSION_ERROR" | "TASK_ID_REQUIRED" | "TASK_MISSING_OUTPUT" | "DUPLICATE_ID" | "NESTED_LOOP" | "WORKTREE_EMPTY_PATH" | "MDX_PRELOAD_INACTIVE" | "CONTEXT_OUTSIDE_WORKFLOW" | "MISSING_OUTPUT" | "DEP_NOT_SATISFIED" | "ASPECT_BUDGET_EXCEEDED" | "APPROVAL_OUTSIDE_TASK" | "APPROVAL_OPTIONS_REQUIRED" | "WORKFLOW_MISSING_DEFAULT" | "TOOL_PATH_INVALID" | "TOOL_PATH_ESCAPE" | "TOOL_FILE_TOO_LARGE" | "TOOL_CONTENT_TOO_LARGE" | "TOOL_PATCH_TOO_LARGE" | "TOOL_PATCH_FAILED" | "TOOL_NETWORK_DISABLED" | "TOOL_GIT_REMOTE_DISABLED" | "TOOL_COMMAND_FAILED" | "TOOL_GREP_FAILED" | "AGENT_CLI_ERROR" | "AGENT_CONFIG_INVALID" | "AGENT_QUOTA_EXCEEDED" | "AGENT_RPC_FILE_ARGS" | "AGENT_BUILD_COMMAND" | "AGENT_DIAGNOSTIC_TIMEOUT" | "ACCOUNT_INVALID" | "ACCOUNT_NOT_FOUND" | "ACCOUNT_DUPLICATE_LABEL" | "ACCOUNTS_FILE_INVALID" | "DB_MISSING_COLUMNS" | "DB_REQUIRES_BUN_SQLITE" | "DB_QUERY_FAILED" | "DB_WRITE_FAILED" | "SMITHERS_MIGRATION_REQUIRED" | "STORAGE_ERROR" | "INTERNAL_ERROR" | "PROCESS_ABORTED" | "PROCESS_TIMEOUT" | "PROCESS_IDLE_TIMEOUT" | "PROCESS_SPAWN_FAILED" | "TASK_RUNTIME_UNAVAILABLE" | "SCHEMA_CHANGE_HOT" | "HOT_OVERLAY_FAILED" | "HOT_RELOAD_INVALID_MODULE" | "SCORER_FAILED" | "WORKFLOW_EXISTS" | "CLI_DB_NOT_FOUND" | "CLI_AGENT_UNSUPPORTED" | "PI_HTTP_ERROR" | "EXTERNAL_BUILD_FAILED" | "SCHEMA_DISCOVERY_FAILED" | "OPENAPI_SPEC_LOAD_FAILED" | "OPENAPI_OPERATION_NOT_FOUND" | "OPENAPI_TOOL_EXECUTION_FAILED" | (string & {}))[] | undefined;
-    __tcfCatchHandler: React__default.ReactElement<unknown, string | React__default.JSXElementConstructor<any>> | ((error: _smithers_orchestrator_errors.SmithersError) => React__default.ReactElement) | undefined;
-    __tcfFinallyHandler: React__default.ReactElement<unknown, string | React__default.JSXElementConstructor<any>> | undefined;
-}, string | React__default.JSXElementConstructor<any>> | null;
+    __tcfCatchHandler: React__default__default__default.ReactElement<unknown, string | React__default__default__default.JSXElementConstructor<any>> | ((error: _smithers_orchestrator_errors.SmithersError) => React__default__default__default.ReactElement) | undefined;
+    __tcfFinallyHandler: React__default__default__default.ReactElement<unknown, string | React__default__default__default.JSXElementConstructor<any>> | undefined;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type TryCatchFinallyProps$1 = TryCatchFinallyProps$2;
 
 /**
@@ -1473,7 +1473,7 @@ type AspectContextValue = {
  * ```
  * @param {AspectsProps} props
  */
-declare function Aspects(props: AspectsProps$1): React__default.FunctionComponentElement<React__default.ProviderProps<AspectContextValue | null>>;
+declare function Aspects(props: AspectsProps$1): React__default__default__default.FunctionComponentElement<React__default__default__default.ProviderProps<AspectContextValue | null>>;
 type AspectsProps$1 = AspectsProps$2;
 
 /**
@@ -1502,46 +1502,46 @@ type AspectsProps$1 = AspectsProps$2;
  * ```
  * @param {SuperSmithersProps} props
  */
-declare function SuperSmithers(props: SuperSmithersProps$1): React__default.ReactElement<{
+declare function SuperSmithers(props: SuperSmithersProps$1): React__default__default__default.ReactElement<{
     id: string;
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type SuperSmithersProps$1 = SuperSmithersProps$2;
 
 /** @typedef {import("./LoopProps.ts").LoopProps} LoopProps */
 /**
  * @param {LoopProps} props
  */
-declare function Loop(props: LoopProps$1): React__default.ReactElement<{
+declare function Loop(props: LoopProps$1): React__default__default__default.ReactElement<{
     id: string | undefined;
     until: boolean | undefined;
     maxIterations: number | undefined;
     onMaxReached: "fail" | "return-last" | undefined;
     continueAsNewEvery: number | undefined;
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 /** @typedef {import("./LoopProps.ts").LoopProps} LoopProps */
 /**
  * @param {LoopProps} props
  */
-declare function Ralph(props: LoopProps$1): React__default.ReactElement<{
+declare function Ralph(props: LoopProps$1): React__default__default__default.ReactElement<{
     id: string | undefined;
     until: boolean | undefined;
     maxIterations: number | undefined;
     onMaxReached: "fail" | "return-last" | undefined;
     continueAsNewEvery: number | undefined;
-}, string | React__default.JSXElementConstructor<any>> | null;
+}, string | React__default__default__default.JSXElementConstructor<any>> | null;
 type LoopProps$1 = LoopProps$2;
 
 /**
  * @param {ContinueAsNewProps} props
  */
-declare function ContinueAsNew(props: ContinueAsNewProps$1): React__default.ReactElement<{
+declare function ContinueAsNew(props: ContinueAsNewProps$1): React__default__default__default.ReactElement<{
     stateJson: string | undefined;
-}, string | React__default.JSXElementConstructor<any>>;
+}, string | React__default__default__default.JSXElementConstructor<any>>;
 /**
  * Convenience helper for conditional continuation inside workflow JSX:
  * `{shouldContinue ? continueAsNew({ cursor }) : null}`
  */
-declare function continueAsNew(state: any): React__default.FunctionComponentElement<ContinueAsNewProps$2>;
+declare function continueAsNew(state: any): React__default__default__default.FunctionComponentElement<ContinueAsNewProps$2>;
 type ContinueAsNewProps$1 = ContinueAsNewProps$2;
 
 type ApprovalAutoApprove = ApprovalAutoApprove$1;
@@ -1612,7 +1612,7 @@ type WorkflowProps = WorkflowProps$2;
 type WorktreeProps = WorktreeProps$2;
 
 /** @type {Record<string, React.FC<any>>} */
-declare const markdownComponents: Record<string, React__default.FC<any>>;
+declare const markdownComponents: Record<string, React__default__default__default.FC<any>>;
 
 /** @typedef {import("react").ComponentType<Record<string, any>>} MDXContent */
 /**
@@ -1626,7 +1626,7 @@ declare const markdownComponents: Record<string, React__default.FC<any>>;
  * @returns {string}
  */
 declare function renderMdx(Component: MDXContent, props?: Record<string, any>): string;
-type MDXContent = React.ComponentType<Record<string, any>>;
+type MDXContent = React__default__default.ComponentType<Record<string, any>>;
 
 /** @typedef {import("zod").ZodObject<import("zod").ZodRawShape>} ZodObject */
 /** @typedef {import("zod").ZodTypeAny} ZodTypeAny */
@@ -1675,4 +1675,4 @@ type XmlElement = _smithers_orchestrator_graph.XmlElement;
 type XmlNode = _smithers_orchestrator_graph.XmlNode;
 type XmlText = _smithers_orchestrator_graph.XmlText;
 
-export { Approval, type ApprovalAutoApprove, type ApprovalDecision, ApprovalGate, type ApprovalGateProps, type ApprovalMode, type ApprovalOption, type ApprovalProps, type ApprovalRanking, type ApprovalRequest, type ApprovalSelection, Aspects, type AspectsProps, Branch, type BranchProps, type CachePolicy, type CategoryConfig, type CheckConfig, CheckSuite, type CheckSuiteProps, ClassifyAndRoute, type ClassifyAndRouteProps, type ColumnDef, ContentPipeline, type ContentPipelineProps, type ContentPipelineStage, ContinueAsNew, type ContinueAsNewProps, Debate, type DebateProps, type DecisionRule, DecisionTable, type DecisionTableProps, type DepsSpec, DriftDetector, type DriftDetectorProps, type EngineDecision, EscalationChain, type EscalationChainProps, type EscalationLevel, type ExtractOptions, GatherAndSynthesize, type GatherAndSynthesizeProps, type HostElement, type HostNode, type HostText, HumanTask, type HumanTaskProps, type InferDeps, type InferOutputEntry, type InferRow, Kanban, type KanbanProps, Loop, type LoopProps, MergeQueue, type MergeQueueProps, Optimizer, type OptimizerProps, type OutputAccessor, type OutputKey, type OutputTarget, Panel, type PanelProps, type PanelistConfig, Parallel, type ParallelProps, Poller, type PollerProps, Ralph, type RalphProps, type RenderContext, type RetryPolicy, ReviewLoop, type ReviewLoopProps, type RunAuthContext, type RunOptions, type RunResult, Runbook, type RunbookProps, type RunbookStep, Saga, SagaStep, type SagaProps, type SagaStepDef, type SagaStepProps, Sandbox, type SandboxEgressConfig, type SandboxProps, type SandboxRuntime, type SandboxVolumeMount, type SandboxWorkspaceSpec, ScanFixVerify, type ScanFixVerifyProps, type SchemaRegistryEntry, type ScorersMap, Sequence, type SequenceProps, Sidecar, type SidecarDelta, type SidecarProps, Signal, type SignalProps, type SmithersAlertLabels, type SmithersAlertPolicy, type SmithersAlertPolicyDefaults, type SmithersAlertPolicyRule, type SmithersAlertReaction, type SmithersAlertReactionKind, type SmithersAlertReactionRef, type SmithersAlertSeverity, type SmithersCtx, type SmithersErrorCode, type SmithersWorkflow, type SmithersWorkflowDriverOptions, type SmithersWorkflowOptions, type SourceDef, Subflow, type SubflowProps, SuperSmithers, type SuperSmithersProps, Supervisor, type SupervisorProps, Task, type TaskDescriptor, type TaskProps, Timer, type TimerProps, TryCatchFinally, type TryCatchFinallyProps, WaitForEvent, type WaitForEventProps, type WaitReason, Workflow, type WorkflowGraph, type WorkflowProps, type WorkflowRuntime, type WorkflowSession, Worktree, type WorktreeProps, type XmlElement, type XmlNode, type XmlText, approvalDecisionSchema, approvalRankingSchema, approvalSelectionSchema, computeSidecarDelta, continueAsNew, markdownComponents, renderMdx, zodSchemaToJsonExample };
+export { Approval, type ApprovalAutoApprove, type ApprovalDecision, ApprovalGate, type ApprovalGateProps, type ApprovalMode, type ApprovalOption, type ApprovalProps, type ApprovalRanking, type ApprovalRequest, type ApprovalSelection, Aspects, type AspectsProps, Branch, type BranchProps, type CachePolicy, type CategoryConfig, type CheckConfig, CheckSuite, type CheckSuiteProps, ClassifyAndRoute, type ClassifyAndRouteProps, type ColumnDef, ContentPipeline, type ContentPipelineProps, type ContentPipelineStage, ContinueAsNew, type ContinueAsNewProps, Debate, type DebateProps, type DecisionRule, DecisionTable, type DecisionTableProps, type DepsSpec, DriftDetector, type DriftDetectorProps, type EngineDecision, EscalationChain, type EscalationChainProps, type EscalationLevel, type ExtractOptions, GatherAndSynthesize, type GatherAndSynthesizeProps, type HostElement, type HostNode, type HostText, HumanTask, type HumanTaskProps, type InferDeps, type InferOutputEntry, type InferRow, Kanban, type KanbanProps, Loop, type LoopProps, MergeQueue, type MergeQueueProps, Optimizer, type OptimizerProps, type OutputAccessor, type OutputKey, type OutputTarget, Panel, type PanelProps, type PanelistConfig, Parallel, type ParallelProps, Poller, type PollerProps, Ralph, type RalphProps, type RenderContext, type RetryPolicy, ReviewLoop, type ReviewLoopProps, type RunAuthContext, type RunOptions, type RunResult, Runbook, type RunbookProps, type RunbookStep, Saga, type SagaProps, SagaStep, type SagaStepDef, type SagaStepProps, Sandbox, type SandboxEgressConfig, type SandboxProps, type SandboxRuntime, type SandboxVolumeMount, type SandboxWorkspaceSpec, ScanFixVerify, type ScanFixVerifyProps, type SchemaRegistryEntry, type ScorersMap, Sequence, type SequenceProps, Sidecar, type SidecarDelta, type SidecarProps, Signal, type SignalProps, type SmithersAlertLabels, type SmithersAlertPolicy, type SmithersAlertPolicyDefaults, type SmithersAlertPolicyRule, type SmithersAlertReaction, type SmithersAlertReactionKind, type SmithersAlertReactionRef, type SmithersAlertSeverity, type SmithersCtx, type SmithersErrorCode, type SmithersWorkflow, type SmithersWorkflowDriverOptions, type SmithersWorkflowOptions, type SourceDef, Subflow, type SubflowProps, SuperSmithers, type SuperSmithersProps, Supervisor, type SupervisorProps, Task, type TaskDescriptor, type TaskProps, Timer, type TimerProps, TryCatchFinally, type TryCatchFinallyProps, WaitForEvent, type WaitForEventProps, type WaitReason, Workflow, type WorkflowGraph, type WorkflowProps, type WorkflowRuntime, type WorkflowSession, Worktree, type WorktreeProps, type XmlElement, type XmlNode, type XmlText, approvalDecisionSchema, approvalRankingSchema, approvalSelectionSchema, computeSidecarDelta, continueAsNew, markdownComponents, renderMdx, zodSchemaToJsonExample };
