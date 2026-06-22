@@ -189,6 +189,7 @@
   "exclude": [
     "../packages/smithers/tests/**/*",
     "../packages/smithers/src/pi-plugin/**/*",
-    "../packages/smithers/src/devtools/**/*"
+    "../packages/smithers/src/devtools/**/*",
+    "swe-evo/score-x86.ts"
   ]
 }
