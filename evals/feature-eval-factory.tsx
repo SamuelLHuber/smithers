@@ -46,26 +46,43 @@ const CLI = join(ROOT, "apps/cli/src/index.js");
 
 // ── the agent mix ─────────────────────────────────────────────────────────
 // Each "slot" is a failover chain led by a distinct primary so the work is a
-// genuine 3-way MIX (each agent leads ~1/3 of the groups) while staying robust:
-// if `agy` (Antigravity) is not installed/authed it fails over to Codex/Claude,
-// and self-heals once it is. Claude Code authoring runs on Opus because these are
-// complex authoring tasks where SOTA quality matters (evals/README.md model policy).
+// genuine MIX of Antigravity + Codex + Claude Code (each leads a share of the
+// groups). Array failover recovers RUNTIME provider errors (rate-limit, mid-run
+// auth) but NOT a preflight "CLI not installed" on the PRIMARY — that is fatal
+// and skips the task. So Antigravity only LEADS when `agy` is actually on PATH
+// (self-healing: install + authenticate `agy`, then resume, and it joins the
+// rotation). Claude Code authoring runs on Opus — these are complex authoring
+// tasks where SOTA quality matters (evals/README.md model policy).
 const claude = new ClaudeCodeAgent({ model: "claude-opus-4-8" });
 const codex = new CodexAgent({ model: "gpt-5.5", skipGitRepoCheck: true });
 const codex1 = new CodexAgent({ model: "gpt-5.5", configDir: join(homedir(), ".codex"), skipGitRepoCheck: true });
 const antigravity = new AntigravityAgent({ model: "gemini-3.1-pro-preview", configDir: join(homedir(), ".gemini") });
 
-const AUTHOR_SLOTS = [
-  [antigravity, codex, claude], // antigravity-primary
-  [codex, codex1, claude], // codex-primary
-  [claude, codex, codex1], // claude-primary
-] as const;
-// Fixer leads with Codex (rigorous at root-causing docs gaps), then Claude, then Antigravity.
-const FIX_SLOTS = [
-  [codex, claude, codex1],
-  [claude, codex, codex1],
-  [antigravity, codex, claude],
-] as const;
+const AGY_AVAILABLE = typeof Bun !== "undefined" && typeof Bun.which === "function" ? Bun.which("agy") != null : false;
+
+const AUTHOR_SLOTS = AGY_AVAILABLE
+  ? [
+      [antigravity, codex, claude], // antigravity-primary
+      [codex, codex1, claude], // codex-primary
+      [claude, codex, codex1], // claude-primary
+    ]
+  : [
+      [codex, codex1, claude], // codex-primary
+      [claude, codex, codex1], // claude-primary
+      [codex1, claude, codex], // codex1-primary
+    ];
+// Fixer leads with Codex (rigorous at root-causing docs gaps), then Claude, then (if present) Antigravity.
+const FIX_SLOTS = AGY_AVAILABLE
+  ? [
+      [codex, claude, codex1],
+      [claude, codex, codex1],
+      [antigravity, codex, claude],
+    ]
+  : [
+      [codex, claude, codex1],
+      [claude, codex, codex1],
+      [codex1, codex, claude],
+    ];
 
 // ── inputs ──────────────────────────────────────────────────────────────────
 const inputSchema = z.object({
@@ -130,6 +147,26 @@ const { Workflow, smithers, outputs } = createSmithers(
   { input: inputSchema, author: authorResult, merge: mergeResult, runEval: runEvalResult, fix: fixResult },
   { dbPath: join(ROOT, ".smithers/state/eval-factory.db") },
 );
+
+// ── input coalescing ────────────────────────────────────────────────────────
+// ctx.input does NOT get zod `.default()`s applied: unprovided fields arrive as
+// null, and array fields arrive as JSON STRINGS (e.g. '["a"]'), not arrays. We
+// coalesce + parse every field by hand (a documented Smithers footgun).
+function asArray(v: unknown, dflt: string[]): string[] {
+  if (Array.isArray(v)) return v as string[];
+  if (typeof v === "string" && v.trim()) {
+    try {
+      const p = JSON.parse(v);
+      return Array.isArray(p) ? (p as string[]) : dflt;
+    } catch {
+      return dflt;
+    }
+  }
+  return dflt;
+}
+const asNum = (v: unknown, dflt: number): number => (typeof v === "number" && Number.isFinite(v) ? v : dflt);
+const asBool = (v: unknown, dflt: boolean): boolean => (typeof v === "boolean" ? v : dflt);
+const asStr = (v: unknown, dflt: string): string => (typeof v === "string" && v ? v : dflt);
 
 // ── feature parsing (runtime-safe; no cross-tsconfig import) ─────────────────
 function parseFeatureGroups(file: string): Array<{ name: string; features: string[] }> {
@@ -423,24 +460,39 @@ function fixPrompt(run: z.infer<typeof runEvalResult> | undefined, targetPass: n
 
 export default smithers((ctx) => {
   const input = ctx.input;
+  const cfg = {
+    groups: asArray(input.groups, []),
+    genConcurrency: asNum(input.genConcurrency, 4),
+    minTasksPerGroup: asNum(input.minTasksPerGroup, 10),
+    runOptimization: asBool(input.runOptimization, true),
+    optimizeSuites: asArray(input.optimizeSuites, ["knowledge-cli", "authoring-workflows"]),
+    optimizeModel: asStr(input.optimizeModel, "haiku"),
+    maxCasesPerSuite: asNum(input.maxCasesPerSuite, 8),
+    maxIterations: asNum(input.maxIterations, 3),
+    targetPass: asNum(input.targetPass, 1.0),
+    targetOneShot: asNum(input.targetOneShot, 0.99),
+  };
   const allGroups = parseFeatureGroups(FEATURES);
-  const wanted = input.groups && input.groups.length ? new Set(input.groups) : null;
+  const wanted = cfg.groups.length ? new Set(cfg.groups) : null;
   const workGroups = wanted ? allGroups.filter((g) => wanted.has(g.name)) : allGroups;
 
-  const authorRows = ctx.outputs.author ?? [];
-  const allAuthored = authorRows.length >= workGroups.length;
+  // Author outputs only include SUCCESSES; failed (continueOnFail) authors produce
+  // no row. We do NOT gate merge on a success count — the enclosing <Sequence>
+  // already guarantees merge runs only once the whole <Parallel> is terminal
+  // (every author succeeded OR was skipped), so a few author failures never stall
+  // the pipeline. merge folds in whatever shards were written.
   const merge = ctx.outputMaybe("merge", { nodeId: "merge" }) as z.infer<typeof mergeResult> | undefined;
 
   const runs = (ctx.outputs.runEval ?? []) as Array<z.infer<typeof runEvalResult>>;
   const latestRun = runs[runs.length - 1];
-  const targetMet = !!latestRun && latestRun.passRate >= input.targetPass && latestRun.oneShotRate >= input.targetOneShot;
+  const targetMet = !!latestRun && latestRun.passRate >= cfg.targetPass && latestRun.oneShotRate >= cfg.targetOneShot;
   const iterationIndex = runs.length; // 0-based index of the iteration about to run
 
   return (
     <Workflow name="feature-eval-factory">
       <Sequence>
         {/* ── Phase 1: author complex evals, one agent per FeatureGroup ── */}
-        <Parallel maxConcurrency={input.genConcurrency}>
+        <Parallel maxConcurrency={cfg.genConcurrency}>
           {workGroups.map((group, i) => (
             <Task
               key={group.name}
@@ -452,29 +504,28 @@ export default smithers((ctx) => {
               timeoutMs={60 * 60_000}
               heartbeatTimeoutMs={12 * 60_000}
             >
-              {authorPrompt(group, input.minTasksPerGroup)}
+              {authorPrompt(group, cfg.minTasksPerGroup)}
             </Task>
           ))}
         </Parallel>
 
-        {/* ── Phase 1b: merge shards → curated bank → regenerate suites ── */}
-        {allAuthored ? (
-          <Task id="merge" output={outputs.merge} heartbeatTimeoutMs={10 * 60_000}>
-            {() => mergeAndRegenerate()}
-          </Task>
-        ) : null}
+        {/* ── Phase 1b: merge shards → curated bank → regenerate suites ──
+            Always rendered; <Sequence> runs it after the <Parallel> is terminal. */}
+        <Task id="merge" output={outputs.merge} heartbeatTimeoutMs={10 * 60_000}>
+          {() => mergeAndRegenerate()}
+        </Task>
 
         {/* ── Phase 2: optimization loop toward 100% pass / 99% one-shot ── */}
-        {merge && input.runOptimization ? (
-          <Loop until={targetMet} maxIterations={input.maxIterations} onMaxReached="return-last">
+        {merge && cfg.runOptimization ? (
+          <Loop until={targetMet} maxIterations={cfg.maxIterations} onMaxReached="return-last">
             <Sequence>
               <Task id="opt:run" output={outputs.runEval} heartbeatTimeoutMs={50 * 60_000}>
                 {() =>
                   runEvalsAndScore({
                     round: iterationIndex,
-                    suites: input.optimizeSuites,
-                    model: input.optimizeModel,
-                    maxCases: input.maxCasesPerSuite,
+                    suites: cfg.optimizeSuites,
+                    model: cfg.optimizeModel,
+                    maxCases: cfg.maxCasesPerSuite,
                   })
                 }
               </Task>
@@ -487,7 +538,7 @@ export default smithers((ctx) => {
                 timeoutMs={45 * 60_000}
                 heartbeatTimeoutMs={15 * 60_000}
               >
-                {fixPrompt(latestRun, input.targetPass, input.targetOneShot)}
+                {fixPrompt(latestRun, cfg.targetPass, cfg.targetOneShot)}
               </Task>
             </Sequence>
           </Loop>
