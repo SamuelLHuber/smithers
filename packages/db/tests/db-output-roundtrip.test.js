@@ -39,6 +39,24 @@ describe("output row roundtrip", () => {
             sqlite.close();
         }
     });
+    test("z.number() round-trips a fractional value losslessly (REAL column, not INTEGER)", async () => {
+        const { table, db, sqlite } = createTableAndDb("fractional", z.object({ confidence: z.number(), cost: z.number() }));
+        try {
+            // Regression for #296/#312: a plain z.number() must map to a REAL
+            // column so 0.95 is not truncated to 0 by SQLite INTEGER affinity.
+            expect(table.confidence.getSQLType()).toBe("real");
+            await upsertOutputRow(db, table, { runId: "r1", nodeId: "n1", iteration: 0 }, {
+                confidence: 0.95,
+                cost: 0.0123,
+            });
+            const row = await selectOutputRow(db, table, { runId: "r1", nodeId: "n1", iteration: 0 });
+            expect(row.confidence).toBe(0.95);
+            expect(row.cost).toBe(0.0123);
+        }
+        finally {
+            sqlite.close();
+        }
+    });
     test("upsert overwrites existing row on conflict", async () => {
         const { table, db, sqlite } = createTableAndDb("results", z.object({ value: z.number() }));
         try {
