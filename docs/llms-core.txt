@@ -1918,7 +1918,7 @@ commands[78]:
       workflow,,string,,Filter by seeded workflow ID
       tag,,string,,Filter by starter tag
   - name: up
-    purpose: Start or resume a workflow execution
+    purpose: Start or resume a workflow execution from a .tsx workflow file path (use `workflow run` to start from a discovered workflow id instead)
     args[1]{name,type,required,desc}:
       workflow,string,false,Workflow file path (omit with --interactive to pick one)
     flags[30]{name,short,type,default,desc}:

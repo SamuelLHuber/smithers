@@ -107,6 +107,11 @@ That's the loop: scaffold → run a workflow → watch the run. The "aha" is ste
 you kicked off a multi-step agent job that you can crash, resume, fork, and
 inspect, all from the CLI you already live in.
 
+Two verbs start a run, split by what you hand them. `smithers up <file>.tsx`
+runs a workflow **file by path** (use this to start a run from a `.tsx` file).
+`smithers workflow run <id>` (step 3 above) runs a **discovered/seeded**
+workflow by its **id**, resolved from `.smithers/workflows/`.
+
 ## The mental model
 
 Smithers renders the workflow JSX tree every "frame." Each render answers one
@@ -282,8 +287,9 @@ and components**) from runtime state, which is gitignored.
 ├── smithers.config.ts   # repoCommands { lint, test, coverage } the workflows call
 ├── workflows/           # WHERE WORKFLOWS GO. One .tsx per workflow (implement,
 │                        #   review, plan, ralph, debug, research, …). These are
-│                        #   the executable graphs you run with `smithers up` /
-│                        #   `smithers workflow run`.
+│                        #   the executable graphs you run. `smithers up
+│                        #   <file>.tsx` runs one by FILE PATH; `smithers
+│                        #   workflow run <id>` runs a discovered one by ID.
 ├── prompts/             # WHERE MDX PROMPTS GO. One .mdx per prompt, authored as
 │                        #   JSX prompt components. A workflow imports one and
 │                        #   renders it as a tag:
@@ -316,7 +322,8 @@ and `../components/Bar`.
 Everything is a CLI verb (prefix with `bunx smithers-orchestrator` if it isn't on PATH):
 
 ```bash
-smithers up workflow.tsx --input '{"description":"Fix bug"}'   # start a run
+smithers up workflow.tsx --input '{"description":"Fix bug"}'   # start a run from a .tsx FILE (by path)
+smithers workflow run implement --input '{"description":"Fix bug"}' # start a run from a DISCOVERED workflow (by id)
 smithers up workflow.tsx --run-id <id> --resume true          # resume after a crash
 smithers ps                                                   # list runs
 smithers inspect <run-id>                                     # full run state
