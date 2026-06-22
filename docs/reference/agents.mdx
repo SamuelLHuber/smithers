@@ -136,10 +136,12 @@ endpoint.
       API key for the endpoint. Local servers often accept `"none"`. Allowed only
       with the string-model form.
     </ParamField>
-    <ParamField path="nativeStructuredOutput" type="boolean">
+    <ParamField path="nativeStructuredOutput" type="boolean" default="true">
       Set `false` to disable AI SDK native structured output and use prompt-based
       JSON extraction instead. Useful for local servers that do not honor JSON
-      schema response formats.
+      schema response formats. Per-agent defaults: `AnthropicAgent` and
+      `OpenAIAgent` default **on**; `CodexAgent` and `HermesAgent` default **off**
+      (native schema makes Codex emit only final JSON and lose tool access).
     </ParamField>
   </Expandable>
 </ParamField>

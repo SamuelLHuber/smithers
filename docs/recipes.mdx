@@ -15,7 +15,7 @@ Iterate until a reviewer signs off, with a hard cap.
 
 ```tsx
 <Loop
-  until={ctx.outputMaybe(outputs.review, { nodeId: "review" })?.approved === true}
+  until={ctx.latest(outputs.review, "review")?.approved === true}
   maxIterations={5}
   onMaxReached="return-last"
 >
@@ -31,6 +31,8 @@ Iterate until a reviewer signs off, with a hard cap.
 ```
 
 Stop conditions must be measurable (boolean, count, array length). Avoid "looks good" prompts; agents are literal.
+
+In a `<Loop>` `until`, read the most recent iteration with `ctx.latest`. `ctx.outputMaybe(.., { nodeId })` without an explicit `iteration` resolves the *current render iteration* (which equals the loop iteration only for a single, non-nested loop, and is `0` when several loops coexist), so an `outputMaybe`-based `until` can silently never advance.
 
 ## Parallel multi-agent review
 

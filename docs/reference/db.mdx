@@ -173,9 +173,11 @@ separately by [`syncZodTableSchema`](#zod-table-helpers).
 Turn a Zod object schema into a SQLite output table. Each table gets the fixed
 `run_id` / `node_id` / `iteration` prefix and a composite primary key; field keys
 are snake-cased and mapped to columns by Zod type (string/enum/literal -> `TEXT`,
-integer -> `INTEGER`, float -> `REAL`, boolean -> `INTEGER` boolean mode, and
-arrays/objects/unions -> JSON `TEXT`). Pass `opts.isInput` for the single-PK
-input-table shape.
+`z.number()` / float -> `REAL` (fractions are preserved), `z.int()` -> `INTEGER`,
+boolean -> `INTEGER` boolean mode, and arrays/objects/unions -> JSON `TEXT`). Pass
+`opts.isInput` for the single-PK input-table shape. Output field names may not
+reuse the reserved key columns `runId`/`nodeId`/`iteration` (input reserves only
+`runId`); a collision throws `INVALID_INPUT` at construction.
 
 <ResponseField name="zodToTable(name, schema, opts?)" type="Table">
   Build a Drizzle `sqliteTable` from the schema. This is what the factory calls

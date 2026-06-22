@@ -41,3 +41,4 @@ type BranchProps = {
 - `if` re-evaluates every render frame; read completed-task outputs via `ctx.outputMaybe()`.
 - Each branch takes one element; wrap multiples in `<Sequence>` or `<Parallel>`.
 - Unselected branch tasks are absent from the task graph.
+- `<Branch>` takes **no children**; pass branches via `then`/`else`. Writing `<Branch>...</Branch>` throws `INVALID_INPUT` (children would otherwise be silently dropped).

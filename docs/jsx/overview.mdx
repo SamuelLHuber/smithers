@@ -14,9 +14,17 @@ Most projects should use `bunx smithers-orchestrator init`; it scaffolds everyth
 To embed into an existing codebase:
 
 ```bash
-bun add smithers-orchestrator react react-dom zod
-bun add -d typescript @types/react @types/react-dom @types/node
+bun add smithers-orchestrator zod
+bun add -d typescript @types/react @types/node
 ```
+
+`smithers-orchestrator` bundles React and ships the JSX runtime as
+`smithers-orchestrator/jsx-runtime`, so you do **not** add `react` or `react-dom`
+yourself. `jsxImportSource` (below) routes JSX through the workflow reconciler,
+never React DOM. The one required dev dep is `@types/react` (React ships no
+bundled types, and the JSX transform resolves its JSX namespace from it). The
+browser UI surface (`smithers-orchestrator/gateway-react`) is the only place that
+takes `react`/`react-dom` as peers.
 
 Minimal `tsconfig.json`:
 

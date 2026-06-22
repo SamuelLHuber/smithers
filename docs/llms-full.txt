@@ -1782,9 +1782,17 @@ Most projects should use `bunx smithers-orchestrator init`; it scaffolds everyth
 To embed into an existing codebase:
 
 ```bash
-bun add smithers-orchestrator react react-dom zod
-bun add -d typescript @types/react @types/react-dom @types/node
+bun add smithers-orchestrator zod
+bun add -d typescript @types/react @types/node
 ```
+
+`smithers-orchestrator` bundles React and ships the JSX runtime as
+`smithers-orchestrator/jsx-runtime`, so you do **not** add `react` or `react-dom`
+yourself. `jsxImportSource` (below) routes JSX through the workflow reconciler,
+never React DOM. The one required dev dep is `@types/react` (React ships no
+bundled types, and the JSX transform resolves its JSX namespace from it). The
+browser UI surface (`smithers-orchestrator/gateway-react`) is the only place that
+takes `react`/`react-dom` as peers.
 
 Minimal `tsconfig.json`:
 
@@ -2985,6 +2993,7 @@ type BranchProps = {
 - `if` re-evaluates every render frame; read completed-task outputs via `ctx.outputMaybe()`.
 - Each branch takes one element; wrap multiples in `<Sequence>` or `<Parallel>`.
 - Unselected branch tasks are absent from the task graph.
+- `<Branch>` takes **no children**; pass branches via `then`/`else`. Writing `<Branch>...</Branch>` throws `INVALID_INPUT` (children would otherwise be silently dropped).
 
 ---
 
@@ -3545,8 +3554,9 @@ type SagaProps = {
 ## Notes
 
 - Steps run sequentially; compensations run in reverse from the failed step.
-- Compensations should be idempotent.
+- Compensations should be idempotent, and each one **must actually undo its step's action**; a stubbed or inert compensation yields a green run with dirty state on rollback.
 - `steps` and `<Saga.Step>` children are mutually exclusive; `steps` wins if both are given.
+- `SagaStep` is a named export (`import { SagaStep }`) and is the same marker as `<Saga.Step>`.
 
 ---
 
@@ -4888,7 +4898,7 @@ Iterate until a reviewer signs off, with a hard cap.
 
 ```tsx
 <Loop
-  until={ctx.outputMaybe(outputs.review, { nodeId: "review" })?.approved === true}
+  until={ctx.latest(outputs.review, "review")?.approved === true}
   maxIterations={5}
   onMaxReached="return-last"
 >
@@ -4904,6 +4914,8 @@ Iterate until a reviewer signs off, with a hard cap.
 ```
 
 Stop conditions must be measurable (boolean, count, array length). Avoid "looks good" prompts; agents are literal.
+
+In a `<Loop>` `until`, read the most recent iteration with `ctx.latest`. `ctx.outputMaybe(.., { nodeId })` without an explicit `iteration` resolves the *current render iteration* (which equals the loop iteration only for a single, non-nested loop, and is `0` when several loops coexist), so an `outputMaybe`-based `until` can silently never advance.
 
 ## Parallel multi-agent review
 
@@ -7164,7 +7176,7 @@ try {
 | `INVALID_INPUT` | Workflow input fails validation or the runtime receives a non-object input payload. | -- |
 | `MISSING_INPUT` | A resume run references an input row that is missing from the database. | -- |
 | `MISSING_INPUT_TABLE` | The workflow schema does not expose the expected input table during resume or hydration. | -- |
-| `RESUME_METADATA_MISMATCH` | Stored run metadata no longer matches the workflow being resumed. | -- |
+| `RESUME_METADATA_MISMATCH` | Stored run metadata no longer matches the workflow being resumed. Editing the workflow file or an imported module between stop and resume triggers this (resume hashes file content, not git, so no commit is required). Fork/replay onto the edit or start a fresh run; revert the file to resume the original run. | `mismatches`, `existing`, `current` |
 | `UNKNOWN_OUTPUT_SCHEMA` | A task references an output table that is not present in the schema registry. | -- |
 | `INVALID_OUTPUT` | Agent output cannot be parsed or validated against the declared output schema. | -- |
 | `WORKTREE_CREATE_FAILED` | Smithers fails to create or hydrate a git or jj worktree for a task. | `{ worktreePath, vcsType, branch? }` |

@@ -45,5 +45,6 @@ type SagaProps = {
 ## Notes
 
 - Steps run sequentially; compensations run in reverse from the failed step.
-- Compensations should be idempotent.
+- Compensations should be idempotent, and each one **must actually undo its step's action**; a stubbed or inert compensation yields a green run with dirty state on rollback.
 - `steps` and `<Saga.Step>` children are mutually exclusive; `steps` wins if both are given.
+- `SagaStep` is a named export (`import { SagaStep }`) and is the same marker as `<Saga.Step>`.
