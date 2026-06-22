@@ -201,8 +201,6 @@ describe("Gateway RPC contract", () => {
       streamDevTools: "observability:read",
       getNodeOutput: "run:read",
       getNodeDiff: "run:read",
-      getSchemaSignature: "run:read",
-      listDocs: "run:read",
       cronList: "cron:read",
       cronCreate: "cron:write",
       cronDelete: "cron:write",
