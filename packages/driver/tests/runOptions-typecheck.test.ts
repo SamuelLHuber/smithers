@@ -70,5 +70,7 @@ describe("RunOptions public type", () => {
 
     expect(`${result.stdout}${result.stderr}`).toBe("");
     expect(result.status).toBe(0);
-  });
+    // Spawns a full `tsc` subprocess, which can exceed the default 5s under a
+    // CPU-saturated CI test run; give it a generous ceiling so it doesn't flake.
+  }, 60_000);
 });
