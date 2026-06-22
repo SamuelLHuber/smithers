@@ -4157,6 +4157,12 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - account:read
+                          - memory:read
+                          - prompt:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4211,6 +4217,12 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - account:read
+                          - memory:read
+                          - prompt:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4265,6 +4277,12 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - account:read
+                          - memory:read
+                          - prompt:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -4319,6 +4337,12 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - account:read
+                          - memory:read
+                          - prompt:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5221,6 +5245,12 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - account:read
+                          - memory:read
+                          - prompt:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5275,6 +5305,12 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - account:read
+                          - memory:read
+                          - prompt:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5329,6 +5365,12 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - account:read
+                          - memory:read
+                          - prompt:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
@@ -5383,6 +5425,12 @@ paths:
                           - signal:submit
                           - cron:read
                           - cron:write
+                          - account:read
+                          - memory:read
+                          - prompt:read
+                          - score:read
+                          - ticket:read
+                          - ticket:write
                           - observability:read
                       refresh:
                         type: string
