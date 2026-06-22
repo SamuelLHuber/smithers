@@ -249,6 +249,36 @@ function formatStatusExitCode(status) {
     return 1;
 }
 /**
+ * @param {string | null | undefined} status
+ */
+function isWaitingStatus(status) {
+    return (status === "waiting-approval" ||
+        status === "waiting-event" ||
+        status === "waiting-timer");
+}
+/**
+ * CTAs shown when `up` ends in a paused (waiting-*) state, so exit code 3 reads
+ * as "awaiting a decision" rather than a failure.
+ * @param {string | null | undefined} status
+ * @param {string} runId
+ */
+function pauseCtas(status, runId) {
+    if (status === "waiting-approval")
+        return [
+            { command: `approve ${runId}`, description: "Approve the paused gate" },
+            { command: `deny ${runId}`, description: "Reject the paused gate" },
+            { command: `why ${runId}`, description: "Explain why the run is paused" },
+        ];
+    if (status === "waiting-event")
+        return [
+            { command: `signal ${runId} <event>`, description: "Send the awaited signal" },
+            { command: `why ${runId}`, description: "Explain the signal wait" },
+        ];
+    if (status === "waiting-timer")
+        return [{ command: `why ${runId}`, description: "Explain the timer wait" }];
+    return [];
+}
+/**
  * @param {SmithersWorkflow<any>} workflow
  */
 function setupSqliteCleanup(workflow) {
@@ -1950,8 +1980,11 @@ async function executeUpCommand(c, workflowPath, options, fail) {
             process.exitCode = formatStatusExitCode(result.status);
             return c.ok(result, {
                 cta: result.runId ? {
-                    description: "Next steps:",
+                    description: isWaitingStatus(result.status)
+                        ? "Run is paused (exit 3 = awaiting a decision, not a failure). Next steps:"
+                        : "Next steps:",
                     commands: [
+                        ...pauseCtas(result.status, result.runId),
                         ...getWorkflowFollowUpCtas(workflowPath),
                         { command: `inspect ${result.runId}`, description: "Inspect run state" },
                         { command: `logs ${result.runId}`, description: "View run logs" },
@@ -1980,8 +2013,11 @@ async function executeUpCommand(c, workflowPath, options, fail) {
         process.exitCode = formatStatusExitCode(result.status);
         return c.ok(result, {
             cta: result.runId ? {
-                description: "Next steps:",
+                description: isWaitingStatus(result.status)
+                    ? "Run is paused (exit 3 = awaiting a decision, not a failure). Next steps:"
+                    : "Next steps:",
                 commands: [
+                    ...pauseCtas(result.status, result.runId),
                     ...getWorkflowFollowUpCtas(workflowPath),
                     { command: `inspect ${result.runId}`, description: "Inspect run state" },
                     { command: `logs ${result.runId}`, description: "View run logs" },
