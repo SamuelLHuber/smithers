@@ -3,7 +3,8 @@
 > Target repo: **smithers** (this repo)
 > Source: GitHub issue [#306](https://github.com/smithersai/smithers/issues/306) · 2026-06-16 bulletproof audit
 > Triaged 2026-06-18 against `main` (post-#442 merge train): 32 of 90 resolved, 58 still open.
-> Re-verified 2026-06-20: a further ~12 of those 58 have since landed (the `[x]` items below — devtools/gateway-client/observability/review/smithers branch tests, plus the examples CI gate); **~44 of 90 resolved, ~46 still open**. The remaining bulk (untested OTLP/review drivers, fabricated/skip-only e2e fault cases, operator-UI behavioral coverage, gateway-react sync branches) is genuine open work. Several `_remaining:_` notes below are the original 2026-06-18 finding text and are stale where the box is now `[x]`.
+> Re-verified 2026-06-20: a further ~12 of those 58 have since landed (the `[x]` items below — devtools/gateway-client/observability/review/smithers branch tests, plus the examples CI gate); **~51 of 90 resolved, ~39 still open**. The remaining bulk (untested OTLP/review drivers, fabricated/skip-only e2e fault cases, operator-UI behavioral coverage, gateway-react sync branches) is genuine open work. Several `_remaining:_` notes below are the original 2026-06-18 finding text and are stale where the box is now `[x]`.
+> Re-verified 2026-06-22: the 7 cov tickets already archived to `.done/` (cov-01 real-CLI e2e for the other 8 engines, cov-02 revert_attempt MCP handler, cov-03 rewind in json-stdout-contract, cov-05 review proxy non-streaming metering + srk_ auth, cov-10 workflow-ui-all Playwright Chromium, cov-29 useGatewayExtensionAction error/fence, cov-30 useGatewayRunEvents afterSeq/error) are confirmed landed in current source with real tests, and are now checked below; #306 mirrored.
 
 ## Context
 
@@ -13,11 +14,11 @@ Each item below is still open in current `main`. Text is the original audit find
 
 ## Open items
 
-- [ ] **P2** Real-CLI e2e exists for only 2 of 10 CLI engines (OpenCode, Vibe); the other 8 are proven only via fake-binary subprocess tests — `packages/agents/tests/opencode-e2e.test.js, packages/agents/tests/vibe-agent-e2e.test.js`
+- [x] **P2** Real-CLI e2e exists for only 2 of 10 CLI engines (OpenCode, Vibe); the other 8 are proven only via fake-binary subprocess tests — `packages/agents/tests/opencode-e2e.test.js, packages/agents/tests/vibe-agent-e2e.test.js`
   - _remaining:_ No real-CLI e2e added for the other 8 engines (amp, antigravity, claude, codex, gemini, forge, pi, kimi/hermes); they remain fake-binary subprocess only
-- [ ] **P2** MCP revert_attempt tool handler is untested — `apps/cli/src/mcp/semantic-tools.js:1185-1209`
+- [x] **P2** MCP revert_attempt tool handler is untested — `apps/cli/src/mcp/semantic-tools.js:1185-1209`
   - _remaining:_ revert_attempt MCP handler still has no test in semantic-tools-unit.test.js or semantic-mcp.test.js
-- [ ] **P2** Contract test does not cover every command that advertises JSON output (rewind omitted despite being handled) — `apps/cli/tests/json-stdout-contract.test.js:151-160`
+- [x] **P2** Contract test does not cover every command that advertises JSON output (rewind omitted despite being handled) — `apps/cli/tests/json-stdout-contract.test.js:151-160`
   - _remaining:_ rewind not added to the json-stdout-contract command coverage
 - [ ] **P2** OTLP integration entry points (createSmithersOtelLayer/ObservabilityLayer/RuntimeLayer) have no tests — `apps/observability/src/createSmithersObservabilityLayer.js:46-49`
   - _remaining:_ OTLP integration entry-point layers still have no tests
@@ -27,7 +28,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ The two cited OTLP severity edge cases remain untested
 - [x] **P2** renderPrometheusMetrics Frequency and Summary metric-state branches untested — `apps/observability/src/renderPrometheusMetrics.js:172-188`
   - _remaining:_ renderPrometheusMetrics Frequency (src:172-178) and Summary (src:179-188) MetricState branches still untested
-- [ ] **P2** Non-streaming JSON metering and srk_ api-key proxy branches untested — `apps/review/src/server/proxy/handleAnthropic.ts:131-146, authenticateProxyRequest.ts:71-75`
+- [x] **P2** Non-streaming JSON metering and srk_ api-key proxy branches untested — `apps/review/src/server/proxy/handleAnthropic.ts:131-146, authenticateProxyRequest.ts:71-75`
   - _remaining:_ Non-streaming JSON metering and srk_ api-key proxy authentication branches remain uncovered
 - [ ] **P2** CLI entrypoint and GitHub Action drivers have no tests — `apps/review/src/cli/main.ts, apps/review/src/cli/parseReviewArgs.ts, apps/review/action/src/runAction.ts, runGate.ts, runReview.ts, fetchOidcToken.ts`
   - _remaining:_ main.ts, parseReviewArgs.ts, runAction.ts, runGate.ts, runReview.ts, fetchOidcToken.ts still have no direct tests
@@ -39,7 +40,7 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ Soak gate still effectively one fabricated-transport test; cases 29 and 30 remain skip-only stubs blocked on jjhub/0002
 - [ ] **P1** Six fault cases are empty skip-only stubs — entire feature areas have zero fault/e2e coverage — `e2e/faults/case19,case20,case21,case22 (each line 5-7); e2e/faults/case02-kill-sandbox-engine-alive.test.ts:189`
   - _remaining:_ Six fault cases (19,20,21,22 + case02 dual-heartbeat + the soak stubs) remain empty skip-only stubs
-- [ ] **P2** workflow-ui-all e2e depends on a retired POC (apps/smithers-studio-2) for its Chromium binary — `apps/cli/tests/workflow-ui-all.e2e.test.js:43,59`
+- [x] **P2** workflow-ui-all e2e depends on a retired POC (apps/smithers-studio-2) for its Chromium binary — `apps/cli/tests/workflow-ui-all.e2e.test.js:43,59`
   - _remaining:_ e2e still depends on retired POC apps/smithers-studio-2 for its Chromium binary
 - [ ] **P2** case08 inspector and case24 replay-safety are hybrids: real predicate called against fabricated storage — `e2e/faults/case08-inspector-never-idle.test.ts:3,62,277; e2e/faults/case24-replay-unsafe-approval.test.ts:3,189-248,443`
   - _remaining:_ case08 and case24 remain hybrids — real predicate against fabricated in-memory storage; not booted through the real product path
@@ -91,9 +92,9 @@ Each item below is still open in current `main`. Text is the original audit find
   - _remaining:_ invalidate() re-pull of pollable list collections via the pulser is still entirely untested
 - [ ] **P2** isAuthError 401/403 status and code-based branches untested — `packages/gateway-react/src/sync/createGatewayCollections.ts:53-62`
   - _remaining:_ isAuthError status===401/403 and code-based branches untested; only message-regex hit indirectly
-- [ ] **P2** useGatewayExtensionAction error path and double-call generation fence untested — `packages/gateway-react/src/useGatewayExtensionAction.ts:33-39; packages/gateway-react/tests/extension-hooks.test.ts:129-158`
+- [x] **P2** useGatewayExtensionAction error path and double-call generation fence untested — `packages/gateway-react/src/useGatewayExtensionAction.ts:33-39; packages/gateway-react/tests/extension-hooks.test.ts:129-158`
   - _remaining:_ Error path (catch at :33-39) and double-call generation fence untested
-- [ ] **P2** useGatewayRunEvents afterSeq filter and error state untested — `packages/gateway-react/src/useGatewayRunEvents.ts:45,58-59; packages/gateway-react/tests/sync/sync.test.ts:455-503`
+- [x] **P2** useGatewayRunEvents afterSeq filter and error state untested — `packages/gateway-react/src/useGatewayRunEvents.ts:45,58-59; packages/gateway-react/tests/sync/sync.test.ts:455-503`
   - _remaining:_ useGatewayRunEvents afterSeq filter (src:45) and error state (live.isError, src:58) never asserted
 - [ ] **P2** createGatewayReactRoot success path (mount + dual-provider wiring) untested — `packages/gateway-react/src/createGatewayReactRoot.ts:12-34; packages/gateway-react/tests/gateway-react.test.ts:78-101`
   - _remaining:_ createGatewayReactRoot success path (real mount + dual-provider wiring) still untested

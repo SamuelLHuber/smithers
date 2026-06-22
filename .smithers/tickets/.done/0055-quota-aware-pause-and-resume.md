@@ -2,7 +2,7 @@
 
 > Target repo: **smithers** (this repo)
 > Source: GitHub issue [#324](https://github.com/smithersai/smithers/issues/324) · found running `.smithers/workflows/fix-all-issues.tsx`
-> Status 2026-06-18: **open, not started.** Related: [[0054-degraded-partial-failure-run-status]].
+> Status: **DONE** (landed 2026-06-20) — quota errors now route to a durable `waiting-quota` status and do **not** consume task retries; #324 closed 2026-06-21, archived to `.done/`. Re-verified against source 2026-06-22. Related: [[0054-degraded-partial-failure-run-status]].
 
 ## Problem
 
@@ -14,13 +14,19 @@ A quota error is **transient and resumable** (it even carries a concrete reset t
 
 ## Suggested solution
 
-- [ ] Detect provider usage-limit/rate/quota errors (parse the reset time when present) and **do not** consume the task's `retries`.
-- [ ] Prefer **pausing the run** into a durable, resumable state — a dedicated status (e.g. `waiting-quota`) with the reset time surfaced — rather than failing the task, so `smithers up --run-id … --resume true` after the reset completes the remaining work instead of leaving silently-skipped items.
-- [ ] At minimum, back off / requeue rather than spin through every task at the failure rate.
-- [ ] Surface an aggregate "N tasks blocked on provider quota" signal (ties into [[0054-degraded-partial-failure-run-status]]).
+- [x] Detect provider usage-limit/rate/quota errors (parse the reset time when present) and **do not** consume the task's `retries`.
+- [x] Prefer **pausing the run** into a durable, resumable state — a dedicated status (e.g. `waiting-quota`) with the reset time surfaced — rather than failing the task, so `smithers up --run-id … --resume true` after the reset completes the remaining work instead of leaving silently-skipped items.
+- [x] At minimum, back off / requeue rather than spin through every task at the failure rate.
+- [x] Surface an aggregate "N tasks blocked on provider quota" signal (ties into [[0054-degraded-partial-failure-run-status]]).
 
 ## Acceptance
 
-- [ ] A usage-limit error does not decrement `retries` and does not converge a `<Loop>` item to no-PR.
-- [ ] The run can durably pause on quota exhaustion and resume cleanly after the reset time.
-- [ ] An aggregate quota-blocked count is observable (CLI/inspect).
+- [x] A usage-limit error does not decrement `retries` and does not converge a `<Loop>` item to no-PR.
+- [x] The run can durably pause on quota exhaustion and resume cleanly after the reset time.
+- [x] An aggregate quota-blocked count is observable (CLI/inspect).
+
+## Implementation (verified 2026-06-22)
+
+- Detection: `classifyQuotaError` (`packages/agents`) maps provider usage-limit text → `AGENT_QUOTA_EXCEEDED` / `failureQuota`, parsing the reset time; `isQuotaFailure`/`isQuotaTaskFailure` in `packages/scheduler/src/makeWorkflowSession.js` + `packages/engine/src/engine.js` exclude quota attempts from the retry-consuming set.
+- Durable pause: `waiting-quota` status threads through `packages/driver/src/RunStatus.ts`, `packages/scheduler/src/RunResult.ts`, `packages/db/src/runState/RunState.ts`; reset time persisted in `errorJson` and surfaced via `deriveRunState` (`blocked.kind="quota"`, `quotaBlockedCount`, `resetAtMs`).
+- Tests: `packages/scheduler/tests/workflowSession-quota.test.js`, `packages/agents/tests/classifyQuotaError.test.js`, `packages/engine/tests/engine-internals.test.js` (quota DB round-trip / retry-budget preservation).

@@ -57,12 +57,12 @@ remaining work. Of 443 tracked findings/items, ~155 have landed; the rest live h
 
 **Still open (GitHub issue open):**
 
-- [0046](smithers/0046-audit-p0-blockers.md) — P0 critical blockers ([#299](https://github.com/smithersai/smithers/issues/299), **open** — real-product rewrite of the remaining ~17 fabricated-schema fault cases; multi-week e2e infra)
-- [0047](smithers/0047-audit-ci-architecture-systemic.md) — CI enforcement, architecture & systemic policy ([#300](https://github.com/smithersai/smithers/issues/300), **5 of 34 landed since triage, 29 open** — lint/typecheck-examples/examples-bun-test/e2e-boundary-scan/tsconfig-paths gates landed; CLI monolith, checkJs off, exports/boundary drift, agents↔observability publish cycle remain)
-- [0052](smithers/0052-audit-test-coverage-gaps.md) — Test coverage gaps ([#306](https://github.com/smithersai/smithers/issues/306), **open** — OTLP layers, review drivers, fabricated/skip-only e2e, gateway-react branches; examples tree now CI-gated)
+- [0046](.epics/0046-audit-p0-blockers.md) — P0 critical blockers ([#299](https://github.com/smithersai/smithers/issues/299), **open** — real-product rewrite of the remaining ~17 fabricated-schema fault cases; multi-week e2e infra)
+- [0047](.epics/0047-audit-ci-architecture-systemic.md) — CI enforcement, architecture & systemic policy ([#300](https://github.com/smithersai/smithers/issues/300), **5 of 34 landed since triage, 29 open** — lint/typecheck-examples/examples-bun-test/e2e-boundary-scan/tsconfig-paths gates landed; CLI monolith, checkJs off, exports/boundary drift, agents↔observability publish cycle remain)
+- [0052](.epics/0052-audit-test-coverage-gaps.md) — Test coverage gaps ([#306](https://github.com/smithersai/smithers/issues/306), **open — ~51 of 90 resolved, ~39 open** (re-verified 2026-06-22) — OTLP entry layers, review CLI/action drivers, fabricated/skip-only e2e fault cases, gateway-react sync branches remain)
 - [0054](smithers/0054-degraded-partial-failure-run-status.md) — Degraded/partial-failure run status ([#295](https://github.com/smithersai/smithers/issues/295), open — masked failed children; not started)
-- [0055](smithers/0055-quota-aware-pause-and-resume.md) — Quota-aware pause & resume ([#324](https://github.com/smithersai/smithers/issues/324), open — don't burn retries on usage-limit errors; not started)
-- [0056](smithers/0056-integrations-tool-catalog.md) — Integrations tool catalog ([#222](https://github.com/smithersai/smithers/issues/222), 72 of 87 open — OAuth plane is the load-bearing gap; Tier 1 connector backlog)
+- [0056](.epics/0056-integrations-tool-catalog.md) — Integrations tool catalog ([#222](https://github.com/smithersai/smithers/issues/222), 72 of 87 open — OAuth plane is the load-bearing gap; Tier 1 connector backlog)
+- _#446 Gateway origin allow-list (`allowedOrigins`) only exists for trusted-proxy mode, not token/jwt — open ([#446](https://github.com/smithersai/smithers/issues/446)); no dedicated ticket yet._
 
 **Closed & archived in `.done/` (source GitHub issue resolved):**
 
@@ -71,6 +71,7 @@ remaining work. Of 443 tracked findings/items, ~155 have landed; the rest live h
 - [0050](.done/0050-audit-bug-fixes.md) — Bug fixes ([#303](https://github.com/smithersai/smithers/issues/303) ✅ closed)
 - [0051](.done/0051-audit-docs-skills-accuracy.md) — Documentation & skills accuracy ([#304](https://github.com/smithersai/smithers/issues/304) ✅ closed — 10/11; remaining item is an external installed-skill fix, out of scope here)
 - [0053](.done/0053-audit-code-cleanup-refactors.md) — Code cleanup & refactors ([#307](https://github.com/smithersai/smithers/issues/307) ✅ closed — 24/25 done; approval-continue usage capture deferred with rationale)
+- [0055](.done/0055-quota-aware-pause-and-resume.md) — Quota-aware pause & resume ([#324](https://github.com/smithersai/smithers/issues/324) ✅ closed 2026-06-21 — usage-limit/quota errors now pause into `waiting-quota` without burning retries and resume after the reset; verified in source 2026-06-22)
 
 ## `jjhub/` — `/Users/williamcory/jjhub`
 
