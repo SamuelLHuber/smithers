@@ -328,14 +328,29 @@ smithers up workflow.tsx --run-id <id> --resume true          # resume after a c
 smithers ps                                                   # list runs
 smithers inspect <run-id>                                     # full run state
 smithers logs <run-id> -f                                     # follow events
-smithers approve <run-id> --node review                       # clear an approval gate
+smithers approve <run-id> --node review --by alice            # clear an approval gate
+smithers deny <run-id> --node review --by alice               # reject an approval gate
+smithers signal <run-id> <signal-name> --data '{}'            # deliver a Signal/WaitForEvent payload
 smithers cancel <run-id>                                      # stop a run
 smithers eval workflow.tsx --cases evals/smoke.jsonl --suite smoke
 ```
 
 When a workflow pauses on a human approval or question, the run is durable: it
 waits. Resolve it with `smithers approve` / `smithers deny` / `smithers signal`
-and the run continues from there.
+and the run continues from there. `approve` and `deny` take the same arguments:
+the `<run-id>` (positional, required), `--node <node-id>` to pick the gate
+(optional when exactly one gate is pending; required when several are),
+`--by <name>` to record who decided, and an optional `--note "<reason>"`. After
+denying, `onDeny` on the `<Approval>` decides what happens next (`fail`,
+`continue`, or `skip`); resume the run with `smithers up <file> --run-id <id>
+--resume true` to proceed.
+
+`signal` takes `<run-id>` and `<signal-name>` as required positional arguments.
+Use `--data '<json>'` for the payload (defaults to `{}`), `--correlation <id>` to
+target a specific waiter, and `--by <name>` to record the sender. Example:
+`smithers signal run_123 deploy.ready --data '{"ok":true}' --correlation ticket-42
+--by alice`, then resume the paused run with `smithers up <file> --run-id run_123
+--resume true`.
 
 ## When you're blocked, ask a human, never guess
 

@@ -389,6 +389,7 @@ import { createSmithers, Sequence, Task } from "smithers-orchestrator";
 import { z } from "zod";
 
 const { Workflow, smithers, outputs } = createSmithers({
+  input: z.object({ name: z.string() }), // types ctx.input
   greeting: z.object({ message: z.string() }),
 });
 
@@ -404,6 +405,8 @@ export default smithers((ctx) => (
 ```
 
 `createSmithers` registers Zod schemas; each becomes a SQLite table. `outputs.greeting` is the typed reference for the `greeting` schema; using it as the `output` prop gives compile-time checks (typo `outputs.greting` is a type error).
+
+The `input` key is special: its schema types `ctx.input` (so `ctx.input.name` is a checked `string`, not `unknown`). Every other key is an output table. Omit `input` and `ctx.input` is untyped, forcing a defensive guard on each field (`ctx.input?.name ?? "world"`). Input fields also arrive as supplied, with no Zod defaults applied, so coalesce any field you do not require. The other schemas (`greeting` here) are the workflow's outputs.
 
 This Task has no `agent`, just a literal value. Run it.
 
@@ -429,6 +432,7 @@ import { createSmithers, Sequence, Task, AnthropicAgent } from "smithers-orchest
 import { z } from "zod";
 
 const { Workflow, smithers, outputs } = createSmithers({
+  input: z.object({ repo: z.string() }),
   analysis: z.object({
     summary: z.string(),
     issues: z.array(z.object({
@@ -478,6 +482,7 @@ const AnalysisSchema = z.object({
 });
 
 const { Workflow, smithers, outputs } = createSmithers({
+  input: z.object({ repo: z.string() }),
   analysis: AnalysisSchema,
   fix: z.object({
     patch: z.string(),
@@ -519,7 +524,9 @@ export default smithers((ctx) => {
 
 Render 1: only `analyze` is mounted. Render 2 (after `analyze` finishes): `analysis` is populated, `fix` mounts and runs. That is the entire reactivity story: no hooks, no subscriptions, JSX conditionals over persisted state.
 
-Same shape works for branching, parallel groups, and loops:
+Same shape works for branching, parallel groups, and loops. A `?:` conditional
+is the inline form; [`<Branch>`](/components/branch) is the declarative form when
+you want explicit `then`/`else` (it takes those as props, not children):
 
 ```tsx
 <Parallel maxConcurrency={3}>
@@ -527,6 +534,12 @@ Same shape works for branching, parallel groups, and loops:
   <Task id="test"  output={outputs.test}  agent={tester}>...</Task>
   <Task id="audit" output={outputs.audit} agent={auditor}>...</Task>
 </Parallel>
+
+<Branch
+  if={!!analysis && analysis.issues.length > 0}
+  then={<Task id="fix"  output={outputs.fix}  agent={fixer}>...</Task>}
+  else={<Task id="ship" output={outputs.ship} agent={shipper}>...</Task>}
+/>
 
 <Loop until={!!review?.approved} maxIterations={5}>
   <Task id="implement" output={outputs.impl} agent={implementer}>...</Task>
@@ -648,7 +661,7 @@ The frame is the unit of progress. Time travel, observability, hot reload, and r
 | Method | Returns | Use for |
 |---|---|---|
 | `ctx.input` | `T` | The immutable input passed to `runWorkflow`. |
-| `ctx.outputs(table)` / `ctx.outputs.<key>` | `Row[]` | All rows for an output table or schema key. |
+| `ctx.outputs(table)` / `ctx.outputs.<key>` | `Row[]` | All rows for an output schema key or output target. |
 | `ctx.outputMaybe(table, { nodeId, iteration? })` | `Row \| undefined` | Conditional rendering; returns `undefined` until the upstream task completes. |
 | `ctx.output(table, { nodeId, iteration? })` | `Row` | Same, but throws if missing. Use inside a Task body where the dep is guaranteed. |
 | `ctx.latest(table, nodeId)` | `Row \| undefined` | Highest iteration of a node, used inside `<Loop>` to read the previous iteration's output. |
@@ -659,6 +672,10 @@ The frame is the unit of progress. Time travel, observability, hot reload, and r
 | `ctx.auth` | `RunAuthContext \| null` | Auth context passed via `RunOptions.auth`. |
 
 Outputs are keyed by `(runId, nodeId, iteration)`. `iteration` is `0` outside loops; inside `<Loop>` each pass writes a new row at the next iteration index.
+
+The `table` argument means the schema key or output target from `createSmithers`
+(`"review"` or `outputs.review`), not a raw SQL table name. The runtime resolves
+that key to the actual persisted table.
 
 ## Tasks: three modes
 
@@ -679,7 +696,15 @@ Outputs are keyed by `(runId, nodeId, iteration)`. `iteration` is `0` outside lo
 </Task>
 ```
 
-Agent output validation: the runtime injects a JSON-schema description of the output Zod schema into the prompt, parses the response, validates, and persists. Validation failure feeds the error back into a retry attempt, so agents self-correct on schema drift.
+Agent output validation depends on the agent's structured-output capability. If
+the agent declares `supportsNativeStructuredOutput = true` (`AnthropicAgent` and
+`OpenAIAgent` by default), Smithers passes the Zod schema to
+`agent.generate({ outputSchema })`; those wrappers forward it through the AI
+SDK native structured-output channel (`Output.object({ schema })`). If the
+agent does not declare that flag (most CLI agents, including `ClaudeCodeAgent`),
+Smithers injects JSON instructions into the prompt, extracts JSON from the text,
+validates it, and warns about the fallback. Validation failure feeds the error
+back into a retry attempt, so agents self-correct on schema drift.
 
 Agents can be a fallback chain: `agent={[primary, fallback]}` tries `primary` first and falls through on failure.
 
@@ -916,6 +941,12 @@ const analyst     = new AnthropicAgent({ model, instructions: "..." }); // no to
 const reviewer    = new AnthropicAgent({ model, instructions: "...", tools: { read, grep } });
 const implementer = new AnthropicAgent({ model, instructions: "...", tools: { read, write, edit, bash } });
 ```
+
+Use `AnthropicAgent`/`OpenAIAgent` when you want API-billed SDK agents with
+native structured output. Use `ClaudeCodeAgent`, `CodexAgent`, and the other CLI
+agents when you want the vendor CLI/subscription surface; they can still produce
+typed task outputs, but the engine uses the prompt-and-parse fallback unless the
+agent documents a native structured-output opt-in.
 
 `defineTool` builds custom tools. Mark side-effecting ones with `sideEffect: true` and use `ctx.idempotencyKey` so retries don't double-fire.
 
@@ -1805,6 +1836,7 @@ import { createSmithers, Sequence, Task } from "smithers-orchestrator";
 import { z } from "zod";
 
 const { Workflow, smithers, outputs } = createSmithers({
+  input: z.object({ repo: z.string() }),
   analysis: z.object({ summary: z.string() }),
 });
 
@@ -1818,6 +1850,12 @@ export default smithers((ctx) => (
   </Workflow>
 ));
 ```
+
+`createSmithers` is a named export. The lowercase `smithers` wrapper is not a
+top-level import; it is the property returned by `createSmithers(...)`.
+`smithers((ctx) => ...)` returns the `SmithersWorkflow` value to export from the
+workflow file. The `input` schema above types `ctx.input.repo`; omit `input` and
+`ctx.input` is `unknown`, so you must guard or parse it yourself.
 
 `outputs.analysis` is the typed reference for the Zod schema, so typos are compile errors. The task body is a JSX expression (`{...}`) whose value is a plain object, with no LLM call here, just a static return. Real tasks pass a `run` prop or an AI model. See the [Task component reference](/components/workflow).
 
@@ -2725,6 +2763,14 @@ type TaskProps = {
 };
 ```
 
+`output={outputs.someKey}` is the canonical schema path. `outputs` comes from
+the same `createSmithers(...)` call as the workflow, and each value is the exact
+Zod schema object you registered. When a Task renders, Smithers uses that object
+as the output target, infers `outputSchema`, passes it to native
+structured-output agents, validates the returned row, and persists it to the
+matching output table. You only need `outputSchema={...}` when `output` is a
+custom Drizzle table or string key and Smithers cannot infer the Zod schema.
+
 ```tsx
 import { ToolLoopAgent as Agent } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -2742,6 +2788,47 @@ const codeAgent = new Agent({
   {(deps) => `Review: ${deps.analyze.summary}`}
 </Task>
 ```
+
+## Three task modes: agent, compute, static
+
+The `children` shape decides what a Task does. No `agent` prop is needed for the
+compute and static modes.
+
+- **Agent** (`agent={...}`, children is a prompt string or `(deps) => string`):
+  runs the agent, parses its output against the schema, persists.
+- **Compute** (no `agent`, children is a function returning a value): runs your
+  code. The function **may be `async`** and is awaited, so do real work here
+  (run a test command, call an API, read a file). Whatever it returns is
+  validated against `output` and persisted, exactly like an agent's parsed JSON.
+- **Static** (no `agent`, children is a literal value): persists the value as-is.
+
+```tsx
+// Compute task: an async function body runs real work, no agent involved.
+<Task id="run-tests" output={outputs.testResult}>
+  {async () => {
+    const proc = Bun.spawn(["bun", "test"], { stdout: "pipe", stderr: "pipe" });
+    const stdout = await new Response(proc.stdout).text();
+    const code = await proc.exited;
+    return { passed: code === 0, log: stdout.slice(-4000) };
+  }}
+</Task>
+
+// Compute task reading an upstream output via deps; still just a function.
+<Task id="count" output={outputs.count} deps={{ analyze: outputs.analysis }}>
+  {async (deps) => ({ issues: deps.analyze.issues.length })}
+</Task>
+
+// Static task: a literal value, persisted as-is.
+<Task id="config" output={outputs.config}>
+  {{ region: "us-east-1", retries: 3 }}
+</Task>
+```
+
+A compute or static Task is a first-class node: it persists, resumes, gates
+downstream `deps`, and works inside `<Loop>`, `<Branch>`, `<Parallel>`, and
+`<Sequence>` just like an agent Task. The only thing it cannot do is be a `fork`
+source (no agent session). Throwing inside a compute function fails the task and
+triggers its retry policy.
 
 ## Dependencies: dependsOn, needs, deps
 
@@ -2947,30 +3034,59 @@ type BranchProps = {
 ```
 
 ```tsx
-<Workflow name="deploy-pipeline">
-  <Task id="test" output={outputs.test}>
-    {{ passed: true }}
-  </Task>
+/** @jsxImportSource smithers-orchestrator */
+import { createSmithers } from "smithers-orchestrator";
+import { z } from "zod";
 
-  <Branch
-    if={ctx.output(outputs.test, { nodeId: "test" }).passed}
-    then={
-      <Task id="deploy" output={outputs.deploy}>
-        {{ url: "https://prod.example.com" }}
-      </Task>
-    }
-    else={
-      <Task id="notify-failure" output={outputs.notifyFailure}>
-        {{ message: "Tests failed, skipping deploy." }}
-      </Task>
-    }
-  />
-</Workflow>
+const { Workflow, Task, Branch, smithers, outputs } = createSmithers({
+  input: z.object({
+    deployToProduction: z.boolean(),
+  }),
+  deployment: z.object({
+    environment: z.enum(["staging", "production"]),
+    url: z.string(),
+  }),
+});
+
+export default smithers((ctx) => (
+  <Workflow name="deploy-pipeline">
+    <Branch
+      if={ctx.input.deployToProduction}
+      then={
+        <Task id="deploy-production" output={outputs.deployment}>
+          {{ environment: "production", url: "https://prod.example.com" }}
+        </Task>
+      }
+      else={
+        <Task id="deploy-staging" output={outputs.deployment}>
+          {{ environment: "staging", url: "https://staging.example.com" }}
+        </Task>
+      }
+    />
+  </Workflow>
+));
+```
+
+Use a plain boolean for `if`. The example above reads immutable run input, so
+there is no stale-read hazard: `ctx.input.deployToProduction` is the same value
+on every frame of that run. When the condition depends on an upstream task, read
+with `ctx.outputMaybe(...)`, coalesce the missing first-frame value, and let the
+render loop re-evaluate after the upstream task persists:
+
+```tsx
+const test = ctx.outputMaybe(outputs.test, { nodeId: "test" });
+
+<Branch
+  if={test?.passed === true}
+  then={<Task id="deploy" output={outputs.deployment}>...</Task>}
+  else={<Task id="notify" output={outputs.notification}>...</Task>}
+/>
 ```
 
 ## Notes
 
-- `if` re-evaluates every render frame; read completed-task outputs via `ctx.outputMaybe()`.
+- `if` re-evaluates every render frame; run input is immutable, and task outputs become visible on later frames after they persist.
+- Read incomplete upstream outputs with `ctx.outputMaybe()` rather than `ctx.output()`.
 - Each branch takes one element; wrap multiples in `<Sequence>` or `<Parallel>`.
 - Unselected branch tasks are absent from the task graph.
 - `<Branch>` takes **no children**; pass branches via `then`/`else`. Writing `<Branch>...</Branch>` throws `INVALID_INPUT` (children would otherwise be silently dropped).
@@ -3019,9 +3135,34 @@ export default smithers((ctx) => {
 });
 ```
 
+Loop children are ordinary Tasks, so a loop can drive **compute** tasks (an
+`async` function body, no agent) just as well as agents. A retry-until-green
+test loop is the canonical non-agent case:
+
+```tsx
+export default smithers((ctx) => {
+  const last = ctx.latest("testRun", "run-tests");
+
+  return (
+    <Workflow name="retry-tests">
+      <Loop id="until-green" until={last?.passed === true} maxIterations={3} onMaxReached="fail">
+        <Task id="run-tests" output={outputs.testRun}>
+          {async () => {
+            const proc = Bun.spawn(["bun", "test"], { stdout: "pipe" });
+            const log = await new Response(proc.stdout).text();
+            return { passed: (await proc.exited) === 0, log };
+          }}
+        </Task>
+      </Loop>
+    </Workflow>
+  );
+});
+```
+
 ## Notes
 
 - Give every `<Loop>` an explicit `id`. Without one the loop id is derived from its position in the tree, so a sibling that conditionally mounts or unmounts shifts the path and re-keys the loop, stranding its iteration state and restarting it from 0. An explicit `id` pins identity and makes the loop immune to sibling churn.
+- `onMaxReached` has exactly two values. `"return-last"` (the default) ends the loop cleanly once `maxIterations` is hit, keeping the last iteration's output. `"fail"` instead throws `RALPH_MAX_REACHED` and fails the run. Use `"fail"` when hitting the cap means the work never converged (tests never went green); use the default when the best-so-far result is acceptable.
 - `ctx.latest(table, nodeId)` reads the highest-iteration output; `until` must use `ctx.outputMaybe()` since output is absent on iter 0.
 - Direct nesting of `<Loop>` in `<Loop>` throws; wrap the inner loop in `<Sequence>`.
 - Custom Drizzle tables for loop tasks require `iteration` in the primary key.
@@ -3649,6 +3790,12 @@ type SandboxProps = {
 };
 ```
 
+The sandbox provider contract types are public exports from
+`"smithers-orchestrator/sandbox"`: `SandboxProvider`,
+`SandboxProviderRequest`, `SandboxProviderResult`,
+`SandboxDiffBundleLike`, `SandboxEgressConfig`, and
+`ExecuteSandboxOptions`. Import them with `import type` when writing adapters.
+
 ## Egress controls
 
 Use `egress` when the sandbox itself should own outbound-network configuration. Smithers does not mutate the parent harness environment for this path. It serializes the egress contract into the sandbox request and passes it to the selected provider or local transport.
@@ -3676,7 +3823,7 @@ Use `egress` when the sandbox itself should own outbound-network configuration. 
 />
 ```
 
-Provider-backed sandboxes receive the normalized contract as `request.egress`, and the raw serializable value remains in `request.config.egress` for adapters that need provider-specific fields. The JSX prop is typed `unknown`; at execution time Smithers accepts a provider object directly or a string id only after registering a provider with `registerSandboxProvider({ id, run })`. Invalid provider values fail during execution with `INVALID_INPUT`. Smithers core does not hardcode a Freestyle or iron-proxy sandbox adapter. Local transports merge the generated proxy environment into the sandbox handle environment, after `env`, so `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, and `NODE_EXTRA_CA_CERTS` are visible inside the sandbox process.
+Provider-backed sandboxes receive the normalized contract as `request.egress`, and the raw serializable value remains in `request.config.egress` for adapters that need provider-specific fields. The JSX prop is typed `unknown`; at execution time Smithers accepts a provider object directly or a string id only after registering a provider with `registerSandboxProvider({ id, run })`. The `unknown` type lets provider packages supply their own shapes, so TypeScript will not reject a bad provider at the JSX call site; invalid provider values fail during execution with `INVALID_INPUT`. Smithers core does not hardcode a Freestyle or iron-proxy sandbox adapter. Local transports merge the generated proxy environment into the sandbox handle environment, after `env`, so `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, and `NODE_EXTRA_CA_CERTS` are visible inside the sandbox process.
 
 When `caCertPem` is provided, Smithers writes it into the request bundle at `.smithers/egress/ca.crt` and points local transports at `/workspace/.smithers/egress/ca.crt`. If the CA is already installed by the sandbox image or sidecar, use `caCertPath` instead. Persisted sandbox config redacts egress env values, CA PEM, and secret-binding entries.
 
@@ -3714,6 +3861,99 @@ const provider = {
 </Workflow>
 ```
 
+`workflow` takes a `SmithersWorkflow`, the same value a workflow file's default
+export holds. `smithers((ctx) => ...)` returns a `SmithersWorkflow`, so the child
+is a normal `createSmithers` module you import; no extra wrapping is needed:
+
+```tsx
+// child workflow, defined and exported like any other
+const child = createSmithers({
+  input: z.object({ prompt: z.string() }),
+  result: z.object({ summary: z.string() }),
+});
+
+export const generateCodeWorkflow = child.smithers((ctx) => (
+  <child.Workflow name="generate-code">
+    <child.Task id="code" output={child.outputs.result} agent={coder}>
+      {`Generate code for: ${ctx.input.prompt}`}
+    </child.Task>
+  </child.Workflow>
+));
+```
+
+The provider's `run()` returns the result your parent receives. The minimal
+structured shape is `{ status: "finished", output, remoteRunId?, workspaceId? }`,
+where `output` matches the `output` schema (`outputs.result` above). Add a
+`diffBundle` when the sandbox changed files (see [Result bundles](#result-bundles)).
+
+## Complete one-file provider and child workflow
+
+This is the smallest complete pattern: a concrete provider object,
+`allowNetwork={true}`, and a child workflow in the same file. Real providers
+usually create a VM or container, but they still return the same structured
+`SandboxProviderResult`.
+
+```tsx
+/** @jsxImportSource smithers-orchestrator */
+import { createSmithers, Sandbox } from "smithers-orchestrator";
+import type { SandboxProvider } from "smithers-orchestrator/sandbox";
+import { z } from "zod";
+
+const child = createSmithers({
+  input: z.object({ prompt: z.string() }),
+  result: z.object({ summary: z.string() }),
+});
+
+const childWorkflow = child.smithers((ctx) => (
+  <child.Workflow name="sandbox-child">
+    <child.Task id="summarize" output={child.outputs.result}>
+      {{ summary: `Processed: ${ctx.input.prompt}` }}
+    </child.Task>
+  </child.Workflow>
+));
+
+const provider: SandboxProvider = {
+  id: "local-demo-provider",
+  async run(request) {
+    request.heartbeat({ phase: "starting-child" });
+
+    const childRun = await request.executeChildWorkflow(request.parentWorkflow, {
+      workflow: request.workflow,
+      input: request.input,
+      parentRunId: request.runId,
+      rootDir: request.rootDir,
+      allowNetwork: request.allowNetwork,
+      signal: request.signal,
+    });
+
+    return {
+      status: childRun.status === "finished" ? "finished" : "failed",
+      output: childRun.output,
+      remoteRunId: childRun.runId,
+      workspaceId: request.sandboxId,
+    };
+  },
+};
+
+const parent = createSmithers({
+  input: z.object({ prompt: z.string() }),
+  result: z.object({ summary: z.string() }),
+});
+
+export default parent.smithers((ctx) => (
+  <parent.Workflow name="sandbox-parent">
+    <Sandbox
+      id="remote-summary"
+      provider={provider}
+      workflow={childWorkflow}
+      input={{ prompt: ctx.input.prompt }}
+      output={parent.outputs.result}
+      allowNetwork={true}
+    />
+  </parent.Workflow>
+));
+```
+
 ## Execution model
 
 1. Smithers renders `<Sandbox>` as one scheduler task. Children do not become parent-run tasks.
@@ -3724,6 +3964,25 @@ const provider = {
 The provider contract receives the child workflow, input, root directory, request/result bundle paths, limits, abort signal, and a heartbeat callback:
 
 ```ts
+type SandboxProviderRequest = {
+  runId: string;
+  sandboxId: string;
+  input?: unknown;              // exactly the <Sandbox input={...}> value
+  rootDir: string;
+  requestBundlePath: string;
+  resultBundlePath: string;
+  workflow: SandboxChildWorkflowDefinition;
+  parentWorkflow?: SandboxWorkflow;
+  executeChildWorkflow: ExecuteSandboxChildWorkflow;
+  allowNetwork: boolean;
+  maxOutputBytes: number;
+  toolTimeoutMs: number;
+  egress?: SandboxEgressConfig;
+  config: Record<string, unknown>;
+  signal?: AbortSignal;
+  heartbeat(data?: unknown): void;
+};
+
 type SandboxProvider = {
   id: string;
   run(request: SandboxProviderRequest): Promise<SandboxProviderResult> | SandboxProviderResult;
@@ -3773,6 +4032,11 @@ return {
   },
 };
 ```
+
+Use the structured-result form when your adapter can return the output JSON and
+optional `diffBundle` directly. Use `bundlePath` when the remote side already
+wrote a full Smithers result bundle, when you need to preserve larger artifacts,
+or when the provider owns bundle materialization.
 
 Bundle limits are enforced before the result is accepted: 100 MB total, 5 MB manifest file (README.md), 1,000 patch files, bounded JSON output, and no path traversal or symlinks in bundle paths.
 
@@ -3845,23 +4109,147 @@ type SubflowProps = {
 };
 ```
 
+`Subflow` is a top-level component export. `createSmithers(...)` returns typed
+`Workflow`, `Task`, `Approval`, `Sandbox`, `Signal`, and pure structural helpers
+such as `Branch`, `Loop`, and `Parallel`; import `Subflow` from
+`"smithers-orchestrator"` when you need a child workflow boundary.
+
+The `workflow` prop takes a `SmithersWorkflow` value, which is exactly what the
+default export of a workflow file is. `smithers((ctx) => ...)` returns a
+`SmithersWorkflow`, so a child workflow is just another `createSmithers` module:
+
 ```tsx
-<Workflow name="parent-flow">
-  <Sequence>
-    <Subflow
-      id="run-child"
-      workflow={childWorkflow}
-      input={{ repo: "acme/app" }}
-      output={outputs.childResult}
-      retries={2}
-      timeoutMs={300_000}
-    />
-    <Task id="summarize" output={outputs.finalResult} agent={summarizer}>
-      Summarize the child workflow result.
-    </Task>
-  </Sequence>
-</Workflow>
+// child.tsx - a normal workflow file. Its default export is a SmithersWorkflow.
+import { createSmithers, Sequence, Task } from "smithers-orchestrator";
+import { z } from "zod";
+
+const child = createSmithers({
+  input: z.object({ repo: z.string() }),     // types ctx.input inside the child
+  childResult: z.object({ summary: z.string() }),
+});
+
+const childWorkflow = child.smithers((ctx) => (
+  <child.Workflow name="scan-repo">
+    <Sequence>
+      <Task id="scan" output={child.outputs.childResult} agent={scanner}>
+        {`Scan ${ctx.input.repo} and summarize.`}
+      </Task>
+    </Sequence>
+  </child.Workflow>
+));
+
+export default childWorkflow;
 ```
+
+Import that value into the parent and hand it to `<Subflow workflow={...}>`.
+The parent declares the schema it wants to persist the subflow result under;
+that key does not have to match the child's schema key, but the shape must match
+the child result you expect:
+
+```tsx
+import { createSmithers, Sequence, Subflow, Task } from "smithers-orchestrator";
+import childWorkflow from "./child.tsx";
+import { z } from "zod";
+
+const parent = createSmithers({
+  childSummary: z.object({ summary: z.string() }),
+  finalResult: z.object({ title: z.string(), summary: z.string() }),
+});
+
+export default parent.smithers((ctx) => {
+  const child = ctx.outputMaybe(parent.outputs.childSummary, { nodeId: "run-child" });
+
+  return (
+    <parent.Workflow name="parent-flow">
+      <Sequence>
+        <Subflow
+          id="run-child"
+          workflow={childWorkflow}
+          input={{ repo: "acme/app" }}
+          output={parent.outputs.childSummary}
+          retries={2}
+          timeoutMs={300_000}
+        />
+
+        {child ? (
+          <Task id="summarize" output={parent.outputs.finalResult} agent={summarizer}>
+            {`Summarize the child workflow result: ${child.summary}`}
+          </Task>
+        ) : null}
+      </Sequence>
+    </parent.Workflow>
+  );
+});
+```
+
+The child reads the `input` you pass via its own `ctx.input`. Type it by giving
+the child's `createSmithers` an `input` schema (above); without one, `ctx.input`
+is untyped and you must guard each field (`ctx.input?.repo ?? "."`).
+
+Read the persisted subflow result in the parent exactly like a task output:
+`ctx.outputMaybe(parent.outputs.childSummary, { nodeId: "run-child" })`. The
+`nodeId` is the `<Subflow id>`, and the output target is the parent's schema key.
+
+## Single-file parent and child
+
+For small examples and eval fixtures, define both factories in one `.tsx` file.
+Use separate `createSmithers` calls so the child has its own `ctx.input` type and
+output refs, and the parent has its own output table for the subflow result:
+
+```tsx
+/** @jsxImportSource smithers-orchestrator */
+import { createSmithers, Subflow } from "smithers-orchestrator";
+import { z } from "zod";
+
+const child = createSmithers({
+  input: z.object({ repo: z.string() }),
+  scanResult: z.object({ summary: z.string() }),
+});
+
+const scanWorkflow = child.smithers((ctx) => (
+  <child.Workflow name="scan-child">
+    <child.Task id="scan" output={child.outputs.scanResult}>
+      {{ summary: `Scanned ${ctx.input.repo}` }}
+    </child.Task>
+  </child.Workflow>
+));
+
+const parent = createSmithers({
+  input: z.object({ repo: z.string() }),
+  childSummary: z.object({ summary: z.string() }),
+  finalResult: z.object({ message: z.string() }),
+});
+
+export default parent.smithers((ctx) => {
+  const childSummary = ctx.outputMaybe(parent.outputs.childSummary, {
+    nodeId: "run-scan",
+  });
+
+  return (
+    <parent.Workflow name="parent-flow">
+      <parent.Sequence>
+        <Subflow
+          id="run-scan"
+          workflow={scanWorkflow}
+          input={{ repo: ctx.input.repo }}
+          output={parent.outputs.childSummary}
+        />
+
+        {childSummary ? (
+          <parent.Task id="finish" output={parent.outputs.finalResult}>
+            {{ message: `Child said: ${childSummary.summary}` }}
+          </parent.Task>
+        ) : null}
+      </parent.Sequence>
+    </parent.Workflow>
+  );
+});
+```
+
+The parent's `input` schema is optional but recommended whenever the parent
+reads `ctx.input.repo`; it turns `ctx.input` from `unknown` into a typed object.
+The child has its own `input` schema and its own `ctx.input`, populated from the
+value passed through the parent's `<Subflow input={...}>` prop.
 
 ## Notes
 
@@ -5399,6 +5787,39 @@ on every row.
 
 One source of truth: `tsc --emitDeclarationOnly` would produce something close to this. Import these types from `smithers-orchestrator` unless noted otherwise.
 
+`createSmithers` is a **named export**:
+
+```ts
+import { createSmithers } from "smithers-orchestrator";
+```
+
+It returns a local API object for that workflow module. Destructure the pieces
+you use (`Workflow`, `Task`, `Branch`, `Sandbox`, `smithers`, `outputs`) or keep
+the object and use property access (`api.Workflow`, `api.Task`). Both styles are
+equivalent for one factory; property access is clearer in files with multiple
+factories, such as parent/child workflow examples.
+
+There is no top-level default `smithers` export. The `smithers` wrapper function
+is the property returned by `createSmithers(...)`, and
+`smithers((ctx) => <Workflow ... />)` returns the `SmithersWorkflow` value that
+workflow files usually export as their default export.
+
+`input` is a reserved schema key on `createSmithers(...)`. It controls the
+TypeScript type of `ctx.input`; every other key is an output schema and becomes
+a typed output ref under `outputs.<key>`. Fresh runs validate the input row
+against the generated input table before inserting it, but Smithers does **not**
+call `inputSchema.parse()` and does not write Zod default values back into
+`ctx.input`. Treat required fields in the Zod schema as the authored TypeScript
+contract; for fields that may be omitted by a CLI/UI caller, use `.optional()` /
+`.nullable()` and coalesce inside the workflow (`ctx.input.dryRun ?? false`) or
+add an early compute task that performs stricter Zod parsing.
+
+Prefer `output={outputs.someKey}` on tasks, approvals, sandboxes, and subflows.
+The `outputs` object contains the exact Zod schema objects passed to
+`createSmithers(...)`, so the task can infer `outputSchema`, validate the
+returned row, persist it to the matching table, and feed the same schema to
+native structured-output agents.
+
 Major sections at a glance:
 - **Workflow / Context**: `SmithersWorkflow`, `SmithersCtx`, `RunOptions`, `RunResult`, the entry points for defining and running workflows.
 - **Task / Graph**: `TaskDescriptor`, `TaskProps`, `GraphSnapshot`, the shape of nodes at runtime and in the JSX layer.
@@ -5470,6 +5891,8 @@ declare class SmithersCtx<Schema extends unknown = unknown> {
   auth: RunAuthContext | null;
   outputs: OutputAccessor<Schema>;
 
+  // table is the schema key or output target from createSmithers,
+  // such as "review" or outputs.review, not the generated SQL table name.
   output(table: any, key: OutputKey): any;
   outputMaybe(table: any, key: OutputKey): any | undefined;
   latest(table: any, nodeId: string): any | undefined;
@@ -5876,6 +6299,8 @@ type WorkflowProps = {
   children?: React.ReactNode;
 };
 
+// OutputTarget accepts a Zod output schema (recommended, usually outputs.key),
+// a custom Drizzle table object, or a string schema key escape hatch.
 type OutputTarget = import("zod").ZodObject<any> | { $inferSelect: any } | string;
 type DepsSpec = Record<string, OutputTarget>;
 type InferDeps<D extends DepsSpec> = {
@@ -6978,6 +7403,8 @@ type CreateSmithersPostgresOptions =
     | { provider: "pglite"; dataDir?: string }
   );
 
+// Named export from "smithers-orchestrator". The returned `smithers` property is
+// the workflow wrapper; there is no default-exported top-level smithers function.
 declare function createSmithers<Schemas extends Record<string, import("zod").ZodObject<any>>>(
   schemas: Schemas,
   opts?: CreateSmithersOptions,

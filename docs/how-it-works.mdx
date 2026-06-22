@@ -31,7 +31,7 @@ The frame is the unit of progress. Time travel, observability, hot reload, and r
 | Method | Returns | Use for |
 |---|---|---|
 | `ctx.input` | `T` | The immutable input passed to `runWorkflow`. |
-| `ctx.outputs(table)` / `ctx.outputs.<key>` | `Row[]` | All rows for an output table or schema key. |
+| `ctx.outputs(table)` / `ctx.outputs.<key>` | `Row[]` | All rows for an output schema key or output target. |
 | `ctx.outputMaybe(table, { nodeId, iteration? })` | `Row \| undefined` | Conditional rendering; returns `undefined` until the upstream task completes. |
 | `ctx.output(table, { nodeId, iteration? })` | `Row` | Same, but throws if missing. Use inside a Task body where the dep is guaranteed. |
 | `ctx.latest(table, nodeId)` | `Row \| undefined` | Highest iteration of a node, used inside `<Loop>` to read the previous iteration's output. |
@@ -42,6 +42,10 @@ The frame is the unit of progress. Time travel, observability, hot reload, and r
 | `ctx.auth` | `RunAuthContext \| null` | Auth context passed via `RunOptions.auth`. |
 
 Outputs are keyed by `(runId, nodeId, iteration)`. `iteration` is `0` outside loops; inside `<Loop>` each pass writes a new row at the next iteration index.
+
+The `table` argument means the schema key or output target from `createSmithers`
+(`"review"` or `outputs.review`), not a raw SQL table name. The runtime resolves
+that key to the actual persisted table.
 
 ## Tasks: three modes
 
@@ -62,7 +66,15 @@ Outputs are keyed by `(runId, nodeId, iteration)`. `iteration` is `0` outside lo
 </Task>
 ```
 
-Agent output validation: the runtime injects a JSON-schema description of the output Zod schema into the prompt, parses the response, validates, and persists. Validation failure feeds the error back into a retry attempt, so agents self-correct on schema drift.
+Agent output validation depends on the agent's structured-output capability. If
+the agent declares `supportsNativeStructuredOutput = true` (`AnthropicAgent` and
+`OpenAIAgent` by default), Smithers passes the Zod schema to
+`agent.generate({ outputSchema })`; those wrappers forward it through the AI
+SDK native structured-output channel (`Output.object({ schema })`). If the
+agent does not declare that flag (most CLI agents, including `ClaudeCodeAgent`),
+Smithers injects JSON instructions into the prompt, extracts JSON from the text,
+validates it, and warns about the fallback. Validation failure feeds the error
+back into a retry attempt, so agents self-correct on schema drift.
 
 Agents can be a fallback chain: `agent={[primary, fallback]}` tries `primary` first and falls through on failure.
 
@@ -299,6 +311,12 @@ const analyst     = new AnthropicAgent({ model, instructions: "..." }); // no to
 const reviewer    = new AnthropicAgent({ model, instructions: "...", tools: { read, grep } });
 const implementer = new AnthropicAgent({ model, instructions: "...", tools: { read, write, edit, bash } });
 ```
+
+Use `AnthropicAgent`/`OpenAIAgent` when you want API-billed SDK agents with
+native structured output. Use `ClaudeCodeAgent`, `CodexAgent`, and the other CLI
+agents when you want the vendor CLI/subscription surface; they can still produce
+typed task outputs, but the engine uses the prompt-and-parse fallback unless the
+agent documents a native structured-output opt-in.
 
 `defineTool` builds custom tools. Mark side-effecting ones with `sideEffect: true` and use `ctx.idempotencyKey` so retries don't double-fire.
 

@@ -50,6 +50,7 @@ import { createSmithers, Sequence, Task } from "smithers-orchestrator";
 import { z } from "zod";
 
 const { Workflow, smithers, outputs } = createSmithers({
+  input: z.object({ name: z.string() }), // types ctx.input
   greeting: z.object({ message: z.string() }),
 });
 
@@ -65,6 +66,8 @@ export default smithers((ctx) => (
 ```
 
 `createSmithers` registers Zod schemas; each becomes a SQLite table. `outputs.greeting` is the typed reference for the `greeting` schema; using it as the `output` prop gives compile-time checks (typo `outputs.greting` is a type error).
+
+The `input` key is special: its schema types `ctx.input` (so `ctx.input.name` is a checked `string`, not `unknown`). Every other key is an output table. Omit `input` and `ctx.input` is untyped, forcing a defensive guard on each field (`ctx.input?.name ?? "world"`). Input fields also arrive as supplied, with no Zod defaults applied, so coalesce any field you do not require. The other schemas (`greeting` here) are the workflow's outputs.
 
 This Task has no `agent`, just a literal value. Run it.
 
@@ -90,6 +93,7 @@ import { createSmithers, Sequence, Task, AnthropicAgent } from "smithers-orchest
 import { z } from "zod";
 
 const { Workflow, smithers, outputs } = createSmithers({
+  input: z.object({ repo: z.string() }),
   analysis: z.object({
     summary: z.string(),
     issues: z.array(z.object({
@@ -139,6 +143,7 @@ const AnalysisSchema = z.object({
 });
 
 const { Workflow, smithers, outputs } = createSmithers({
+  input: z.object({ repo: z.string() }),
   analysis: AnalysisSchema,
   fix: z.object({
     patch: z.string(),
@@ -180,7 +185,9 @@ export default smithers((ctx) => {
 
 Render 1: only `analyze` is mounted. Render 2 (after `analyze` finishes): `analysis` is populated, `fix` mounts and runs. That is the entire reactivity story: no hooks, no subscriptions, JSX conditionals over persisted state.
 
-Same shape works for branching, parallel groups, and loops:
+Same shape works for branching, parallel groups, and loops. A `?:` conditional
+is the inline form; [`<Branch>`](/components/branch) is the declarative form when
+you want explicit `then`/`else` (it takes those as props, not children):
 
 ```tsx
 <Parallel maxConcurrency={3}>
@@ -188,6 +195,12 @@ Same shape works for branching, parallel groups, and loops:
   <Task id="test"  output={outputs.test}  agent={tester}>...</Task>
   <Task id="audit" output={outputs.audit} agent={auditor}>...</Task>
 </Parallel>
+
+<Branch
+  if={!!analysis && analysis.issues.length > 0}
+  then={<Task id="fix"  output={outputs.fix}  agent={fixer}>...</Task>}
+  else={<Task id="ship" output={outputs.ship} agent={shipper}>...</Task>}
+/>
 
 <Loop until={!!review?.approved} maxIterations={5}>
   <Task id="implement" output={outputs.impl} agent={implementer}>...</Task>

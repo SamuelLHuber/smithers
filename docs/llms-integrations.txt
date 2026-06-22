@@ -369,6 +369,44 @@ new ClaudeCodeAgent({
 });
 ```
 
+#### Allow-list and deny-list tools
+
+`allowedTools` and `disallowedTools` are independent string arrays that map to
+the Claude Code CLI's `--allowed-tools` and `--disallowed-tools`. Use them
+together: `allowedTools` whitelists what the agent may use, and `disallowedTools`
+hard-blocks tools even if they would otherwise be allowed. To let an agent read
+and write files but never run a shell, list both:
+
+```ts
+const reviewer = new ClaudeCodeAgent({
+  model: "claude-fable-5",
+  allowedTools: ["Read", "Write"],   // may read and write files
+  disallowedTools: ["Bash"],          // but never execute shell commands
+});
+```
+
+Setting `allowedTools` alone does not block `Bash`; the deny-list is what
+forbids it. Tool names follow the Claude Code convention (`Read`, `Write`,
+`Edit`, `Bash`, `WebFetch`, `Grep`, ...) and `Bash(git:*)`-style scoping is
+allowed.
+
+#### MCP servers (`mcpConfig`)
+
+`mcpConfig` is a string array passed straight through to the CLI's `--mcp-config`
+flag. Each entry is **either a path to an MCP config JSON file or an inline JSON
+string** (the Claude Code CLI accepts both forms), so you can mix them:
+
+```ts
+const agent = new ClaudeCodeAgent({
+  model: "claude-fable-5",
+  mcpConfig: [
+    "./.mcp.json",                                                   // a file path
+    '{"mcpServers":{"fs":{"command":"npx","args":["@modelcontextprotocol/server-filesystem","."]}}}', // inline JSON
+  ],
+  strictMcpConfig: true, // ignore any other MCP sources, use only mcpConfig
+});
+```
+
 `CodexAgent` extends the base with OpenAI Codex-specific flags. Key additions: `sandbox`, `config`, `outputSchema`.
 
 ```ts
@@ -469,9 +507,15 @@ new KimiAgent({
   workDir?: string; session?: string; continue?: boolean;
   skillsDir?: string; mcpConfigFile?: string[]; mcpConfig?: string[];
   maxStepsPerTurn?: number; maxRetriesPerStep?: number; maxRalphIterations?: number;
-  verbose?: boolean; debug?: boolean; configDir?: string;
+  verbose?: boolean; debug?: boolean; configDir?: string; // sets KIMI_SHARE_DIR (see below)
 });
 ```
+
+Unlike the other agents, `KimiAgent`'s `configDir` sets the **`KIMI_SHARE_DIR`**
+environment variable for that invocation (Kimi has no separate config-dir flag),
+pinning credentials and session state to `<configDir>` instead of the default
+`~/.kimi/`. It is exactly equivalent to `env: { KIMI_SHARE_DIR: "<configDir>" }`;
+the `configDir` name just keeps the option uniform across agents.
 
 `ForgeAgent` wraps the Forge CLI and supports 300+ models via provider/model strings. Key additions: `conversationId`, `provider`, `workflow`.
 
@@ -542,7 +586,7 @@ On clean exit the workflow resumes in detached mode. Vibe and OpenCode stream ca
 
 - **Yolo defaults.** `yolo: true` (default) maps to each CLI's "skip approvals" flag (`--dangerously-skip-permissions`, `--dangerously-bypass-approvals-and-sandbox`, `--yolo`, `--dangerously-allow-all`). Set `yolo: false` or use the agent-specific approval option for tighter control.
 - **Pi rpc mode** sends prompts as JSON over stdin and is required for `onExtensionUiRequest` callbacks; text/json modes pass the prompt as a positional arg with `files` emitted as `@path`.
-- **Kimi share dir.** `KimiAgent` auto-creates an isolated `KIMI_SHARE_DIR` per invocation to prevent `kimi.json` corruption under concurrent runs. Set `env.KIMI_SHARE_DIR` to opt out.
+- **Kimi share dir.** `KimiAgent` auto-creates an isolated `KIMI_SHARE_DIR` per invocation to prevent `kimi.json` corruption under concurrent runs. Pass `configDir` (or `env.KIMI_SHARE_DIR`) to pin a specific directory instead.
 - **Antigravity config.** `AntigravityAgent` launches the `agy` binary and passes `configDir`/`geminiDir` as both `--gemini_dir` and `GEMINI_DIR`, matching Antigravity's `~/.gemini/antigravity-cli` config root. Current `agy` prompts use `-p`, extra directories use `--add-dir`, and native resume uses `--conversation`.
 - **Non-idempotent retries.** When a `<Task>` retries, Smithers prepends a warning listing previously-called side-effect tools so the agent can verify external state before re-invoking them.
 
@@ -587,11 +631,65 @@ const codex = new OpenAIAgent({
 ```
 
 ```tsx
-{/* outputs comes from createSmithers() */}
-<Task id="plan" output={outputs.plan} agent={claude}>
-  Analyze the repository and propose a migration plan.
-</Task>
+/** @jsxImportSource smithers-orchestrator */
+import { AnthropicAgent, createSmithers } from "smithers-orchestrator";
+import { z } from "zod";
+
+const { Workflow, Task, smithers, outputs } = createSmithers({
+  input: z.object({ repo: z.string() }),
+  plan: z.object({
+    summary: z.string(),
+    risk: z.enum(["low", "medium", "high"]),
+  }),
+});
+
+const claude = new AnthropicAgent({
+  model: "claude-fable-5",
+  instructions: "You are a careful planner. Return structured JSON.",
+});
+
+export default smithers((ctx) => (
+  <Workflow name="sdk-agent-plan">
+    <Task id="plan" output={outputs.plan} agent={claude}>
+      {`Analyze ${ctx.input.repo} and propose a migration plan.`}
+    </Task>
+  </Workflow>
+));
 ```
+
+In workflow JSX, put the schema on the Smithers task by passing
+`output={outputs.plan}`. You do not also configure the schema on the agent
+constructor. At execution time the engine infers the task's Zod schema and calls
+the SDK agent with `agent.generate({ outputSchema })`; the agent receives both
+the prompt and the schema for that task. The `ctx` variable in the example is
+the normal parameter of the `smithers((ctx) => ...)` builder, typed from the
+`input` schema above.
+
+You can also call an SDK agent once without rendering a workflow. Pass
+`outputSchema` directly to `generate()` when you want typed structured output:
+
+```ts
+import { z } from "zod";
+
+const schema = z.object({
+  summary: z.string(),
+  risk: z.enum(["low", "medium", "high"]),
+});
+
+const result = await claude.generate({
+  prompt: "Summarize this change and classify its risk.",
+  outputSchema: schema,
+  timeout: { totalMs: 60_000 },
+});
+
+const parsed = schema.parse(result.output ?? JSON.parse(result.text));
+```
+
+For `AnthropicAgent`, `outputSchema` is forwarded as AI SDK
+`Output.object({ schema })`, which uses Anthropic's native structured-output
+request path for Claude models. `OpenAIAgent` does the same unless
+`nativeStructuredOutput: false`; `HermesAgent` defaults that option to `false`
+because many local Hermes servers do not honor JSON-schema response formats.
 
 ## Model Input
 

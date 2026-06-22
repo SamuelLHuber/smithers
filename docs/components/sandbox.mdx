@@ -62,6 +62,12 @@ type SandboxProps = {
 };
 ```
 
+The sandbox provider contract types are public exports from
+`"smithers-orchestrator/sandbox"`: `SandboxProvider`,
+`SandboxProviderRequest`, `SandboxProviderResult`,
+`SandboxDiffBundleLike`, `SandboxEgressConfig`, and
+`ExecuteSandboxOptions`. Import them with `import type` when writing adapters.
+
 ## Egress controls
 
 Use `egress` when the sandbox itself should own outbound-network configuration. Smithers does not mutate the parent harness environment for this path. It serializes the egress contract into the sandbox request and passes it to the selected provider or local transport.
@@ -89,7 +95,7 @@ Use `egress` when the sandbox itself should own outbound-network configuration. 
 />
 ```
 
-Provider-backed sandboxes receive the normalized contract as `request.egress`, and the raw serializable value remains in `request.config.egress` for adapters that need provider-specific fields. The JSX prop is typed `unknown`; at execution time Smithers accepts a provider object directly or a string id only after registering a provider with `registerSandboxProvider({ id, run })`. Invalid provider values fail during execution with `INVALID_INPUT`. Smithers core does not hardcode a Freestyle or iron-proxy sandbox adapter. Local transports merge the generated proxy environment into the sandbox handle environment, after `env`, so `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, and `NODE_EXTRA_CA_CERTS` are visible inside the sandbox process.
+Provider-backed sandboxes receive the normalized contract as `request.egress`, and the raw serializable value remains in `request.config.egress` for adapters that need provider-specific fields. The JSX prop is typed `unknown`; at execution time Smithers accepts a provider object directly or a string id only after registering a provider with `registerSandboxProvider({ id, run })`. The `unknown` type lets provider packages supply their own shapes, so TypeScript will not reject a bad provider at the JSX call site; invalid provider values fail during execution with `INVALID_INPUT`. Smithers core does not hardcode a Freestyle or iron-proxy sandbox adapter. Local transports merge the generated proxy environment into the sandbox handle environment, after `env`, so `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, and `NODE_EXTRA_CA_CERTS` are visible inside the sandbox process.
 
 When `caCertPem` is provided, Smithers writes it into the request bundle at `.smithers/egress/ca.crt` and points local transports at `/workspace/.smithers/egress/ca.crt`. If the CA is already installed by the sandbox image or sidecar, use `caCertPath` instead. Persisted sandbox config redacts egress env values, CA PEM, and secret-binding entries.
 
@@ -127,6 +133,99 @@ const provider = {
 </Workflow>
 ```
 
+`workflow` takes a `SmithersWorkflow`, the same value a workflow file's default
+export holds. `smithers((ctx) => ...)` returns a `SmithersWorkflow`, so the child
+is a normal `createSmithers` module you import; no extra wrapping is needed:
+
+```tsx
+// child workflow, defined and exported like any other
+const child = createSmithers({
+  input: z.object({ prompt: z.string() }),
+  result: z.object({ summary: z.string() }),
+});
+
+export const generateCodeWorkflow = child.smithers((ctx) => (
+  <child.Workflow name="generate-code">
+    <child.Task id="code" output={child.outputs.result} agent={coder}>
+      {`Generate code for: ${ctx.input.prompt}`}
+    </child.Task>
+  </child.Workflow>
+));
+```
+
+The provider's `run()` returns the result your parent receives. The minimal
+structured shape is `{ status: "finished", output, remoteRunId?, workspaceId? }`,
+where `output` matches the `output` schema (`outputs.result` above). Add a
+`diffBundle` when the sandbox changed files (see [Result bundles](#result-bundles)).
+
+## Complete one-file provider and child workflow
+
+This is the smallest complete pattern: a concrete provider object,
+`allowNetwork={true}`, and a child workflow in the same file. Real providers
+usually create a VM or container, but they still return the same structured
+`SandboxProviderResult`.
+
+```tsx
+/** @jsxImportSource smithers-orchestrator */
+import { createSmithers, Sandbox } from "smithers-orchestrator";
+import type { SandboxProvider } from "smithers-orchestrator/sandbox";
+import { z } from "zod";
+
+const child = createSmithers({
+  input: z.object({ prompt: z.string() }),
+  result: z.object({ summary: z.string() }),
+});
+
+const childWorkflow = child.smithers((ctx) => (
+  <child.Workflow name="sandbox-child">
+    <child.Task id="summarize" output={child.outputs.result}>
+      {{ summary: `Processed: ${ctx.input.prompt}` }}
+    </child.Task>
+  </child.Workflow>
+));
+
+const provider: SandboxProvider = {
+  id: "local-demo-provider",
+  async run(request) {
+    request.heartbeat({ phase: "starting-child" });
+
+    const childRun = await request.executeChildWorkflow(request.parentWorkflow, {
+      workflow: request.workflow,
+      input: request.input,
+      parentRunId: request.runId,
+      rootDir: request.rootDir,
+      allowNetwork: request.allowNetwork,
+      signal: request.signal,
+    });
+
+    return {
+      status: childRun.status === "finished" ? "finished" : "failed",
+      output: childRun.output,
+      remoteRunId: childRun.runId,
+      workspaceId: request.sandboxId,
+    };
+  },
+};
+
+const parent = createSmithers({
+  input: z.object({ prompt: z.string() }),
+  result: z.object({ summary: z.string() }),
+});
+
+export default parent.smithers((ctx) => (
+  <parent.Workflow name="sandbox-parent">
+    <Sandbox
+      id="remote-summary"
+      provider={provider}
+      workflow={childWorkflow}
+      input={{ prompt: ctx.input.prompt }}
+      output={parent.outputs.result}
+      allowNetwork={true}
+    />
+  </parent.Workflow>
+));
+```
+
 ## Execution model
 
 1. Smithers renders `<Sandbox>` as one scheduler task. Children do not become parent-run tasks.
@@ -137,6 +236,25 @@ const provider = {
 The provider contract receives the child workflow, input, root directory, request/result bundle paths, limits, abort signal, and a heartbeat callback:
 
 ```ts
+type SandboxProviderRequest = {
+  runId: string;
+  sandboxId: string;
+  input?: unknown;              // exactly the <Sandbox input={...}> value
+  rootDir: string;
+  requestBundlePath: string;
+  resultBundlePath: string;
+  workflow: SandboxChildWorkflowDefinition;
+  parentWorkflow?: SandboxWorkflow;
+  executeChildWorkflow: ExecuteSandboxChildWorkflow;
+  allowNetwork: boolean;
+  maxOutputBytes: number;
+  toolTimeoutMs: number;
+  egress?: SandboxEgressConfig;
+  config: Record<string, unknown>;
+  signal?: AbortSignal;
+  heartbeat(data?: unknown): void;
+};
+
 type SandboxProvider = {
   id: string;
   run(request: SandboxProviderRequest): Promise<SandboxProviderResult> | SandboxProviderResult;
@@ -186,6 +304,11 @@ return {
   },
 };
 ```
+
+Use the structured-result form when your adapter can return the output JSON and
+optional `diffBundle` directly. Use `bundlePath` when the remote side already
+wrote a full Smithers result bundle, when you need to preserve larger artifacts,
+or when the provider owns bundle materialization.
 
 Bundle limits are enforced before the result is accepted: 100 MB total, 5 MB manifest file (README.md), 1,000 patch files, bounded JSON output, and no path traversal or symlinks in bundle paths.
 

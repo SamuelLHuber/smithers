@@ -57,6 +57,7 @@ import { createSmithers, Sequence, Task } from "smithers-orchestrator";
 import { z } from "zod";
 
 const { Workflow, smithers, outputs } = createSmithers({
+  input: z.object({ repo: z.string() }),
   analysis: z.object({ summary: z.string() }),
 });
 
@@ -70,6 +71,12 @@ export default smithers((ctx) => (
   </Workflow>
 ));
 ```
+
+`createSmithers` is a named export. The lowercase `smithers` wrapper is not a
+top-level import; it is the property returned by `createSmithers(...)`.
+`smithers((ctx) => ...)` returns the `SmithersWorkflow` value to export from the
+workflow file. The `input` schema above types `ctx.input.repo`; omit `input` and
+`ctx.input` is `unknown`, so you must guard or parse it yourself.
 
 `outputs.analysis` is the typed reference for the Zod schema, so typos are compile errors. The task body is a JSX expression (`{...}`) whose value is a plain object, with no LLM call here, just a static return. Real tasks pass a `run` prop or an AI model. See the [Task component reference](/components/workflow).
 

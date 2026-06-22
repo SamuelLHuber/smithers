@@ -38,11 +38,65 @@ const codex = new OpenAIAgent({
 ```
 
 ```tsx
-{/* outputs comes from createSmithers() */}
-<Task id="plan" output={outputs.plan} agent={claude}>
-  Analyze the repository and propose a migration plan.
-</Task>
+/** @jsxImportSource smithers-orchestrator */
+import { AnthropicAgent, createSmithers } from "smithers-orchestrator";
+import { z } from "zod";
+
+const { Workflow, Task, smithers, outputs } = createSmithers({
+  input: z.object({ repo: z.string() }),
+  plan: z.object({
+    summary: z.string(),
+    risk: z.enum(["low", "medium", "high"]),
+  }),
+});
+
+const claude = new AnthropicAgent({
+  model: "claude-fable-5",
+  instructions: "You are a careful planner. Return structured JSON.",
+});
+
+export default smithers((ctx) => (
+  <Workflow name="sdk-agent-plan">
+    <Task id="plan" output={outputs.plan} agent={claude}>
+      {`Analyze ${ctx.input.repo} and propose a migration plan.`}
+    </Task>
+  </Workflow>
+));
 ```
+
+In workflow JSX, put the schema on the Smithers task by passing
+`output={outputs.plan}`. You do not also configure the schema on the agent
+constructor. At execution time the engine infers the task's Zod schema and calls
+the SDK agent with `agent.generate({ outputSchema })`; the agent receives both
+the prompt and the schema for that task. The `ctx` variable in the example is
+the normal parameter of the `smithers((ctx) => ...)` builder, typed from the
+`input` schema above.
+
+You can also call an SDK agent once without rendering a workflow. Pass
+`outputSchema` directly to `generate()` when you want typed structured output:
+
+```ts
+import { z } from "zod";
+
+const schema = z.object({
+  summary: z.string(),
+  risk: z.enum(["low", "medium", "high"]),
+});
+
+const result = await claude.generate({
+  prompt: "Summarize this change and classify its risk.",
+  outputSchema: schema,
+  timeout: { totalMs: 60_000 },
+});
+
+const parsed = schema.parse(result.output ?? JSON.parse(result.text));
+```
+
+For `AnthropicAgent`, `outputSchema` is forwarded as AI SDK
+`Output.object({ schema })`, which uses Anthropic's native structured-output
+request path for Claude models. `OpenAIAgent` does the same unless
+`nativeStructuredOutput: false`; `HermesAgent` defaults that option to `false`
+because many local Hermes servers do not honor JSON-schema response formats.
 
 ## Model Input
 
