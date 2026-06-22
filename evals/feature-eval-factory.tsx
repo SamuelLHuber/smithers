@@ -169,16 +169,37 @@ const asBool = (v: unknown, dflt: boolean): boolean => (typeof v === "boolean" ?
 const asStr = (v: unknown, dflt: string): string => (typeof v === "string" && v ? v : dflt);
 
 // ── feature parsing (runtime-safe; no cross-tsconfig import) ─────────────────
+// A line-based state machine, NOT a single regex: the `FeatureGroups` literal has
+// 2-space `NAME: [` openers, 4-space `"FEATURE",` members, and 2-space `],`
+// closers (plus inline empties like `TUI_DASHBOARD: [],`). A non-greedy regex
+// mis-pairs the brackets across consecutive groups and silently drops groups, so
+// we walk lines and track the open group explicitly.
+const GROUP_OPEN = /^ {2}([A-Z][A-Z0-9_]*):\s*\[(.*)$/;
+const FEATURE_TOKEN = /"([A-Z][A-Z0-9_]*)"/g;
 function parseFeatureGroups(file: string): Array<{ name: string; features: string[] }> {
-  const src = readFileSync(file, "utf8");
   const out: Array<{ name: string; features: string[] }> = [];
-  const re = /^ {2}([A-Z][A-Z0-9_]*):\s*\[([\s\S]*?)\],?\s*$/gm;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(src)) !== null) {
-    const name = m[1];
-    const features = [...m[2].matchAll(/"([A-Z][A-Z0-9_]*)"/g)].map((x) => x[1]);
-    if (features.length) out.push({ name, features });
+  let cur: { name: string; features: string[] } | null = null;
+  const flush = () => {
+    if (cur && cur.features.length) out.push(cur);
+    cur = null;
+  };
+  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const open = line.match(GROUP_OPEN);
+    if (open) {
+      flush();
+      cur = { name: open[1], features: [] };
+      for (const mm of open[2].matchAll(FEATURE_TOKEN)) cur.features.push(mm[1]);
+      if (open[2].includes("]")) flush(); // closed on the same line
+      continue;
+    }
+    if (!cur) continue;
+    if (/^ {2}\]/.test(line)) {
+      flush();
+      continue;
+    }
+    for (const mm of line.matchAll(FEATURE_TOKEN)) cur.features.push(mm[1]);
   }
+  flush();
   if (out.length < 30) throw new Error(`parseFeatureGroups: only found ${out.length} groups in ${file}`);
   return out;
 }
