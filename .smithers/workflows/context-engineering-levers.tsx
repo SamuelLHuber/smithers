@@ -224,7 +224,12 @@ function reviewPrompt(deliverable: "docs" | "sidecar" | "speed", validation: str
 
 // ---- per-deliverable state helpers ----
 type Del = "docs" | "sidecar" | "speed";
-function lastFor<T extends { deliverable: string }>(rows: T[] | undefined, d: Del): T | undefined {
+// Rows come from `ctx.outputs.*` on the deliberately-untyped (`ctx: any`) helper
+// ctx used throughout this workflow, so the element type is `any`; returning `any`
+// keeps the dynamic-output reads below consistent with that choice. A generic
+// constrained to `{ deliverable: string }` would instead collapse to its
+// constraint (losing every other field) when handed an `any` array.
+function lastFor(rows: Array<{ deliverable: string }> | undefined, d: Del): any {
   return [...(rows ?? [])].reverse().find((r) => r.deliverable === d);
 }
 function approvedGate(ctx: any, nodeId: string): boolean {
