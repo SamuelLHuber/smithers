@@ -203,6 +203,8 @@ Defined in the root `package.json` for development:
 | `demo:smithers` | `pnpm --filter @smithers-orchestrator/smithers-demo dev` | Start the React Flow Smithers demo app |
 | `demo:smithers:tui` | `pnpm --filter @smithers-orchestrator/smithers-tui-demo tui` | Start the terminal UI demo app |
 | `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && node scripts/check-docs.mjs && node scripts/check-llms.mjs && node scripts/check-smithers-test-script.mjs && pnpm -r --no-bail test` | Run docs/config guards, dependency guards, llms guards, and each package test script (no-bail so every failing package is reported) |
+| `test:e2e:apps` | `pnpm --filter @smithers-orchestrator/smithers e2e && pnpm --filter @smithers-orchestrator/smithers-studio-2 e2e && pnpm --filter @smithers-orchestrator/smithers-demo e2e` | Run the Playwright e2e suites for the demo/studio apps |
+| `coverage` | `node scripts/coverage.mjs` | Generate a test coverage report across the workspace |
 | `check:effect` | `node scripts/check-single-effect-version.mjs` | Verify the workspace resolves a single Effect version |
 | `check:deps` | `node scripts/check-dependency-boundaries.mjs` | Verify package dependency boundaries |
 | `check:docs` | `node scripts/check-docs.mjs` | Verify documentation style and API drift guards |
