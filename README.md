@@ -11,8 +11,6 @@ Tell your coding agent to do real, multi-step work, then Smithers runs it for mi
 days with crash recovery, retries, human approvals, and full observability. The same
 workflow runs across Claude Code, Codex, Pi, AI SDK models, and remote sandboxes.
 
-![Live workflow runs: some succeeded, some running, some paused on an approval gate, every run resumable and rewindable.](./marketing/0.22.0/assets/runs-live.gif)
-
 *A workflow run is a list of steps you can watch, pause, approve, and rewind. The run above shows several in flight at once.*
 
 ## What you get
