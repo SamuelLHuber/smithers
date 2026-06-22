@@ -1,6 +1,6 @@
 {
   "name": "@smithers-orchestrator/gateway-client",
-  "version": "0.24.2",
+  "version": "0.25.0",
   "description": "Browser-first client SDK for the Smithers Gateway RPC and event stream APIs",
   "type": "module",
   "sideEffects": false,
