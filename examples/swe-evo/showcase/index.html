@@ -81,8 +81,8 @@
   <h1>Smithers orchestration on <span class="grad">SWE-EVO</span></h1>
   <p class="sub">Two frontier models argue out a plan, one writes the code, the other reviews it until it passes — wired as a durable Smithers workflow and scored on the real SWE-EVO hermetic test harness.</p>
   <div class="stats">
-    <div class="stat"><div class="big accent">66.7%</div><div class="lbl">Resolved Rate (20/30 scored)</div></div>
-    <div class="stat"><div class="big">70.3%</div><div class="lbl">Fix Rate (FAIL→PASS, soft)</div></div>
+    <div class="stat"><div class="big accent">67.6%</div><div class="lbl">Resolved Rate (23/34 scored)</div></div>
+    <div class="stat"><div class="big">70.9%</div><div class="lbl">Fix Rate (FAIL→PASS, soft)</div></div>
     <div class="stat"><div class="big">25%</div><div class="lbl">Official full-48 ceiling (gpt-5.4 (OpenHands and SWE-agent))</div></div>
     
   </div>
@@ -93,15 +93,15 @@
   <h2>Coverage <span class="n">what has actually run</span></h2>
   <p class="lead">The full SWE-EVO benchmark is 48 instances across 7 Python repos. Scoring runs each repo's real Docker image; instances whose <em>gold</em> patch does not even reproduce in the current Docker environment are excluded from the denominator (scoring them would be meaningless), not silently counted as failures.</p>
   
-      <div class="cov-track" title="30 scored · 5 env-excluded · 13 pending">
-        <div class="cov-seg cov-scored" style="width:62.5%"></div>
-        <div class="cov-seg cov-excl" style="width:10.416666666666666%"></div>
-        <div class="cov-seg cov-pend" style="width:27.083333333333332%"></div>
+      <div class="cov-track" title="34 scored · 14 env-excluded · 0 pending">
+        <div class="cov-seg cov-scored" style="width:70.83333333333333%"></div>
+        <div class="cov-seg cov-excl" style="width:29.166666666666668%"></div>
+        <div class="cov-seg cov-pend" style="width:0%"></div>
       </div>
       <div class="cov-legend">
-        <span><i class="dot scored"></i>30 scored</span>
-        <span><i class="dot excl"></i>5 env-excluded</span>
-        <span><i class="dot pend"></i>13 pending</span>
+        <span><i class="dot scored"></i>34 scored</span>
+        <span><i class="dot excl"></i>14 env-excluded</span>
+        <span><i class="dot pend"></i>0 pending</span>
         <span class="muted">of 48 official instances</span>
       </div>
   <table style="margin-top:24px">
@@ -120,15 +120,15 @@
         <td>2/5</td>
         <td><strong>40.0%</strong></td>
         <td>52.0%</td>
-        <td><span class="muted">3 pending</span></td>
+        <td><span class="muted">3 env-excl</span></td>
       </tr>
 <tr>
         <td><code>psf/requests</code></td>
-        <td>0/4</td>
-        <td>0/0</td>
-        <td><span class='muted'>—</span></td>
-        <td><span class='muted'>—</span></td>
-        <td><span class="muted">4 pending</span></td>
+        <td>3/4</td>
+        <td>3/3</td>
+        <td><strong>100.0%</strong></td>
+        <td>100.0%</td>
+        <td><span class="muted">1 env-excl</span></td>
       </tr>
 <tr>
         <td><code>pydantic/pydantic</code></td>
@@ -140,11 +140,11 @@
       </tr>
 <tr>
         <td><code>modin-project/modin</code></td>
-        <td>0/3</td>
-        <td>0/0</td>
-        <td><span class='muted'>—</span></td>
-        <td><span class='muted'>—</span></td>
-        <td><span class="muted">3 pending</span></td>
+        <td>1/3</td>
+        <td>0/1</td>
+        <td><strong>0.0%</strong></td>
+        <td>0.0%</td>
+        <td><span class="muted">2 env-excl</span></td>
       </tr>
 <tr>
         <td><code>scikit-learn/scikit-learn</code></td>
@@ -152,7 +152,7 @@
         <td>0/0</td>
         <td><span class='muted'>—</span></td>
         <td><span class='muted'>—</span></td>
-        <td><span class="muted">2 pending</span></td>
+        <td><span class="muted">2 env-excl</span></td>
       </tr>
 <tr>
         <td><code>conan-io/conan</code></td>
@@ -160,33 +160,33 @@
         <td>1/1</td>
         <td><strong>100.0%</strong></td>
         <td>100.0%</td>
-        <td><span class="muted">1 pending</span></td>
+        <td><span class="muted">1 env-excl</span></td>
       </tr></tbody>
   </table>
 </div></section>
 
 <section><div class="wrap">
-  <h2>Every instance <span class="n">30 scored · 5 excluded · 13 pending</span></h2>
+  <h2>Every instance <span class="n">34 scored · 14 excluded · 0 pending</span></h2>
   <p class="lead">Each card is one official SWE-EVO instance. Green resolved (all FAIL_TO_PASS and PASS_TO_PASS tests pass), red ran but did not resolve, amber excluded as environment-incompatible, grey not yet run.</p>
-  <div class="grid"><div class="inst pend" title="conan-io__conan_2.0.14_2.0.15 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+  <div class="grid"><div class="inst excl" title="conan-io__conan_2.0.14_2.0.15 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">conan_2.0.14_2.0.15</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div>
 <div class="inst ok" title="conan-io__conan_2.0.2_2.0.3 — resolved · F2P 8/8 · P2P 317/317">
         <span class="inst-id">conan_2.0.2_2.0.3</span>
         <span class="inst-tag">resolved</span>
       </div>
-<div class="inst pend" title="dask__dask_2022.9.2_2022.10.0 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst excl" title="dask__dask_2022.9.2_2022.10.0 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">dask_2022.9.2_2022.10.0</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div>
 <div class="inst miss" title="dask__dask_2023.3.2_2023.4.0 — not resolved · F2P 0/61 · P2P 6221/6246">
         <span class="inst-id">dask_2023.3.2_2023.4.0</span>
         <span class="inst-tag">not resolved</span>
       </div>
-<div class="inst pend" title="dask__dask_2023.6.0_2023.6.1 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst excl" title="dask__dask_2023.6.0_2023.6.1 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">dask_2023.6.0_2023.6.1</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div>
 <div class="inst miss" title="dask__dask_2023.6.1_2023.7.0 — not resolved · F2P 3/5 · P2P 707/707">
         <span class="inst-id">dask_2023.6.1_2023.7.0</span>
@@ -200,9 +200,9 @@
         <span class="inst-id">dask_2023.9.2_2023.9.3</span>
         <span class="inst-tag">resolved</span>
       </div>
-<div class="inst pend" title="dask__dask_2024.1.0_2024.1.1 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst excl" title="dask__dask_2024.1.0_2024.1.1 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">dask_2024.1.0_2024.1.1</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div>
 <div class="inst miss" title="dask__dask_2024.3.1_2024.4.0 — not resolved · F2P 0/2 · P2P 2747/2747">
         <span class="inst-id">dask_2024.3.1_2024.4.0</span>
@@ -312,33 +312,33 @@
         <span class="inst-id">dvc_3.43.1_3.44.0</span>
         <span class="inst-tag">env-excluded</span>
       </div>
-<div class="inst pend" title="modin-project__modin_0.24.0_0.24.1 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst miss" title="modin-project__modin_0.24.0_0.24.1 — not resolved · F2P 0/1 · P2P 171/171 · scored on x86">
         <span class="inst-id">modin_0.24.0_0.24.1</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">not resolved</span>
       </div>
-<div class="inst pend" title="modin-project__modin_0.25.0_0.25.1 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst excl" title="modin-project__modin_0.25.0_0.25.1 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">modin_0.25.0_0.25.1</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div>
-<div class="inst pend" title="modin-project__modin_0.27.0_0.27.1 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst excl" title="modin-project__modin_0.27.0_0.27.1 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">modin_0.27.0_0.27.1</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div>
-<div class="inst pend" title="psf__requests_v2.12.2_v2.12.3 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst ok" title="psf__requests_v2.12.2_v2.12.3 — resolved · F2P 4/4 · P2P 109/109 · scored on x86">
         <span class="inst-id">requests_v2.12.2_v2.12.3</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">resolved</span>
       </div>
-<div class="inst pend" title="psf__requests_v2.27.0_v2.27.1 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst ok" title="psf__requests_v2.27.0_v2.27.1 — resolved · F2P 2/2 · P2P 185/185 · scored on x86">
         <span class="inst-id">requests_v2.27.0_v2.27.1</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">resolved</span>
       </div>
-<div class="inst pend" title="psf__requests_v2.4.0_v2.4.1 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst excl" title="psf__requests_v2.4.0_v2.4.1 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">requests_v2.4.0_v2.4.1</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div>
-<div class="inst pend" title="psf__requests_v2.9.0_v2.9.1 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst ok" title="psf__requests_v2.9.0_v2.9.1 — resolved · F2P 1/1 · P2P 85/85 · scored on x86">
         <span class="inst-id">requests_v2.9.0_v2.9.1</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">resolved</span>
       </div>
 <div class="inst ok" title="pydantic__pydantic_v2.6.0b1_v2.6.0 — resolved · F2P 1/1 · P2P 51/51">
         <span class="inst-id">pydantic_v2.6.0b1_v2.6.0</span>
@@ -352,13 +352,13 @@
         <span class="inst-id">pydantic_v2.7.1_v2.7.2</span>
         <span class="inst-tag">resolved</span>
       </div>
-<div class="inst pend" title="scikit-learn__scikit-learn_0.20.1_0.20.2 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst excl" title="scikit-learn__scikit-learn_0.20.1_0.20.2 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">scikit-learn_0.20.1_0.20.2</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div>
-<div class="inst pend" title="scikit-learn__scikit-learn_0.21.1_0.21.2 — pending (x86) · candidate generated on Mac; awaiting native-x86 score">
+<div class="inst excl" title="scikit-learn__scikit-learn_0.21.1_0.21.2 — env-excluded · gold patch does not reproduce on any host">
         <span class="inst-id">scikit-learn_0.21.1_0.21.2</span>
-        <span class="inst-tag">pending (x86)</span>
+        <span class="inst-tag">env-excluded</span>
       </div></div>
 </div></section>
 
@@ -402,96 +402,96 @@
   <div class="bars"><div class="bar-row ours">
         <div class="bar-label">Smithers orchestration — Opus 4.8 + GPT-5.5<span class="bar-prov">Anthropic + OpenAI</span></div>
         <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
-        <div class="bar-val">66.7%</div>
+        <div class="bar-val">67.6%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">glm-4p7<span class="bar-prov">Zhipu</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:59.37%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:58.50956521739131%"></div></div>
         <div class="bar-val">39.6%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">glm-5<span class="bar-prov">Zhipu</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:56.24999999999999%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:55.434782608695656%"></div></div>
         <div class="bar-val">37.5%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">gpt-5.4<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:37.5%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:36.95652173913044%"></div></div>
         <div class="bar-val">25.0%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">kimi-k2p5<span class="bar-prov">Moonshot</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:37.5%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:36.95652173913044%"></div></div>
         <div class="bar-val">25.0%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">deepseek-v3p2<span class="bar-prov">DeepSeek</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:35.099999999999994%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:34.59130434782609%"></div></div>
         <div class="bar-val">23.4%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">gpt-5.2<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:34.379999999999995%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:33.88173913043479%"></div></div>
         <div class="bar-val">22.9%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">gpt-5-08-07<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:31.244999999999997%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:30.79217391304348%"></div></div>
         <div class="bar-val">20.8%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">kimi-k2-instruct<span class="bar-prov">Moonshot</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:28.124999999999996%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:27.717391304347828%"></div></div>
         <div class="bar-val">18.8%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">deepseek-v3p1<span class="bar-prov">DeepSeek</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:25.005000000000003%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:24.64260869565218%"></div></div>
         <div class="bar-val">16.7%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">glm-4p5<span class="bar-prov">Zhipu</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:25.005000000000003%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:24.64260869565218%"></div></div>
         <div class="bar-val">16.7%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">qwen3-coder-480b-a35b<span class="bar-prov">Qwen</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:21.869999999999997%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:21.55304347826087%"></div></div>
         <div class="bar-val">14.6%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">gpt-5-mini-08-07<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:15.629999999999999%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:15.403478260869566%"></div></div>
         <div class="bar-val">10.4%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">deepseek-r1-0528<span class="bar-prov">DeepSeek</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:15.629999999999999%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:15.403478260869566%"></div></div>
         <div class="bar-val">10.4%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">gpt-4.1-2025-04-14<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:15.629999999999999%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:15.403478260869566%"></div></div>
         <div class="bar-val">10.4%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">gpt-4o-2024-11-20<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:9.375%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:9.23913043478261%"></div></div>
         <div class="bar-val">6.3%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">o3-2025-04-16<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:9.375%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:9.23913043478261%"></div></div>
         <div class="bar-val">6.3%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">gpt-oss-120b<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:9.375%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:9.23913043478261%"></div></div>
         <div class="bar-val">6.3%</div>
       </div>
 <div class="bar-row ">
         <div class="bar-label">gpt-5-nano-08-07<span class="bar-prov">OpenAI</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:6.255%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:6.164347826086957%"></div></div>
         <div class="bar-val">4.2%</div>
       </div></div>
   <div class="callout" style="border-left-color:var(--accent)">
