@@ -1,6 +1,7 @@
 import { execFile, execFileSync, spawn, spawnSync } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import * as pty from "node-pty";
+import { createRequire } from "node:module";
+import type { IPty } from "node-pty";
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, readSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, delimiter, dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,17 @@ import { discoverPromptInputs, renderPromptPreview } from "../src/promptInputs";
 import type { WorkspaceBackendRequest, WorkspaceBackendResponse, WorkspaceStatus } from "../src/workspaceProtocol";
 
 const SMITHERS_DB_QUERY_SCRIPT = fileURLToPath(new URL("./queries/querySmithersDb.mjs", import.meta.url));
+
+// node-pty ships a native addon that is unavailable on clean CI boxes (no
+// prebuild / no build toolchain). It is only needed when a terminal session is
+// actually spawned, so load it lazily — importing this module for the workspace
+// API server (and its unit tests) must not require the native binding.
+const requireFromHere = createRequire(import.meta.url);
+let ptyModuleCache: typeof import("node-pty") | undefined;
+function loadPtyModule(): typeof import("node-pty") {
+  ptyModuleCache ??= requireFromHere("node-pty") as typeof import("node-pty");
+  return ptyModuleCache;
+}
 const PROMPT_EXTENSIONS = new Set([".md", ".mdx"]);
 const WORKFLOW_SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 const WORKFLOW_IMPORT_EXTENSIONS = new Set([...WORKFLOW_SOURCE_EXTENSIONS, ...PROMPT_EXTENSIONS]);
@@ -247,7 +259,7 @@ type WorkspaceTerminalSessionRecord = {
   exitCode: number | null;
   signal: string | null;
   running: boolean;
-  child: { kind: "pty"; process: pty.IPty } | { kind: "process"; process: ChildProcessWithoutNullStreams };
+  child: { kind: "pty"; process: IPty } | { kind: "process"; process: ChildProcessWithoutNullStreams };
   nextSeq: number;
   events: WorkspaceTerminalSessionEvent[];
   rows: number;
@@ -1096,7 +1108,7 @@ function startTerminalSession(workspace: WorkspaceRoot, body: Record<string, unk
 
   let child: WorkspaceTerminalSessionRecord["child"];
   try {
-    const ptyProcess = pty.spawn(shellPath, command ? ["-lc", command] : [], {
+    const ptyProcess = loadPtyModule().spawn(shellPath, command ? ["-lc", command] : [], {
       name: "xterm-color",
       cols,
       rows,
