@@ -41,8 +41,7 @@
   ],
   "scripts": {
     "test": "bun test tests",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsup --dts-only"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "^0.70.2",
