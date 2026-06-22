@@ -147,7 +147,7 @@ describe("devtools: bippy + custom reconciler", () => {
     // ---------------------------------------------------------------------------
     test("challenge 5: handles nested parallel/sequence/branch/loop", async () => {
         const renderer = new SmithersRenderer();
-        await renderer.render(h(Workflow, { name: "nested-test" }, h(Sequence, null, h(Task, { id: "setup", output: outputSchemas.outputA }, { value: 0 }), h(Parallel, null, h(Task, { id: "par-a", output: outputSchemas.outputB }, { value: 1 }), h(Task, { id: "par-b", output: outputSchemas.outputC }, { value: 2 })), h(Branch, { if: true }, h(Task, { id: "branch-true", output: outputSchemas.outputA }, { value: 3 })), h(Loop, { until: false, maxIterations: 3 }, h(Task, { id: "loop-task", output: outputSchemas.outputB }, { value: 4 })))));
+        await renderer.render(h(Workflow, { name: "nested-test" }, h(Sequence, null, h(Task, { id: "setup", output: outputSchemas.outputA }, { value: 0 }), h(Parallel, null, h(Task, { id: "par-a", output: outputSchemas.outputB }, { value: 1 }), h(Task, { id: "par-b", output: outputSchemas.outputC }, { value: 2 })), h(Branch, { if: true, then: h(Task, { id: "branch-true", output: outputSchemas.outputA }, { value: 3 }) }), h(Loop, { until: false, maxIterations: 3 }, h(Task, { id: "loop-task", output: outputSchemas.outputB }, { value: 4 })))));
         const tree = devtools.tree;
         expect(tree).not.toBeNull();
         expect(tree.type).toBe("workflow");
