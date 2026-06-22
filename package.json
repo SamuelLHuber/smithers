@@ -68,7 +68,6 @@
     "lint:fix": "oxlint --react-plugin --node-plugin --import-plugin --ignore-path .gitignore -A react/no-children-prop -A unicorn/no-thenable --ignore-pattern 'packages/*/src/**/*.d.ts' --fix --fix-suggestions packages/*/src packages/*/tests",
     "cli": "bun run apps/cli/src/index.js",
     "generate:init-pack": "bun scripts/generate-workflow-pack.ts",
-    "demo:smithers:tui": "pnpm --filter @smithers-orchestrator/smithers-tui-demo tui",
     "test": "node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && node scripts/check-docs.mjs && node scripts/check-llms.mjs && node scripts/check-smithers-test-script.mjs && pnpm -r --no-bail test",
     "coverage": "node scripts/coverage.mjs",
     "check:effect": "node scripts/check-single-effect-version.mjs",

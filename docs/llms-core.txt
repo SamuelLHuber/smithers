@@ -7884,7 +7884,6 @@ Most applications should import from `smithers-orchestrator`. The workspace pack
 | `@smithers-orchestrator/scheduler` | Pure workflow state machine: task state, scheduler decisions, retry/cache policies, wait reasons, and workflow session services | [Workflow State](/how-it-works), [Suspend and Resume](/how-it-works) |
 | `@smithers-orchestrator/scorers` | Scorer definitions, LLM judges, batch execution, aggregation, persistence schema, and metrics | [Evals](/guides/evals-quickstart), [Evals Quickstart](/guides/evals-quickstart) |
 | `@smithers-orchestrator/server` | HTTP, WebSocket, Gateway, cron, webhook, metrics, and single-workflow serving APIs | [Server](/integrations/server), [Serve](/integrations/serve) |
-| `@smithers-orchestrator/smithers-tui-demo` | Private React TUI demo app for terminal workflow interaction experiments | [CLI Overview](/cli/overview) |
 | `@smithers-orchestrator/time-travel` | Snapshots, diffs, forks, replay, timelines, VCS tags, rewind locks/audits, and time-travel metrics | [Time Travel](/recipes), [Time Travel Quickstart](/guides/time-travel-quickstart) |
 | `@smithers-orchestrator/tool-context` | AsyncLocalStorage tool-execution context (run/node/idempotency keys, durability snapshot hook) shared by the engine and `smithers-orchestrator` without a dependency cycle | [Execution Model](/how-it-works) |
 | `@smithers-orchestrator/usage` | Account quota and rate-limit usage reporting for Smithers providers | [CLI Overview](/cli/overview) |
@@ -8005,7 +8004,6 @@ Defined in the root `package.json` for development:
 | `lint:fix` | `oxlint --react-plugin --node-plugin --import-plugin --ignore-path .gitignore -A react/no-children-prop -A unicorn/no-thenable --ignore-pattern 'packages/*/src/**/*.d.ts' --fix --fix-suggestions packages/*/src packages/*/tests` | Apply supported oxlint fixes |
 | `cli` | `bun run apps/cli/src/index.js` | Run the local development CLI entrypoint |
 | `generate:init-pack` | `bun scripts/generate-workflow-pack.ts` | Regenerate the local workflow pack used by `bunx smithers-orchestrator init` |
-| `demo:smithers:tui` | `pnpm --filter @smithers-orchestrator/smithers-tui-demo tui` | Start the terminal UI demo app |
 | `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && node scripts/check-docs.mjs && node scripts/check-llms.mjs && node scripts/check-smithers-test-script.mjs && pnpm -r --no-bail test` | Run docs/config guards, dependency guards, llms guards, and each package test script (no-bail so every failing package is reported) |
 | `coverage` | `node scripts/coverage.mjs` | Generate a test coverage report across the workspace |
 | `check:effect` | `node scripts/check-single-effect-version.mjs` | Verify the workspace resolves a single Effect version |
