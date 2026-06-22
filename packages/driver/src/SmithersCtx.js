@@ -14,6 +14,11 @@ import { resolveWorktreePath } from "@smithers-orchestrator/graph";
 /** @typedef {Record<string, unknown>} OutputRow User-visible output row — harness metadata fields (runId, nodeId, iteration) are stripped. */
 /**
  * @template Schema
+ * @template T
+ * @typedef {import("./ResolveOutputRow.ts").ResolveOutputRow<Schema, T>} ResolveOutputRow
+ */
+/**
+ * @template Schema
  * @typedef {import("./OutputAccessor.ts").OutputAccessor<Schema>} OutputAccessor
  */
 
@@ -119,16 +124,31 @@ export class SmithersCtx {
         });
     }
     /**
-     * @param {TableRef} table
+     * @template {keyof Schema & string} K
+     * @overload
+     * @param {K} table
      * @param {OutputKey} key
-     * @returns {OutputRow}
+     * @returns {ResolveOutputRow<Schema, K>}
+     */
+    /**
+     * @template {TableRef} T
+     * @overload
+     * @param {T} table
+     * @param {OutputKey} key
+     * @returns {ResolveOutputRow<Schema, T>}
+     */
+    /**
+     * @template {TableRef} T
+     * @param {T} table
+     * @param {OutputKey} key
+     * @returns {ResolveOutputRow<Schema, T>}
      */
     output(table, key) {
         const row = this.resolveRow(table, key);
         if (!row) {
             throw new SmithersError("MISSING_OUTPUT", `Missing output for nodeId=${key.nodeId} iteration=${key.iteration ?? 0}`, { nodeId: key.nodeId, iteration: key.iteration ?? 0 });
         }
-        return /** @type {OutputRow} */ (stripAutoColumns(row));
+        return /** @type {ResolveOutputRow<Schema, T>} */ (/** @type {unknown} */ (stripAutoColumns(row)));
     }
     /**
      * Resolve a single output row. Without an explicit `key.iteration` this
@@ -137,13 +157,28 @@ export class SmithersCtx {
      * For a `<Loop>` exit condition use {@link latest} (the most recent
      * iteration), not `outputMaybe`, or an `until` built on it never advances.
      *
-     * @param {TableRef} table
+     * @template {keyof Schema & string} K
+     * @overload
+     * @param {K} table
      * @param {OutputKey} key
-     * @returns {OutputRow | undefined}
+     * @returns {ResolveOutputRow<Schema, K> | undefined}
+     */
+    /**
+     * @template {TableRef} T
+     * @overload
+     * @param {T} table
+     * @param {OutputKey} key
+     * @returns {ResolveOutputRow<Schema, T> | undefined}
+     */
+    /**
+     * @template {TableRef} T
+     * @param {T} table
+     * @param {OutputKey} key
+     * @returns {ResolveOutputRow<Schema, T> | undefined}
      */
     outputMaybe(table, key) {
         const row = this.resolveRow(table, key);
-        return row !== undefined ? /** @type {OutputRow} */ (stripAutoColumns(row)) : undefined;
+        return row !== undefined ? /** @type {ResolveOutputRow<Schema, T>} */ (/** @type {unknown} */ (stripAutoColumns(row))) : undefined;
     }
     /**
      * Resolve the most recent iteration's output row for `nodeId` (highest
@@ -152,15 +187,30 @@ export class SmithersCtx {
      * the current render iteration and can read stale/iteration-0 data inside a
      * loop.
      *
-     * @param {TableRef} table
+     * @template {keyof Schema & string} K
+     * @overload
+     * @param {K} table
      * @param {string} nodeId
-     * @returns {OutputRow | undefined}
+     * @returns {ResolveOutputRow<Schema, K> | undefined}
+     */
+    /**
+     * @template {TableRef} T
+     * @overload
+     * @param {T} table
+     * @param {string} nodeId
+     * @returns {ResolveOutputRow<Schema, T> | undefined}
+     */
+    /**
+     * @template {TableRef} T
+     * @param {T} table
+     * @param {string} nodeId
+     * @returns {ResolveOutputRow<Schema, T> | undefined}
      */
     latest(table, nodeId) {
         const tableName = this.resolveTableName(table);
         const rows = this._outputs[tableName] ?? [];
         const matching = filterRowsByNodeId(rows, nodeId, this._currentScopes);
-        /** @type {OutputRow | undefined} */
+        /** @type {ResolveOutputRow<Schema, T> | undefined} */
         let best = undefined;
         let bestIteration = -Infinity;
         for (const row of matching) {
@@ -168,7 +218,7 @@ export class SmithersCtx {
                 ? Number(row.iteration)
                 : 0;
             if (!best || iter >= bestIteration) {
-                best = row;
+                best = /** @type {ResolveOutputRow<Schema, T>} */ (/** @type {unknown} */ (row));
                 bestIteration = iter;
             }
         }

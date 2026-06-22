@@ -1,5 +1,5 @@
 import * as _smithers_orchestrator_graph_types from '@smithers-orchestrator/graph/types';
-import { WorkflowGraph, TaskDescriptor as TaskDescriptor$1 } from '@smithers-orchestrator/graph/types';
+import { WorkflowGraph as WorkflowGraph$1, TaskDescriptor as TaskDescriptor$1 } from '@smithers-orchestrator/graph/types';
 import { SmithersEvent } from '@smithers-orchestrator/observability/SmithersEvent';
 import * as _smithers_orchestrator_scheduler from '@smithers-orchestrator/scheduler';
 import { WaitReason as WaitReason$1, EngineDecision as EngineDecision$1 } from '@smithers-orchestrator/scheduler';
@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { SmithersWorkflowOptions } from '@smithers-orchestrator/scheduler/SmithersWorkflowOptions';
 import { SchemaRegistryEntry } from '@smithers-orchestrator/db/SchemaRegistryEntry';
 import * as _smithers_orchestrator_graph from '@smithers-orchestrator/graph';
-import { ExtractOptions, WorkflowGraph as WorkflowGraph$1 } from '@smithers-orchestrator/graph';
+import { ExtractOptions, WorkflowGraph } from '@smithers-orchestrator/graph';
 
 type TaskCompletedEvent = {
     nodeId: string;
@@ -22,7 +22,7 @@ type TaskFailedEvent = {
 };
 
 type WorkflowSession$2 = {
-    submitGraph(graph: WorkflowGraph): unknown;
+    submitGraph(graph: WorkflowGraph$1): unknown;
     taskCompleted(event: TaskCompletedEvent): unknown;
     taskFailed(event: TaskFailedEvent): unknown;
     getNextDecision?(): unknown;
@@ -145,6 +145,25 @@ type OutputAccessor$2<Schema, TRow = unknown> = {
     [K in keyof Schema & string]: Array<InferOutputEntry$1<Schema[K]>>;
 };
 
+/**
+ * Resolve the row type a `ctx.output`/`ctx.outputMaybe`/`ctx.latest` call returns
+ * from the `table` argument it was given:
+ *
+ * - a string table name (a key of the workflow Schema) → the inferred row for
+ *   that registered schema (`outputs.X` keyed by name);
+ * - a Zod schema object (e.g. `outputs.research`) → `z.infer` of that schema;
+ * - a Drizzle table (carries `$inferSelect`) → its select row;
+ * - anything else (a widened `string`, `unknown`) → an untyped output row.
+ *
+ * This is what makes `ctx.outputMaybe(outputs.research, ...)` carry the research
+ * fields instead of an untyped `Record<string, unknown>`.
+ */
+type ResolveOutputRow$1<Schema, T> = T extends keyof Schema ? Schema[T] extends z.ZodTypeAny ? z.infer<Schema[T]> : Schema[T] extends {
+    $inferSelect: infer R;
+} ? R : Record<string, unknown> : T extends z.ZodTypeAny ? z.infer<T> : T extends {
+    $inferSelect: infer R;
+} ? R : Record<string, unknown>;
+
 type SmithersRuntimeConfig$1 = {
     cliAgentToolsDefault?: "all" | "explicit-only";
     baseRootDir?: string;
@@ -241,23 +260,65 @@ declare class SmithersCtx<Schema extends unknown = unknown> {
      */
     resolveWorktreePath(path: string): string;
     /**
-     * @param {TableRef} table
+     * @template {keyof Schema & string} K
+     * @overload
+     * @param {K} table
      * @param {OutputKey} key
-     * @returns {OutputRow}
+     * @returns {ResolveOutputRow<Schema, K>}
      */
-    output(table: TableRef, key: OutputKey$1): OutputRow;
+    output<K extends keyof Schema & string>(table: K, key: OutputKey$1): ResolveOutputRow<Schema, K>;
     /**
-     * @param {TableRef} table
+     * @template {TableRef} T
+     * @overload
+     * @param {T} table
      * @param {OutputKey} key
-     * @returns {OutputRow | undefined}
+     * @returns {ResolveOutputRow<Schema, T>}
      */
-    outputMaybe(table: TableRef, key: OutputKey$1): OutputRow | undefined;
+    output<T extends TableRef>(table: T, key: OutputKey$1): ResolveOutputRow<Schema, T>;
     /**
-     * @param {TableRef} table
+     * Resolve a single output row. Without an explicit `key.iteration` this
+     * resolves the CURRENT render iteration — which equals the loop iteration
+     * only for a single, non-nested loop, and is 0 when several loops coexist.
+     * For a `<Loop>` exit condition use {@link latest} (the most recent
+     * iteration), not `outputMaybe`, or an `until` built on it never advances.
+     *
+     * @template {keyof Schema & string} K
+     * @overload
+     * @param {K} table
+     * @param {OutputKey} key
+     * @returns {ResolveOutputRow<Schema, K> | undefined}
+     */
+    outputMaybe<K extends keyof Schema & string>(table: K, key: OutputKey$1): ResolveOutputRow<Schema, K> | undefined;
+    /**
+     * @template {TableRef} T
+     * @overload
+     * @param {T} table
+     * @param {OutputKey} key
+     * @returns {ResolveOutputRow<Schema, T> | undefined}
+     */
+    outputMaybe<T extends TableRef>(table: T, key: OutputKey$1): ResolveOutputRow<Schema, T> | undefined;
+    /**
+     * Resolve the most recent iteration's output row for `nodeId` (highest
+     * iteration across all matching rows). This is the correct reader for a
+     * `<Loop>`/`<Ralph>` `until` exit condition; {@link outputMaybe} resolves
+     * the current render iteration and can read stale/iteration-0 data inside a
+     * loop.
+     *
+     * @template {keyof Schema & string} K
+     * @overload
+     * @param {K} table
      * @param {string} nodeId
-     * @returns {OutputRow | undefined}
+     * @returns {ResolveOutputRow<Schema, K> | undefined}
      */
-    latest(table: TableRef, nodeId: string): OutputRow | undefined;
+    latest<K extends keyof Schema & string>(table: K, nodeId: string): ResolveOutputRow<Schema, K> | undefined;
+    /**
+     * @template {TableRef} T
+     * @overload
+     * @param {T} table
+     * @param {string} nodeId
+     * @returns {ResolveOutputRow<Schema, T> | undefined}
+     */
+    latest<T extends TableRef>(table: T, nodeId: string): ResolveOutputRow<Schema, T> | undefined;
     /**
      * @param {unknown} value
      * @param {SafeParser} schema
@@ -303,6 +364,7 @@ type TableRef = unknown;
  * User-visible output row — harness metadata fields (runId, nodeId, iteration) are stripped.
  */
 type OutputRow = Record<string, unknown>;
+type ResolveOutputRow<Schema, T> = ResolveOutputRow$1<Schema, T>;
 type OutputAccessor$1<Schema> = OutputAccessor$2<Schema>;
 
 type WorkflowElement = {
@@ -323,7 +385,7 @@ type WorkflowDefinition$1<Schema = unknown> = {
 };
 
 type WorkflowGraphRenderer$1 = {
-    render(element: WorkflowElement, opts?: ExtractOptions): Promise<WorkflowGraph$1> | WorkflowGraph$1;
+    render(element: WorkflowElement, opts?: ExtractOptions): Promise<WorkflowGraph> | WorkflowGraph;
 };
 
 type WorkflowDriverOptions$1<Schema = unknown> = {
