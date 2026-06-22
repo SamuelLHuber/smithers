@@ -13,7 +13,7 @@ export const smithersErrorDefinitions = {
     },
     RESUME_METADATA_MISMATCH: {
         category: "engine",
-        when: "Stored run metadata no longer matches the workflow being resumed.",
+        when: "Stored run metadata no longer matches the workflow being resumed. Editing the workflow entry file or an imported module between stop and resume triggers this (resume hashes file content, not git); fork/replay onto the edit or start a fresh run instead of resuming.",
     },
     UNKNOWN_OUTPUT_SCHEMA: {
         category: "engine",

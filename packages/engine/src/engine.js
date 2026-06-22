@@ -1841,7 +1841,17 @@ function assertResumeDurabilityMetadata(existingRun, existingConfig, current, wo
         mismatches.push("VCS root changed");
     }
     if (mismatches.length > 0) {
-        throw new SmithersError("RESUME_METADATA_MISMATCH", `Cannot resume run because durable metadata changed: ${mismatches.join(", ")}`, {
+        const isWorkflowEdit = mismatches.some((m) => m === "workflow entry file changed" || m === "workflow module graph changed");
+        const hint = isWorkflowEdit
+            ? "The workflow source changed since this run started, so it can no longer be resumed safely. " +
+                "To carry the edit forward, fork from a checkpoint: `smithers fork <workflow> --run-id <id> --frame <n>` " +
+                "(run `smithers fork --help` for the exact flags), or start a fresh run with `smithers up <workflow>`. " +
+                "To resume THIS run, revert the workflow file to its original contents. " +
+                "(Note: resume hashes the workflow file content, not git — no commit is required.)"
+            : "Run metadata (workflow path or VCS root) no longer matches. Resume from the original location, " +
+                "or start a fresh run with `smithers up <workflow>`.";
+        throw new SmithersError("RESUME_METADATA_MISMATCH", `Cannot resume run because durable metadata changed: ${mismatches.join(", ")}. ${hint}`, {
+            mismatches,
             existing: {
                 workflowPath: existingRun.workflowPath ?? null,
                 workflowHash: existingRun.workflowHash ?? null,
