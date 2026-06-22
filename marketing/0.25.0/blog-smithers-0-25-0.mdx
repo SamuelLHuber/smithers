@@ -1,0 +1,52 @@
+---
+title: "Smithers 0.25.0: typed workflow outputs and a leaner repo"
+description: "Workflow authors get typed output reads, the proof-of-concept UI apps move out, and CI plus the release pipeline come back to green."
+---
+
+Smithers 0.25.0 is a focused release: workflow code gets real type safety on the
+data it reads back, the repository drops the in-repo proof-of-concept UI apps now
+that the product UI lives in its own repository, and the build, typecheck, and
+test gates are green again on a more robust release pipeline. The published
+library entry point (`smithers-orchestrator`) is unchanged.
+
+## Typed workflow output
+
+The biggest day-to-day change is for workflow authors. `ctx.output`,
+`ctx.outputMaybe`, and `ctx.latest` now infer the row type from the `table`
+argument instead of handing back an untyped record.
+
+```tsx
+const research = ctx.outputMaybe(outputs.research, { nodeId: "research" });
+// research.summary and research.findings are typed, not `unknown`
+```
+
+Pass a registered table name or the schema object and the result carries that
+schema's fields, so the data you read flows through the rest of your workflow with
+full type checking. Drizzle tables resolve through `$inferSelect`, and anything
+untyped still falls back to the previous untyped row, so existing call sites keep
+working.
+
+## The POC UI apps moved out
+
+The product UI now lives in its own repository, so the local proof-of-concept UIs
+have been removed: the Cerebras chat PWA, the studio shell, and the demo apps. The
+custom workflow UI surface you build with `bunx smithers-orchestrator ui`, powered
+by `gateway-react` and `components`, is unaffected.
+
+## A green, hardened pipeline
+
+CI is green across every typecheck, the workflow pack typecheck, the examples and
+evals typechecks, and the full test suite. The browser end-to-end job, which
+needed browsers and backend secrets a clean runner does not have, was removed.
+
+The release pipeline is sturdier too. `bunx smithers-orchestrator` declaration
+files are non-deterministically ordered by the type bundler, so the publish step
+now ignores that cosmetic churn while still catching genuinely stale generated
+artifacts, and the gateway OpenAPI spec, package declarations, and llms bundles
+were all regenerated.
+
+## Upgrade
+
+```sh
+bunx smithers-orchestrator@0.25.0
+```
