@@ -7884,9 +7884,6 @@ Most applications should import from `smithers-orchestrator`. The workspace pack
 | `@smithers-orchestrator/scheduler` | Pure workflow state machine: task state, scheduler decisions, retry/cache policies, wait reasons, and workflow session services | [Workflow State](/how-it-works), [Suspend and Resume](/how-it-works) |
 | `@smithers-orchestrator/scorers` | Scorer definitions, LLM judges, batch execution, aggregation, persistence schema, and metrics | [Evals](/guides/evals-quickstart), [Evals Quickstart](/guides/evals-quickstart) |
 | `@smithers-orchestrator/server` | HTTP, WebSocket, Gateway, cron, webhook, metrics, and single-workflow serving APIs | [Server](/integrations/server), [Serve](/integrations/serve) |
-| `@smithers-orchestrator/smithers` | Cerebras chat PWA and workflow graph demo application | [CLI Overview](/cli/overview) |
-| `@smithers-orchestrator/smithers-demo` | Interactive Smithers workflow generator demo with React Flow visualization | [CLI Overview](/cli/overview) |
-| `@smithers-orchestrator/smithers-studio-2` | Next Smithers Studio UI shell for browsing workspaces, launching workflows, watching live runs, and embedding custom workflow UIs | [CLI Overview](/cli/overview) |
 | `@smithers-orchestrator/smithers-tui-demo` | Private React TUI demo app for terminal workflow interaction experiments | [CLI Overview](/cli/overview) |
 | `@smithers-orchestrator/time-travel` | Snapshots, diffs, forks, replay, timelines, VCS tags, rewind locks/audits, and time-travel metrics | [Time Travel](/recipes), [Time Travel Quickstart](/guides/time-travel-quickstart) |
 | `@smithers-orchestrator/tool-context` | AsyncLocalStorage tool-execution context (run/node/idempotency keys, durability snapshot hook) shared by the engine and `smithers-orchestrator` without a dependency cycle | [Execution Model](/how-it-works) |
@@ -8001,8 +7998,6 @@ Defined in the root `package.json` for development:
 
 | Script | Command | Purpose |
 |---|---|---|
-| `dev` | `pnpm --filter @smithers-orchestrator/smithers dev` | Start the Smithers app workspace in development mode |
-| `dev:studio` | `bun apps/smithers-studio-2/scripts/dev.ts` | Start the Smithers Studio 2 development script |
 | `typecheck` | `tsc --noEmit` | Type-check the `src/` and `tests/` trees against `tsconfig.json` |
 | `typecheck:examples` | `tsc -p examples/tsconfig.json --noEmit` | Type-check example files against a separate config that maps `smithers-orchestrator` to `examples-entry.js` |
 | `typecheck:evals` | `tsc -p evals/tsconfig.json --noEmit` | Type-check the agent-fluency eval suite under `evals/` against its own config |
@@ -8010,10 +8005,8 @@ Defined in the root `package.json` for development:
 | `lint:fix` | `oxlint --react-plugin --node-plugin --import-plugin --ignore-path .gitignore -A react/no-children-prop -A unicorn/no-thenable --ignore-pattern 'packages/*/src/**/*.d.ts' --fix --fix-suggestions packages/*/src packages/*/tests` | Apply supported oxlint fixes |
 | `cli` | `bun run apps/cli/src/index.js` | Run the local development CLI entrypoint |
 | `generate:init-pack` | `bun scripts/generate-workflow-pack.ts` | Regenerate the local workflow pack used by `bunx smithers-orchestrator init` |
-| `demo:smithers` | `pnpm --filter @smithers-orchestrator/smithers-demo dev` | Start the React Flow Smithers demo app |
 | `demo:smithers:tui` | `pnpm --filter @smithers-orchestrator/smithers-tui-demo tui` | Start the terminal UI demo app |
 | `test` | `node scripts/check-single-effect-version.mjs && node scripts/check-dependency-boundaries.mjs && node scripts/check-docs.mjs && node scripts/check-llms.mjs && node scripts/check-smithers-test-script.mjs && pnpm -r --no-bail test` | Run docs/config guards, dependency guards, llms guards, and each package test script (no-bail so every failing package is reported) |
-| `test:e2e:apps` | `pnpm --filter @smithers-orchestrator/smithers e2e && pnpm --filter @smithers-orchestrator/smithers-studio-2 e2e && pnpm --filter @smithers-orchestrator/smithers-demo e2e` | Run the Playwright e2e suites for the demo/studio apps |
 | `coverage` | `node scripts/coverage.mjs` | Generate a test coverage report across the workspace |
 | `check:effect` | `node scripts/check-single-effect-version.mjs` | Verify the workspace resolves a single Effect version |
 | `check:deps` | `node scripts/check-dependency-boundaries.mjs` | Verify package dependency boundaries |

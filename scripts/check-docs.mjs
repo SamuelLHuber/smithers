@@ -170,11 +170,6 @@ const REFERENCE_DOCKER_COMPOSE = join(root, "deploy/reference/docker-compose.yml
 const REFERENCE_SYSTEMD_ENV = join(root, "deploy/reference/systemd/smithers-gateway.env.example");
 const REFERENCE_K8S_DEPLOYMENT = join(root, "deploy/reference/k8s/deployment.yaml");
 const REFERENCE_K8S_CONFIGMAP = join(root, "deploy/reference/k8s/configmap.yaml");
-const STUDIO_APP_PACKAGE_JSON = join(root, "apps/smithers-studio-2/package.json");
-const STUDIO_APP_README = join(root, "apps/smithers-studio-2/README.md");
-const STUDIO_RUNS_PARSE_SOURCE = join(root, "apps/smithers-studio-2/src/runs/parseRunPayloads.ts");
-const SMITHERS_WORKER_SOURCE = join(root, "apps/smithers/src/worker.ts");
-const SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE = join(root, "apps/smithers/src/gateway/gatewayClient.ts");
 const IRON_PROXY_EGRESS_SPEC = join(root, ".smithers/specs/iron-proxy-egress-seam.html");
 const CLOUD_EXECUTION_SPEC = join(root, ".smithers/specs/cloud-execution-engineering.md");
 const CLOUD_PRODUCT_SPEC = join(root, ".smithers/specs/cloud-execution-product.md");
@@ -3672,8 +3667,6 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_INTEGRATION, readFileSync(GATEWAY_INTEGRATION, "utf8")],
     [CUSTOM_UI_INTEGRATION, readFileSync(CUSTOM_UI_INTEGRATION, "utf8")],
     [CUSTOM_WORKFLOW_UI_GUIDE, readFileSync(CUSTOM_WORKFLOW_UI_GUIDE, "utf8")],
-    [SMITHERS_WORKER_SOURCE, readFileSync(SMITHERS_WORKER_SOURCE, "utf8")],
-    [SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE, readFileSync(SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE, "utf8")],
     [gatewayServerSource, readFileSync(gatewayServerSource, "utf8")],
     [GATEWAY_CLIENT_INDEX, readFileSync(GATEWAY_CLIENT_INDEX, "utf8")],
     [GATEWAY_CLIENT_SOURCE, readFileSync(GATEWAY_CLIENT_SOURCE, "utf8")],
@@ -3695,12 +3688,6 @@ function checkGatewaySdkDocsMatchExports() {
     [GATEWAY_CLIENT_RPC_TYPE_MAP, "getNodeOutput: Record<string, unknown>;"],
     [GATEWAY_CLIENT_SOURCE, "async *streamDevTools("],
     [GATEWAY_CLIENT_SOURCE, 'const subscribed = await connection.request("streamDevTools", params);'],
-    [SMITHERS_WORKER_SOURCE, "const token = gatewayAuthToken(env);"],
-    [SMITHERS_WORKER_SOURCE, "addGatewayCredential(headers, token);"],
-    [SMITHERS_WORKER_SOURCE, "return proxyWithHeaders(request, base, headers);"],
-    [SMITHERS_WORKER_SOURCE, "addTrustedProxyHeaders(headers, validation.user, env);"],
-    [SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE, 'const RPC_WS_PATH = "/v1/rpc";'],
-    [SMITHERS_GATEWAY_CLIENT_WRAPPER_SOURCE, "WebSocket: RpcPathWebSocket,"],
     [gatewayServerSource, 'if (this.auth.mode === "token") {'],
     [gatewayServerSource, 'if (this.auth.mode === "trusted-proxy") {'],
     [gatewayServerSource, 'rpcPath: "/v1/rpc",'],

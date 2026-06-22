@@ -39,8 +39,6 @@ const packageProfiles = new Map([
   ["packages/graph", "default"],
   ["packages/smithers", "default"],
   ["apps/cli", "app"],
-  ["apps/smithers", "app"],
-  ["apps/smithers-studio-2", "app"],
   ["apps/observability", "app"],
   ["apps/review", "app"],
 ]);
