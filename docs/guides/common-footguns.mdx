@@ -62,6 +62,18 @@ const placeOrder = defineTool({
 });
 ```
 
+### Decide in one task, act in another
+
+Marking and keying the tool keeps a retry from double-charging. It does not make the
+charge reviewable. An agent that both decides to send money and sends it cannot have
+its decision inspected or rerun without risking a second charge. Have the deciding
+task return a typed decision (`{ shouldPay, amount, reason }`), then put the actual
+payout in its own downstream task behind an [`<Approval>`](/components/approval). The
+decision is reversible and replayable; the act is isolated, gated, and keyed. See
+[Sequence for
+reversibility](/guides/context-engineering#sequence-for-reversibility-isolate-the-irreversible)
+for the full pattern.
+
 ## Tools and sandbox
 
 ### Agents get only the tools you grant

@@ -1052,6 +1052,52 @@ retryable. Test gates follow the same rule: failed tests are red, but a crashed 
 timed-out runner with no failed-test report is transient infrastructure, not proof
 the patch is bad.
 
+## Sequence for reversibility; isolate the irreversible
+
+Order the work so the reversible, low-stakes steps run first and the irreversible
+side effect runs last, behind a gate. Everything before that point is safe to retry,
+replay, or throw away. The wire transfer, the production deploy, the email to every
+customer: those are the steps you cannot take back, so those are the steps you push
+to the end and guard.
+
+The sharper rule is to split the decision from the act. An agent that both decides to
+send money and sends it has fused a reversible step, deciding, with an irreversible
+one, sending, and you can no longer review or rerun the first without risking the
+second. So do not let the agent send the money. Have it return a typed decision, and
+make the payout its own downstream task behind an approval gate:
+
+```tsx
+// Reversible: cheap to review, safe to retry, replays deterministically.
+<Task id="decide-payout" output={outputs.payout} agent={analyst}>
+  Should we release the vendor payout? Return shouldPay, amount, and a reason.
+</Task>;
+
+// Irreversible: its own task, the only step that touches money, gated by a human.
+const payout = ctx.outputMaybe(outputs.payout, { nodeId: "decide-payout" });
+payout?.shouldPay && (
+  <Sequence>
+    <Approval
+      id="payout-gate"
+      output={outputs.payoutGate}
+      request={{ title: `Release $${payout.amount}?`, summary: payout.reason }}
+    />
+    <Task id="send-payout" output={outputs.receipt} agent={treasury}>
+      Wire ${payout.amount} to the vendor, keyed for idempotency.
+    </Task>
+  </Sequence>
+);
+```
+
+This buys four things the fused version cannot. The decision is a typed row you can
+read, score, and replay. The act is its own node in the graph, so it shows up in
+traces and is something a human can approve in isolation. The approval gate puts a
+person on the exact amount before any money moves. And the side effect stays
+idempotent on retry, because the tool it calls is marked `sideEffect: true` and keyed
+with `ctx.idempotencyKey` (see [Mark side-effecting tools and key
+them](/guides/common-footguns#mark-side-effecting-tools-and-key-them)). It is the
+same move a database makes: do all the work that can roll back, then commit once, at
+the end.
+
 ## A model call is stateless; context is the only control surface
 
 For a fixed model, output quality is a function of one input: the context window
@@ -5689,6 +5735,18 @@ const placeOrder = defineTool({
   },
 });
 ```
+
+### Decide in one task, act in another
+
+Marking and keying the tool keeps a retry from double-charging. It does not make the
+charge reviewable. An agent that both decides to send money and sends it cannot have
+its decision inspected or rerun without risking a second charge. Have the deciding
+task return a typed decision (`{ shouldPay, amount, reason }`), then put the actual
+payout in its own downstream task behind an `<Approval>`. The
+decision is reversible and replayable; the act is isolated, gated, and keyed. See
+[Sequence for
+reversibility](/guides/context-engineering#sequence-for-reversibility-isolate-the-irreversible)
+for the full pattern.
 
 ## Tools and sandbox
 
