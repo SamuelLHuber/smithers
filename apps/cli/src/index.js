@@ -3447,8 +3447,13 @@ const cli = Cli.create({
             return c.error(opts);
         };
         try {
-            const result = await runGatewayCommand(c.options);
-            return c.ok(result);
+            await runGatewayCommand(c.options);
+            // The Gateway is a long-running server: by the time runGatewayCommand
+            // resolves it has already been shut down (SIGINT/SIGTERM) and written
+            // its full status to stderr. Exit cleanly instead of emitting a
+            // completion descriptor — a server must keep stdout clean so callers
+            // can pipe/consume it without a trailing result frame.
+            process.exit(0);
         }
         catch (err) {
             if (err instanceof SmithersError) {
