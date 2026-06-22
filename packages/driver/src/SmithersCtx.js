@@ -131,6 +131,12 @@ export class SmithersCtx {
         return /** @type {OutputRow} */ (stripAutoColumns(row));
     }
     /**
+     * Resolve a single output row. Without an explicit `key.iteration` this
+     * resolves the CURRENT render iteration — which equals the loop iteration
+     * only for a single, non-nested loop, and is 0 when several loops coexist.
+     * For a `<Loop>` exit condition use {@link latest} (the most recent
+     * iteration), not `outputMaybe`, or an `until` built on it never advances.
+     *
      * @param {TableRef} table
      * @param {OutputKey} key
      * @returns {OutputRow | undefined}
@@ -140,6 +146,12 @@ export class SmithersCtx {
         return row !== undefined ? /** @type {OutputRow} */ (stripAutoColumns(row)) : undefined;
     }
     /**
+     * Resolve the most recent iteration's output row for `nodeId` (highest
+     * iteration across all matching rows). This is the correct reader for a
+     * `<Loop>`/`<Ralph>` `until` exit condition; {@link outputMaybe} resolves
+     * the current render iteration and can read stale/iteration-0 data inside a
+     * loop.
+     *
      * @param {TableRef} table
      * @param {string} nodeId
      * @returns {OutputRow | undefined}
