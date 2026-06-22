@@ -2724,7 +2724,9 @@ function checkWatchAndSteerDocsMatchCurrentUiSurface() {
 function checkReadmeAvoidsDeprecatedRalphPromotion() {
   const readme = readFileSync(README, "utf8");
   const required = [
-    "![Live workflow runs: some succeeded, some running, some paused on an approval gate, every run resumable and rewindable.]",
+    // The hero workflow-runs screenshot was removed with the unreleased UI; the
+    // README no longer ships that image, so only the Loop primitive guidance and
+    // the Ralph/Studio-avoidance rules below are enforced.
     "| `<Loop>`     | Repeat tasks until a condition is met  |",
     "<Loop until={ctx.latest(\"validate\")?.approved} maxIterations={5}>",
     "</Loop>",
@@ -2743,7 +2745,7 @@ function checkReadmeAvoidsDeprecatedRalphPromotion() {
     if (missing.length) console.error(`    missing: ${missing.map((needle) => `README.md:${needle}`).join(", ")}`);
     if (stale.length) console.error(`    stale: ${stale.map((needle) => `README.md:${needle}`).join(", ")}`);
   } else {
-    console.log("✓ README uses current hero alt text and Loop primitive guidance");
+    console.log("✓ README uses current Loop primitive guidance and avoids deprecated Ralph/Studio promotion");
   }
 }
 
