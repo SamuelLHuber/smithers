@@ -25,6 +25,7 @@ const inputSchema = z.object({
   n: z.number().min(0).max(100).optional(),
   maxConcurrency: z.number().int().min(1).max(8).default(4),
   packages: z.array(z.string()).optional(),
+  packageInstructions: z.record(z.string(), z.string()).optional(),
   includeAlreadyCovered: z.boolean().default(false),
 });
 
@@ -53,13 +54,14 @@ function slugify(value: string) {
     .slice(0, 60);
 }
 
-function promptForCoverageTarget(item: (typeof packageStats)[number], targetPercent: number) {
+function promptForCoverageTarget(item: (typeof packageStats)[number], targetPercent: number, extraInstructions?: string) {
   return `/goal Raise test coverage for ${item.path} to at least ${targetPercent}% lines and ${targetPercent}% functions.
 
 Context:
 - Current baseline from the operator: ${item.lines.toFixed(2)}% lines, ${item.functions.toFixed(2)}% functions.
 - Target: >= ${targetPercent}% lines AND >= ${targetPercent}% functions for this package.
 - You are running inside an isolated Smithers worktree for ${item.path}.
+${extraInstructions ? `\nAdditional package-specific instructions:\n${extraInstructions}\n` : ""}
 
 Rules:
 - Focus on meaningful tests for existing behavior in ${item.path}. Avoid superficial tests that only execute code without assertions.
@@ -88,6 +90,7 @@ export default smithers((ctx) => {
       : 99;
   const maxConcurrency = typeof input.maxConcurrency === "number" ? input.maxConcurrency : 4;
   const includeAlreadyCovered = input.includeAlreadyCovered === true;
+  const packageInstructions = input.packageInstructions ?? {};
   const requested = new Set(input.packages ?? []);
   const workItems = packageStats.filter((item) => {
     const selected = requested.size === 0 || requested.has(item.path);
@@ -135,7 +138,7 @@ export default smithers((ctx) => {
                     retries={1}
                     continueOnFail
                   >
-                    {promptForCoverageTarget(item, targetPercent)}
+                    {promptForCoverageTarget(item, targetPercent, packageInstructions[item.path])}
                   </Task>
                 </Worktree>
               );
