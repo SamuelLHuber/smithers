@@ -22,12 +22,18 @@ describe("correlation visibility to the imperative logger", () => {
     expect(getCurrentCorrelationContext()).toBeUndefined();
   });
 
-  test("withCorrelationContext is visible to the imperative logger chain", () => {
+  // NOTE: these run the effect via Effect.runPromise (matching the production
+  // caller in engine.js), NOT Effect.runSync. withCorrelationContext bridges to
+  // AsyncLocalStorage via enterWith(); under runSync that enterWith lands on the
+  // CALLER's async context (here, the bun test-runner root), which enables ALS
+  // async-hooks on the root and wedges later test files' timers. runPromise runs
+  // the effect on an ephemeral fiber context, so the bridge stays scoped.
+  test("withCorrelationContext is visible to the imperative logger chain", async () => {
     // This mirrors exactly what buildLogProgram() runs when an imperative
     // logInfo/logDebug fires: read the current context, project it to log
     // annotations. If withCorrelationContext stops populating the AsyncLocalStorage
     // store, this returns undefined and the log line drops its correlation.
-    const annotations = Effect.runSync(
+    const annotations = await Effect.runPromise(
       withCorrelationContext(
         Effect.sync(() => correlationContextToLogAnnotations(getCurrentCorrelationContext())),
         { runId: "run-1", nodeId: "node-1", iteration: 2, attempt: 3 },
@@ -60,19 +66,19 @@ describe("correlation visibility to the imperative logger", () => {
     });
   });
 
-  test("the store is restored after the scope completes (no leak across runs)", () => {
-    Effect.runSync(withCorrelationContext(Effect.sync(() => undefined), { runId: "run-scoped" }));
+  test("the store is restored after the scope completes (no leak across runs)", async () => {
+    await Effect.runPromise(withCorrelationContext(Effect.sync(() => undefined), { runId: "run-scoped" }));
     expect(getCurrentCorrelationContext()).toBeUndefined();
   });
 
-  test("an imperative log call inside the scope does not throw", () => {
-    expect(() =>
-      Effect.runSync(
+  test("an imperative log call inside the scope does not throw", async () => {
+    await expect(
+      Effect.runPromise(
         withCorrelationContext(
           Effect.sync(() => logInfo("sync.correlated", { action: "materialize" }, "test")),
           { runId: "run-1", nodeId: "node-1" },
         ),
       ),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
   });
 });
