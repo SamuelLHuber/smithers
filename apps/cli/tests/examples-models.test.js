@@ -11,6 +11,13 @@ const STALE_SONNET_MODELS = [
     "claude-sonnet-4-7",
 ];
 
+// Skip gitignored runtime/output directories. They hold past-run execution
+// logs and databases (e.g. `.smithers/executions/*/logs/stream.ndjson`,
+// `swe-evo/.data/*.db`) that legitimately record whatever model a historical
+// run used, never exist on a clean checkout, and are not example sources. The
+// test guards committed example workflows, so it must scan source only.
+const SKIP_DIRS = new Set(["node_modules", "dist", "build"]);
+
 /**
  * @param {string} dir
  * @returns {string[]}
@@ -18,6 +25,9 @@ const STALE_SONNET_MODELS = [
 function listFiles(dir) {
     const files = [];
     for (const entry of readdirSync(dir)) {
+        if (entry.startsWith(".") || SKIP_DIRS.has(entry)) {
+            continue;
+        }
         const path = join(dir, entry);
         const stat = statSync(path);
         if (stat.isDirectory()) {
