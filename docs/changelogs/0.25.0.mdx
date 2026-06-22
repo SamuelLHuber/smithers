@@ -1,0 +1,34 @@
+---
+title: "0.25.0"
+description: "Typed workflow output reads, the POC UI apps removed in favor of the standalone UI repo, and a green CI plus a hardened release pipeline."
+---
+
+Smithers 0.25.0 gives workflow authors typed output reads, retires the in-repo proof-of-concept UI apps now that the product UI lives in its own repository, and brings the build, typecheck, and test gates back to green with a more robust release pipeline. The published library entry point (`smithers-orchestrator`) is unchanged.
+
+## Typed workflow output
+
+`ctx.output`, `ctx.outputMaybe`, and `ctx.latest` now infer the row type from the `table` argument instead of returning an untyped row.
+
+- Pass a registered table name (`ctx.outputMaybe("research", { nodeId: "research" })`) or the schema object (`ctx.outputMaybe(outputs.research, ...)`) and the result carries that schema's fields, so `result.summary` and `result.findings` typecheck.
+- Drizzle tables resolve through `$inferSelect`; anything untyped still falls back to the previous untyped row, so existing call sites keep working.
+
+## Removed the POC UI apps
+
+The product UI moved to a separate repository, so the local proof-of-concept UIs are gone: `@smithers-orchestrator/smithers` (the Cerebras chat PWA), `@smithers-orchestrator/smithers-studio-2` (the studio shell), `@smithers-orchestrator/smithers-demo`, and `@smithers-orchestrator/smithers-tui-demo`. The custom workflow UI surface you build with `bunx smithers-orchestrator ui` (powered by `gateway-react` and `components`) is unaffected.
+
+## CI and release pipeline
+
+- The CI workflow is green again: every per-package typecheck, the `.smithers` workflow pack typecheck, the examples and evals typechecks, and the full test suite pass. The browser `app-e2e` job, which required browsers and backend secrets a clean runner does not have, was removed.
+- `pnpm release` now tolerates the non-deterministic import ordering that rollup-plugin-dts emits for large declaration files, so the build drift guard no longer blocks a release on cosmetic reordering while still catching genuinely stale generated artifacts.
+- Regenerated the gateway `openapi.yaml`, the package declaration files, and the `llms-*.txt` bundles, and dropped redundant declaration builds from the packages that ship TypeScript sources directly.
+
+## Fixes
+
+- The `smithers gateway` server keeps stdout clean and exits cleanly on shutdown instead of emitting a trailing completion frame.
+- Imperative logs made inside an Effect now keep their run and node correlation without the AsyncLocalStorage bridge leaking across an Effect run boundary.
+
+## Upgrade
+
+```sh
+bunx smithers-orchestrator@0.25.0
+```
