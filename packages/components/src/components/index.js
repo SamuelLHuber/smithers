@@ -119,7 +119,7 @@ export { WaitForEvent } from "./WaitForEvent.js";
 export { Signal } from "./Signal.js";
 export { Timer } from "./Timer.js";
 export { HumanTask } from "./HumanTask.js";
-export { Saga } from "./Saga.js";
+export { Saga, SagaStep } from "./Saga.js";
 export { TryCatchFinally } from "./TryCatchFinally.js";
 // --- Core Enhancements ---
 export { Aspects } from "./Aspects.js";

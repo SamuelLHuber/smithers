@@ -4,14 +4,18 @@
 // @smithers-type-exports-end
 
 import React from "react";
+import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { forceContinueOnFail } from "./control-flow-utils.js";
 /** @typedef {import("./SagaStepProps.ts").SagaStepProps} SagaStepProps */
 
 /**
+ * Declarative marker for a Saga step. Exported as a value so `import { SagaStep }`
+ * works; also available as `<Saga.Step>`.
+ *
  * @param {SagaStepProps} _props
  * @returns {React.ReactElement | null}
  */
-function SagaStep(_props) {
+export function SagaStep(_props) {
     // SagaStep is a declarative marker — the Saga component reads its props
     // directly from the children array. It does not render on its own.
     return null;
@@ -39,7 +43,8 @@ export function Saga(props) {
         const childArr = React.Children.toArray(children);
         for (const child of childArr) {
             if (React.isValidElement(child) &&
-                (child.type === SagaStep || child.type.__isSagaStep)) {
+                (child.type === SagaStep ||
+                    (typeof child.type === "function" && child.type.__isSagaStep))) {
                 const stepProps = child.props;
                 resolvedSteps.push({
                     id: stepProps.id,
@@ -62,9 +67,15 @@ export function Saga(props) {
     const actionChildren = resolvedSteps.map((step) => React.cloneElement(forceContinueOnFail(step.action), {
         key: `saga-action-${step.id}`,
     }));
-    const compensationChildren = resolvedSteps.map((step) => React.cloneElement(step.compensation, {
-        key: `saga-compensation-${step.id}`,
-    }));
+    const compensationChildren = resolvedSteps.map((step) => {
+        if (!React.isValidElement(step.compensation)) {
+            throw new SmithersError("INVALID_INPUT", `<Saga id="${id}"> step "${step.id}" has an invalid compensation. Each step needs a single ` +
+                `element (e.g. a <Task/>) that undoes its action; a missing or inert compensation leaves dirty state on rollback.`);
+        }
+        return React.cloneElement(step.compensation, {
+            key: `saga-compensation-${step.id}`,
+        });
+    });
     // Store compensation elements on the host props for the engine.
     sagaProps.__sagaCompensations = resolvedSteps.reduce((acc, step) => {
         acc[step.id] = step.compensation;
