@@ -54,6 +54,7 @@ const NON_STANDALONE_WORKFLOW_SNIPPETS = [
     "docs/components/extract-prompt.mdx#2",
     "docs/components/loop-until-scored.mdx#2",
     "docs/components/loop.mdx#2",
+    "docs/components/loop.mdx#3",
     "docs/components/optimizer.mdx#2",
     "docs/components/review-loop.mdx#2",
     "docs/components/runbook.mdx#2",
