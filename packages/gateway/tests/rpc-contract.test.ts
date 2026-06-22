@@ -12,7 +12,7 @@ import {
   listGatewayRpcMethods,
   type JsonSchema,
 } from "../src/rpc/index.ts";
-import { GATEWAY_SCOPE_VALUES, hasGatewayScope } from "../src/auth/scopes.ts";
+import { GATEWAY_SCOPE_VALUES, hasGatewayScope, type GatewayScope } from "../src/auth/scopes.ts";
 
 /**
  * A minimal, dependency-free JSON Schema validator covering exactly the schema
@@ -183,7 +183,7 @@ describe("Gateway RPC contract", () => {
   });
 
   test("pins exact required scopes for every stable RPC method", () => {
-    const expectedScopes: Record<string, string> = {
+    const expectedScopes: Record<string, GatewayScope> = {
       launchRun: "run:write",
       resumeRun: "run:write",
       cancelRun: "run:write",
