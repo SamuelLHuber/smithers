@@ -3,10 +3,11 @@ import { Database } from "bun:sqlite";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { forkRun, getBranchInfo, listBranches } from "@smithers-orchestrator/time-travel/fork";
+import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { createSmithers } from "../src/create.js";
 import { migrateSmithersStore } from "../src/migrateSmithersStore.js";
 import { openSmithersBackend } from "../src/openSmithersBackend.js";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
@@ -240,6 +241,37 @@ describe("migrateSmithersStore", () => {
     } finally {
       await closeApi(api);
     }
+  });
+
+  test("rejects with an actionable SmithersError when the source store is corrupt, leaving no partial output", async () => {
+    const cwd = makeWorkspace("smithers-migrate-corrupt");
+    const dbPath = join(cwd, "smithers.db");
+    // A file that is not a valid SQLite store: bun:sqlite fails to read it with
+    // a "not a database" / "malformed" style error when migrate opens it.
+    writeFileSync(dbPath, "this is not a sqlite database at all", "utf8");
+
+    let caught;
+    try {
+      await migrateSmithersStore({ cwd });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(SmithersError);
+    expect(caught.code).toBe("DB_QUERY_FAILED");
+    expect(caught.message).toContain(dbPath);
+    expect(caught.message).toContain("corrupt");
+    expect(caught.message).toContain("PRAGMA integrity_check");
+    expect(caught.message).toContain("left untouched");
+    // The original bun:sqlite error is preserved as the cause/details.
+    expect(caught.details).toEqual({ dbPath });
+    expect(caught.cause).toBeDefined();
+
+    // No partial write: neither the PGlite store nor the migrated.json marker
+    // should exist, and the corrupt source file is left untouched.
+    expect(existsSync(join(cwd, ".smithers", "pg"))).toBe(false);
+    expect(existsSync(join(cwd, ".smithers", "migrated.json"))).toBe(false);
+    expect(existsSync(dbPath)).toBe(true);
   });
 
   test("can remove sqlite files only after a successful copy", async () => {

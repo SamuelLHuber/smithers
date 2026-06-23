@@ -471,6 +471,64 @@ function writeMigrationMarker(result, sourceStats) {
     writeFileSync(result.markerPath, `${JSON.stringify(marker, null, 2)}\n`, "utf8");
 }
 
+// bun:sqlite surfaces a corrupt, encrypted, or non-SQLite source file with one
+// of these substrings (case-insensitive). Detecting them lets us replace the
+// raw, unactionable engine text with guidance the operator can follow.
+const CORRUPT_SQLITE_MARKERS = ["malformed", "not a database", "file is encrypted", "disk image is malformed"];
+
+/**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+function isCorruptSqliteError(error) {
+    const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
+    return CORRUPT_SQLITE_MARKERS.some((marker) => message.includes(marker));
+}
+
+/**
+ * Open the legacy SQLite source and read its schema-level metadata. A corrupt,
+ * encrypted, or non-SQLite file fails here (open, BEGIN, or the first query);
+ * we wrap that into an actionable SmithersError so the CLI maps it to a clean
+ * exit code instead of leaking the raw bun:sqlite text. The source is opened
+ * read-only and nothing has been written to the target yet, so no partial
+ * output can exist when this throws.
+ *
+ * @param {string} dbPath
+ * @returns {{ sqlite: Database; runCount: number; schemaVersion: string; tables: Array<{ name: string; sql: string }>; indexes: Array<{ name: string; sql: string }> }}
+ */
+function openSourceStore(dbPath) {
+    /** @type {Database | undefined} */
+    let sqlite;
+    try {
+        sqlite = new Database(dbPath, { readonly: true });
+        sqlite.exec("BEGIN");
+        const runCount = sqliteTableExists(sqlite, "_smithers_runs") ? countSqliteRows(sqlite, "_smithers_runs") : 0;
+        const schemaVersion = sqliteSchemaVersion(sqlite);
+        const tables = orderedTables(sourceTables(sqlite));
+        const indexes = sourceIndexes(sqlite);
+        return { sqlite, runCount, schemaVersion, tables, indexes };
+    }
+    catch (error) {
+        try {
+            sqlite?.exec("ROLLBACK");
+        }
+        catch {
+            // No open transaction to roll back; closing the handle is enough.
+        }
+        try {
+            sqlite?.close();
+        }
+        catch {
+            // Best-effort read-only source cleanup.
+        }
+        if (isCorruptSqliteError(error)) {
+            const original = error instanceof Error ? error.message : String(error);
+            throw new SmithersError("DB_QUERY_FAILED", `The legacy SQLite store at ${dbPath} appears to be corrupted (${original}). Smithers cannot migrate a corrupt store. Verify with: sqlite3 ${dbPath} 'PRAGMA integrity_check'. If it reports corruption, restore from a backup or start fresh; the original file was left untouched.`, { dbPath }, { cause: error });
+        }
+        throw error;
+    }
+}
+
 /**
  * @param {string} dbPath
  */
@@ -507,12 +565,9 @@ export async function migrateSmithersStore(opts = {}) {
     /** @type {(import("./CreateSmithersApi.ts").CreateSmithersApi<Record<string, import("zod").ZodObject<any>>> & { close?: () => Promise<void> }) | undefined} */
     let targetApi;
     try {
-        sqlite = new Database(dbPath, { readonly: true });
-        sqlite.exec("BEGIN");
-        const runCount = sqliteTableExists(sqlite, "_smithers_runs") ? countSqliteRows(sqlite, "_smithers_runs") : 0;
-        const schemaVersion = sqliteSchemaVersion(sqlite);
-        const tables = orderedTables(sourceTables(sqlite));
-        const indexes = sourceIndexes(sqlite);
+        const source = openSourceStore(dbPath);
+        sqlite = source.sqlite;
+        const { runCount, schemaVersion, tables, indexes } = source;
         await emitMigrationLog("info", "smithers.migration.started", {
             dbPath,
             target,
