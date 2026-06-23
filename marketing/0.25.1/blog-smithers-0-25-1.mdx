@@ -2,7 +2,7 @@
 title: "Smithers 0.25.1: Migration and CLI hardening from real dogfood"
 slug: "smithers-0-25-1"
 date: "2026-06-23"
-excerpt: "Smithers 0.25.1 is a focused patch release for operators migrating 0.25 stores, with clearer migration failures, safer account loading, fixed negated CLI flags, and provider-aware Pi diagnostics."
+excerpt: "Smithers 0.25.1 is a focused patch release for operators migrating 0.25 stores, with clearer migration failures, safer account loading, fixed negated CLI flags, Gateway JWT hardening, and provider-aware Pi diagnostics."
 ---
 
 # Smithers 0.25.1: Migration and CLI hardening from real dogfood
@@ -28,6 +28,8 @@ PostgreSQL migrations also validate target configuration earlier. When running `
 Older `accounts.json` files may contain provider entries that no longer exist, such as a legacy `gemini` subscription account. Smithers now skips unknown or legacy providers with a warning and continues loading the remaining valid accounts. That keeps commands such as `bunx smithers-orchestrator init` from failing the entire account file because of one stale entry. Users can still remove stale entries manually to silence the warning.
 
 Documented negated CLI flags now parse correctly. `--no-vcs`, `--no-deps`, and `--no-mcp` are accepted instead of being rejected as unknown flags. This fixes the behavior for workflows and recovery commands that rely on those documented switches, including time-travel flows using flags such as `bunx smithers-orchestrator timetravel --no-vcs --no-deps`.
+
+Gateway JWT auth also rejects non-canonical base64url signature encodings. That closes an edge case where a mutated compact JWT signature segment could decode to the same HMAC bytes on some runtimes because of unused trailing base64url bits.
 
 ## Pi diagnostics
 

@@ -1,9 +1,9 @@
 ---
 title: "0.25.1"
-description: "Smithers 0.25.1 hardens the 0.25 migration path, accounts loading, CLI flag parsing, and Pi diagnostics after real store migration dogfooding."
+description: "Smithers 0.25.1 hardens the 0.25 migration path, accounts loading, CLI flag parsing, Gateway JWT auth, and Pi diagnostics after real store migration dogfooding."
 ---
 
-Smithers 0.25.1 is a focused maintenance release for operators and workflow authors upgrading from 0.25.0. It improves failure messages around legacy SQLite migrations, keeps old account files from blocking CLI commands, fixes documented negated flags, and makes Pi launch diagnostics provider-aware.
+Smithers 0.25.1 is a focused maintenance release for operators and workflow authors upgrading from 0.25.0. It improves failure messages around legacy SQLite migrations, keeps old account files from blocking CLI commands, fixes documented negated flags, hardens Gateway JWT signature validation, and makes Pi launch diagnostics provider-aware.
 
 The release was dogfooded by migrating 12 real stores and checking run-ID parity, inspect parity, fresh compute runs, Gateway reads, and time-travel behavior on the migrated PGlite backend.
 
@@ -25,6 +25,10 @@ Legacy or unknown `accounts.json` providers are now skipped with a warning inste
 
 Documented negated flags now parse correctly. `--no-vcs`, `--no-deps`, and `--no-mcp` are no longer rejected as unknown flags on the commands that document them.
 
+## Gateway auth
+
+Gateway JWT auth now rejects non-canonical base64url signature encodings. This closes an edge case where a mutated compact JWT signature segment could decode to the same HMAC bytes on some runtimes because of unused trailing base64url bits.
+
 ## Pi diagnostics
 
 Pi launch diagnostics no longer default unknown providers to Google auth checks. When Smithers cannot infer the provider, diagnostics skip provider auth preflight and let Pi handle auth.
@@ -43,4 +47,4 @@ If an old `accounts.json` contains a removed provider such as a legacy `gemini` 
 
 ## Verification
 
-Regression coverage was added or updated for migration error handling, account parsing with unknown providers, negated CLI flag parsing, and Pi diagnostics provider mapping.
+Regression coverage was added or updated for migration error handling, account parsing with unknown providers, negated CLI flag parsing, Gateway JWT rejection cases, and Pi diagnostics provider mapping.
