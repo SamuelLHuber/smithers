@@ -322,38 +322,6 @@
         "pages": [
           "contributing/checks"
         ]
-      },
-      {
-        "group": "Changelog",
-        "pages": [
-          "changelogs/0.24.2",
-          "changelogs/0.24.1",
-          "changelogs/0.24.0",
-          "changelogs/0.23.0",
-          "changelogs/0.22.0",
-          "changelogs/0.21.0",
-          "changelogs/0.20.4",
-          "changelogs/0.20.3",
-          "changelogs/0.20.2",
-          "changelogs/0.20.1",
-          "changelogs/0.20.0",
-          "changelogs/0.19.0",
-          "changelogs/0.18.0",
-          "changelogs/0.17.0",
-          "changelogs/0.16.9",
-          "changelogs/0.16.8",
-          "changelogs/0.16.7",
-          "changelogs/0.16.6",
-          "changelogs/0.16.5",
-          "changelogs/0.16.4",
-          "changelogs/0.16.3",
-          "changelogs/0.16.2",
-          "changelogs/0.16.1",
-          "changelogs/0.16.0",
-          "changelogs/0.15.1",
-          "changelogs/0.15.0",
-          "changelogs/0.14.0"
-        ]
       }
         ]
       },
@@ -429,6 +397,39 @@
               "rpc/cron-create",
               "rpc/cron-delete",
               "rpc/cron-run"
+            ]
+          },
+          {
+            "group": "Changelog",
+            "pages": [
+              "changelogs/0.25.0",
+              "changelogs/0.24.2",
+              "changelogs/0.24.1",
+              "changelogs/0.24.0",
+              "changelogs/0.23.0",
+              "changelogs/0.22.0",
+              "changelogs/0.21.0",
+              "changelogs/0.20.4",
+              "changelogs/0.20.3",
+              "changelogs/0.20.2",
+              "changelogs/0.20.1",
+              "changelogs/0.20.0",
+              "changelogs/0.19.0",
+              "changelogs/0.18.0",
+              "changelogs/0.17.0",
+              "changelogs/0.16.9",
+              "changelogs/0.16.8",
+              "changelogs/0.16.7",
+              "changelogs/0.16.6",
+              "changelogs/0.16.5",
+              "changelogs/0.16.4",
+              "changelogs/0.16.3",
+              "changelogs/0.16.2",
+              "changelogs/0.16.1",
+              "changelogs/0.16.0",
+              "changelogs/0.15.1",
+              "changelogs/0.15.0",
+              "changelogs/0.14.0"
             ]
           }
         ]
