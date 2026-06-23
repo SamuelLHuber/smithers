@@ -5537,7 +5537,7 @@ const cli = Cli.create({
         runId: z.string().describe("Run ID containing the task"),
         nodeId: z.string().describe("Task/node ID to retry"),
         iteration: z.number().int().default(0).describe("Loop iteration"),
-        noDeps: z.boolean().default(false).describe("Only reset this node, not dependents"),
+        deps: z.boolean().default(true).describe("Also reset dependents. Use --no-deps to reset only this node."),
         force: z.boolean().default(false).describe("Allow retry even if run is still running"),
     }),
     alias: { runId: "r", nodeId: "n" },
@@ -5554,7 +5554,7 @@ const cli = Cli.create({
                     runId: c.options.runId,
                     nodeId: c.options.nodeId,
                     iteration: c.options.iteration,
-                    resetDependents: !c.options.noDeps,
+                    resetDependents: c.options.deps,
                     force: c.options.force,
                     onProgress,
                 });
@@ -5600,8 +5600,8 @@ const cli = Cli.create({
         nodeId: z.string().describe("Task/node ID to travel back to"),
         iteration: z.number().int().default(0).describe("Loop iteration"),
         attempt: z.number().int().optional().describe("Attempt number (default: latest)"),
-        noVcs: z.boolean().default(false).describe("Skip filesystem revert (DB only)"),
-        noDeps: z.boolean().default(false).describe("Only reset this node, not dependents"),
+        vcs: z.boolean().default(true).describe("Revert filesystem state. Use --no-vcs to skip (DB only)."),
+        deps: z.boolean().default(true).describe("Also reset dependents. Use --no-deps to reset only this node."),
         resume: z.boolean().default(false).describe("Resume the workflow after time travel"),
         force: z.boolean().default(false).describe("Force even if run is still running"),
     }),
@@ -5627,8 +5627,8 @@ const cli = Cli.create({
                     nodeId: c.options.nodeId,
                     iteration: c.options.iteration,
                     attempt: c.options.attempt,
-                    resetDependents: !c.options.noDeps,
-                    restoreVcs: !c.options.noVcs,
+                    resetDependents: c.options.deps,
+                    restoreVcs: c.options.vcs,
                     onProgress: (e) => console.log(JSON.stringify(e)),
                 });
                 if (!result.success || !c.options.resume) {
@@ -5737,12 +5737,12 @@ const cli = Cli.create({
         listAgents: z.boolean().default(false).describe("List detected agents plus their bootstrap mode and exit"),
         dumpPrompt: z.boolean().default(false).describe("Print the generated system prompt and exit"),
         toolSurface: z.enum(["semantic", "raw"]).default("semantic").describe("Choose which Smithers MCP tool surface to expose"),
-        noMcp: z.boolean().default(false).describe("Disable MCP bootstrap and use prompt-only fallback"),
+        mcp: z.boolean().default(true).describe("Bootstrap the Smithers MCP server. Use --no-mcp for prompt-only fallback."),
         printBootstrap: z.boolean().default(false).describe("Print the selected bootstrap configuration and exit"),
     }),
     async run(c) {
         try {
-            await ask(c.args.question, process.cwd(), c.options);
+            await ask(c.args.question, process.cwd(), { ...c.options, noMcp: !c.options.mcp });
             return c.ok(undefined);
         }
         catch (err) {

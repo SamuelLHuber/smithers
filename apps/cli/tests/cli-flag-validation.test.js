@@ -61,6 +61,51 @@ describe("conflicting / invalid flag combinations", () => {
     }, 30_000);
 });
 
+describe("documented negated boolean flags parse", () => {
+    // Regression: incur reads `--no-<x>` as "negate the boolean option <x>".
+    // Declaring the option as `noX` (kebab `no-x`) made `--help` advertise
+    // `--no-x` while the parser rejected it as "Unknown flag" — the flag was
+    // unreachable. The negatable options must be declared positively (`x`,
+    // default true) so `--no-x` actually parses.
+    const writeFlagWorkflow = (repo) => {
+        // A workflow file that exists so flag parsing is the only thing under
+        // test; the commands fail later at the run/attempt lookup, not at parse.
+        writeTestWorkflow(repo);
+    };
+
+    test("timetravel --no-vcs --no-deps parse (not rejected as Unknown flag)", () => {
+        const repo = createTempRepo();
+        writeFlagWorkflow(repo);
+        const result = runSmithers(
+            ["timetravel", "workflow.tsx", "--run-id", "missing-run", "--node-id", "x", "--no-vcs", "--no-deps", "--force"],
+            { cwd: repo.dir, format: null },
+        );
+        const all = `${result.stdout}\n${result.stderr}`;
+        expect(all).not.toContain("Unknown flag");
+    }, 30_000);
+
+    test("retry-task --no-deps parses (not rejected as Unknown flag)", () => {
+        const repo = createTempRepo();
+        writeFlagWorkflow(repo);
+        const result = runSmithers(
+            ["retry-task", "workflow.tsx", "--run-id", "missing-run", "--node-id", "x", "--no-deps"],
+            { cwd: repo.dir, format: null },
+        );
+        const all = `${result.stdout}\n${result.stderr}`;
+        expect(all).not.toContain("Unknown flag");
+    }, 30_000);
+
+    test("ask --no-mcp parses (not rejected as Unknown flag)", () => {
+        const repo = createTempRepo();
+        const result = runSmithers(["ask", "--no-mcp", "--list-agents"], {
+            cwd: repo.dir,
+            format: null,
+        });
+        const all = `${result.stdout}\n${result.stderr}`;
+        expect(all).not.toContain("Unknown flag");
+    }, 30_000);
+});
+
 describe("NO_COLOR / TTY handling", () => {
     test("NO_COLOR=1 in env strips ANSI color codes from --help output", () => {
         const repo = createTempRepo();
