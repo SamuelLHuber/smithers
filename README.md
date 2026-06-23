@@ -29,13 +29,10 @@ workflow runs across Claude Code, Codex, Pi, AI SDK models, and remote sandboxes
 | You want to… | Smithers? |
 | --- | --- |
 | Get one answer from one prompt | No, call the model directly |
-| Ship a chatbot or a simple tool-calling app | Usually no |
 | Let a coding agent change a repo across many steps | **Yes** |
 | Pause for a human approval, then resume later | **Yes** |
 | Run several agents that review, retry, and converge | **Yes** |
 | Survive crashes and replay, fork, or rewind a run | **Yes** |
-| Run durable backend jobs unrelated to agents | Consider [Temporal](https://temporal.io) or [Inngest](https://www.inngest.com) |
-| Host stateful per-user session agents | Consider [Cloudflare Agents](https://developers.cloudflare.com/agents/) |
 
 Smithers is the durable runtime for *coding-agent* work: when the unit of work is an agent
 editing a real repository over many steps, and you need that work to be inspectable,
