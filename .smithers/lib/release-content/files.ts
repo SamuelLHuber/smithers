@@ -11,6 +11,8 @@ import type {
   TemplateSelection,
 } from "./schemas";
 
+const DEFAULT_ARTIFACT_DIR = ".smithers/executions/release-content";
+
 export function safeJoin(root: string, repoRelativePath: string): string {
   const abs = resolve(root, repoRelativePath);
   const normalizedRoot = root.endsWith(sep) ? root : `${root}${sep}`;
@@ -293,13 +295,16 @@ export function publishFiles(params: {
   };
 }
 
-export function hasApprovedMarketingContent(version: string, artifactDir = ".smithers/executions/release-content"): {
+export function hasApprovedMarketingContent(version: string, artifactDir: unknown = DEFAULT_ARTIFACT_DIR): {
   ok: boolean;
   markerPath: string;
   message: string;
 } {
   const root = process.cwd();
-  const markerPath = join(artifactDir, `approved-${version}.json`);
+  const baseDir = typeof artifactDir === "string" && artifactDir.trim()
+    ? artifactDir
+    : DEFAULT_ARTIFACT_DIR;
+  const markerPath = join(baseDir, `approved-${version}.json`);
   const abs = safeJoin(root, markerPath);
   if (!existsSync(abs)) {
     return {
