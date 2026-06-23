@@ -82,8 +82,6 @@ describe("parseAccountsFile", () => {
             .toThrow(/accounts\[0\] must be an object/);
         expect(() => parseAccountsFile(JSON.stringify({ version: 1, accounts: [{ label: "", provider: "codex", configDir: "/x" }] })))
             .toThrow(/label must be a non-empty string/);
-        expect(() => parseAccountsFile(JSON.stringify({ version: 1, accounts: [{ label: "x", provider: "nope" }] })))
-            .toThrow(/provider must be one of/);
     });
     test("rejects missing configDir on subscription provider", () => {
         expect(() => parseAccountsFile(JSON.stringify({
@@ -123,6 +121,56 @@ describe("parseAccountsFile", () => {
         expect(parsed.accounts).toHaveLength(2);
         expect(parsed.accounts[0].label).toBe("claude-work");
         expect(parsed.accounts[1].apiKey).toBe("sk-xyz");
+    });
+    test("drops a legacy unknown-provider entry but keeps the valid ones", () => {
+        // Real machine repro: a pre-0.25 accounts.json still carrying a `gemini`
+        // subscription account must not nuke the user's kimi + codex accounts.
+        const warnings = [];
+        const realWarn = console.warn;
+        console.warn = (...args) => warnings.push(args.join(" "));
+        let parsed;
+        try {
+            parsed = parseAccountsFile(JSON.stringify({
+                version: 1,
+                accounts: [
+                    { label: "kimi-main", provider: "kimi", configDir: "/p/kimi" },
+                    { label: "codex-main", provider: "codex", configDir: "/p/codex" },
+                    { label: "gem-legacy", provider: "gemini", configDir: "/p/gem" },
+                ],
+            }));
+        } finally {
+            console.warn = realWarn;
+        }
+        const labels = parsed.accounts.map((a) => a.label);
+        const providers = parsed.accounts.map((a) => a.provider);
+        expect(parsed.accounts).toHaveLength(2);
+        expect(labels).toEqual(["kimi-main", "codex-main"]);
+        expect(providers).not.toContain("gemini");
+        expect(labels).not.toContain("gem-legacy");
+        // The skip must be surfaced, naming the dropped account + its provider.
+        expect(warnings.some((w) => w.includes("gem-legacy") && w.includes("gemini"))).toBe(true);
+    });
+    test("a fully valid file with no legacy entries still parses every account", () => {
+        const parsed = parseAccountsFile(JSON.stringify({
+            version: 1,
+            accounts: [
+                { label: "kimi-main", provider: "kimi", configDir: "/p/kimi" },
+                { label: "codex-main", provider: "codex", configDir: "/p/codex" },
+                { label: "open-prod", provider: "openai-api", apiKey: "sk-1" },
+            ],
+        }));
+        expect(parsed.accounts.map((a) => a.label)).toEqual(["kimi-main", "codex-main", "open-prod"]);
+    });
+    test("still rejects a recognized provider whose required fields are missing", () => {
+        // Skipping is only for UNKNOWN providers; a known provider that's
+        // malformed is real corruption of a live account and must still throw.
+        expect(() => parseAccountsFile(JSON.stringify({
+            version: 1,
+            accounts: [
+                { label: "kimi-main", provider: "kimi", configDir: "/p/kimi" },
+                { label: "broken-codex", provider: "codex" },
+            ],
+        }))).toThrow(/configDir/);
     });
 });
 

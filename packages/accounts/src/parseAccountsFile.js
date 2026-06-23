@@ -25,8 +25,16 @@ const API_KEY_PROVIDERS = new Set([
 
 /**
  * Parses a raw JSON string into a validated AccountsFile. Throws SmithersError
- * with code `ACCOUNTS_FILE_INVALID` if the shape is wrong. Tolerates missing
- * accounts.json (caller passes an empty string for that).
+ * with code `ACCOUNTS_FILE_INVALID` if the file itself is unparseable or has the
+ * wrong top-level shape. Tolerates missing accounts.json (caller passes an empty
+ * string for that).
+ *
+ * Individual account entries whose `provider` is not a recognized value (e.g. a
+ * legacy `gemini` account left over after that subscription provider was
+ * removed) are SKIPPED with a warning rather than failing the whole file, so one
+ * stale entry can't lock a user out of all their valid accounts. Entries that
+ * are recognized but malformed (missing label, missing required configDir/apiKey,
+ * etc.) still throw, since those indicate real corruption of a live account.
  *
  * @param {string} raw
  * @returns {import("./AccountsFile.ts").AccountsFile}
@@ -65,8 +73,13 @@ export function parseAccountsFile(raw) {
         if (typeof e.label !== "string" || !e.label.trim()) {
             throw new SmithersError("ACCOUNTS_FILE_INVALID", `accounts.json: accounts[${i}].label must be a non-empty string`);
         }
+        // An unrecognized provider is almost always a legacy entry (e.g. a
+        // `gemini` subscription account left over after that provider was
+        // dropped). Skip it with a warning instead of failing the whole file so
+        // one stale account doesn't lock the user out of every valid one.
         if (typeof e.provider !== "string" || !VALID_PROVIDERS.has(e.provider)) {
-            throw new SmithersError("ACCOUNTS_FILE_INVALID", `accounts.json: accounts[${i}].provider must be one of ${[...VALID_PROVIDERS].join(", ")}, got ${JSON.stringify(e.provider)}`);
+            console.warn(`accounts.json: skipping account ${JSON.stringify(e.label)} with unknown provider ${JSON.stringify(e.provider)} (valid providers: ${[...VALID_PROVIDERS].join(", ")})`);
+            continue;
         }
         if (seenLabels.has(e.label)) {
             throw new SmithersError("ACCOUNTS_FILE_INVALID", `accounts.json: duplicate label ${JSON.stringify(e.label)}`);
