@@ -178,6 +178,27 @@ try {
 | `SMITHERS_MIGRATION_REQUIRED` | A legacy bun:sqlite store has run data but the resolved backend is PGlite/Postgres, so the history would be invisible until you run `smithers migrate`. | `{ dbPath, runCount, schemaVersion, resolvedBackend }` |
 | `STORAGE_ERROR` | A storage service operation fails before surfacing a more specific database code. | -- |
 
+### Migration errors
+
+`smithers migrate` preserves the source SQLite store by default. If the legacy
+`smithers.db` cannot be copied into the target backend, Smithers leaves the
+original file untouched and reports the first actionable failure.
+
+Corrupt, malformed, encrypted, or non-SQLite source files surface as
+`DB_QUERY_FAILED` with the source `dbPath` in `details`. The error message tells
+the operator to verify the file with `sqlite3 <dbPath> 'PRAGMA integrity_check'`
+and restore from backup or start fresh if SQLite confirms corruption.
+
+Source files that exist but cannot be opened also surface as `DB_QUERY_FAILED`.
+That message points at the common operational causes: another process holding the
+file, unreadable permissions, or a copied SQLite file missing its
+`smithers.db-wal` / `smithers.db-shm` sidecars.
+
+For Postgres migrations, `smithers migrate --to postgres` validates the target
+connection string before opening the source store. Missing `--url`,
+`SMITHERS_POSTGRES_URL`, or `DATABASE_URL` fails fast with `INVALID_INPUT` so
+connection setup problems are not hidden behind unrelated source-store errors.
+
 ## Effect / Runtime
 
 | Code | When | Details |
@@ -225,7 +246,13 @@ try {
 | `ACCOUNT_INVALID` | An account entry, label, provider, or provider-specific configuration is invalid. | -- |
 | `ACCOUNT_NOT_FOUND` | An account operation references a label that is not registered. | -- |
 | `ACCOUNT_DUPLICATE_LABEL` | An account add operation would create a duplicate label without replace enabled. | -- |
-| `ACCOUNTS_FILE_INVALID` | The accounts.json file is not valid JSON or does not match the expected account registry schema. | -- |
+| `ACCOUNTS_FILE_INVALID` | The accounts.json file is not valid JSON or does not match the expected account registry schema after tolerant entry filtering. | -- |
+
+Unknown legacy account providers are tolerated entry-by-entry. For example, an
+old `"provider": "gemini"` subscription is skipped with a warning that names the
+account label and valid providers, while the remaining valid accounts still
+load. `ACCOUNTS_FILE_INVALID` is reserved for invalid JSON or entries whose
+known provider shape is malformed.
 
 ## HTTP API Errors
 
