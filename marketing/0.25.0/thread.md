@@ -8,14 +8,14 @@ Ready-to-post X/Twitter thread for the Smithers 0.25.0 release.
 
 **Media:** [hero card → assets/tweet-01-hero.svg](assets/tweet-01-hero.svg)
 
-> Smithers 0.25.0 is out.
+> Smithers 0.25.0 is out. ~450 commits.
 >
-> Workflow authors get fully typed output reads, the repo shed its proof-of-concept UI apps, and CI plus the release pipeline are green and hardened.
+> Postgres-backed durability, a Gateway sync layer, typed workflow outputs, new agent tools, and the real UI on the way.
 >
 > bunx smithers-orchestrator@0.25.0
 
 Claim IDs: none
-Characters: 207
+Characters: 192
 
 ---
 
@@ -23,32 +23,43 @@ Characters: 207
 
 **Media:** [capability card → assets/tweet-02-capability.svg](assets/tweet-02-capability.svg)
 
-> ctx.output / outputMaybe / latest now infer the row type from the table you pass.
+> Durability now runs on Postgres alongside SQLite and PGlite, with a fail-loud migration:
 >
-> ctx.outputMaybe(outputs.research, { nodeId: "research" }).summary just typechecks. No more untyped output rows in your workflows.
+> bunx smithers-orchestrator migrate
+>
+> A missing migration errors instead of silently reading a stale store.
 
 Claim IDs: none
-Characters: 212
+Characters: 195
 
 ---
 
 ### 3. Tweet 3
 
-> The product UI moved to its own repo, so the in-repo POC apps (the chat PWA, the studio shell, the demos) are gone. The published library, the engine, and the `smithers ui` workflow-UI surface are unchanged.
+> The Gateway grew a sync layer: new read RPCs (docs, accounts, prompts, scores, memory, tickets, crons) backed by TanStack DB collections + React hooks, browser persistence via SQLite-WASM/OPFS, and optional cloud Electric sync.
 
 Claim IDs: none
-Characters: 207
+Characters: 227
 
 ---
 
 ### 4. Tweet 4
 
-> Also in 0.25.0: a green CI (typecheck + test), a release drift guard that no longer trips on non-deterministic .d.ts output, and a refreshed gateway OpenAPI spec plus llms bundles.
->
-> Full notes: smithers.sh
+> More built-in agent tools: grounded multi-provider web search, a generic HTTP tool, Whisper/Deepgram transcription, image generation, and document OCR. Plus typed ctx.output reads, so the data your workflow reads back typechecks.
 
 Claim IDs: none
-Characters: 205
+Characters: 229
+
+---
+
+### 5. Tweet 5
+
+> We're gearing up to ship the real Smithers UI, so the in-repo proof-of-concept UIs are gone.
+>
+> Preview the real thing: ui-preview.smithers.sh
+
+Claim IDs: none
+Characters: 140
 
 ---
 

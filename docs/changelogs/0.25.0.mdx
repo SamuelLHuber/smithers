@@ -1,31 +1,81 @@
 ---
 title: "0.25.0"
-description: "Typed workflow output reads, the POC UI apps removed in favor of the standalone UI repo, and a green CI plus a hardened release pipeline."
+description: "Postgres-backed durability with a fail-loud migrate command, a Gateway sync layer of new RPCs and React hooks, typed workflow outputs, new agent tools, and the POC UI removed ahead of the real UI launch."
 ---
 
-Smithers 0.25.0 gives workflow authors typed output reads, retires the in-repo proof-of-concept UI apps now that the product UI lives in its own repository, and brings the build, typecheck, and test gates back to green with a more robust release pipeline. The published library entry point (`smithers-orchestrator`) is unchanged.
+Smithers 0.25.0 is a large release: roughly 450 commits since 0.24.2. The
+headlines are durability on Postgres with a fail-loud migration path, a Gateway
+sync layer (TanStack DB collections and React hooks over a batch of new RPCs),
+typed workflow output reads, a set of new agent tools, and the removal of the
+in-repo proof-of-concept UI apps as we get ready to ship the real UI.
 
-## Typed workflow output
+## Breaking changes
 
-`ctx.output`, `ctx.outputMaybe`, and `ctx.latest` now infer the row type from the `table` argument instead of returning an untyped row.
+- The `tui` command was removed. Run the terminal UI inline with
+  `bunx smithers-orchestrator up --interactive` (or `workflow run --interactive`);
+  `ps --watch` and `inspect --watch` remain for read-only watching.
+- Backends are now resolved explicitly, and a legacy SQLite store can require a
+  migration: run `bunx smithers-orchestrator migrate`. A missing migration fails
+  loud with `SMITHERS_MIGRATION_REQUIRED` rather than silently reading stale data.
+- The proof-of-concept UI packages (`@smithers-orchestrator/smithers`,
+  `-studio-2`, `-demo`, `-tui-demo`) were removed (see below). Their previously
+  published versions stay on npm.
 
-- Pass a registered table name (`ctx.outputMaybe("research", { nodeId: "research" })`) or the schema object (`ctx.outputMaybe(outputs.research, ...)`) and the result carries that schema's fields, so `result.summary` and `result.findings` typecheck.
-- Drizzle tables resolve through `$inferSelect`; anything untyped still falls back to the previous untyped row, so existing call sites keep working.
+## Postgres and durable backend
+
+- New Postgres dialect for the durability store alongside SQLite and PGlite, with
+  a schema signature and a DB-backed docs table that a file watcher syncs from
+  `.smithers/` on disk.
+- `bunx smithers-orchestrator migrate` plus backend-aware DB resolution so `ps`,
+  `inspect`, and `up` agree on which store they are using.
+
+## Gateway: sync layer and new RPCs
+
+- New RPCs: `getSchemaSignature`, `listDocs`, `listAccounts`, `listPrompts`,
+  `listScores`, `listMemoryFacts`, full ticket CRUD
+  (`listTickets`/`createTicket`/`updateTicket`/`deleteTicket`), and cron listing.
+- TanStack DB collections and matching React hooks (`useGatewayTickets`,
+  `useGatewayScores`, `useGatewayMemoryFacts`, `useGatewayCrons`),
+  SQLite-WASM/OPFS-persisted collections in the browser, and an optional cloud
+  Electric sync source selected with `SMITHERS_SYNC_SOURCE`.
+
+## Typed workflow outputs
+
+- `ctx.output`, `ctx.outputMaybe`, and `ctx.latest` now infer the row type from
+  the table argument, so `ctx.outputMaybe(outputs.research, ...).summary`
+  typechecks instead of returning an untyped row.
+
+## Agents and tools
+
+- New tool primitives: resilient multi-provider grounded web search, a generic
+  HTTP tool, Whisper and Deepgram transcription, image generation, and a
+  document-parsing OCR toolset.
+- AmpAgent session resume.
+
+## Components and workflows
+
+- New `<Sidecar>` composite component for cheap-model shadow scoring.
+- New init-pack workflows: `plan-implement-review-issues`, `bulletproof-audit`
+  with `audit-fix-train`, `coverage-codex-swarm`, `verify-push-safety`, and the
+  `audit-burndown` validation engine.
 
 ## Removed the POC UI apps
 
-The product UI moved to a separate repository, so the local proof-of-concept UIs are gone: `@smithers-orchestrator/smithers` (the Cerebras chat PWA), `@smithers-orchestrator/smithers-studio-2` (the studio shell), `@smithers-orchestrator/smithers-demo`, and `@smithers-orchestrator/smithers-tui-demo`. The custom workflow UI surface you build with `bunx smithers-orchestrator ui` (powered by `gateway-react` and `components`) is unaffected.
+We are gearing up to release the real Smithers UI, so the in-repo
+proof-of-concept UIs were removed: the Cerebras chat PWA, the studio shell, and
+the demos. You can preview the real UI at
+[ui-preview.smithers.sh](https://ui-preview.smithers.sh). The custom workflow UI
+surface you build with `bunx smithers-orchestrator ui` (via `gateway-react` and
+`components`) is unchanged.
 
-## CI and release pipeline
+## Quality
 
-- The CI workflow is green again: every per-package typecheck, the `.smithers` workflow pack typecheck, the examples and evals typechecks, and the full test suite pass. The browser `app-e2e` job, which required browsers and backend secrets a clean runner does not have, was removed.
-- `pnpm release` now tolerates the non-deterministic import ordering that rollup-plugin-dts emits for large declaration files, so the build drift guard no longer blocks a release on cosmetic reordering while still catching genuinely stale generated artifacts.
-- Regenerated the gateway `openapi.yaml`, the package declaration files, and the `llms-*.txt` bundles, and dropped redundant declaration builds from the packages that ship TypeScript sources directly.
-
-## Fixes
-
-- The `smithers gateway` server keeps stdout clean and exits cleanly on shutdown instead of emitting a trailing completion frame.
-- Imperative logs made inside an Effect now keep their run and node correlation without the AsyncLocalStorage bridge leaking across an Effect run boundary.
+- Roughly 160 fixes across the CLI, gateway, scorers, OpenAPI, agents, and
+  control-plane, a green CI (typecheck and test), and a hardened release pipeline
+  whose build drift guard tolerates non-deterministic declaration output.
+- The SWE-EVO benchmark gained a native-x86 scorer for emulation-incompatible
+  instances, a rate-limit-aware suite supervisor, and an official-leaderboard
+  comparison report.
 
 ## Upgrade
 

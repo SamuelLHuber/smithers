@@ -45,13 +45,6 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function latestTag(): string | null {
-  const exact = run("git", ["describe", "--tags", "--abbrev=0"]);
-  if (exact) return exact;
-  const tags = run("git", ["tag", "--sort=-creatordate"]);
-  return tags.split("\n").map((line) => line.trim()).filter(Boolean)[0] ?? null;
-}
-
 function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map((n) => Number.parseInt(n, 10) || 0);
   const pb = b.split(".").map((n) => Number.parseInt(n, 10) || 0);
@@ -66,12 +59,42 @@ function slugVersion(version: string): string {
   return version.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function tagExists(tag: string): boolean {
+  return run("git", ["tag", "--list", tag])
+    .split("\n")
+    .map((line) => line.trim())
+    .includes(tag);
+}
+
+/**
+ * The "previous release" tag for a diff range: the highest `vMAJOR.MINOR.PATCH`
+ * tag strictly below `nextVersion`. Deliberately NOT just the newest tag — once
+ * `pnpm version` has created `v<nextVersion>` at HEAD, the newest tag IS the
+ * release being prepared, so `<newest tag>..HEAD` is empty and the changelog
+ * comes out blank ("claim-no-commits").
+ */
+function previousReleaseTag(nextVersion: string): string | null {
+  return run("git", ["tag", "--list", "v*"])
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((tag) => ({ tag, version: tag.replace(/^v/, "") }))
+    .filter((entry) => /^\d+\.\d+\.\d+$/.test(entry.version))
+    .filter((entry) => compareVersions(entry.version, nextVersion) < 0)
+    .sort((a, b) => compareVersions(b.version, a.version))[0]?.tag ?? null;
+}
+
 export function probeRelease(input: ReleaseContentInput): Probe {
   const root = process.cwd();
   const pkg = readJson<{ version: string }>(join(root, "package.json"));
-  const bump = input.bump ?? (input.version ? null : "patch");
-  const nextVersion = input.version ?? incrementVersion(pkg.version, bump ?? "patch");
-  const tag = latestTag();
+  // If `v<pkg.version>` already exists, `pnpm version` ran before this workflow,
+  // so pkg.version IS the release target — do not bump it again (bumping again
+  // is what produced 0.25.1 instead of 0.25.0 in the 0.25.0 dry run).
+  const alreadyBumped = !input.version && tagExists(`v${pkg.version}`);
+  const bump = input.bump ?? (input.version || alreadyBumped ? null : "patch");
+  const nextVersion =
+    input.version ?? (alreadyBumped ? pkg.version : incrementVersion(pkg.version, bump ?? "patch"));
+  const tag = previousReleaseTag(nextVersion);
   const range = input.range ?? (tag ? `${tag}..HEAD` : "HEAD");
   const currentSha = run("git", ["rev-parse", "HEAD"], "unknown");
   const releaseDate = input.releaseDate ?? todayIso();
