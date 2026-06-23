@@ -7,7 +7,7 @@ import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { createSmithers } from "../src/create.js";
 import { migrateSmithersStore } from "../src/migrateSmithersStore.js";
 import { openSmithersBackend } from "../src/openSmithersBackend.js";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
@@ -272,6 +272,60 @@ describe("migrateSmithersStore", () => {
     expect(existsSync(join(cwd, ".smithers", "pg"))).toBe(false);
     expect(existsSync(join(cwd, ".smithers", "migrated.json"))).toBe(false);
     expect(existsSync(dbPath)).toBe(true);
+  });
+
+  test("rejects with an actionable SmithersError when the source store cannot be opened, leaving no partial output", async () => {
+    const cwd = makeWorkspace("smithers-migrate-unopenable");
+    const dbPath = join(cwd, "smithers.db");
+    // A file that exists but cannot be opened (no read permission) makes
+    // bun:sqlite fail with "unable to open database file" — distinct from a
+    // corrupt store. This also covers the missing -wal/-shm sidecar case.
+    writeFileSync(dbPath, "placeholder", "utf8");
+    chmodSync(dbPath, 0o000);
+
+    let caught;
+    try {
+      await migrateSmithersStore({ cwd });
+    } catch (error) {
+      caught = error;
+    } finally {
+      chmodSync(dbPath, 0o600); // restore so afterEach can clean up
+    }
+
+    expect(caught).toBeInstanceOf(SmithersError);
+    expect(caught.code).toBe("DB_QUERY_FAILED");
+    expect(caught.message).toContain(dbPath);
+    expect(caught.message.toLowerCase()).toContain("could not open");
+    expect(caught.message).toContain("-wal");
+    expect(caught.message).toContain("left untouched");
+    expect(caught.details).toEqual({ dbPath });
+    expect(caught.cause).toBeDefined();
+    expect(existsSync(join(cwd, ".smithers", "pg"))).toBe(false);
+    expect(existsSync(join(cwd, ".smithers", "migrated.json"))).toBe(false);
+  });
+
+  test("migrate --to postgres with no url fails with INVALID_INPUT before opening the source (not masked)", async () => {
+    const cwd = makeWorkspace("smithers-migrate-pg-nourl");
+    const dbPath = join(cwd, "smithers.db");
+    // Even with an UNOPENABLE source, the missing-url validation must win, so
+    // the user sees the actionable url guidance rather than a source-open error.
+    writeFileSync(dbPath, "placeholder", "utf8");
+    chmodSync(dbPath, 0o000);
+
+    let caught;
+    try {
+      await migrateSmithersStore({ cwd, to: "postgres", env: {} });
+    } catch (error) {
+      caught = error;
+    } finally {
+      chmodSync(dbPath, 0o600);
+    }
+
+    expect(caught).toBeInstanceOf(SmithersError);
+    expect(caught.code).toBe("INVALID_INPUT");
+    expect(caught.message).toContain("SMITHERS_POSTGRES_URL");
+    expect(existsSync(join(cwd, ".smithers", "pg"))).toBe(false);
+    expect(existsSync(join(cwd, ".smithers", "migrated.json"))).toBe(false);
   });
 
   test("can remove sqlite files only after a successful copy", async () => {

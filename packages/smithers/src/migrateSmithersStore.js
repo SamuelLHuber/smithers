@@ -475,6 +475,7 @@ function writeMigrationMarker(result, sourceStats) {
 // of these substrings (case-insensitive). Detecting them lets us replace the
 // raw, unactionable engine text with guidance the operator can follow.
 const CORRUPT_SQLITE_MARKERS = ["malformed", "not a database", "file is encrypted", "disk image is malformed"];
+const UNOPENABLE_SQLITE_MARKERS = ["unable to open database file"];
 
 /**
  * @param {unknown} error
@@ -483,6 +484,15 @@ const CORRUPT_SQLITE_MARKERS = ["malformed", "not a database", "file is encrypte
 function isCorruptSqliteError(error) {
     const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
     return CORRUPT_SQLITE_MARKERS.some((marker) => message.includes(marker));
+}
+
+/**
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+function isUnopenableSqliteError(error) {
+    const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
+    return UNOPENABLE_SQLITE_MARKERS.some((marker) => message.includes(marker));
 }
 
 /**
@@ -525,6 +535,10 @@ function openSourceStore(dbPath) {
             const original = error instanceof Error ? error.message : String(error);
             throw new SmithersError("DB_QUERY_FAILED", `The legacy SQLite store at ${dbPath} appears to be corrupted (${original}). Smithers cannot migrate a corrupt store. Verify with: sqlite3 ${dbPath} 'PRAGMA integrity_check'. If it reports corruption, restore from a backup or start fresh; the original file was left untouched.`, { dbPath }, { cause: error });
         }
+        if (isUnopenableSqliteError(error)) {
+            const original = error instanceof Error ? error.message : String(error);
+            throw new SmithersError("DB_QUERY_FAILED", `Could not open the legacy SQLite store at ${dbPath} (${original}). It may be locked by another process, have unreadable permissions, or be missing its -wal/-shm sidecar files (copy smithers.db together with smithers.db-wal and smithers.db-shm). The original file was left untouched.`, { dbPath }, { cause: error });
+        }
         throw error;
     }
 }
@@ -556,6 +570,16 @@ export async function migrateSmithersStore(opts = {}) {
         });
     }
     const target = normalizeTarget(opts.to);
+    // Validate the Postgres connection target BEFORE opening the source store, so
+    // `migrate --to postgres` with no url fails fast with a clear INVALID_INPUT
+    // instead of being masked by an unrelated source-open error (e.g. an
+    // unreadable or sidecar-less smithers.db).
+    const postgresUrl = target === "postgres" ? (opts.url ?? env.SMITHERS_POSTGRES_URL ?? env.DATABASE_URL) : undefined;
+    if (target === "postgres" && !postgresUrl) {
+        throw new SmithersError("INVALID_INPUT", "smithers migrate --to postgres requires --url, SMITHERS_POSTGRES_URL, or DATABASE_URL.", {
+            target,
+        });
+    }
     const markerPath = markerPathFor(dbPath, workspaceRoot);
     const batchSize = Math.max(1, Math.floor(opts.batchSize ?? DEFAULT_BATCH_SIZE));
     const keepSqlite = opts.keepSqlite ?? true;
@@ -576,15 +600,9 @@ export async function migrateSmithersStore(opts = {}) {
             schemaVersion,
         }, "smithers:migrate");
         if (target === "postgres") {
-            const connectionString = opts.url ?? env.SMITHERS_POSTGRES_URL ?? env.DATABASE_URL;
-            if (!connectionString) {
-                throw new SmithersError("INVALID_INPUT", "smithers migrate --to postgres requires --url, SMITHERS_POSTGRES_URL, or DATABASE_URL.", {
-                    target,
-                });
-            }
             targetApi = await createSmithersPostgres({}, {
                 provider: "postgres",
-                connectionString,
+                connectionString: postgresUrl,
             });
         }
         else {
