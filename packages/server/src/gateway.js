@@ -966,6 +966,9 @@ function verifyJwtToken(token, config) {
     const expectedSignature = createHmac("sha256", config.secret)
         .update(`${encodedHeader}.${encodedPayload}`)
         .digest("base64url");
+    if (encodedSignature !== expectedSignature) {
+        return { ok: false, message: "JWT signature verification failed" };
+    }
     const actualSignature = Buffer.from(encodedSignature, "base64url");
     const expectedSignatureBuffer = Buffer.from(expectedSignature, "base64url");
     if (actualSignature.length !== expectedSignatureBuffer.length ||
