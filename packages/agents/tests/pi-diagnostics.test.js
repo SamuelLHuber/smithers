@@ -9,15 +9,17 @@ function apiKeyCheck(strategy) {
 }
 
 describe("Pi diagnostics provider mapping", () => {
-    test("defaults to Google checks", () => {
+    test("skips provider auth preflight when the provider cannot be inferred", async () => {
         const strategy = getDiagnosticStrategy("pi");
         expect(strategy).not.toBeNull();
-        expect(strategy.checks).toHaveLength(3);
+        expect(strategy.checks).toHaveLength(2);
         expect(strategy.checks.map((check) => check.id)).toEqual([
             "cli_installed",
             "api_key_valid",
-            "rate_limit_status",
         ]);
+        const result = await apiKeyCheck(strategy).run({ env: {}, cwd: "/tmp" });
+        expect(result.status).toBe("skip");
+        expect(result.message).toContain("provider \"unset\"");
     });
     test("uses OpenAI checks for provider hint", async () => {
         const check = apiKeyCheck(getDiagnosticStrategy("pi", { provider: "openai" }));
