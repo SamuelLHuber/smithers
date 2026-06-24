@@ -123,7 +123,16 @@ try {
 
 if (!SKIP_GIT) {
   log("git", "checking clean working tree");
-  const dirty = gitStatusPorcelain();
+  // Ignore *.d.ts drift for the same reason the post-build guard does below:
+  // rollup-plugin-dts is non-deterministic, so a prior build (e.g. a test run)
+  // can leave declaration files dirty without indicating a forgotten commit.
+  // They are rebuilt immediately before pack anyway. Any OTHER dirty file still
+  // fails — the bump must be committed before releasing.
+  const dirty = gitStatusPorcelain()
+    .split("\n")
+    .filter(Boolean)
+    .filter((line) => !line.slice(3).trim().endsWith(".d.ts"))
+    .join("\n");
   if (dirty) {
     throw new Error(
       `working tree is dirty — run \`pnpm version <patch|minor|major>\` first, or pass --skip-git:\n${dirty}`,
