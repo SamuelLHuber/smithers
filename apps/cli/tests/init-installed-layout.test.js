@@ -80,6 +80,7 @@ function buildFakeInstallTree() {
     cpSync(join(CLI_SRC, "workflowUiSources.js"), join(cliDir, "src/workflowUiSources.js"));
     cpSync(join(CLI_SRC, "agent-detection.js"), join(cliDir, "src/agent-detection.js"));
     cpSync(join(CLI_SRC, "installCuratedSkill.js"), join(cliDir, "src/installCuratedSkill.js"));
+    cpSync(join(CLI_SRC, "noteWorkflowPreferenceInAgentDocs.js"), join(cliDir, "src/noteWorkflowPreferenceInAgentDocs.js"));
     cpSync(join(CLI_SRC, "seeded-workflow-pack.generated.js"), join(cliDir, "src/seeded-workflow-pack.generated.js"));
 
     // Packaged curated-skill source (apps/cli/docs) so init can install the
@@ -160,6 +161,9 @@ function buildFakeInstallTree() {
 
 test("initWorkflowPack succeeds when run from a published install layout", () => {
     const tree = buildFakeInstallTree();
+    // Seed agent docs so init appends smithers.sh workflow guidance to them.
+    writeFile(join(tree.cwd, "CLAUDE.md"), "# User project\n\nHand-written rules.\n");
+    writeFile(join(tree.cwd, "AGENTS.md"), "# Agents doc\n");
 
     // Run init in a fresh child process using the faked node_modules layout —
     // running inline would resolve deps against the monorepo's node_modules.
@@ -176,6 +180,9 @@ test("initWorkflowPack succeeds when run from a published install layout", () =>
                 writtenCount: result.writtenFiles.length,
                 rootDir: result.rootDir,
                 skillInstalledInto: (result.skill?.installed ?? []).map((entry) => entry.agent),
+                agentDocsUpdated: (result.agentDocs?.files ?? [])
+                    .filter((file) => file.status === "updated")
+                    .map((file) => file.path.split("/").pop()),
             }));
             `,
         ],
@@ -213,4 +220,14 @@ test("initWorkflowPack succeeds when run from a published install layout", () =>
     const skillDir = join(tree.home, ".claude", "skills", "smithers");
     expect(readFileSync(join(skillDir, "SKILL.md"), "utf8")).toBe("# Smithers skill\n");
     expect(readFileSync(join(skillDir, "llms-full.txt"), "utf8")).toBe("FULL DOCS BUNDLE\n");
+
+    // init also appended workflow guidance to both existing agent docs, keeping
+    // the user's hand-written rules above the appended block.
+    expect(summary.agentDocsUpdated).toContain("CLAUDE.md");
+    expect(summary.agentDocsUpdated).toContain("AGENTS.md");
+    const claudeMd = readFileSync(join(tree.cwd, "CLAUDE.md"), "utf8");
+    expect(claudeMd).toContain("Hand-written rules.");
+    expect(claudeMd).toContain("Smithers workflows");
+    expect(claudeMd).toContain("smithers.sh");
+    expect(readFileSync(join(tree.cwd, "AGENTS.md"), "utf8")).toContain("Smithers workflows");
 });

@@ -1,3 +1,4 @@
+import { basename } from "node:path";
 import { intro, log } from "@clack/prompts";
 import pc from "picocolors";
 import { detectAvailableAgents } from "./agent-detection.js";
@@ -38,6 +39,12 @@ export function runInitCeremony(opts = {}) {
             if (result.installed.length === 0) return;
             const agents = result.installed.map((entry) => entry.agent).join(", ");
             log.message(`${pc.dim("→")} Installed the ${pc.cyan(result.skill)} skill for you ${pc.dim("(" + agents + ")")}`);
+        },
+        agentDocsNoted(result) {
+            const updated = result.files.filter((file) => file.status === "updated");
+            if (updated.length === 0) return;
+            const names = updated.map((file) => pc.cyan(basename(file.path))).join(", ");
+            log.message(`${pc.dim("→")} Added ${pc.cyan("smithers.sh")} workflow guidance to ${names}`);
         },
         installStart() {
             log.step("Installing dependencies " + pc.dim("(bun install)"));
