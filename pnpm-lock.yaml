@@ -188,9 +188,18 @@ importers:
       '@smithers-orchestrator/scorers':
         specifier: workspace:*
         version: link:../packages/scorers
+      effect:
+        specifier: 3.21.1
+        version: 3.21.1
+      react:
+        specifier: ^19.2.5
+        version: 19.2.5
       smithers-orchestrator:
         specifier: workspace:*
         version: link:../packages/smithers
+      twitter-api-v2:
+        specifier: ^1.29.0
+        version: 1.29.0
       zod:
         specifier: 4.3.6
         version: 4.3.6
@@ -210,6 +219,10 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+    optionalDependencies:
+      playwright:
+        specifier: ^1.60.0
+        version: 1.60.0
 
   apps/cli:
     dependencies:
@@ -402,6 +415,9 @@ importers:
       '@smithers-orchestrator/gateway':
         specifier: workspace:*
         version: link:../packages/gateway
+      '@smithers-orchestrator/gateway-client':
+        specifier: workspace:*
+        version: link:../packages/gateway-client
       '@smithers-orchestrator/observability':
         specifier: workspace:*
         version: link:../apps/observability
@@ -1191,6 +1207,9 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
     devDependencies:
+      '@happy-dom/global-registrator':
+        specifier: ^20.9.0
+        version: 20.9.0
       '@smithers-orchestrator/graph':
         specifier: workspace:*
         version: link:../graph

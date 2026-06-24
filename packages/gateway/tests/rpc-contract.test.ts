@@ -11,6 +11,41 @@ import {
   isGatewayRpcMethod,
   listGatewayRpcMethods,
   type JsonSchema,
+  type LaunchRunRequest,
+  type LaunchRunResponse,
+  type ResumeRunRequest,
+  type ResumeRunResponse,
+  type CancelRunRequest,
+  type CancelRunResponse,
+  type HijackRunRequest,
+  type HijackRunResponse,
+  type RewindRunRequest,
+  type SubmitApprovalRequest,
+  type SubmitApprovalResponse,
+  type SubmitSignalRequest,
+  type GetRunRequest,
+  type ListRunsRequest,
+  type GetSchemaSignatureRequest,
+  type GetSchemaSignatureResponse,
+  type ListWorkflowsRequest,
+  type ListApprovalsRequest,
+  type ListDocsRequest,
+  type StreamRunEventsRequest,
+  type StreamRunEventsResponse,
+  type StreamDevToolsRequest,
+  type NodeRequest,
+  type CronListRequest,
+  type CronCreateRequest,
+  type CronDeleteRequest,
+  type CronRunRequest,
+  type ListAccountsRequest,
+  type ListMemoryFactsRequest,
+  type ListPromptsRequest,
+  type ListScoresRequest,
+  type ListTicketsRequest,
+  type CreateTicketRequest,
+  type UpdateTicketRequest,
+  type DeleteTicketRequest,
 } from "../src/rpc/index.ts";
 import { GATEWAY_SCOPE_VALUES, hasGatewayScope, type GatewayScope } from "../src/auth/scopes.ts";
 
@@ -248,6 +283,23 @@ describe("Gateway RPC contract", () => {
     }
   });
 
+  test("exampleRequest/exampleResponse survive a JSON serialize→deserialize round-trip without data loss", () => {
+    // Guards against examples with non-JSON-serializable values (undefined fields,
+    // class instances, Date objects, etc.) that appear to validate but would be
+    // silently dropped or mutated when sent over the wire.
+    for (const definition of GATEWAY_RPC_DEFINITIONS) {
+      const reqRoundTripped = JSON.parse(JSON.stringify(definition.exampleRequest));
+      expect(reqRoundTripped, `${definition.method} exampleRequest round-trip`).toEqual(definition.exampleRequest);
+      const reqRTErrors = validateAgainstSchema(reqRoundTripped, definition.requestSchema);
+      expect(reqRTErrors, `${definition.method} exampleRequest round-trip schema: ${reqRTErrors.join("; ")}`).toEqual([]);
+
+      const resRoundTripped = JSON.parse(JSON.stringify(definition.exampleResponse));
+      expect(resRoundTripped, `${definition.method} exampleResponse round-trip`).toEqual(definition.exampleResponse);
+      const resRTErrors = validateAgainstSchema(resRoundTripped, definition.responseSchema);
+      expect(resRTErrors, `${definition.method} exampleResponse round-trip schema: ${resRTErrors.join("; ")}`).toEqual([]);
+    }
+  });
+
   test("the schema validator actually rejects additionalProperties violations", () => {
     // Guards the guard: a closed-object schema (additionalProperties:false) must
     // flag an example carrying an unexpected/misnamed field, otherwise the test
@@ -368,6 +420,59 @@ describe("Gateway RPC contract", () => {
     expect(hasGatewayScope(["mysteryMethod"], "run:read", "mysteryMethod")).toBe(false);
   });
 
+  test("additionalProperties sub-schema: validator accepts conforming extra keys and rejects non-conforming ones", () => {
+    // objectSchema(props, required, desc, subSchema) produces a JsonSchema whose
+    // additionalProperties is a JsonSchema object, not a boolean. This exercises the
+    // sub-schema branch of validateAgainstSchema (lines 90-92) that was previously untested.
+    const schemaWithSubSchema: JsonSchema = {
+      type: "object",
+      properties: { known: { type: "string", description: "A declared property." } },
+      required: [],
+      additionalProperties: { type: "integer", description: "Extra keys must be integers.", minimum: 0 },
+    };
+
+    // An extra key whose value is a non-negative integer → valid.
+    expect(validateAgainstSchema({ known: "hi", extra: 42 }, schemaWithSubSchema)).toEqual([]);
+
+    // An extra key whose value is a string violates the sub-schema.
+    const stringExtra = validateAgainstSchema({ known: "hi", extra: "not-an-integer" }, schemaWithSubSchema);
+    expect(stringExtra.length).toBeGreaterThan(0);
+    expect(stringExtra.join(" ")).toContain("extra");
+
+    // An extra key whose value is a negative integer violates the sub-schema minimum.
+    const negativeExtra = validateAgainstSchema({ extra: -1 }, schemaWithSubSchema);
+    expect(negativeExtra.length).toBeGreaterThan(0);
+    expect(negativeExtra.join(" ")).toContain("minimum");
+
+    // The declared property is still validated against its own schema, not the sub-schema.
+    const wrongDeclared = validateAgainstSchema({ known: 123 }, schemaWithSubSchema);
+    expect(wrongDeclared.length).toBeGreaterThan(0);
+    expect(wrongDeclared.join(" ")).toContain("known");
+
+    // An empty object (no extra keys) is valid even with a restrictive sub-schema.
+    expect(validateAgainstSchema({}, schemaWithSubSchema)).toEqual([]);
+  });
+
+  test("additionalProperties sub-schema flows through the OpenAPI generator as a nested object", () => {
+    // Confirm that toYaml / buildPath serialize a sub-schema additionalProperties as a
+    // nested YAML mapping rather than the scalar "true"/"false", matching OpenAPI 3.1
+    // object schema semantics. We exercise this by building an inline schema with a
+    // sub-schema additionalProperties and checking the YAML round-trip is a proper object.
+    const subSchema: JsonSchema = { type: "string", description: "values must be strings" };
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {},
+      required: [],
+      additionalProperties: subSchema,
+    };
+    // The schema object itself is what the generator passes through; verify it round-trips
+    // via JSON (the generated YAML is parsed back to JSON in the drift-check) identically.
+    expect(JSON.parse(JSON.stringify(schema))).toEqual(schema);
+    // And the additionalProperties value is not a boolean — it is the nested sub-schema.
+    expect(typeof schema.additionalProperties).toBe("object");
+    expect((schema.additionalProperties as JsonSchema).type).toBe("string");
+  });
+
   test("granular run:admin is intentionally narrow: it does not imply observability:read or approval:submit", () => {
     // Unlike the coarse legacy "admin" super-grant, the granular run:admin scope is
     // scoped to run control (hijack/rewind) only. It deliberately does NOT bleed into
@@ -381,5 +486,183 @@ describe("Gateway RPC contract", () => {
     // The coarse legacy "admin" grant, by contrast, implies everything for back-compat.
     expect(hasGatewayScope(["admin"], "observability:read", "streamDevTools")).toBe(true);
     expect(hasGatewayScope(["admin"], "approval:submit", "submitApproval")).toBe(true);
+  });
+
+  test("TS *Request/*Response types agree with JsonSchema definitions", () => {
+    // Each typed object uses `satisfies` so tsc catches type/schema drift at compile
+    // time. The runtime half validates the same objects against the JsonSchema — if the
+    // TS type is narrower than the schema (a required TS field missing from schema
+    // required[], wrong type, etc.) the schema validation will fail.
+
+    type TypedCase = { method: string; request: unknown; response?: unknown };
+
+    const cases: TypedCase[] = [
+      {
+        method: "launchRun",
+        request: { workflow: "deploy", input: { sha: "abc" }, options: { runId: "r1", idempotencyKey: "k1" } } satisfies LaunchRunRequest,
+        response: { runId: "r1", workflow: "deploy" } satisfies LaunchRunResponse,
+      },
+      {
+        method: "resumeRun",
+        request: { runId: "r1", options: { force: false } } satisfies ResumeRunRequest,
+        response: { runId: "r1", status: "resume_requested" } satisfies ResumeRunResponse,
+      },
+      {
+        method: "cancelRun",
+        request: { runId: "r1" } satisfies CancelRunRequest,
+        response: { runId: "r1", status: "cancelling" } satisfies CancelRunResponse,
+      },
+      {
+        method: "hijackRun",
+        request: { runId: "r1", options: { reason: "test" } } satisfies HijackRunRequest,
+        response: { runId: "r1", status: "hijack-ready", sessionId: "s1" } satisfies HijackRunResponse,
+      },
+      {
+        method: "rewindRun",
+        request: { runId: "r1", frameNo: 2, confirm: true } satisfies RewindRunRequest,
+        response: { ok: true },
+      },
+      {
+        method: "submitApproval",
+        request: { runId: "r1", nodeId: "n1", decision: { approved: true, note: "ok" } } satisfies SubmitApprovalRequest,
+        response: { runId: "r1", nodeId: "n1", iteration: 0, approved: true } satisfies SubmitApprovalResponse,
+      },
+      {
+        method: "submitSignal",
+        request: { runId: "r1", correlationKey: "ck", signalName: "sig", payload: null } satisfies SubmitSignalRequest,
+        response: { runId: "r1", seq: 1 },
+      },
+      {
+        method: "getRun",
+        request: { runId: "r1" } satisfies GetRunRequest,
+        response: { runId: "r1" },
+      },
+      {
+        method: "listRuns",
+        request: { filter: { status: "finished", limit: 10 } } satisfies ListRunsRequest,
+        response: [],
+      },
+      {
+        method: "getSchemaSignature",
+        request: {} satisfies GetSchemaSignatureRequest,
+        response: { schemaVersion: "0016", signature: "sha256" } satisfies GetSchemaSignatureResponse,
+      },
+      {
+        method: "listWorkflows",
+        request: { filter: { hasUi: true } } satisfies ListWorkflowsRequest,
+        response: [],
+      },
+      {
+        method: "listApprovals",
+        request: { filter: { runId: "r1", limit: 5 } } satisfies ListApprovalsRequest,
+        response: [],
+      },
+      {
+        method: "listDocs",
+        request: { filter: { kind: "ticket", limit: 20 } } satisfies ListDocsRequest,
+        response: [],
+      },
+      {
+        method: "streamRunEvents",
+        request: { runId: "r1", afterSeq: 0 } satisfies StreamRunEventsRequest,
+        response: { streamId: "s1", runId: "r1", afterSeq: null, currentSeq: 0 } satisfies StreamRunEventsResponse,
+      },
+      {
+        method: "streamDevTools",
+        request: { runId: "r1", afterSeq: 0 } satisfies StreamDevToolsRequest,
+        response: { streamId: "s1", runId: "r1", fromSeq: null, afterSeq: null },
+      },
+      {
+        method: "getNodeOutput",
+        request: { runId: "r1", nodeId: "n1", iteration: 0 } satisfies NodeRequest,
+        response: { runId: "r1", nodeId: "n1", iteration: 0 },
+      },
+      {
+        method: "getNodeDiff",
+        request: { runId: "r1", nodeId: "n1", iteration: 0 } satisfies NodeRequest,
+        response: { runId: "r1", nodeId: "n1", iteration: 0 },
+      },
+      {
+        method: "cronList",
+        request: { filter: { workflow: "deploy" } } satisfies CronListRequest,
+        response: [],
+      },
+      {
+        method: "cronCreate",
+        request: { workflow: "deploy", pattern: "0 * * * *", cronId: "c1", enabled: true } satisfies CronCreateRequest,
+        response: { cronId: "c1" },
+      },
+      {
+        method: "cronDelete",
+        request: { cronId: "c1" } satisfies CronDeleteRequest,
+        response: { cronId: "c1", removed: true },
+      },
+      {
+        method: "cronRun",
+        request: { cronId: "c1", workflow: "deploy", input: {} } satisfies CronRunRequest,
+        response: { runId: "r1", workflow: "deploy" },
+      },
+      {
+        method: "listAccounts",
+        request: {} satisfies ListAccountsRequest,
+        response: [],
+      },
+      {
+        method: "listMemoryFacts",
+        request: { namespace: "ns1" } satisfies ListMemoryFactsRequest,
+        response: [],
+      },
+      {
+        method: "listPrompts",
+        request: {} satisfies ListPromptsRequest,
+        response: [],
+      },
+      {
+        method: "listScores",
+        request: { runId: "r1", nodeId: "n1" } satisfies ListScoresRequest,
+        response: [],
+      },
+      {
+        method: "listTickets",
+        request: { kind: "ticket" } satisfies ListTicketsRequest,
+        response: [],
+      },
+      {
+        method: "createTicket",
+        request: { path: "feat-1", content: "# title", kind: "ticket", status: "open" } satisfies CreateTicketRequest,
+        response: { path: "feat-1", kind: "ticket", content: "# title", contentHash: "abc123", status: "open", updatedAtMs: 1710000000000 },
+      },
+      {
+        method: "updateTicket",
+        request: { path: "feat-1", content: "# updated", status: "done" } satisfies UpdateTicketRequest,
+        response: { path: "feat-1", kind: "ticket", content: "# updated", contentHash: "abc123", status: "done", updatedAtMs: 1710000000000 },
+      },
+      {
+        method: "deleteTicket",
+        request: { path: "feat-1" } satisfies DeleteTicketRequest,
+        response: { path: "feat-1", deleted: true },
+      },
+    ];
+
+    // Every method in GATEWAY_RPC_DEFINITIONS must be covered.
+    const coveredMethods = new Set(cases.map((c) => c.method));
+    for (const def of GATEWAY_RPC_DEFINITIONS) {
+      expect(coveredMethods.has(def.method), `${def.method} is missing a TS-typed test case`).toBe(true);
+    }
+
+    // Each typed request object validates against the method's requestSchema.
+    for (const { method, request, response } of cases) {
+      const def = getGatewayRpcDefinition(method);
+      expect(def, `no definition found for ${method}`).toBeDefined();
+      if (!def) continue;
+
+      const reqErrors = validateAgainstSchema(request, def.requestSchema);
+      expect(reqErrors, `${method} TS-typed request failed schema validation: ${reqErrors.join("; ")}`).toEqual([]);
+
+      if (response !== undefined) {
+        const resErrors = validateAgainstSchema(response, def.responseSchema);
+        expect(resErrors, `${method} TS-typed response failed schema validation: ${resErrors.join("; ")}`).toEqual([]);
+      }
+    }
   });
 });

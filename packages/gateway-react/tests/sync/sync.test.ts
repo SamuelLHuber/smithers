@@ -13,16 +13,19 @@ if (typeof globalThis.document === "undefined") {
 }
 
 import { describe, expect, test } from "bun:test";
-import { act, createElement, type ReactElement } from "react";
+import { act, createElement, useContext, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import {
   gatewayKeys,
   type SyncStreamFrame,
   type SyncTransport,
 } from "@smithers-orchestrator/gateway-client";
 import {
+  SyncContext,
   SyncProvider,
   createGatewayCollections,
+  useSyncClient,
   useGatewayApprovals,
   useGatewayCrons,
   useGatewayMemoryFacts,
@@ -296,6 +299,162 @@ describe("useSyncMutation optimistic + rollback", () => {
     // Optimistic 99 was written then rolled back to 5 on rejection.
     expect(seen).toContain(99);
     expect(seen[seen.length - 1]).toBe(5);
+
+    await harness.unmount();
+  });
+});
+
+describe("useSyncMutation success path", () => {
+  test("sets status to success and returns data after the runner resolves", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport(() => Promise.resolve({ value: 42 })).transport,
+    });
+
+    let mutation: ReturnType<typeof useSyncMutation<void, { value: number }>> | undefined;
+    function Probe() {
+      mutation = useSyncMutation<void, { value: number }>(() => registry.rpc("get", {}));
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+
+    await act(async () => {
+      await mutation?.mutate(undefined as unknown as void);
+    });
+    await settle();
+
+    expect(mutation?.status).toBe("success");
+    expect(mutation?.data).toEqual({ value: 42 });
+    expect(mutation?.error).toBeUndefined();
+    expect(mutation?.isLoading).toBe(false);
+
+    await harness.unmount();
+  });
+
+  test("calls onSuccess with data, vars, context, and registry after the runner resolves", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport(() => Promise.resolve("done")).transport,
+    });
+
+    const calls: Array<{ data: string; vars: number; context: string; registry: GatewayCollections }> = [];
+    let mutation: ReturnType<typeof useSyncMutation<number, string, string>> | undefined;
+    function Probe() {
+      mutation = useSyncMutation<number, string, string>(
+        () => registry.rpc("run", {}),
+        {
+          onMutate: (vars) => `ctx-${vars}`,
+          onSuccess: (data, vars, context, successRegistry) => {
+            calls.push({ data, vars, context, registry: successRegistry });
+          },
+        },
+      );
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+
+    await act(async () => {
+      await mutation?.mutate(7);
+    });
+    await settle();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual({ data: "done", vars: 7, context: "ctx-7", registry });
+
+    await harness.unmount();
+  });
+
+  test("invalidates the specified keys after a successful mutation", async () => {
+    let fetchCount = 0;
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "readCounter") return Promise.resolve(++fetchCount);
+        return Promise.resolve("ok");
+      }).transport,
+    });
+
+    const seen: number[] = [];
+    let mutation: ReturnType<typeof useSyncMutation<void, string>> | undefined;
+    function Probe() {
+      const q = useSyncQuery<number>(["counter"], () => registry.rpc<number>("readCounter", {}));
+      mutation = useSyncMutation<void, string>(
+        () => registry.rpc("bump", {}),
+        { invalidate: [["counter"]] },
+      );
+      if (typeof q.data === "number") seen.push(q.data);
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => seen[seen.length - 1] === 1);
+
+    await act(async () => {
+      await mutation?.mutate(undefined as unknown as void);
+    });
+    await waitFor(() => seen[seen.length - 1] === 2);
+
+    expect(fetchCount).toBeGreaterThanOrEqual(2);
+
+    await harness.unmount();
+  });
+
+  test("reset() returns status to idle and clears data", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport(() => Promise.resolve("result")).transport,
+    });
+
+    let mutation: ReturnType<typeof useSyncMutation<void, string>> | undefined;
+    function Probe() {
+      mutation = useSyncMutation<void, string>(() => registry.rpc("run", {}));
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+
+    await act(async () => {
+      await mutation?.mutate(undefined as unknown as void);
+    });
+    await settle();
+    expect(mutation?.status).toBe("success");
+    expect(mutation?.data).toBe("result");
+
+    await act(async () => {
+      mutation?.reset();
+    });
+    await settle();
+    expect(mutation?.status).toBe("idle");
+    expect(mutation?.data).toBeUndefined();
+    expect(mutation?.error).toBeUndefined();
+
+    await harness.unmount();
+  });
+
+  test("mutateSafe returns data on success and does not throw", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport(() => Promise.resolve({ ok: true })).transport,
+    });
+
+    let mutation: ReturnType<typeof useSyncMutation<void, { ok: boolean }>> | undefined;
+    function Probe() {
+      mutation = useSyncMutation<void, { ok: boolean }>(() => registry.rpc("run", {}));
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+
+    let result: { ok: boolean } | undefined;
+    await act(async () => {
+      result = await mutation?.mutateSafe(undefined as unknown as void);
+    });
+    await settle();
+
+    expect(result).toEqual({ ok: true });
+    expect(mutation?.status).toBe("success");
 
     await harness.unmount();
   });
@@ -926,6 +1085,51 @@ describe("useGatewayRunTree reconcile", () => {
   });
 });
 
+describe("invalidate() re-pull of pollable list collections via the pulser", () => {
+  test("invalidate() triggers a fresh RPC fetch and re-renders with updated data", async () => {
+    let callCount = 0;
+    const responses: Array<Array<{ runId: string; status: string }>> = [
+      [{ runId: "run-1", status: "running" }],
+      [{ runId: "run-1", status: "completed" }, { runId: "run-2", status: "running" }],
+    ];
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listRuns") {
+          const batch = responses[callCount] ?? responses[responses.length - 1];
+          callCount += 1;
+          return Promise.resolve(batch);
+        }
+        return Promise.resolve([]);
+      }).transport,
+    });
+
+    let snapshot: ReturnType<typeof useGatewayRuns> | undefined;
+    function Probe() {
+      snapshot = useGatewayRuns();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => (snapshot?.data?.length ?? 0) === 1);
+    expect((snapshot?.data?.[0] as { runId?: string }).runId).toBe("run-1");
+    expect((snapshot?.data?.[0] as { status?: string }).status).toBe("running");
+
+    // Invalidate should pulse the collection's fingerprint through the pulser,
+    // causing the INVALIDATE_SCOPE pseudo-stream to yield a frame, which triggers
+    // refetchOnFrame and fires a fresh listRuns RPC.
+    await act(async () => {
+      await registry.invalidate(gatewayKeys.runs({}));
+    });
+
+    await waitFor(() => (snapshot?.data?.length ?? 0) === 2);
+    const statuses = snapshot?.data?.map((r) => (r as { status?: string }).status).sort();
+    expect(statuses).toEqual(["completed", "running"]);
+
+    await harness.unmount();
+  });
+});
+
 describe("useGatewayConnectionStatus", () => {
   test("goes online on a successful load and unauthorized on an auth error", async () => {
     let authMessage = "";
@@ -977,5 +1181,220 @@ describe("useGatewayConnectionStatus", () => {
 
     registry.reset();
     expect(registry.connection().status).toBe("idle");
+  });
+
+  test("markConnecting transitions idle→connecting, then online on success", async () => {
+    let resolve!: (v: unknown[]) => void;
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listRuns") return new Promise((r) => { resolve = r; });
+        return Promise.resolve([]);
+      }).transport,
+    });
+
+    expect(registry.connection().status).toBe("idle");
+
+    // Kick off a live RPC — the transport wraps rpc with markConnecting() before awaiting.
+    const pending = registry.rpc("listRuns", {});
+    // Give the microtask queue a tick so markConnecting() has fired.
+    await Promise.resolve();
+    expect(registry.connection().status).toBe("connecting");
+
+    resolve([]);
+    await pending;
+    expect(registry.connection().status).toBe("online");
+  });
+
+  test("markOffline sets status and preserves reconnectingSince across repeated failures", async () => {
+    let callCount = 0;
+    const registry = createGatewayCollections({
+      client: makeTransport(() => {
+        callCount += 1;
+        return Promise.reject(new Error("network error"));
+      }).transport,
+    });
+
+    // First failure: status goes offline and reconnectingSince is stamped.
+    await registry.rpc("listRuns", {}).catch(() => undefined);
+    const state1 = registry.connection();
+    expect(state1.status).toBe("offline");
+    expect(typeof state1.reconnectingSince).toBe("number");
+    const since = state1.reconnectingSince!;
+
+    // Second failure: reconnectingSince must be preserved (not re-stamped).
+    await registry.rpc("listRuns", {}).catch(() => undefined);
+    const state2 = registry.connection();
+    expect(state2.status).toBe("offline");
+    expect(state2.reconnectingSince).toBe(since);
+  });
+
+  test("useGatewayConnectionStatus reflects offline state and reconnectingSince reactively", async () => {
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listRuns") return Promise.reject(new Error("network error"));
+        return Promise.resolve([]);
+      }).transport,
+    });
+
+    let status: ReturnType<typeof useGatewayConnectionStatus> | undefined;
+    function Probe() {
+      useGatewayRuns();
+      status = useGatewayConnectionStatus();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => status?.status === "offline");
+    expect(status?.isOnline).toBe(false);
+    expect(typeof status?.reconnectingSince).toBe("number");
+
+    await harness.unmount();
+  });
+
+  test("treats HTTP 401 status on an error object as an auth error", async () => {
+    let authFired = false;
+    const err = Object.assign(new Error("Unauthorized"), { status: 401 });
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listRuns") return Promise.resolve([]);
+        return Promise.reject(err);
+      }).transport,
+      onAuthError: () => { authFired = true; },
+    });
+
+    let status: ReturnType<typeof useGatewayConnectionStatus> | undefined;
+    function Probe() {
+      useGatewayRuns();
+      status = useGatewayConnectionStatus();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => status?.status === "online");
+
+    await act(async () => {
+      await registry.rpc("getRun", { runId: "x" }).catch(() => undefined);
+    });
+    await waitFor(() => status?.status === "unauthorized");
+    expect(authFired).toBe(true);
+    await harness.unmount();
+  });
+
+  test("treats HTTP 403 status on an error object as an auth error", async () => {
+    let authFired = false;
+    const err = Object.assign(new Error("Forbidden"), { status: 403 });
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listRuns") return Promise.resolve([]);
+        return Promise.reject(err);
+      }).transport,
+      onAuthError: () => { authFired = true; },
+    });
+
+    let status: ReturnType<typeof useGatewayConnectionStatus> | undefined;
+    function Probe() {
+      useGatewayRuns();
+      status = useGatewayConnectionStatus();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => status?.status === "online");
+
+    await act(async () => {
+      await registry.rpc("getRun", { runId: "x" }).catch(() => undefined);
+    });
+    await waitFor(() => status?.status === "unauthorized");
+    expect(authFired).toBe(true);
+    await harness.unmount();
+  });
+
+  test("treats UNAUTHORIZED code on an error object as an auth error", async () => {
+    let authFired = false;
+    const err = Object.assign(new Error("some rpc error"), { code: "Unauthorized" });
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listRuns") return Promise.resolve([]);
+        return Promise.reject(err);
+      }).transport,
+      onAuthError: () => { authFired = true; },
+    });
+
+    let status: ReturnType<typeof useGatewayConnectionStatus> | undefined;
+    function Probe() {
+      useGatewayRuns();
+      status = useGatewayConnectionStatus();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => status?.status === "online");
+
+    await act(async () => {
+      await registry.rpc("getRun", { runId: "x" }).catch(() => undefined);
+    });
+    await waitFor(() => status?.status === "unauthorized");
+    expect(authFired).toBe(true);
+    await harness.unmount();
+  });
+
+  test("treats FORBIDDEN code on an error object as an auth error", async () => {
+    let authFired = false;
+    const err = Object.assign(new Error("some rpc error"), { code: "Forbidden" });
+    const registry = createGatewayCollections({
+      client: makeTransport((method) => {
+        if (method === "listRuns") return Promise.resolve([]);
+        return Promise.reject(err);
+      }).transport,
+      onAuthError: () => { authFired = true; },
+    });
+
+    let status: ReturnType<typeof useGatewayConnectionStatus> | undefined;
+    function Probe() {
+      useGatewayRuns();
+      status = useGatewayConnectionStatus();
+      return null;
+    }
+
+    const harness = await mountHarness();
+    await harness.render(provider(registry, createElement(Probe)));
+    await waitFor(() => status?.status === "online");
+
+    await act(async () => {
+      await registry.rpc("getRun", { runId: "x" }).catch(() => undefined);
+    });
+    await waitFor(() => status?.status === "unauthorized");
+    expect(authFired).toBe(true);
+    await harness.unmount();
+  });
+});
+
+describe("useSyncClient and SyncContext", () => {
+  test("useSyncClient throws with a descriptive message when used outside SyncProvider", () => {
+    function Probe() {
+      useSyncClient();
+      return null;
+    }
+
+    expect(() => renderToString(createElement(Probe))).toThrow(
+      "useSyncClient: missing <SyncProvider>. Wrap your tree in a SyncProvider.",
+    );
+  });
+
+  test("SyncContext default value is null (no-provider baseline)", () => {
+    let captured: unknown = "not-set";
+
+    function Probe() {
+      captured = useContext(SyncContext);
+      return null;
+    }
+
+    renderToString(createElement(Probe));
+
+    expect(captured).toBeNull();
   });
 });

@@ -7,6 +7,7 @@
  *   suite explicitly configures token mode.
  */
 import { afterEach, describe, expect, test } from "bun:test";
+import { WebSocket } from "ws";
 import { connect } from "node:net";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -416,5 +417,52 @@ describe("auth header edge cases (gateway HTTP)", () => {
                 body: "{}",
             });
         }).toThrow(/invalid value|invalid header/i);
+    });
+});
+
+describe("connection-limit WS upgrade rejection (503 path)", () => {
+    test("WS upgrade is rejected when connection limit is reached", async () => {
+        // Start gateway with limit of 1 so we can saturate it with one real
+        // connection then attempt a second upgrade to exercise the 503 branch
+        // at gateway.js:2441-2460.
+        const g = new Gateway({ heartbeatMs: 100, maxConnections: 1 });
+        const srv = await g.listen({ port: 0, host: "127.0.0.1" });
+        const p = getPort(srv);
+        try {
+            // Open a real WS connection to occupy the single slot.
+            const ws1 = new WebSocket(`ws://127.0.0.1:${p}`);
+            ws1.on("error", () => {});
+            await new Promise((resolve, reject) => {
+                ws1.once("open", resolve);
+                ws1.once("error", reject);
+            });
+
+            // The single slot is now occupied.
+            expect(g.connections.size).toBe(1);
+
+            // Attempt a second WS upgrade — the connection limit is already
+            // hit so the gateway writes HTTP 503 and closes the socket.
+            // Bun's socket implementation does not surface the raw HTTP bytes
+            // for rejected upgrades, but the connection is torn down: the ws
+            // client fires an error event instead of open.
+            const ws2 = new WebSocket(`ws://127.0.0.1:${p}`);
+            ws2.on("error", () => {});
+            const ws2Event = await new Promise((resolve) => {
+                ws2.once("open", () => resolve("open"));
+                ws2.once("error", () => resolve("error"));
+                ws2.once("close", () => resolve("close"));
+            });
+
+            // The second upgrade must have been rejected (error or close, never open).
+            expect(ws2Event).not.toBe("open");
+
+            // The gateway must still hold exactly one connection — the rejected
+            // upgrade must NOT have been added to the connection set.
+            expect(g.connections.size).toBe(1);
+
+            ws1.close();
+        } finally {
+            await g.close();
+        }
     });
 });
