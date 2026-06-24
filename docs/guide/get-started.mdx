@@ -21,10 +21,14 @@ This creates `.smithers/` and seeds **`.smithers/prompts/hello.mdx`** - your edi
 <Step title="Run your hello-world workflow">
 
 ```bash
-bunx smithers-orchestrator workflow run hello
+bunx smithers-orchestrator workflow run hello --interactive
 ```
 
 A durable run completes and you see the output. Edit `.smithers/prompts/hello.mdx`, run it again, watch the output change.
+
+<Note>
+Normally you won't run Smithers workflows yourself - your agent runs them on your behalf. This command is here so you can see a run end to end the first time.
+</Note>
 
 </Step>
 
