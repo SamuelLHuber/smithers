@@ -1,4 +1,4 @@
-import { LogLevel, Effect, Context, Layer, Metric, FiberRef } from 'effect';
+import { Layer, Context, Effect, LogLevel, Metric, FiberRef } from 'effect';
 import * as Tracer$1 from 'effect/Tracer';
 import * as effect_Metric from 'effect/Metric';
 import * as BunContext from '@effect/platform-bun/BunContext';
