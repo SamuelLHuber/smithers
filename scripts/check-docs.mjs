@@ -3140,7 +3140,7 @@ function checkOpenApiDocsMatchCurrentPackage() {
     [RUNTIME_EVENTS_REFERENCE, "OpenApiToolCalled` is categorized as `openapi` for forward compatibility"],
     [EVENT_TYPES_REFERENCE, "OpenApiToolCalled` is typed and categorized for forward compatibility"],
     [OPENAPI_HELPERS_SOURCE, "Metric.increment(openApiToolCallsTotal)"],
-    [OPENAPI_HELPERS_SOURCE, "Metric.update(openApiToolDuration, durationMs)"],
+    [OPENAPI_HELPERS_SOURCE, "Metric.update(openApiToolDuration, nowMs() - started)"],
     [OPENAPI_HELPERS_SOURCE, "Effect.annotateLogs"],
     [OPENAPI_HELPERS_SOURCE, "Effect.withLogSpan"],
     [OPENAPI_LOAD_SPEC_EFFECT_SOURCE, 'str.startsWith("http://") || str.startsWith("https://")'],
