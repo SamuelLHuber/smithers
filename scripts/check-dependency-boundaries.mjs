@@ -19,9 +19,11 @@ const ignoredDirs = new Set([
   ".claude",
   ".smithers",
   ".turbo",
+  ".worktrees",
   "coverage",
   "dist",
   "node_modules",
+  "tmp",
 ]);
 const builtinPackages = new Set([
   "bun",
@@ -84,7 +86,15 @@ function collectSourceFiles(dir, out) {
     if (ignoredDirs.has(entry)) continue;
     const child = join(dir, entry);
     const absChild = join(repoRoot, child);
-    const stats = statSync(absChild);
+    // Tolerate dangling symlinks (e.g. stale worktrees left by workflow runs):
+    // statSync follows the link and throws ENOENT on a broken target. Skipping
+    // keeps the dependency-boundary gate from crashing on local cruft.
+    let stats;
+    try {
+      stats = statSync(absChild);
+    } catch {
+      continue;
+    }
     if (stats.isDirectory()) {
       collectSourceFiles(child, out);
       continue;
