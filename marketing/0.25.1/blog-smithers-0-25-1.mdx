@@ -29,7 +29,13 @@ Older `accounts.json` files may contain provider entries that no longer exist, s
 
 Documented negated CLI flags now parse correctly. `--no-vcs`, `--no-deps`, and `--no-mcp` are accepted instead of being rejected as unknown flags. This fixes the behavior for workflows and recovery commands that rely on those documented switches, including time-travel flows using flags such as `bunx smithers-orchestrator timetravel --no-vcs --no-deps`.
 
-Gateway JWT auth also rejects non-canonical base64url signature encodings. That closes an edge case where a mutated compact JWT signature segment could decode to the same HMAC bytes on some runtimes because of unused trailing base64url bits.
+Gateway JWT auth also rejects non-canonical base64url signature encodings. That closes an edge case where a mutated compact JWT signature segment could decode to the same HMAC bytes on some runtimes because of unused trailing base64url bits. On top of that, the `allowedOrigins` Origin allow-list now applies to the `token` and `jwt` auth modes, not just `trusted-proxy`. Those are the modes a browser-facing `smithers ui` deployment actually uses, so operators can now restrict which web origins may connect, enforced at both the HTTP RPC path and the WebSocket upgrade.
+
+## Agent and run fixes
+
+`<Task>` preflight now honors Codex CLI subscription auth. When `OPENAI_API_KEY` is unset, Smithers reads `<CODEX_HOME>/auth.json` the same way the codex binary does, so ChatGPT subscription tokens pass while a stored but invalid key still fails preflight. Subscription-authed Task runs that previously tripped the `api_key_valid` diagnostic now work.
+
+Finished runs also surface masked child failures. A fan-out can reach a `finished` terminal even when `continueOnFail` tasks or transient agent failures (rate limits, timeouts, aborts) failed underneath. Smithers now carries `failedChildren` and `failedChildKeys` on the result, the `RunFinished` event, and the run span, so a mostly-failed fan-out no longer reads as a clean success. `inspect` and `events` render the count.
 
 ## Pi diagnostics
 
