@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { setJsonMode } from "./util/logger.ts";
+import { ensureCuratedSkillsFresh, formatRefreshNotice } from "./refreshCuratedSkills.js";
 import { extractBackendFlag, findFirstPositionalIndex, rewriteBareResumeFlagArgv } from "./argv-utils.js";
 import { CLI_JSON_ARGUMENT_MAX_BYTES, parseJsonArgument, tryParseJsonInput } from "./json-args.js";
 import { resolve, dirname, basename, relative } from "node:path";
@@ -3441,6 +3442,10 @@ const cli = Cli.create({
                     }
                 },
             });
+            // Migrating the store is a natural "I'm bringing this setup current"
+            // moment — force-refresh the curated agent skill while we're here.
+            const refreshNotice = formatRefreshNotice(ensureCuratedSkillsFresh({ force: true }));
+            if (refreshNotice) process.stderr.write(`${refreshNotice}\n`);
             return c.ok(result, {
                 cta: {
                     description: "Next steps:",
@@ -6874,6 +6879,21 @@ async function main() {
     if (command && !KNOWN_COMMANDS.has(command)) {
         console.error(`Unknown command: ${command}`);
         process.exit(4);
+    }
+    // Self-heal the curated agent skill on a normal human-facing invocation:
+    // keep ~/.claude/skills (and Pi) in sync with the bundled skill and evict
+    // any retired `smithers-orchestrator` copy. Throttled + best-effort; skipped
+    // in JSON mode (machine output / e2e) and for completions/version/help so it
+    // never adds noise or latency to scripted use. Opt out with
+    // SMITHERS_NO_SKILL_REFRESH=1.
+    if (command &&
+        command !== "completions" &&
+        !argvRequestsJsonMode(argv) &&
+        !argv.includes("--version") &&
+        !argv.includes("--help") &&
+        !argv.includes("-h")) {
+        const refreshNotice = formatRefreshNotice(ensureCuratedSkillsFresh());
+        if (refreshNotice) console.error(refreshNotice);
     }
     // `--backend` is a registered option only on up/gateway/monitor/workflow.
     // The SMITHERS_MIGRATION_REQUIRED error tells users to run any command with

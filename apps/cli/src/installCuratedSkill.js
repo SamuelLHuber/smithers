@@ -6,7 +6,17 @@ import { fileURLToPath } from "node:url";
 import { detectAvailableAgents } from "./agent-detection.js";
 
 /** Skill folder name written under each agent's skills directory. */
-const SKILL_NAME = "smithers";
+export const CURATED_SKILL_NAME = "smithers";
+const SKILL_NAME = CURATED_SKILL_NAME;
+
+/**
+ * Retired skill identities that must never keep shadowing the current curated
+ * skill. The old `smithers-orchestrator` skill taught a stale JSX/Ralph mental
+ * model and set `recommend-plan-mode`, which (being read-only) made agents
+ * describe workflows instead of writing them. `refreshCuratedSkills` removes any
+ * skill install carrying these markers.
+ */
+export const RETIRED_SKILL_NAMES = ["smithers-orchestrator"];
 
 /**
  * Coding agents that read skills from a directory we know how to target. Each
@@ -15,7 +25,7 @@ const SKILL_NAME = "smithers";
  *
  * @param {string} homeDir
  */
-function skillTargets(homeDir) {
+export function skillTargets(homeDir) {
   return [
     {
       id: "claude",
@@ -40,7 +50,7 @@ function skillTargets(homeDir) {
  * @param {string} [override] Explicit directory holding SKILL.md + llms-full.txt (tests).
  * @returns {{ skillMd: string; llmsFull: string } | null}
  */
-function resolveSkillSource(override) {
+export function resolveSkillSource(override) {
   const cliRoot = dirname(fileURLToPath(import.meta.url));
   const candidates = override
     ? [{ skillMd: join(override, "SKILL.md"), llmsFull: join(override, "llms-full.txt") }]
@@ -65,7 +75,7 @@ function resolveSkillSource(override) {
  * @param {string} base
  * @param {import("./AgentAvailability.ts").AgentAvailability[]} detections
  */
-function agentPresent(id, base, detections) {
+export function agentPresent(id, base, detections) {
   const detection = detections.find((entry) => entry.id === id);
   if (detection && (detection.hasBinary || detection.hasAuthSignal || detection.hasApiKeySignal)) return true;
   return existsSync(base);
