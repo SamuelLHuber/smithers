@@ -47,6 +47,23 @@ mode: "custom"
           <a href="/introduction" className="inline-flex items-center justify-center px-8 py-3.5 text-base font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-white/5 border border-transparent dark:border-white/5 rounded-xl transition-all hover:bg-slate-200 dark:hover:bg-white/10">
             Docs for agents →
           </a>
+
+          {/* Rainbow CTA: UI preview early access */}
+          <a
+            href="https://ui-preview.smithers.sh"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative inline-flex items-center justify-center px-[2px] py-[2px] rounded-xl overflow-hidden transition-all hover:scale-[1.02] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.3)]"
+          >
+            <span className="absolute inset-0 rounded-xl bg-[conic-gradient(from_0deg,#ff5f6d,#ffc371,#47e891,#1f9bff,#a35bff,#ff5f6d)] animate-[spin_4s_linear_infinite] opacity-90 group-hover:opacity-100"></span>
+            <span className="absolute inset-0 rounded-xl bg-[conic-gradient(from_0deg,#ff5f6d,#ffc371,#47e891,#1f9bff,#a35bff,#ff5f6d)] blur-md opacity-50 animate-[spin_4s_linear_infinite] group-hover:opacity-70"></span>
+            <span className="relative inline-flex items-center gap-2 px-7 py-3 rounded-[10px] bg-white dark:bg-[#030712] text-base font-bold text-slate-900 dark:text-white">
+              <span className="text-transparent bg-clip-text bg-[linear-gradient(90deg,#ff5f6d,#ffc371,#47e891,#1f9bff,#a35bff)]">
+                Try the UI preview
+              </span>
+              <span className="text-slate-400 dark:text-slate-500 transition-transform group-hover:translate-x-0.5">→</span>
+            </span>
+          </a>
         </div>
 
         {/* Quick Install Command */}
