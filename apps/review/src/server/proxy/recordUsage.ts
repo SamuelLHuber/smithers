@@ -29,13 +29,17 @@ export async function recordUsage(
     (options.summary.inputTokens * price.input) / 1_000_000 +
     (options.summary.outputTokens * price.output) / 1_000_000;
   if (options.sessionHash) {
-    const reservation = await db
-      .prepare(
-        "UPDATE sessions SET spent_usd = spent_usd + ? WHERE hash = ? AND spent_usd + ? <= spend_cap_usd",
-      )
-      .bind(costUsd, options.sessionHash, costUsd)
+    // This request was already forwarded to Anthropic and its response streamed
+    // to the client — the cost is real money spent. Record it UNCONDITIONALLY.
+    // The cap is enforced pre-flight (handleAnthropic 402s the NEXT request once
+    // spent >= cap); it cannot un-spend an in-flight call. The previous
+    // conditional `... WHERE spent_usd + ? <= spend_cap_usd` dropped any call that
+    // crossed the cap from BOTH the spend tally and the usage_events audit log,
+    // systematically undercounting real Anthropic spend on every capped session.
+    await db
+      .prepare("UPDATE sessions SET spent_usd = spent_usd + ? WHERE hash = ?")
+      .bind(costUsd, options.sessionHash)
       .run();
-    if ((reservation.meta.changes ?? 0) !== 1) return { costUsd, recorded: false };
   }
   await db
     .prepare(

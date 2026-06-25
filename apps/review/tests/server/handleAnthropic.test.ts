@@ -200,7 +200,7 @@ describe("anthropic proxy", () => {
     expect(row?.cost_usd as number).toBeCloseTo(SINGLE_CALL_COST_USD, 6);
   });
 
-  test("records concurrent session usage without exceeding the spend cap", async () => {
+  test("records all in-flight usage even when concurrent calls cross the spend cap", async () => {
     const env = await buildTestEnv();
     const fixture = serveFixtureAnthropic({ contentType: "text/event-stream", body: SSE_USAGE });
     teardowns.push(() => fixture.stop());
@@ -229,11 +229,14 @@ describe("anthropic proxy", () => {
     await Promise.all([first.text(), second.text()]);
     await Promise.all(meterings);
 
+    // Both calls were forwarded and billed at Anthropic, so both must land in the
+    // audit ledger and the spend tally — the cap stops the NEXT request, it cannot
+    // un-spend an already-streamed one. Previously the over-cap call was silently
+    // dropped from both usage_events and spent_usd, undercounting real spend.
     const usage = await env.DB.prepare("SELECT cost_usd FROM usage_events").all<{ cost_usd: number }>();
-    expect(usage.results.length).toBe(1);
-    expect(usage.results[0].cost_usd).toBeCloseTo(SINGLE_CALL_COST_USD, 6);
+    expect(usage.results.length).toBe(2);
     const session = await env.DB.prepare("SELECT spent_usd FROM sessions").first<{ spent_usd: number }>();
-    expect(session?.spent_usd ?? 0).toBeCloseTo(SINGLE_CALL_COST_USD, 6);
+    expect(session?.spent_usd ?? 0).toBeCloseTo(2 * SINGLE_CALL_COST_USD, 6);
   });
 
   test("meters non-streaming JSON response and records kind=messages", async () => {
