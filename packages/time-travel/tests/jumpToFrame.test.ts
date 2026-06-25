@@ -426,4 +426,110 @@ describe("jumpToFrame", () => {
       sqlite.close();
     }
   });
+
+  test("rewind truncates snapshots and vcs-tags, not just frames", async () => {
+    // Regression: deleteFramesAfter only deleted _smithers_frames, orphaning the
+    // _smithers_snapshots and _smithers_vcs_tags rows (both keyed run_id,frame_no)
+    // for the discarded frames. Snapshots are the fork/hydration source, so
+    // fork/replay/loadLatestSnapshot/timeline could resurrect rewound-away state.
+    const { adapter, sqlite } = setupDb();
+    try {
+      await seedRun(adapter, "run-snap");
+      for (const frameNo of [0, 1, 2]) {
+        sqlite
+          .query(
+            `INSERT INTO _smithers_snapshots (run_id, frame_no, nodes_json, outputs_json, ralph_json, input_json, vcs_pointer, workflow_hash, content_hash, created_at_ms)
+             VALUES (?, ?, '[]', '{}', '[]', '{}', ?, 'wh', ?, ?)`,
+          )
+          .run("run-snap", frameNo, `ptr-${frameNo}`, `ch-${frameNo}`, 100 + frameNo);
+        sqlite
+          .query(
+            `INSERT INTO _smithers_vcs_tags (run_id, frame_no, vcs_type, vcs_pointer, vcs_root, jj_operation_id, created_at_ms)
+             VALUES (?, ?, 'jj', ?, '/root', ?, ?)`,
+          )
+          .run("run-snap", frameNo, `ptr-${frameNo}`, `op-${frameNo}`, 100 + frameNo);
+      }
+
+      await jumpToFrame({
+        adapter,
+        runId: "run-snap",
+        frameNo: 1,
+        confirm: true,
+        caller: "user:owner",
+        ...makeNoVcsHooks(),
+      });
+
+      const snapshots = sqlite
+        .query(`SELECT frame_no FROM _smithers_snapshots WHERE run_id = ? ORDER BY frame_no`)
+        .all("run-snap") as Array<{ frame_no: number }>;
+      const vcsTags = sqlite
+        .query(`SELECT frame_no FROM _smithers_vcs_tags WHERE run_id = ? ORDER BY frame_no`)
+        .all("run-snap") as Array<{ frame_no: number }>;
+      // Frame 2 (after the rewind target) is discarded from BOTH side tables.
+      expect(snapshots.map((row) => row.frame_no)).toEqual([0, 1]);
+      expect(vcsTags.map((row) => row.frame_no)).toEqual([0, 1]);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  test("refuses to rewind a run that still looks live, unless forced", async () => {
+    // Regression: jumpToFrame never checked run liveness, and the in-process
+    // rewind lock can't coordinate across OS processes — so the CLI/MCP rewind
+    // (a separate process) could truncate frames while the owning engine was
+    // still writing them. Now a running run with a live owner / fresh heartbeat
+    // is rejected unless force:true.
+    const { adapter, sqlite } = setupDb();
+    try {
+      await adapter.insertRun({
+        runId: "run-live",
+        workflowName: "wf",
+        status: "running",
+        createdAtMs: 1,
+        startedAtMs: 1,
+        heartbeatAtMs: 1_000,
+        configJson: JSON.stringify({ auth: { triggeredBy: "user:owner" } }),
+      });
+      for (const [frameNo, createdAtMs, hash] of [[0, 100, "h0"], [1, 200, "h1"]] as const) {
+        await adapter.insertFrame({
+          runId: "run-live",
+          frameNo,
+          createdAtMs,
+          xmlJson: JSON.stringify({ kind: "element", tag: "smithers:workflow", props: { frame: frameNo } }),
+          xmlHash: hash,
+          mountedTaskIdsJson: "[]",
+          taskIndexJson: "[]",
+          note: `f${frameNo}`,
+        });
+      }
+
+      // now == heartbeat → fresh → the run looks live → rewind rejected.
+      await expect(
+        jumpToFrame({
+          adapter,
+          runId: "run-live",
+          frameNo: 0,
+          confirm: true,
+          caller: "user:owner",
+          nowMs: () => 1_000,
+          ...makeNoVcsHooks(),
+        }),
+      ).rejects.toMatchObject({ code: "RunOwnerAlive" });
+
+      // force:true bypasses the guard (operator has confirmed the engine is stopped).
+      const forced = await jumpToFrame({
+        adapter,
+        runId: "run-live",
+        frameNo: 0,
+        confirm: true,
+        force: true,
+        caller: "user:owner",
+        nowMs: () => 1_000,
+        ...makeNoVcsHooks(),
+      });
+      expect(forced.ok).toBe(true);
+    } finally {
+      sqlite.close();
+    }
+  });
 });

@@ -11,6 +11,7 @@ import {
 import { JUMP_RUN_ID_PATTERN } from "./JUMP_RUN_ID_PATTERN.js";
 import { JUMP_MAX_FRAME_NO } from "./JUMP_MAX_FRAME_NO.js";
 import { JumpToFrameError } from "./JumpToFrameError.js";
+import { isRunLikelyLive } from "./isRunLikelyLive.js";
 import { validateJumpRunId } from "./validateJumpRunId.js";
 import { validateJumpFrameNo } from "./validateJumpFrameNo.js";
 import { acquireRewindLock } from "./acquireRewindLock.js";
@@ -518,6 +519,28 @@ export async function jumpToFrame(input) {
         if (!run) {
           throw new JumpToFrameError("RunNotFound", `Run not found: ${runId}`);
         }
+        // Refuse to rewind a run still being driven by a live process. The rewind
+        // lock is in-process only and the CLI/MCP rewind paths run in a SEPARATE
+        // process from the engine, so a concurrent rewind would race the engine's
+        // frame writes against this truncation. Stale/crashed runs (dead owner,
+        // stale heartbeat) are recoverable and allowed; `force: true` overrides.
+        if (
+          input.force !== true &&
+          run.status === "running" &&
+          isRunLikelyLive(run, nowMs())
+        ) {
+          throw new JumpToFrameError(
+            "RunOwnerAlive",
+            `Run ${runId} is still running (live owner or fresh heartbeat). Stop it before rewinding, or pass force: true.`,
+            {
+              details: {
+                runId,
+                runtimeOwnerId: run.runtimeOwnerId ?? null,
+                heartbeatAtMs: run.heartbeatAtMs ?? null,
+              },
+            },
+          );
+        }
         canWriteAudit = true;
 
         lock = await withSpan(
@@ -720,6 +743,11 @@ export async function jumpToFrame(input) {
                     runStepHook(input.hooks, "before", "truncate-frames"),
                   );
                   yield* input.adapter.deleteFramesAfter(runId, targetFrameNo);
+                  // Snapshots and vcs-tags are keyed (run_id, frame_no) and are
+                  // the fork/hydration source; truncate them atomically with the
+                  // frames or fork/replay/timeline can read discarded state.
+                  yield* input.adapter.deleteSnapshotsAfter(runId, targetFrameNo);
+                  yield* input.adapter.deleteVcsTagsAfter(runId, targetFrameNo);
                   yield* Effect.promise(() =>
                     runStepHook(input.hooks, "after", "truncate-frames"),
                   );

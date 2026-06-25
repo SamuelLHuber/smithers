@@ -70,6 +70,7 @@ export async function jumpToFrameRoute(input) {
     runId: input.runId,
     frameNo: input.frameNo,
     confirm: input.confirm,
+    force: input.force,
     caller: input.caller,
     pauseRunLoop: input.pauseRunLoop,
     resumeRunLoop: input.resumeRunLoop,
