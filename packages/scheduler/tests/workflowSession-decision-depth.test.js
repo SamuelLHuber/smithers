@@ -21,9 +21,15 @@ function makeDescriptor(nodeId, ordinal) {
 }
 
 describe("makeWorkflowSession decision depth guard", () => {
-  test("surfaces runaway internal decision loops instead of waiting silently", () => {
+  test("a long chain of sequential skipIf tasks finishes instead of tripping the depth guard", () => {
+    // Regression: decide() recurses once per benign skip transition, and a
+    // sequence yields one task per pass, so N skipIf tasks need N recursions. A
+    // hard constant-10 guard turned any run with 11+ consecutive skipIf steps
+    // (e.g. feature-flag-disabled steps) into a SCHEDULER_ERROR. The guard now
+    // scales with the task count, so the run skips them all and finishes. 25
+    // tasks proves the bound is task-proportional, not a bumped constant.
     const session = makeWorkflowSession({ nowMs: () => 1_000 });
-    const descriptors = Array.from({ length: 11 }, (_, index) =>
+    const descriptors = Array.from({ length: 25 }, (_, index) =>
       makeDescriptor(`skip-${index}`, index),
     );
     const graph = {
@@ -42,8 +48,6 @@ describe("makeWorkflowSession decision depth guard", () => {
 
     const decision = Effect.runSync(session.submitGraph(graph));
 
-    expect(decision._tag).toBe("Failed");
-    expect(decision.error.code).toBe("SCHEDULER_ERROR");
-    expect(decision.error.message).toContain("Exceeded scheduler decide() depth");
+    expect(decision._tag).toBe("Finished");
   });
 });

@@ -597,14 +597,23 @@ export function makeWorkflowSession(options = {}) {
         };
     }
     /**
-   * @param {number} [depth] recursion depth; guarded at 10 to catch decision cycles
+   * @param {number} [depth] recursion depth; a safety net for a true decision
+   *   cycle (a non-monotonic transition bug)
    * @returns {EngineDecision}
    */
     function decide(depth = 0) {
-        if (depth > 10) {
+        // Each recursion below only fires when `changed` is true, i.e. at least
+        // one task moved to a terminal/in-progress/waiting state — monotonic
+        // forward progress. A legitimate chain can therefore be as long as the
+        // number of tasks: e.g. a <Sequence> of N skipIf steps yields exactly one
+        // skip per pass (#bug: 11+ such steps tripped a hard constant-10 guard and
+        // failed a perfectly valid run). Bound by the task count + slack instead;
+        // a genuine cycle keeps recursing past the point where every task settled.
+        const maxDecideDepth = state.descriptors.size + 10;
+        if (depth > maxDecideDepth) {
             return {
                 _tag: "Failed",
-                error: new SmithersError("SCHEDULER_ERROR", "Exceeded scheduler decide() depth guard.", { depth }),
+                error: new SmithersError("SCHEDULER_ERROR", "Exceeded scheduler decide() depth guard.", { depth, maxDepth: maxDecideDepth }),
             };
         }
         if (state.cancelled) {
