@@ -105,6 +105,10 @@ export async function revertToAttempt(adapter, opts) {
     if (lastValidFrameNo >= 0) {
         try {
             await Effect.runPromise(adapter.deleteFramesAfter(runId, lastValidFrameNo));
+            // Snapshots + vcs-tags are keyed (run_id, frame_no); discard them with
+            // the frames so a later fork/replay can't resurrect reverted state.
+            await Effect.runPromise(adapter.deleteSnapshotsAfter(runId, lastValidFrameNo));
+            await Effect.runPromise(adapter.deleteVcsTagsAfter(runId, lastValidFrameNo));
         } catch (error) {
             const message = `VCS restored to ${jjPointer}, but DB frame cleanup failed: ${formatError(error)}`;
             const timestampMs = nowMs();

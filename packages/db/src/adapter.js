@@ -2556,6 +2556,35 @@ export class SmithersDb {
         }));
     }
     /**
+   * Delete durable snapshot rows for frames after `frameNo`. Snapshots are keyed
+   * (run_id, frame_no) and are the hydration/fork source, so a rewind that
+   * truncates frames must truncate the matching snapshots too — otherwise
+   * fork/replay/loadLatestSnapshot can resurrect logically-discarded state.
+   * @param {string} runId
+   * @param {number} frameNo
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    deleteSnapshotsAfter(runId, frameNo) {
+        const self = this;
+        return runnableEffect(Effect.gen(function* () {
+            yield* self.write(`delete snapshots after ${frameNo}`, () => self.internalStorage.deleteWhere("_smithers_snapshots", "run_id = ? AND frame_no > ?", [runId, frameNo]));
+        }));
+    }
+    /**
+   * Delete VCS tag rows for frames after `frameNo`, keyed (run_id, frame_no).
+   * A rewind truncates frames; the matching vcs-tags must go too or
+   * rerunAtRevision/loadVcsTag can restore a discarded working-copy revision.
+   * @param {string} runId
+   * @param {number} frameNo
+   * @returns {RunnableEffect<void, SmithersError>}
+   */
+    deleteVcsTagsAfter(runId, frameNo) {
+        const self = this;
+        return runnableEffect(Effect.gen(function* () {
+            yield* self.write(`delete vcs tags after ${frameNo}`, () => self.internalStorage.deleteWhere("_smithers_vcs_tags", "run_id = ? AND frame_no > ?", [runId, frameNo]));
+        }));
+    }
+    /**
    * @param {string} runId
    * @param {number} limit
    * @param {number} [afterFrameNo]

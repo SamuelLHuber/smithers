@@ -192,6 +192,10 @@ export async function timeTravel(adapter, opts) {
         }
         if (lastValidFrameNo >= 0) {
             yield* adapter.deleteFramesAfter(runId, lastValidFrameNo);
+            // Truncate snapshots + vcs-tags (keyed run_id, frame_no) with the
+            // frames so fork/replay/timeline cannot read discarded state.
+            yield* adapter.deleteSnapshotsAfter(runId, lastValidFrameNo);
+            yield* adapter.deleteVcsTagsAfter(runId, lastValidFrameNo);
         }
         for (const resetNode of resetNodes) {
             const attemptsForNode = attemptsByNode.get(nodeKey(resetNode.nodeId, resetNode.iteration ?? 0)) ??
