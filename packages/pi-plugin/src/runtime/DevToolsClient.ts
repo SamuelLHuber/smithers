@@ -186,7 +186,13 @@ class GatewayWsConnection {
 
   private constructor(private readonly ws: WebSocket) {
     ws.on("message", (raw) => this.handleMessage(raw));
-    ws.on("close", () => this.closeWaiters());
+    // A clean remote close (gateway restart, idle/keepalive timeout, server-
+    // initiated close) emits "close", NOT "error". Previously this only drained
+    // event waiters via closeWaiters(), leaving any in-flight request() promise
+    // (e.g. the initial connect/streamDevTools call) unsettled forever, so the
+    // consuming generator parked at its await and never reached the reconnect
+    // path. Reject pending requests on close too, so the stream can reconnect.
+    ws.on("close", () => this.rejectAll(new SmithersError("PI_GATEWAY_CLOSED", "Gateway connection closed before the in-flight request completed.")));
     ws.on("error", (error) => this.rejectAll(error instanceof Error ? error : new Error(String(error))));
   }
 
@@ -233,7 +239,10 @@ class GatewayWsConnection {
 
   close() {
     this.closed = true;
-    this.closeWaiters();
+    // Reject any in-flight request too (rejectAll also drains event waiters), so
+    // aborting a stream mid-request doesn't leak a pending promise that hangs the
+    // caller. Without this, closing while a request is in flight orphaned it.
+    this.rejectAll(new SmithersError("PI_GATEWAY_CLOSED", "Gateway connection closed locally."));
     if (this.ws.readyState === this.ws.OPEN || this.ws.readyState === this.ws.CONNECTING) {
       this.ws.close();
     }

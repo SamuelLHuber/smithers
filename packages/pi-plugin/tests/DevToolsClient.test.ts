@@ -228,4 +228,38 @@ describe("DevToolsClient", () => {
 
     await expectSmithersError(stream.next(), "BROKEN", "broken stream");
   });
+
+  test("a clean WS close while a request is in flight rejects the stream instead of hanging forever", async () => {
+    // Regression: ws.on("close") only drained event waiters via closeWaiters(),
+    // never the pending request map (only ws.on("error")/parse-failure did). A
+    // clean remote close (gateway restart, idle timeout) emits "close", NOT
+    // "error", so the in-flight streamDevTools request promise never settled and
+    // the generator parked at its await forever, silently. Now close rejects
+    // pending requests, so the consumer observes the failure.
+    const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    servers.push(server);
+    server.on("connection", (ws) => {
+      ws.send(JSON.stringify({ type: "event", event: "connect.challenge", payload: {} }));
+      ws.on("message", (raw) => {
+        const frame = JSON.parse(String(raw));
+        if (frame.method === "connect") {
+          ws.send(JSON.stringify({ type: "res", id: frame.id, ok: true, payload: {} }));
+          return;
+        }
+        if (frame.method === "streamDevTools") {
+          // Request received (send succeeded, client now awaiting the response);
+          // close cleanly WITHOUT responding. Before the fix this hung forever.
+          ws.close();
+        }
+      });
+    });
+    const address = server.address();
+    if (typeof address === "string" || address === null) {
+      throw new Error("expected TCP server address");
+    }
+    const stream = new DevToolsClient({ baseUrl: `http://127.0.0.1:${address.port}` })
+      .streamDevTools("run-client");
+
+    await expectSmithersError(stream.next(), "PI_GATEWAY_CLOSED", "closed");
+  }, 15_000);
 });
