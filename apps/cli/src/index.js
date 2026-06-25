@@ -1414,6 +1414,8 @@ const gatewayOptions = z.object({
     host: z.string().default("127.0.0.1").describe("Gateway bind address"),
     port: z.number().int().min(1).default(7331).describe("Gateway port"),
     backend: z.enum(["sqlite", "pglite", "postgres"]).optional().describe("Workspace storage backend"),
+    authToken: z.string().optional().describe("Bearer token for HTTP/WS auth (or set SMITHERS_API_KEY); required to bind a non-loopback --host"),
+    insecure: z.boolean().default(false).describe("Allow binding a non-loopback --host with NO auth (exposes a full-control, unauthenticated control plane — dangerous)"),
 });
 const migrateOptions = z.object({
     to: z.enum(["pglite", "postgres"]).default("pglite").describe("Target backend"),
@@ -2161,7 +2163,21 @@ async function runUiCommand(c) {
         return fail("UI_OPEN_FAILED", err?.message ?? String(err));
     }
 }
+const GATEWAY_LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost", "::ffff:127.0.0.1"]);
+
 async function runGatewayCommand(options) {
+    // The Gateway control plane can launch/cancel/inspect EVERY run in the
+    // workspace. Without an auth config it authenticates every request as
+    // role=operator scopes=["*"]. Refuse to publish that to the network: a
+    // non-loopback bind requires a token (or an explicit --insecure override).
+    const authToken = options.authToken ?? process.env.SMITHERS_API_KEY;
+    const isLoopback = GATEWAY_LOOPBACK_HOSTS.has(options.host);
+    if (!isLoopback && !authToken && !options.insecure) {
+        throw new SmithersError("GATEWAY_INSECURE_BIND", `Refusing to bind the Gateway to non-loopback host "${options.host}" without authentication — this would expose a full-control, unauthenticated control plane to the network. Set --auth-token <token> (or SMITHERS_API_KEY), bind to 127.0.0.1, or pass --insecure to override.`, { host: options.host });
+    }
+    const auth = authToken
+        ? { mode: "token", tokens: { [authToken]: { role: "operator", scopes: ["*"] } } }
+        : undefined;
     const localPackDir = resolvePackDirs(process.cwd()).find((dir) => dir.scope === "local")?.packDir;
     const localWorkspace = localPackDir ? dirname(localPackDir) : undefined;
     const dbPath = localWorkspace
@@ -2176,7 +2192,7 @@ async function runGatewayCommand(options) {
         import("@smithers-orchestrator/server/gateway"),
         import("smithers-orchestrator"),
     ]);
-    const gateway = new Gateway({ heartbeatMs: 15_000 });
+    const gateway = new Gateway({ heartbeatMs: 15_000, ...(auth ? { auth } : {}) });
     const workspaceApi = await openSmithersBackend({}, {
         backend: options.backend,
         cwd: workspace,
@@ -2221,6 +2237,9 @@ async function runGatewayCommand(options) {
     process.stderr.write(`[smithers] Workspace: ${workspace}\n`);
     process.stderr.write(`[smithers] Database: ${dbPath}\n`);
     process.stderr.write(`[smithers] Registered workflows: ${workflows.join(", ")}\n`);
+    process.stderr.write(auth
+        ? `[smithers] Auth: token required (Authorization: Bearer <token>)\n`
+        : `[smithers] Auth: NONE — bound to loopback ${options.host}; do not expose this port\n`);
     await new Promise((resolvePromise) => {
         const shutdown = () => {
             // Backstop: if gateway/backend close hangs, force-exit after 5s so a

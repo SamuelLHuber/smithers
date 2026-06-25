@@ -100,3 +100,36 @@ test("gateway starts for an initialized workspace with no existing DB and listRu
     }
     expect(stdout).toBe("");
 }, 15_000);
+
+// Security regression: the Gateway control plane (launch/cancel/inspect every
+// run) was constructed with no auth, so it authenticated every request as
+// role=operator scopes=["*"]. `--host` accepted 0.0.0.0 unvalidated, so
+// `smithers gateway --host 0.0.0.0` exposed that full-control, unauthenticated
+// plane to the network. A non-loopback bind now requires a token (or --insecure).
+test("gateway refuses to bind a non-loopback host with no auth", () => {
+    const repo = createTempRepo();
+    // Force SMITHERS_API_KEY empty so a token in the test runner's env can't
+    // satisfy the guard and leave the server actually binding (and hanging).
+    const result = runSmithers(["gateway", "--host", "0.0.0.0"], {
+        cwd: repo.dir,
+        format: "json",
+        env: { SMITHERS_API_KEY: "" },
+        timeoutMs: 30_000,
+    });
+    expect(result.exitCode).not.toBe(0);
+    const all = `${result.stdout}\n${result.stderr}`;
+    expect(all).toContain("non-loopback");
+    expect(all).toMatch(/auth-token|insecure/);
+}, 30_000);
+
+test("gateway refuses a routable LAN host with no auth", () => {
+    const repo = createTempRepo();
+    const result = runSmithers(["gateway", "--host", "192.168.1.50"], {
+        cwd: repo.dir,
+        format: "json",
+        env: { SMITHERS_API_KEY: "" },
+        timeoutMs: 30_000,
+    });
+    expect(result.exitCode).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain("non-loopback");
+}, 30_000);
