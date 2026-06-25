@@ -6,7 +6,12 @@
 const rules = [
     {
         id: "api-key",
-        pattern: /\b(?:sk|pk)_[A-Za-z0-9_-]{8,}\b/g,
+        // Covers Stripe-style `sk_`/`pk_` AND the hyphenated provider keys
+        // Smithers actually drives: OpenAI `sk-…`/`sk-proj-…` and Anthropic
+        // `sk-ant-api03-…`. The separator after sk/pk may be `-` or `_`, and the
+        // body may contain further `-`/`_` segments (namespaces like `proj-`,
+        // `ant-`, `api03-`).
+        pattern: /\b(?:sk|pk)[-_][A-Za-z0-9][A-Za-z0-9_-]{7,}\b/g,
         replace: "[REDACTED_API_KEY]",
     },
     {
@@ -26,7 +31,10 @@ const rules = [
     },
     {
         id: "secret-ish",
-        pattern: /\b(?:api[_-]?key|token|secret|password)=([^\s"']+)/gi,
+        // Negative lookbehind (not `\b`) so an underscore-joined prefix like
+        // `ANTHROPIC_API_KEY=` still matches: `_` is a word char, so `\bapi`
+        // never fired after it, leaking env-style key dumps.
+        pattern: /(?<![A-Za-z0-9])(?:api[_-]?key|token|secret|password)=([^\s"']+)/gi,
         // No `replace` field: redactValue special-cases this rule by id and
         // rewrites the captured value itself, so a top-level replace is never read.
     },

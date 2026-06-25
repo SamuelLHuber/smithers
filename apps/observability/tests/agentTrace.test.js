@@ -251,6 +251,34 @@ describe("redactValue", () => {
         expect(r.applied).toBe(true);
         expect(JSON.stringify(r.value)).not.toContain("sk_demo_supersecret");
     });
+    // Regression: the api-key rule previously required an underscore after
+    // sk/pk (Stripe-style) and so missed the hyphenated provider keys Smithers
+    // actually drives (OpenAI sk-/sk-proj-, Anthropic sk-ant-), and the
+    // secret-ish rule's leading \b never matched `NAME_API_KEY=` (underscore is
+    // a word char). Both leaked real keys into trace artifacts and OTLP.
+    test("redacts hyphenated OpenAI/Anthropic keys (bare, not key=)", () => {
+        for (const key of [
+            "sk-ant-api03-NOTAREALKEY1234567890",
+            "sk-proj-NOTAREALKEY1234567890",
+            "sk-NOTAREALKEY1234567890",
+            "pk-live-NOTAREALKEY1234567890",
+        ]) {
+            const r = redactValue(`an agent printed ${key} to stdout`);
+            expect(r.applied).toBe(true);
+            expect(String(r.value)).not.toContain(key);
+            expect(String(r.value)).toContain("[REDACTED_API_KEY]");
+        }
+    });
+    test("redacts env-style NAME_API_KEY= dumps", () => {
+        const r = redactValue("ANTHROPIC_API_KEY=sk-ant-xyz9876543210");
+        expect(r.applied).toBe(true);
+        expect(String(r.value)).not.toContain("sk-ant-xyz9876543210");
+    });
+    test("redacts a key carried on a header line", () => {
+        const r = redactValue("curl -H 'x-api-key: sk-ant-api03-Header1234567890'");
+        expect(r.applied).toBe(true);
+        expect(String(r.value)).not.toContain("sk-ant-api03-Header1234567890");
+    });
 });
 
 describe("canonicalTraceEventToOtelLogRecord", () => {
