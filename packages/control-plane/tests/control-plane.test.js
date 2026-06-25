@@ -867,4 +867,71 @@ VALUES ('org_legacy', NULL, 'token', 'vault', 'vault://new', 3);
       sqlite.close();
     }
   });
+
+  test("rejects the reserved org-wide sentinel as a project id (no scope collision)", () => {
+    const { sqlite, store } = makeStore();
+    try {
+      const org = store.createOrg({ orgId: "org_x", slug: "x", name: "X", createdAtMs: 1 });
+      // "__org__" is the project_key sentinel for org-wide (project_id IS NULL)
+      // rows. A real project with that id would share the (org_id, project_key, …)
+      // primary key with org-wide secrets/usage-limits, silently overwriting and
+      // cross-leaking them. It must be rejected.
+      expect(() => store.createProject({ orgId: org.orgId, projectId: "__org__", slug: "p", name: "P", createdAtMs: 2 }))
+        .toThrow(SmithersError);
+      expect(() => store.createProject({ orgId: org.orgId, projectId: "__org__", slug: "p", name: "P", createdAtMs: 2 }))
+        .toThrow("reserved");
+    }
+    finally {
+      sqlite.close();
+    }
+  });
+
+  test("putSecretRef rotation upserts in place rather than destroy-then-recreate", () => {
+    const { sqlite, store } = makeStore();
+    try {
+      const org = store.createOrg({ orgId: "org_s", slug: "s", name: "S", createdAtMs: 1 });
+      store.putSecretRef({ orgId: org.orgId, name: "tok", provider: "openai", ref: "vault://v1", createdAtMs: 2 });
+      store.putSecretRef({ orgId: org.orgId, name: "tok", provider: "openai", ref: "vault://v2", createdAtMs: 3, rotatedAtMs: 3 });
+      const refs = store.listSecretRefs({ orgId: org.orgId, projectId: null });
+      expect(refs).toHaveLength(1);
+      expect(refs[0].ref).toBe("vault://v2");
+    }
+    finally {
+      sqlite.close();
+    }
+  });
+
+  test("recovers secret refs from a crash mid project_key migration (legacy table left behind)", () => {
+    const sqlite = new Database(":memory:");
+    try {
+      sqlite.exec("PRAGMA foreign_keys = ON");
+      // Pre-project_key schema with an org-wide secret ref, then simulate a crash
+      // AFTER the RENAME but before the new table was repopulated and `_legacy`
+      // dropped. The old code keyed recovery on the project_key column alone, so on
+      // restart the recreated-empty table short-circuited the migration and the
+      // secret ref was orphaned in `_legacy` forever.
+      sqlite.exec(`
+        CREATE TABLE _smithers_cp_orgs (org_id TEXT PRIMARY KEY, slug TEXT, name TEXT, created_at_ms INTEGER);
+        INSERT INTO _smithers_cp_orgs (org_id, slug, name, created_at_ms) VALUES ('org_legacy', 'leg', 'Legacy', 1);
+        CREATE TABLE _smithers_cp_secret_refs (
+          org_id TEXT NOT NULL, project_id TEXT, name TEXT NOT NULL, provider TEXT NOT NULL,
+          ref TEXT NOT NULL, created_by TEXT, created_at_ms INTEGER NOT NULL, rotated_at_ms INTEGER,
+          PRIMARY KEY (org_id, project_id, name)
+        );
+        INSERT INTO _smithers_cp_secret_refs (org_id, project_id, name, provider, ref, created_at_ms)
+        VALUES ('org_legacy', NULL, 'tok', 'openai', 'vault://critical-prod-secret', 1);
+        ALTER TABLE _smithers_cp_secret_refs RENAME TO _smithers_cp_secret_refs_legacy;
+      `);
+      // Opening the store runs ensureControlPlaneTables -> the self-healing migration.
+      const store = new ControlPlaneStore(sqlite);
+      const refs = store.listSecretRefs({ orgId: "org_legacy", projectId: null });
+      expect(refs.map((r) => r.ref)).toContain("vault://critical-prod-secret");
+      // The legacy table is dropped once recovered.
+      const legacy = sqlite.query("SELECT name FROM sqlite_master WHERE name = '_smithers_cp_secret_refs_legacy'").get();
+      expect(legacy).toBeNull();
+    }
+    finally {
+      sqlite.close();
+    }
+  });
 });

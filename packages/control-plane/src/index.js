@@ -19,6 +19,12 @@ import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 
 const SLUG_RE = /^(?:[a-z0-9]|[a-z0-9][a-z0-9-]{0,62}[a-z0-9])$/;
 const ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
+// The project_key column folds org-wide (project_id IS NULL) rows under this
+// sentinel. ID_RE happens to accept it, so a project literally named "__org__"
+// would collide with the org-wide scope in the (org_id, project_key, …) primary
+// keys — silently overwriting and cross-leaking org-wide secrets/usage-limits.
+// It is therefore a reserved id, rejected by the id validators below.
+const ORG_WIDE_SENTINEL = "__org__";
 const USAGE_LIMIT_PERIODS = new Map([
     ["daily", 24 * 60 * 60 * 1000],
     ["weekly", 7 * 24 * 60 * 60 * 1000],
@@ -180,15 +186,35 @@ CREATE INDEX IF NOT EXISTS _smithers_cp_audit_org_time_idx
 /**
  * @param {ControlPlaneSqlite} sqlite
  */
+function tableExists(sqlite, name) {
+    return Boolean(sqlite.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1").get(name));
+}
+
 function migrateSecretRefsProjectKey(sqlite) {
+    const legacyExists = tableExists(sqlite, "_smithers_cp_secret_refs_legacy");
     const columns = sqlite.query("PRAGMA table_info(_smithers_cp_secret_refs)").all();
-    if (columns.some((column) => String(column.name) === "project_key")) {
+    const hasProjectKey = columns.some((column) => String(column.name) === "project_key");
+    // Already migrated and no interrupted migration to finish.
+    if (hasProjectKey && !legacyExists) {
         return;
     }
-    sqlite.exec(`
-ALTER TABLE _smithers_cp_secret_refs RENAME TO _smithers_cp_secret_refs_legacy;
-
-CREATE TABLE _smithers_cp_secret_refs (
+    // Run the whole migration atomically (SQLite DDL is transactional), AND make
+    // it self-healing. The previous version ran RENAME -> CREATE -> INSERT -> DROP
+    // as four auto-committed statements: a crash between RENAME and DROP left the
+    // data in `_legacy` while `ensureControlPlaneTables` (which already ran its
+    // `CREATE TABLE IF NOT EXISTS` for the project_key shape) recreated an EMPTY
+    // table. Gating recovery on the column alone then short-circuited and orphaned
+    // every secret ref forever. Keying off the legacy table too finishes the copy.
+    sqlite.transaction(() => {
+        if (!hasProjectKey) {
+            // Fresh migration from the pre-project_key schema: move it aside so we
+            // can recreate it with the new shape. (A pre-existing `_legacy` here
+            // would be a doubly-corrupt state; let the RENAME fail loudly rather
+            // than silently guess which table holds the truth.)
+            sqlite.exec(`ALTER TABLE _smithers_cp_secret_refs RENAME TO _smithers_cp_secret_refs_legacy;`);
+        }
+        sqlite.exec(`
+CREATE TABLE IF NOT EXISTS _smithers_cp_secret_refs (
   org_id TEXT NOT NULL,
   project_key TEXT NOT NULL,
   project_id TEXT,
@@ -208,7 +234,7 @@ INSERT OR REPLACE INTO _smithers_cp_secret_refs (
 )
 SELECT
   org_id,
-  COALESCE(project_id, '__org__') AS project_key,
+  COALESCE(project_id, '${ORG_WIDE_SENTINEL}') AS project_key,
   project_id,
   name,
   provider,
@@ -221,6 +247,7 @@ ORDER BY created_at_ms;
 
 DROP TABLE _smithers_cp_secret_refs_legacy;
 `);
+    })();
 }
 
 /**
@@ -243,6 +270,9 @@ function optionalId(field, value) {
     if (!ID_RE.test(id)) {
         throw new SmithersError("INVALID_INPUT", `${field} must match ${ID_RE}.`, { field });
     }
+    if (id === ORG_WIDE_SENTINEL) {
+        throw new SmithersError("INVALID_INPUT", `${field} must not be the reserved value "${ORG_WIDE_SENTINEL}".`, { field });
+    }
     return id;
 }
 
@@ -254,6 +284,9 @@ function requiredId(field, value) {
     const id = nonEmptyString(field, value);
     if (!ID_RE.test(id)) {
         throw new SmithersError("INVALID_INPUT", `${field} must match ${ID_RE}.`, { field });
+    }
+    if (id === ORG_WIDE_SENTINEL) {
+        throw new SmithersError("INVALID_INPUT", `${field} must not be the reserved value "${ORG_WIDE_SENTINEL}".`, { field });
     }
     return id;
 }
@@ -340,7 +373,7 @@ function usageLimitPeriod(value) {
  * @param {string | null} projectId
  */
 function projectKey(projectId) {
-    return projectId ?? "__org__";
+    return projectId ?? ORG_WIDE_SENTINEL;
 }
 
 /**
@@ -994,13 +1027,19 @@ WHERE org_id = ? AND metric = ? AND unit = ? AND observed_at_ms >= ? AND observe
         const provider = nonEmptyString("provider", input.provider);
         const ref = nonEmptyString("ref", input.ref);
         const createdBy = input.createdBy ? requiredId("createdBy", input.createdBy) : null;
-        this.sqlite.query(`
-DELETE FROM _smithers_cp_secret_refs
-WHERE org_id = ? AND project_key = ? AND name = ?
-`).run(orgId, secretProjectKey, name);
+        // Atomic upsert (matches every other replace-on-write method). The prior
+        // DELETE-then-INSERT was two statements: a crash between them destroyed the
+        // existing secret ref outright.
         this.sqlite.query(`
 INSERT INTO _smithers_cp_secret_refs (org_id, project_key, project_id, name, provider, ref, created_by, created_at_ms, rotated_at_ms)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(org_id, project_key, name) DO UPDATE SET
+  project_id = excluded.project_id,
+  provider = excluded.provider,
+  ref = excluded.ref,
+  created_by = excluded.created_by,
+  created_at_ms = excluded.created_at_ms,
+  rotated_at_ms = excluded.rotated_at_ms
 `).run(
             orgId,
             secretProjectKey,
