@@ -54,6 +54,20 @@ describe("discoverWorkflows", () => {
         expect(result).toHaveLength(1);
         expect(result[0].id).toBe("workflow");
     });
+    test("skips one malformed/unsupported file instead of hiding all the others", () => {
+        const root = makeTempDir();
+        dirs.push(root);
+        const wfDir = join(root, ".smithers", "workflows");
+        mkdirSync(wfDir, { recursive: true });
+        writeFileSync(join(wfDir, "good.tsx"), "export default {};");
+        // A file written against a newer smithers (unsupported metadata version)
+        // used to make parseMetadata throw INVALID_WORKFLOW_METADATA inside the
+        // discovery loop, which took down the ENTIRE workflow surface (list /
+        // run / gateway registration) rather than skipping just the bad file.
+        writeFileSync(join(wfDir, "future.tsx"), "// smithers-metadata-version: 2\nexport default {};");
+        const result = discoverWorkflows(root);
+        expect(result.map((w) => w.id)).toEqual(["good"]);
+    });
     test("parses source type from metadata comment", () => {
         const root = makeTempDir();
         dirs.push(root);
@@ -307,13 +321,20 @@ describe("resolveWorkflow", () => {
         dirs.push(root);
         expect(() => resolveWorkflow("any", root)).toThrow("Workflow not found");
     });
-    test("rejects unsupported metadata versions", () => {
+    test("skips unsupported metadata versions without hiding valid workflows", () => {
         const root = makeTempDir();
         dirs.push(root);
         const wfDir = join(root, ".smithers", "workflows");
         mkdirSync(wfDir, { recursive: true });
+        writeFileSync(join(wfDir, "good.tsx"), "export default {};");
         writeFileSync(join(wfDir, "future.tsx"), "// smithers-metadata-version: 99\nexport default {};");
-        expect(() => resolveWorkflow("future", root)).toThrow("Unsupported workflow metadata version");
+        // An unsupported file must not poison discovery: the valid sibling is
+        // still listed and resolvable. The unsupported file is skipped (a warning
+        // goes to stderr), so a direct resolve of it is a clean not-found rather
+        // than a thrown error that takes down the whole workflow surface.
+        expect(discoverWorkflows(root).map((w) => w.id)).toEqual(["good"]);
+        expect(resolveWorkflow("good", root).id).toBe("good");
+        expect(() => resolveWorkflow("future", root)).toThrow("Workflow not found");
     });
     test("resolves workflow with metadata", () => {
         const root = makeTempDir();

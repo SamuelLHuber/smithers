@@ -321,8 +321,21 @@ export function discoverWorkflows(from = process.cwd(), env = process.env) {
             const id = file.replace(/\.tsx$/, "");
             if (seen.has(id))
                 continue; // local pack shadows the global one
+            // One malformed or unsupported workflow file must not hide every
+            // other valid workflow (or crash `workflow list` / the gateway's
+            // workspace registration). Skip the offending file with a warning
+            // and continue. `seen` is only marked on a successful parse, so a
+            // broken local file can still fall back to a valid global one.
+            let entry;
+            try {
+                entry = workflowFromFile(file, packDir, scope);
+            }
+            catch (err) {
+                process.stderr.write(`⚠ Skipping workflow ${join(dir, file)}: ${err instanceof Error ? err.message : String(err)}\n`);
+                continue;
+            }
             seen.add(id);
-            discovered.push(workflowFromFile(file, packDir, scope));
+            discovered.push(entry);
         }
     }
     return discovered.sort((a, b) => a.id.localeCompare(b.id));
