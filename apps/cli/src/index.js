@@ -1875,6 +1875,17 @@ async function executeUpCommand(c, workflowPath, options, fail) {
         }
         setupSqliteCleanup(workflow);
         const adapter = new SmithersDb(workflow.db);
+        // Recover rewinds interrupted by a prior crash before driving the run.
+        // jumpToFrame writes a durable in_progress audit marker before mutating,
+        // but nothing acted on it at startup, so a process kill mid-rewind left
+        // runs silently un-recovered. (SQLite-only; non-fatal.)
+        {
+            const { recoverRewindAuditsAtStartup } = await import("@smithers-orchestrator/time-travel/recoverRewindAuditsAtStartup");
+            await recoverRewindAuditsAtStartup(adapter, {
+                onRecovered: (count) => process.stderr.write(`⚠ Recovered ${count} incomplete rewind(s) from a prior crash; affected run(s) flagged needs-attention.\n`),
+                onError: (error) => process.stderr.write(`⚠ Rewind-audit recovery failed: ${error instanceof Error ? error.message : String(error)}\n`),
+            });
+        }
         if (!resume) {
             const staleRuns = await adapter.listRuns(10, "running");
             if (staleRuns.length > 0) {

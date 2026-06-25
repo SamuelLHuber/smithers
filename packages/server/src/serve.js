@@ -6,6 +6,7 @@ import { isRunHeartbeatFresh } from "@smithers-orchestrator/engine";
 import { nowMs } from "@smithers-orchestrator/scheduler/nowMs";
 import { prometheusContentType, renderPrometheusMetrics, } from "@smithers-orchestrator/observability";
 import { logWarning } from "@smithers-orchestrator/observability/logging";
+import { recoverRewindAuditsAtStartup } from "@smithers-orchestrator/time-travel/recoverRewindAuditsAtStartup";
 import { runPromise } from "./smithersRuntime.js";
 import { httpRequests, httpRequestDuration, trackEvent } from "@smithers-orchestrator/observability/metrics";
 /** @typedef {import("./ServeOptions.js").ServeOptions} ServeOptions */
@@ -106,6 +107,12 @@ async function recordHttpRequestMetricsSafely(method, pathname, statusCode, dura
  */
 export function createServeApp(opts) {
     const { adapter, runId, abort, authToken, metrics: metricsEnabled = true } = opts;
+    // Best-effort, non-blocking startup recovery of crash-interrupted rewinds.
+    // Covers SDK callers of createServeApp (the CLI `up` path recovers earlier).
+    void recoverRewindAuditsAtStartup(adapter, {
+        onRecovered: (count) => logWarning(`recovered ${count} incomplete rewind(s) from a prior crash`, {}, "serve:startup"),
+        onError: (error) => logWarning(`rewind-audit recovery failed: ${error instanceof Error ? error.message : String(error)}`, {}, "serve:startup"),
+    });
     const app = new Hono();
     // Health — no auth
     app.get("/health", (c) => c.json({ ok: true }));
