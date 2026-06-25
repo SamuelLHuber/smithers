@@ -149,10 +149,12 @@ function buildObject(s, spec, visited) {
         obj = obj.catchall(jsonSchemaToZod(s.additionalProperties, spec, visited));
     }
     else if (s.additionalProperties === true || s.additionalProperties === undefined) {
-        // Allow additional properties — use catchall for objects with props
-        if (Object.keys(props).length > 0) {
-            obj = obj.catchall(z.unknown());
-        }
+        // Allow additional properties. This MUST apply even when the schema
+        // declares no `properties`: a free-form body like `{ type: "object" }`
+        // would otherwise become `z.object({})`, which STRIPS every key on parse,
+        // so the LLM-supplied request body is silently reduced to `{}` before it
+        // ever reaches the upstream API. A catchall preserves unknown keys.
+        obj = obj.catchall(z.unknown());
     }
     return maybeDescribe(maybeNullable(obj, s), s);
 }

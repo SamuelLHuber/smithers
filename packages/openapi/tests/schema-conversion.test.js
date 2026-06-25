@@ -96,6 +96,21 @@ describe("jsonSchemaToZod", () => {
         });
         expect(() => schema.parse({ name: "Alice", score: "high" })).toThrow();
     });
+    test("preserves keys of a free-form object body with no declared properties", () => {
+        // Regression: `{ type: "object" }` (and `additionalProperties: true`) with
+        // no `properties` became z.object({}), which STRIPS every key on parse —
+        // so an LLM-supplied request body was silently reduced to {} before it
+        // ever reached the upstream API. Free-form objects are common (webhook
+        // payloads, generic metadata/`data` blobs).
+        for (const schema of [{ type: "object" }, { type: "object", additionalProperties: true }]) {
+            const zod = jsonSchemaToZod(schema, emptySpec);
+            expect(zod.parse({ foo: 1, bar: "x", nested: { a: true } })).toEqual({
+                foo: 1,
+                bar: "x",
+                nested: { a: true },
+            });
+        }
+    });
     test("converts nullable type", () => {
         const schema = jsonSchemaToZod({ type: "string", nullable: true }, emptySpec);
         expect(schema.parse("hello")).toBe("hello");
