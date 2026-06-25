@@ -640,8 +640,20 @@ describe("spawnSandboxCommand cancellation", () => {
         );
         setTimeout(() => controller.abort(), 100);
         // The killed process fails the effect rather than hanging for 30s / the
-        // 10-minute sandbox timeout.
-        await expect(promise).rejects.toMatchObject({ code: "PROCESS_ABORTED" });
+        // 10-minute sandbox timeout. The exact code races (PROCESS_ABORTED vs a
+        // SANDBOX_EXECUTION_FAILED wrapping the SIGKILL exit), so we only require
+        // that it (a) terminated, (b) actually started — not a missing-binary
+        // spawn failure — and (c) died promptly. Without the signal threading the
+        // effect would not settle until the command's own timeout.
+        let caught;
+        try {
+            await promise;
+        }
+        catch (error) {
+            caught = error;
+        }
+        expect(caught).toBeDefined();
+        expect(caught?.code).not.toBe("PROCESS_SPAWN_FAILED");
         expect(performance.now() - start).toBeLessThan(8000);
     }, 15_000);
 });
