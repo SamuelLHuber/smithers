@@ -189,7 +189,7 @@ sandboxes, and sub-flows. A suspended run is a row, not a process: it costs
 nothing while it waits.
 
 ```tsx
-<Ralph until={ctx.latest("review")?.approved} maxIterations={5}>
+<Ralph until={ctx.latest(outputs.review, "review")?.approved} maxIterations={5}>
   <Task id="implement" output={outputs.fix} agent={coder}>Fix based on feedback</Task>
   <Task id="review" output={outputs.review} agent={reviewer}>Review the implementation</Task>
 </Ralph>
@@ -225,7 +225,7 @@ the full treatment in [Context engineering](/guides/context-engineering):
 Two data-access facts the API examples above don't make obvious, and that you
 need the moment you fan out:
 
-- `ctx.output(nodeId)` / `ctx.latest(nodeId)` read a single node. But
+- `ctx.output(table, { nodeId })` / `ctx.latest(table, nodeId)` read a single node. But
   `ctx.outputs.<schemaName>` is the **full array of every row written for that
   schema**, across all nodes and all loop iterations. That array is how you wire
   per-item work: give each item an id field in its schema, then filter
