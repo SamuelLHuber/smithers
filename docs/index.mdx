@@ -48,20 +48,60 @@ mode: "custom"
             Docs for agents →
           </a>
 
-          {/* Rainbow CTA: UI preview early access */}
+          {/* Rainbow CTA: UI preview early access. Inline styles + <style> keyframes
+              because Mintlify's Tailwind does not JIT arbitrary bg-[conic-gradient]/
+              animate-[spin]/bg-[linear-gradient] values used from MDX className strings. */}
+          <style>{`
+            @keyframes smithersRainbowFlow { to { background-position: 200% center; } }
+            .smithers-rainbow-pill { background: #ffffff; }
+            html.dark .smithers-rainbow-pill { background: #030712; }
+            .smithers-rainbow-cta:hover { transform: scale(1.02); }
+          `}</style>
           <a
             href="https://ui-preview.smithers.sh"
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative inline-flex items-center justify-center px-[2px] py-[2px] rounded-xl overflow-hidden transition-all hover:scale-[1.02] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.3)]"
+            className="smithers-rainbow-cta"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "3px",
+              borderRadius: "14px",
+              textDecoration: "none",
+              transition: "transform 0.2s ease",
+              boxShadow: "0 10px 30px -10px rgba(0,0,0,0.35)",
+              backgroundImage:
+                "linear-gradient(90deg,#ff5f6d,#ffc371,#47e891,#1f9bff,#a35bff,#ff5f6d)",
+              backgroundSize: "200% auto",
+              animation: "smithersRainbowFlow 3s linear infinite",
+            }}
           >
-            <span className="absolute inset-0 rounded-xl bg-[conic-gradient(from_0deg,#ff5f6d,#ffc371,#47e891,#1f9bff,#a35bff,#ff5f6d)] animate-[spin_4s_linear_infinite] opacity-90 group-hover:opacity-100"></span>
-            <span className="absolute inset-0 rounded-xl bg-[conic-gradient(from_0deg,#ff5f6d,#ffc371,#47e891,#1f9bff,#a35bff,#ff5f6d)] blur-md opacity-50 animate-[spin_4s_linear_infinite] group-hover:opacity-70"></span>
-            <span className="relative inline-flex items-center gap-2 px-7 py-3 rounded-[10px] bg-white dark:bg-[#030712] text-base font-bold text-slate-900 dark:text-white">
-              <span className="text-transparent bg-clip-text bg-[linear-gradient(90deg,#ff5f6d,#ffc371,#47e891,#1f9bff,#a35bff)]">
+            <span
+              className="smithers-rainbow-pill"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "12px 28px",
+                borderRadius: "11px",
+                fontWeight: 700,
+                fontSize: "1rem",
+              }}
+            >
+              <span
+                style={{
+                  backgroundImage:
+                    "linear-gradient(90deg,#ff5f6d,#ffc371,#47e891,#1f9bff,#a35bff)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  color: "transparent",
+                }}
+              >
                 Try the UI preview
               </span>
-              <span className="text-slate-400 dark:text-slate-500 transition-transform group-hover:translate-x-0.5">→</span>
+              <span style={{ color: "#94a3b8" }}>→</span>
             </span>
           </a>
         </div>
