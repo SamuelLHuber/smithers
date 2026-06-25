@@ -1,40 +1,24 @@
-import { Database } from "bun:sqlite";
-import { describe, expect, test } from "bun:test";
-import type { AddressInfo } from "node:net";
-import { WebSocket, WebSocketServer } from "ws";
+// 10+ minute live-stream soak: a busy run streaming over the REAL Gateway +
+// SmithersGatewayClient, asserting peak RSS stays under budget. Previously this
+// stood up a hand-rolled WebSocketServer + its own _smithers_events table and
+// measured the fixture's memory — a no-mocks violation that defeated the whole
+// point (a leak in the real Gateway broadcast/window/backpressure path would not
+// be caught). It now drives the production live-stream path exactly like
+// case15: gateway.broadcastEvent -> Gateway run-event window -> resilient client
+// subscriber. Gated behind SMITHERS_E2E_SOAK=1.
+import { afterEach, describe, expect, test } from "bun:test";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import React from "react";
+import { z } from "zod";
+import { createSmithers } from "smithers-orchestrator";
+import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
+import { SmithersGatewayClient } from "@smithers-orchestrator/gateway-client";
+import { Gateway, type SmithersWorkflow } from "@smithers-orchestrator/server/gateway";
 import { loadBudget } from "../budgets/loadBudget.ts";
 
-type EventRow = {
-  run_id: string;
-  seq: number;
-  timestamp_ms: number;
-  type: string;
-  payload_json: string;
-};
-
-type SubscribeRequest = {
-  type: "subscribe";
-  runId: string;
-  afterSeq?: number;
-};
-
-type EventFrame = {
-  type: "event";
-  runId: string;
-  seq: number;
-  timestampMs: number;
-  eventType: string;
-  payloadJson: string;
-};
-
-type EndFrame = {
-  type: "end";
-  runId: string;
-  lastSeq: number;
-};
-
-type ServerFrame = EventFrame | EndFrame;
-
+const WORKFLOW_KEY = "case28-workflow";
 const SOAK_ENABLED = process.env.SMITHERS_E2E_SOAK === "1";
 const DEFAULT_DURATION_MS = 10 * 60_000;
 const HARD_CEILING_MS = 12 * 60_000;
@@ -43,160 +27,38 @@ const SAMPLE_INTERVAL_MS = 5_000;
 const GC_INTERVAL_MS = 30_000;
 const PAYLOAD_BYTES = 200;
 
-function buildDb(): Database {
-  const db = new Database(":memory:");
-  db.exec(`
-    CREATE TABLE _smithers_events (
-      run_id TEXT NOT NULL,
-      seq INTEGER NOT NULL,
-      timestamp_ms INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      payload_json TEXT NOT NULL,
-      PRIMARY KEY (run_id, seq)
-    )
-  `);
-  return db;
+function makeDbPath(): string {
+  return join(
+    tmpdir(),
+    `smithers-case28-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  );
 }
 
-function makePayload(seq: number): string {
-  const filler = "x".repeat(Math.max(0, PAYLOAD_BYTES - 40));
-  return JSON.stringify({ seq, filler });
+function createStreamingWorkflow(dbPath: string) {
+  const { smithers, Workflow, Task, outputs, db } = createSmithers(
+    { done: z.object({ ok: z.boolean() }) },
+    { dbPath },
+  );
+  const workflow = smithers(() =>
+    React.createElement(
+      Workflow,
+      { name: WORKFLOW_KEY },
+      React.createElement(Task, { id: "t1", output: outputs.done, children: { ok: true } }),
+    ),
+  );
+  return { workflow, db };
 }
 
-function insertEvent(db: Database, runId: string, seq: number): void {
-  db.query(
-    "INSERT INTO _smithers_events (run_id, seq, timestamp_ms, type, payload_json) VALUES (?, ?, ?, ?, ?)",
-  ).run(runId, seq, Date.now(), "node.event", makePayload(seq));
-}
-
-function readEventsAfter(db: Database, runId: string, afterSeq: number): EventRow[] {
-  return db
-    .query(
-      "SELECT run_id, seq, timestamp_ms, type, payload_json FROM _smithers_events WHERE run_id = ? AND seq > ? ORDER BY seq ASC",
-    )
-    .all(runId, afterSeq) as EventRow[];
-}
-
-type SubscriberServer = {
-  port: number;
-  broadcast: (row: EventRow) => void;
-  close: () => Promise<void>;
-};
-
-function startSubscriberServer(db: Database): Promise<SubscriberServer> {
-  return new Promise((resolveServer, rejectServer) => {
-    const wss = new WebSocketServer({ port: 0, host: "127.0.0.1" });
-    const liveSubs = new Set<{ ws: WebSocket; runId: string }>();
-    wss.once("error", rejectServer);
-    wss.once("listening", () => {
-      wss.on("connection", (ws) => {
-        ws.on("message", (raw) => {
-          let req: SubscribeRequest;
-          try {
-            req = JSON.parse(String(raw)) as SubscribeRequest;
-          } catch {
-            return;
-          }
-          if (req.type !== "subscribe") return;
-          const afterSeq = typeof req.afterSeq === "number" ? req.afterSeq : -1;
-          const rows = readEventsAfter(db, req.runId, afterSeq);
-          for (const row of rows) {
-            if (ws.readyState !== ws.OPEN) return;
-            const frame: EventFrame = {
-              type: "event",
-              runId: row.run_id,
-              seq: Number(row.seq),
-              timestampMs: Number(row.timestamp_ms),
-              eventType: row.type,
-              payloadJson: row.payload_json,
-            };
-            ws.send(JSON.stringify(frame));
-          }
-          liveSubs.add({ ws, runId: req.runId });
-        });
-        ws.on("close", () => {
-          for (const sub of liveSubs) {
-            if (sub.ws === ws) liveSubs.delete(sub);
-          }
-        });
-      });
-      const address = wss.address() as AddressInfo;
-      resolveServer({
-        port: address.port,
-        broadcast: (row) => {
-          const frame: EventFrame = {
-            type: "event",
-            runId: row.run_id,
-            seq: Number(row.seq),
-            timestampMs: Number(row.timestamp_ms),
-            eventType: row.type,
-            payloadJson: row.payload_json,
-          };
-          const encoded = JSON.stringify(frame);
-          for (const sub of liveSubs) {
-            if (sub.runId !== row.run_id) continue;
-            if (sub.ws.readyState === sub.ws.OPEN) sub.ws.send(encoded);
-          }
-        },
-        close: () =>
-          new Promise<void>((res) => {
-            for (const client of wss.clients) {
-              try {
-                client.terminate();
-              } catch {
-                // ignore
-              }
-            }
-            wss.close();
-            res();
-          }),
-      });
-    });
-  });
-}
-
-type LiveCollector = {
-  ws: WebSocket;
-  receivedCount: number;
-  gaps: number;
-  lastSeq: number;
-  close: () => void;
-};
-
-async function connectLive(port: number, runId: string): Promise<LiveCollector> {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-  await new Promise<void>((resolveOpen, rejectOpen) => {
-    ws.once("open", () => resolveOpen());
-    ws.once("error", rejectOpen);
-  });
-  const collector: LiveCollector = {
-    ws,
-    receivedCount: 0,
-    gaps: 0,
-    lastSeq: -1,
-    close: () => {
-      try {
-        ws.terminate();
-      } catch {
-        // ignore
-      }
-    },
-  };
-  ws.on("message", (raw) => {
-    let frame: ServerFrame;
-    try {
-      frame = JSON.parse(String(raw)) as ServerFrame;
-    } catch {
-      return;
-    }
-    if (frame.type !== "event") return;
-    if (frame.seq !== collector.lastSeq + 1) collector.gaps += 1;
-    collector.lastSeq = frame.seq;
-    collector.receivedCount += 1;
-  });
-  const subscribe: SubscribeRequest = { type: "subscribe", runId, afterSeq: -1 };
-  ws.send(JSON.stringify(subscribe));
-  return collector;
+function getPort(server: { address(): unknown }): number {
+  const address = server.address();
+  if (
+    !address ||
+    typeof address === "string" ||
+    typeof (address as { port?: unknown }).port !== "number"
+  ) {
+    throw new Error("Gateway server did not expose a port");
+  }
+  return (address as { port: number }).port;
 }
 
 function tryGc(): void {
@@ -209,6 +71,25 @@ function sleep(ms: number): Promise<void> {
 }
 
 describe("case 28: 10+ min live stream on busy run; RSS within budget", () => {
+  let gateway: Gateway | undefined;
+  let server: { address(): unknown } | undefined;
+  let workflow: SmithersWorkflow | undefined;
+  const dbPaths: string[] = [];
+
+  afterEach(async () => {
+    if (gateway) {
+      await gateway.close();
+      gateway = undefined;
+      server = undefined;
+    }
+    for (const dbPath of dbPaths) {
+      rmSync(dbPath, { force: true });
+      rmSync(`${dbPath}-shm`, { force: true });
+      rmSync(`${dbPath}-wal`, { force: true });
+    }
+    dbPaths.length = 0;
+  });
+
   test.skipIf(!SOAK_ENABLED)(
     "single subscriber on busy live stream keeps peak RSS under liveStream10min budget",
     async () => {
@@ -223,72 +104,114 @@ describe("case 28: 10+ min live stream on busy run; RSS within budget", () => {
       };
       const rssBudget = budget.liveStream10min.rssBytesMax;
 
-      const db = buildDb();
-      let server: SubscriberServer | undefined;
-      let collector: LiveCollector | undefined;
+      // Boot a real Gateway over a real workflow store.
+      const dbPath = makeDbPath();
+      dbPaths.push(dbPath);
+      const created = createStreamingWorkflow(dbPath);
+      ensureSmithersTables(created.db);
+      workflow = created.workflow as SmithersWorkflow;
+      gateway = new Gateway({
+        auth: {
+          mode: "token",
+          tokens: { "op-token": { role: "operator", scopes: ["*"], userId: "user:will" } },
+        },
+      });
+      gateway.register(WORKFLOW_KEY, workflow);
+      server = (await gateway.listen({ port: 0, host: "127.0.0.1" })) as { address(): unknown };
+
+      const gw = gateway;
+      const port = getPort(server);
       const runId = "case28-run";
       const intervalMs = 1000 / EVENTS_PER_SECOND;
+      const filler = "x".repeat(Math.max(0, PAYLOAD_BYTES - 40));
+
+      const adapter = gw.adapterForWorkflow(workflow);
+      await adapter.insertRun({ runId, workflowName: WORKFLOW_KEY, status: "running", createdAtMs: Date.now() });
+
+      // Real resilient subscriber over the Gateway WS.
+      const client = new SmithersGatewayClient({ baseUrl: `http://127.0.0.1:${port}`, token: "op-token" });
+      const ctrl = new AbortController();
+      let receivedCount = 0;
+      let gaps = 0;
+      let lastSeq = 0;
+      const consumer = (async () => {
+        try {
+          for await (const frame of client.streamRunEventsResilient(
+            { runId, afterSeq: 0 },
+            { signal: ctrl.signal, backoff: { baseMs: 5, maxMs: 50, random: () => 0.5 } },
+          )) {
+            if (frame.event !== "run.event") continue;
+            const seq = (frame.payload as { seq?: number }).seq;
+            if (typeof seq !== "number") continue;
+            if (seq !== lastSeq + 1) gaps += 1;
+            lastSeq = seq;
+            receivedCount += 1;
+          }
+        }
+        catch {
+          // aborted at end of soak — expected.
+        }
+      })();
+
+      // Let the subscriber connect before the busy stream begins.
+      await sleep(250);
+
+      tryGc();
+      const baselineRss = process.memoryUsage().rss;
+      let peakRss = baselineRss;
+      const start = Date.now();
+      let emitted = 0;
+
+      const sampleHandle = setInterval(() => {
+        const current = process.memoryUsage().rss;
+        if (current > peakRss) peakRss = current;
+      }, SAMPLE_INTERVAL_MS);
+      const gcHandle = setInterval(() => tryGc(), GC_INTERVAL_MS);
+      const emitHandle = setInterval(() => {
+        gw.broadcastEvent("node.started", {
+          runId,
+          nodeId: `n${emitted}`,
+          state: "started",
+          iteration: 0,
+          filler,
+        });
+        emitted += 1;
+      }, intervalMs);
 
       try {
-        server = await startSubscriberServer(db);
-        collector = await connectLive(server.port, runId);
-
-        tryGc();
-        const baselineRss = process.memoryUsage().rss;
-        let peakRss = baselineRss;
-
-        const start = Date.now();
-        let nextSeq = 0;
-
-        const sampleHandle = setInterval(() => {
-          const current = process.memoryUsage().rss;
-          if (current > peakRss) peakRss = current;
-        }, SAMPLE_INTERVAL_MS);
-
-        const gcHandle = setInterval(() => tryGc(), GC_INTERVAL_MS);
-
-        const emitHandle = setInterval(() => {
-          insertEvent(db, runId, nextSeq);
-          const rows = readEventsAfter(db, runId, nextSeq - 1);
-          const row = rows[rows.length - 1];
-          if (row) server!.broadcast(row);
-          nextSeq += 1;
-        }, intervalMs);
-
-        try {
-          while (Date.now() - start < durationMs) {
-            await sleep(250);
-            if (Date.now() - start > wallCeilingMs) break;
-          }
-        } finally {
-          clearInterval(emitHandle);
-          clearInterval(gcHandle);
-          clearInterval(sampleHandle);
+        while (Date.now() - start < durationMs) {
+          await sleep(250);
+          if (Date.now() - start > wallCeilingMs) break;
         }
-
-        await sleep(500);
-
-        const finalRss = process.memoryUsage().rss;
-        if (finalRss > peakRss) peakRss = finalRss;
-
-        const expectedMin = Math.floor(durationMs / intervalMs * 0.5);
-        expect(nextSeq).toBeGreaterThanOrEqual(expectedMin);
-        expect(collector.receivedCount).toBeGreaterThanOrEqual(expectedMin);
-        expect(collector.gaps).toBe(0);
-        expect(collector.lastSeq).toBe(collector.receivedCount - 1);
-
-        const elapsedMs = Date.now() - start;
-        // eslint-disable-next-line no-console
-        console.log(
-          `[case28] duration=${elapsedMs}ms emitted=${nextSeq} received=${collector.receivedCount} baselineRss=${baselineRss} peakRss=${peakRss} budget=${rssBudget}`,
-        );
-
-        expect(peakRss).toBeLessThan(rssBudget);
-      } finally {
-        if (collector) collector.close();
-        if (server) await server.close();
-        db.close();
       }
+      finally {
+        clearInterval(emitHandle);
+        clearInterval(gcHandle);
+        clearInterval(sampleHandle);
+      }
+
+      // Let the tail drain through the real broadcast path, then stop the stream.
+      await sleep(500);
+      ctrl.abort();
+      await consumer;
+
+      const finalRss = process.memoryUsage().rss;
+      if (finalRss > peakRss) peakRss = finalRss;
+
+      const expectedMin = Math.floor((durationMs / intervalMs) * 0.5);
+      expect(emitted).toBeGreaterThanOrEqual(expectedMin);
+      expect(receivedCount).toBeGreaterThanOrEqual(expectedMin);
+      expect(gaps).toBe(0);
+      // Gateway seqs are 1-indexed and contiguous, so the last seq equals the count.
+      expect(lastSeq).toBe(receivedCount);
+
+      const elapsedMs = Date.now() - start;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[case28] duration=${elapsedMs}ms emitted=${emitted} received=${receivedCount} baselineRss=${baselineRss} peakRss=${peakRss} budget=${rssBudget}`,
+      );
+
+      expect(peakRss).toBeLessThan(rssBudget);
     },
     HARD_CEILING_MS + 60_000,
   );
