@@ -150,6 +150,9 @@ The existing spec already states the decisive point: local/self-host syncs over 
 
 ### Client Attachment
 
+> **SUPERSEDED on the Electric question — see [`pluggable-db-sync-unification.md`](./pluggable-db-sync-unification.md).**
+> Research (2026-06-25, primary-source verified) confirmed Electric's source *must* be a real Postgres with logical replication and PGlite cannot be an Electric source, so there is no "Electric everywhere" path. The decided architecture therefore makes Electric a **server-side `SyncBacking` inside the gateway**, not a client-selected source: the browser **always** speaks gateway RPC/WebSocket `SyncTransport` and never chooses `gateway` vs `electric`, never sees a `shapeUrl`, and never hits `/v1/shape`. The cloud gateway tails Electric internally and re-emits the *same* `SyncStreamFrame` deltas as the local `SmithersDb` backing. Disregard the client-side `syncSource: "electric"` / `boot.sync.shapeUrl` switch described below; treat the unification doc as authoritative for the sync layer. The rest of this section (the `SyncTransport` + `createGatewayCollections` consumer seam, writes-through-RPC, collection fingerprints) stays correct.
+
 There is already a consumer-side seam for UI sync: `SyncTransport` plus `createGatewayCollections()`.
 
 `SyncTransport` is the minimal interface the sync cache consumes: `rpc(method, params, opts)` plus an optional `stream(scope, params, opts)` that returns an async iterable of `SyncStreamFrame` ([packages/gateway-client/src/sync/SyncTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/SyncTransport.ts:1), [packages/gateway-client/src/sync/SyncTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/SyncTransport.ts:32)). It is deliberately transport-agnostic so tests can pass a stub, production can pass a `SmithersGatewayClient` adapter, and UI code does not need to know whether the data source is gateway RPC/WebSocket or Electric.
