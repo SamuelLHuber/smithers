@@ -68,7 +68,11 @@ describe("smithers down --force staleness check", () => {
         }
     }, 60_000);
 
-    test("with --force, a run with a FRESH heartbeat IS cancelled", async () => {
+    test("with --force, a LIVE run is asked to cancel durably (not bare-flipped)", async () => {
+        // Regression: a bare `status:"cancelled"` flip on a live run is invisible
+        // to the engine in the owning process, which polls cancel_requested_at_ms
+        // and overwrites status with "finished" on completion. --force on a fresh
+        // run must set the durable cancel request so the engine aborts itself.
         const repo = createTempRepo();
         const { sqlite, adapter } = openRepoDb(repo);
         try {
@@ -78,9 +82,14 @@ describe("smithers down --force staleness check", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.json).toMatchObject({ cancelled: 1, skipped: 0 });
+            expect(result.stderr).toContain("Cancel requested (live): fresh-run");
 
             const after = await adapter.getRun("fresh-run");
-            expect(after?.status).toBe("cancelled");
+            // The durable cancel flag is set; the engine (absent in this fixture)
+            // would observe it and write the terminal cancelled status itself, so
+            // the row stays "running" rather than being prematurely bare-flipped.
+            expect(after?.cancelRequestedAtMs ?? 0).toBeGreaterThan(0);
+            expect(after?.status).toBe("running");
         }
         finally {
             sqlite.close();
@@ -98,6 +107,52 @@ describe("smithers down --force staleness check", () => {
 
             expect(result.exitCode).toBe(0);
             expect(result.json).toMatchObject({ cancelled: 1, skipped: 0 });
+
+            const after = await adapter.getRun("stale-run");
+            expect(after?.status).toBe("cancelled");
+        }
+        finally {
+            sqlite.close();
+        }
+    }, 60_000);
+});
+
+describe("smithers cancel live-run handling", () => {
+    // Regression: `cancel` only bare-flipped status to "cancelled" and never set
+    // cancel_requested_at_ms, so a live engine in another process never observed
+    // the cancellation and overwrote status with "finished" on completion — the
+    // agents kept running. A live run must be cancelled via the durable flag.
+    test("a LIVE run is cancelled via the durable cancel request, not a bare flip", async () => {
+        const repo = createTempRepo();
+        const { sqlite, adapter } = openRepoDb(repo);
+        try {
+            await insertRunningRun(adapter, "live-run", { heartbeatAtMs: Date.now() });
+
+            const result = runSmithers(["cancel", "live-run"], { cwd: repo.dir, format: "json" });
+
+            expect(result.json).toMatchObject({ runId: "live-run", status: "cancel-requested" });
+
+            const after = await adapter.getRun("live-run");
+            expect(after?.cancelRequestedAtMs ?? 0).toBeGreaterThan(0);
+            // Status is left for the engine to settle, NOT prematurely flipped.
+            expect(after?.status).toBe("running");
+        }
+        finally {
+            sqlite.close();
+        }
+    }, 60_000);
+
+    test("a STALE (dead-engine) run is directly flipped to cancelled", async () => {
+        const repo = createTempRepo();
+        const { sqlite, adapter } = openRepoDb(repo);
+        try {
+            // Heartbeat well past the 30s staleness threshold: no live engine to
+            // honor a cancel request, so the bare status flip is correct here.
+            await insertRunningRun(adapter, "stale-run", { heartbeatAtMs: Date.now() - 120_000 });
+
+            const result = runSmithers(["cancel", "stale-run"], { cwd: repo.dir, format: "json" });
+
+            expect(result.json).toMatchObject({ runId: "stale-run", status: "cancelled" });
 
             const after = await adapter.getRun("stale-run");
             expect(after?.status).toBe("cancelled");

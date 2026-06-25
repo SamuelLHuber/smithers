@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { setJsonMode } from "./util/logger.ts";
 import { extractBackendFlag, findFirstPositionalIndex, rewriteBareResumeFlagArgv } from "./argv-utils.js";
-import { CLI_JSON_ARGUMENT_MAX_BYTES, parseJsonArgument, parseJsonInput } from "./json-args.js";
+import { CLI_JSON_ARGUMENT_MAX_BYTES, parseJsonArgument, tryParseJsonInput } from "./json-args.js";
 import { resolve, dirname, basename, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readFileSync, existsSync, mkdirSync, openSync, statSync, writeFileSync, writeSync } from "node:fs";
@@ -4742,7 +4742,10 @@ const cli = Cli.create({
                             exitCode: 4,
                         });
                     }
-                    const value = parseJsonInput(c.options.value, "human request value", fail);
+                    const parsedValue = tryParseJsonInput(c.options.value, "human request value");
+                    if (!parsedValue.ok)
+                        return fail(parsedValue.error);
+                    const value = parsedValue.value;
                     const validation = validateHumanRequestValue(request, value);
                     if (!validation.ok) {
                         return fail({
@@ -5138,7 +5141,10 @@ const cli = Cli.create({
         try {
             const { adapter, cleanup } = await findAndOpenDb();
             try {
-                const payload = parseJsonInput(c.options.data, "signal data", fail) ?? {};
+                const parsedPayload = tryParseJsonInput(c.options.data, "signal data");
+                if (!parsedPayload.ok)
+                    return fail(parsedPayload.error);
+                const payload = parsedPayload.value ?? {};
                 const run = await adapter.getRun(c.args.runId);
                 if (!run) {
                     return fail({
@@ -5263,6 +5269,27 @@ const cli = Cli.create({
                     run.status !== "waiting-timer") {
                     return fail({ code: "RUN_NOT_ACTIVE", message: `Run is not active (status: ${run.status})`, exitCode: 4 });
                 }
+                // A live engine in another process is driving this run. A bare
+                // status flip is invisible to it: it only observes cancellation
+                // by polling `cancel_requested_at_ms` (its cancelWatcher), and on
+                // completion it overwrites status with "finished", clobbering our
+                // "cancelled". Set the durable cancel request so the engine aborts
+                // its agents and writes the terminal cancelled status itself.
+                if (run.status === "running" && isRunHeartbeatFresh(run)) {
+                    await adapter.requestRunCancel(c.args.runId, Date.now());
+                    process.exitCode = 2;
+                    return c.ok({
+                        runId: c.args.runId,
+                        status: "cancel-requested",
+                    }, {
+                        cta: {
+                            commands: [
+                                { command: `logs ${c.args.runId} -f`, description: "Watch the run stop" },
+                                { command: `ps`, description: "List all runs" },
+                            ],
+                        },
+                    });
+                }
                 const inProgress = await adapter.listInProgressAttempts(c.args.runId);
                 const allAttempts = await adapter.listAttemptsForRun(c.args.runId);
                 const now = Date.now();
@@ -5353,6 +5380,17 @@ const cli = Cli.create({
                         skipped++;
                         continue;
                     }
+                    // A live run reached here only via --force. Request a durable
+                    // cancel so the engine aborts itself, rather than a bare status
+                    // flip it would overwrite with "finished" on completion. Stale
+                    // (dead-engine) and suspended waiting-* runs fall through to the
+                    // direct flip below, which is correct as no engine is polling.
+                    if (run.status === "running" && isRunHeartbeatFresh(run)) {
+                        await adapter.requestRunCancel(run.runId, now);
+                        process.stderr.write(`⊘ Cancel requested (live): ${run.runId}\n`);
+                        cancelled++;
+                        continue;
+                    }
                     const inProgress = await adapter.listInProgressAttempts(run.runId);
                     const attempts = await adapter.listAttemptsForRun(run.runId);
                     for (const attempt of inProgress) {
@@ -5404,11 +5442,19 @@ const cli = Cli.create({
             ensureSmithersTables(workflow.db);
             const schema = resolveSchema(workflow.db);
             const inputTable = schema.input;
-            const inputRow = c.options.input
-                ? parseJsonInput(c.options.input, "input", fail)
-                : inputTable
-                    ? ((await loadInput(workflow.db, inputTable, c.options.runId)) ?? {})
-                    : {};
+            let inputRow;
+            if (c.options.input) {
+                const parsedInput = tryParseJsonInput(c.options.input, "input");
+                if (!parsedInput.ok)
+                    return fail(parsedInput.error);
+                inputRow = parsedInput.value;
+            }
+            else if (inputTable) {
+                inputRow = (await loadInput(workflow.db, inputTable, c.options.runId)) ?? {};
+            }
+            else {
+                inputRow = {};
+            }
             const outputs = await loadOutputs(workflow.db, schema, c.options.runId);
             const ctx = new SmithersCtx({
                 runId: c.options.runId,
@@ -5839,7 +5885,10 @@ const cli = Cli.create({
             const { replayFromCheckpoint } = await import("@smithers-orchestrator/time-travel/replay");
             const { adapter, cleanup } = await loadWorkflowDb(c.args.workflow);
             try {
-                const inputOverrides = parseJsonInput(c.options.input, "input", fail);
+                const parsedOverrides = tryParseJsonInput(c.options.input, "input");
+                if (!parsedOverrides.ok)
+                    return fail(parsedOverrides.error);
+                const inputOverrides = parsedOverrides.value;
                 const resetNodes = c.options.node ? [c.options.node] : undefined;
                 const result = await replayFromCheckpoint(adapter, {
                     parentRunId: c.options.runId,
@@ -6096,7 +6145,10 @@ const cli = Cli.create({
             const { forkRun } = await import("@smithers-orchestrator/time-travel/fork");
             const { adapter, cleanup } = await loadWorkflowDb(c.args.workflow);
             try {
-                const inputOverrides = parseJsonInput(c.options.input, "input", fail);
+                const parsedOverrides = tryParseJsonInput(c.options.input, "input");
+                if (!parsedOverrides.ok)
+                    return fail(parsedOverrides.error);
+                const inputOverrides = parsedOverrides.value;
                 const resetNodes = c.options.resetNode ? [c.options.resetNode] : undefined;
                 const result = await forkRun(adapter, {
                     parentRunId: c.options.runId,
