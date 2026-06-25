@@ -398,8 +398,20 @@ export function scheduleTasks(plan, states, descriptors, ralphState, retryWait, 
                     const status = inspect(child, {
                         includeContinuedFailures: true,
                     });
-                    if (!status.terminal)
+                    if (!status.terminal) {
+                        // A failure already present in this still-running action
+                        // subtree (e.g. a failed task in a <Parallel> whose sibling
+                        // is still in flight) must be recorded as recoverable now.
+                        // Otherwise decide()'s unhandled-failure check fails the run
+                        // before the action region settles and the saga's
+                        // compensation can run — an order-dependent bug that only
+                        // bites when the failing task settles before its sibling.
+                        const before = failureRecoveryKeys.size;
+                        collectFailureKeys(child, { includeContinuedFailures: true });
+                        if (failureRecoveryKeys.size > before)
+                            failureRecoveryActive = true;
                         return walk(child);
+                    }
                     if (status.failed) {
                         failed = true;
                         break;
@@ -448,8 +460,19 @@ export function scheduleTasks(plan, states, descriptors, ralphState, retryWait, 
                     const status = inspect(child, {
                         includeContinuedFailures: true,
                     });
-                    if (!status.terminal)
+                    if (!status.terminal) {
+                        // A failure already present in this still-running try child
+                        // (e.g. a failed task in a <Parallel> whose sibling is still
+                        // in flight) must be recorded as recoverable now, or decide()
+                        // fails the run before the try region settles — skipping
+                        // catch AND finally. Deferring here lets the region finish so
+                        // catch/finally run regardless of which task settles first.
+                        const before = failureRecoveryKeys.size;
+                        collectFailureKeys(child, { includeContinuedFailures: true });
+                        if (failureRecoveryKeys.size > before)
+                            failureRecoveryActive = true;
                         return walk(child);
+                    }
                     if (status.failed) {
                         tryFailed = true;
                         break;

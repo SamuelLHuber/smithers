@@ -284,6 +284,86 @@ describe("makeWorkflowSession failure control flow", () => {
     expect(afterFailure.tasks.map((task) => task.nodeId)).toEqual(["release"]);
   });
 
+  test("try-catch runs catch when a parallel try task fails before its sibling settles", () => {
+    // Regression: a failed task inside a <Parallel> whose sibling is still running
+    // makes inspect() report the try region non-terminal, so walk() descended
+    // without collecting the failure key. decide()'s unhandled-failure check then
+    // failed the whole run before the region settled — skipping catch AND finally.
+    // Order-dependent: only bit when the failing task settled before its sibling.
+    const session = makeWorkflowSession({ nowMs: () => 1_000 });
+    const fail = makeAgentDescriptor({ nodeId: "fail", ordinal: 0, retries: 0, retryPolicy: undefined });
+    const slow = makeAgentDescriptor({ nodeId: "slow", ordinal: 1, retries: 0, retryPolicy: undefined });
+    const recover = makeAgentDescriptor({ nodeId: "recover", ordinal: 2, retries: 0, retryPolicy: undefined });
+    const cleanup = makeAgentDescriptor({ nodeId: "cleanup", ordinal: 3, retries: 0, retryPolicy: undefined });
+    const graph = {
+      xml: el("smithers:workflow", {}, [
+        el("smithers:try-catch-finally", { id: "tcf" }, [
+          el("smithers:tcf-try", {}, [
+            el("smithers:parallel", {}, [
+              el("smithers:task", { id: "fail" }),
+              el("smithers:task", { id: "slow" }),
+            ]),
+          ]),
+          el("smithers:tcf-catch", {}, [el("smithers:task", { id: "recover" })]),
+          el("smithers:tcf-finally", {}, [el("smithers:task", { id: "cleanup" })]),
+        ]),
+      ]),
+      tasks: [fail, slow, recover, cleanup],
+      mountedTaskIds: new Set(["fail::0", "slow::0", "recover::0", "cleanup::0"]),
+    };
+
+    const initial = Effect.runSync(session.submitGraph(graph));
+    expect(initial._tag).toBe("Execute");
+    expect(initial.tasks.map((task) => task.nodeId).sort()).toEqual(["fail", "slow"]);
+
+    // The failing task settles FIRST, while its parallel sibling is still running.
+    const afterFail = Effect.runSync(session.taskFailed({ nodeId: "fail", iteration: 0, error: { message: "boom" } }));
+    expect(afterFail._tag).not.toBe("Failed");
+
+    // Once the sibling settles, the try region is terminal+failed and catch runs.
+    const afterSlow = Effect.runSync(session.taskCompleted({ nodeId: "slow", iteration: 0, output: { ok: true } }));
+    expect(afterSlow._tag).toBe("Execute");
+    expect(afterSlow.tasks.map((task) => task.nodeId)).toEqual(["recover"]);
+  });
+
+  test("saga runs compensation when a parallel action fails before its sibling settles", () => {
+    // Same order-dependent recovery bug, for saga compensation.
+    const session = makeWorkflowSession({ nowMs: () => 1_000 });
+    const setup = makeAgentDescriptor({ nodeId: "setup", ordinal: 0, retries: 0, retryPolicy: undefined });
+    const fail = makeAgentDescriptor({ nodeId: "fail", ordinal: 1, retries: 0, retryPolicy: undefined });
+    const slow = makeAgentDescriptor({ nodeId: "slow", ordinal: 2, retries: 0, retryPolicy: undefined });
+    const undo = makeAgentDescriptor({ nodeId: "undo", ordinal: 3, retries: 0, retryPolicy: undefined });
+    const graph = {
+      xml: el("smithers:workflow", {}, [
+        el("smithers:saga", { id: "saga", onFailure: "compensate" }, [
+          el("smithers:saga-actions", {}, [
+            el("smithers:task", { id: "setup" }),
+            el("smithers:parallel", {}, [
+              el("smithers:task", { id: "fail" }),
+              el("smithers:task", { id: "slow" }),
+            ]),
+          ]),
+          el("smithers:saga-compensations", {}, [
+            el("smithers:task", { id: "undo" }),
+          ]),
+        ]),
+      ]),
+      tasks: [setup, fail, slow, undo],
+      mountedTaskIds: new Set(["setup::0", "fail::0", "slow::0", "undo::0"]),
+    };
+
+    expect(Effect.runSync(session.submitGraph(graph))._tag).toBe("Execute");
+    const afterSetup = Effect.runSync(session.taskCompleted({ nodeId: "setup", iteration: 0, output: { ok: true } }));
+    expect(afterSetup.tasks.map((task) => task.nodeId).sort()).toEqual(["fail", "slow"]);
+
+    const afterFail = Effect.runSync(session.taskFailed({ nodeId: "fail", iteration: 0, error: { message: "boom" } }));
+    expect(afterFail._tag).not.toBe("Failed");
+
+    const afterSlow = Effect.runSync(session.taskCompleted({ nodeId: "slow", iteration: 0, output: { ok: true } }));
+    expect(afterSlow._tag).toBe("Execute");
+    expect(afterSlow.tasks.map((task) => task.nodeId)).toEqual(["undo"]);
+  });
+
   test("unhandled hard failure does not start a pending parallel sibling", () => {
     const session = makeWorkflowSession({ nowMs: () => 1_000 });
     const a = makeAgentDescriptor({
