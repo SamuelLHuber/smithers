@@ -178,8 +178,7 @@ async function sqlVerify(v: VerifySpec): Promise<EvalVerdict> {
   }
   const got = JSON.stringify(rows);
   const want = (v.expect ?? "").trim();
-  // `expect` may be the exact stringified rows, or a substring that must appear.
-  const passed = got === want || (want.length > 0 && got.includes(want));
+  const passed = resultMatchesExpect(got, want);
   return {
     passed,
     score: passed ? 1 : 0,
@@ -209,9 +208,7 @@ async function queryVerify(artifact: string, v: VerifySpec): Promise<EvalVerdict
   }
   const got = JSON.stringify(rows);
   const want = (v.expect ?? "").trim();
-  // Order-insensitive single-scalar match (e.g. [{"n":3}]) or substring of the
-  // canonical answer; tolerant of column aliasing by also matching the value.
-  const passed = got === want || (want.length > 0 && (got.includes(want) || normalizeScalar(got) === normalizeScalar(want)));
+  const passed = resultMatchesExpect(got, want);
   return {
     passed,
     score: passed ? 1 : 0,
@@ -219,6 +216,22 @@ async function queryVerify(artifact: string, v: VerifySpec): Promise<EvalVerdict
     method: "query",
     checks: [{ name: "result", passed, detail: got.slice(0, 200) }],
   };
+}
+
+/** Decide whether a stringified SQL result `got` satisfies the expected `want`.
+ *
+ * A scalar/token expectation must match a WHOLE cell value — exact, or via the
+ * single-cell normalizer ([{"count":4}] → "4") — and is NEVER substring-matched.
+ * Substring matching (a fragment that must appear) is allowed ONLY for genuinely
+ * structural expectations (containing JSON punctuation). Without this guard a raw
+ * `got.includes(want)` false-passes: expect "4" matched a result of 14/40/41, and
+ * expect "implement" matched "implementation". */
+function resultMatchesExpect(got: string, want: string): boolean {
+  if (want.length === 0) return got === want;
+  if (got === want) return true;
+  if (normalizeScalar(got) === normalizeScalar(want)) return true;
+  const wantLooksScalar = /^-?\d+(\.\d+)?$/.test(want) || /^[A-Za-z0-9_-]+$/.test(want);
+  return !wantLooksScalar && got.includes(want);
 }
 
 /** Reduce a single-row/single-value result to its scalar so column aliases don't
