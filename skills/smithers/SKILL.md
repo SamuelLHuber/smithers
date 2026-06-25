@@ -31,6 +31,36 @@ commands for them to execute. When a run needs a human (an approval, an
 decision in conversation, and run the resolving command (`approve`, `deny`,
 `human answer`, `signal`) yourself.
 
+### ⚠️ Do it — don't describe it
+
+**This is the single most common failure, so read it.** When asked to "create a
+Smithers workflow" (or run, monitor, or fix one), the failure mode is to *narrate
+the steps* — print `smithers init`, paste the workflow `.tsx` as a code block, or
+write a numbered "here's how you'd do it" — instead of **actually doing it with
+your tools right now.** Describing the work is not the work.
+
+Concretely, when a request maps to a Smithers action:
+
+- **Create a workflow** → call your file-write tool to author
+  `.smithers/workflows/<id>.tsx` (or run `smithers workflow create <id>` via your
+  shell tool, then edit the file). Do not emit the workflow source as a chat
+  message and stop.
+- **Run / inspect / fix a run** → invoke the `smithers` CLI through your shell
+  (`Bash`) tool. Do not print the command for the human to paste.
+- **If you catch yourself writing a how-to**, that is the signal to stop typing
+  prose and start calling tools.
+
+Two specific traps:
+
+1. **Don't stall in read-only plan mode.** Designing a workflow is fine, but a
+   plan that only *describes* the workflow and never writes the file is a
+   non-answer. Leave plan mode (or never enter it for a scaffold request) and
+   write the file. The workflow `.tsx` *is* the plan — make it real on disk.
+2. **The `smithers` CLI is a real binary you invoke with Bash, not a tool you
+   wait to be handed.** If a `smithers-*` tool isn't already loaded in your
+   harness, just run the `smithers` command in a shell. Never let "I don't see a
+   smithers tool" become "so I'll explain it instead."
+
 ### ⚠️ Orchestrator-only: Smithers does the work, your subagents do not
 
 **This is a hard rule. Read it twice.**
@@ -86,26 +116,32 @@ made durable.
 ## 60 seconds to the aha
 
 From inside the user's project (Bun ≥ 1.3, plus a model key like
-`ANTHROPIC_API_KEY` in the env):
+`ANTHROPIC_API_KEY` in the env). Run these yourself with your shell tool — every
+bare `smithers …` below is identical to `bunx smithers-orchestrator …` if there
+is no global install, so prefer `bunx smithers-orchestrator …` when unsure:
 
 ```bash
 # 1. Scaffold .smithers/ with ready-made workflows (implement, review, plan, ralph, debug…)
-bunx smithers-orchestrator init
+smithers init
 
 # 2. Browse plain-English starters and their copy-paste commands
-bunx smithers-orchestrator starters
+smithers starters
 
-# 3. Run one. This dispatches a real coding agent to do the work, durably.
-bunx smithers-orchestrator workflow run implement --prompt "Add a /health endpoint"
+# 3. Author a brand-new workflow file, then make the graph render before running it
+smithers workflow create my-workflow      # writes .smithers/workflows/my-workflow.tsx
+smithers graph .smithers/workflows/my-workflow.tsx   # renders without executing — must exit 0
 
-# 4. Watch it
-bunx smithers-orchestrator ps                 # active / paused / recent runs
-bunx smithers-orchestrator logs <run-id> -f   # follow the event stream
+# 4. Run one. This dispatches a real coding agent to do the work, durably.
+smithers workflow run implement --prompt "Add a /health endpoint"
+
+# 5. Watch it
+smithers ps                 # active / paused / recent runs
+smithers logs <run-id> -f   # follow the event stream
 ```
 
-That's the loop: scaffold → run a workflow → watch the run. The "aha" is step 3:
-you kicked off a multi-step agent job that you can crash, resume, fork, and
-inspect, all from the CLI you already live in.
+That's the loop: scaffold → author / run a workflow → watch the run. The "aha" is
+running a workflow (step 4): you kicked off a multi-step agent job that you can
+crash, resume, fork, and inspect, all from the CLI you already live in.
 
 Two verbs start a run, split by what you hand them. `smithers up <file>.tsx`
 runs a workflow **file by path** (use this to start a run from a `.tsx` file).
@@ -173,7 +209,7 @@ the full treatment in [Context engineering](/guides/context-engineering):
   ideally under ~100k. Do research and planning up front so the implementer spends
   its window on the work. Watch it with `smithers.tokens.context_window_per_call`
   (histogram, buckets `[50k,100k,200k,500k,1M]`), the `TokenUsageReported` event
-  (🧮), and `bunx smithers-orchestrator node`. Cap it with `<Aspects tokenBudget>`;
+  (🧮), and `smithers node`. Cap it with `<Aspects tokenBudget>`;
   for a long loop, catch `ASPECT_BUDGET_EXCEEDED` and `<ContinueAsNew>` to a fresh
   context (durable `/clear`).
 - **Plan the validation, not the feature.** Review is cheapest on a plan, miserable
