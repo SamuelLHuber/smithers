@@ -607,7 +607,7 @@ export async function executeSandbox(options) {
             bundlePath: null,
         });
         if (options.config?.command) {
-            await transportCall(selectedRuntime, sandboxTransport((svc) => svc.execute(resolveSandboxCommand(options.config?.command), sandboxHandle)));
+            await transportCall(selectedRuntime, sandboxTransport((svc) => svc.execute(resolveSandboxCommand(options.config?.command), sandboxHandle, runtime.signal)));
         }
         runtime.heartbeat({
             sandboxId: options.sandboxId,

@@ -55,9 +55,14 @@ export const DockerSandboxExecutorLive = Layer.succeed(SandboxEntityExecutor, Sa
         },
         catch: (cause) => toSmithersError(cause, "ship docker bundle"),
     }),
-    execute: (command, handle) => spawnSandboxCommand("docker", dockerArgs(command, handle), {
+    execute: (command, handle, signal) => spawnSandboxCommand("docker", dockerArgs(command, handle), {
         cwd: handle.requestPath,
         runtime: "docker",
+        // Kills the docker CLI client's process group on cancel. NOTE: a
+        // `docker run --rm` daemon-side container can still outlive the client;
+        // fully tearing that down needs --cidfile + `docker rm -f` in cleanup
+        // (tracked separately).
+        signal,
     }),
     collect: (handle) => Effect.succeed({ bundlePath: handle.resultPath }),
     cleanup: (handle) => Effect.tryPromise({

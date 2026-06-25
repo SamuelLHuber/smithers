@@ -61,7 +61,7 @@ export const BubblewrapSandboxExecutorLive = Layer.succeed(SandboxEntityExecutor
         },
         catch: (cause) => toSmithersError(cause, "ship sandbox bundle"),
     }),
-    execute: (command, handle) => Effect.gen(function* () {
+    execute: (command, handle, signal) => Effect.gen(function* () {
         if (process.platform === "darwin") {
             const sandboxExec = typeof Bun !== "undefined" ? Bun.which("sandbox-exec") : null;
             if (!sandboxExec) {
@@ -70,6 +70,7 @@ export const BubblewrapSandboxExecutorLive = Layer.succeed(SandboxEntityExecutor
             return yield* spawnSandboxCommand(sandboxExec, sandboxExecArgs(command, handle), {
                 cwd: handle.requestPath,
                 runtime: "sandbox-exec",
+                signal,
             });
         }
         const bwrap = typeof Bun !== "undefined" ? Bun.which("bwrap") : null;
@@ -79,6 +80,7 @@ export const BubblewrapSandboxExecutorLive = Layer.succeed(SandboxEntityExecutor
         return yield* spawnSandboxCommand(bwrap, bubblewrapArgs(command, handle), {
             cwd: handle.requestPath,
             runtime: "bubblewrap",
+            signal,
         });
     }),
     collect: (handle) => Effect.succeed({ bundlePath: handle.resultPath }),

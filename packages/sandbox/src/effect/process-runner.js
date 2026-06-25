@@ -278,7 +278,7 @@ function assertVolumeDoesNotOverrideRuntimeMount(containerPath) {
 /**
  * @param {string} command
  * @param {string[]} args
- * @param {{ cwd: string; runtime: string; timeoutMs?: number; maxOutputBytes?: number }} options
+ * @param {{ cwd: string; runtime: string; timeoutMs?: number; maxOutputBytes?: number; signal?: AbortSignal }} options
  */
 export function spawnSandboxCommand(command, args, options) {
     return spawnCaptureEffect(command, args, {
@@ -288,6 +288,11 @@ export function spawnSandboxCommand(command, args, options) {
         idleTimeoutMs: options.timeoutMs ?? DEFAULT_SANDBOX_COMMAND_TIMEOUT_MS,
         maxOutputBytes: options.maxOutputBytes ?? DEFAULT_SANDBOX_OUTPUT_BYTES,
         detached: true,
+        // Forward the run's abort signal so a cancel/down SIGKILLs the (detached)
+        // sandbox process group instead of letting it run to the 10-minute
+        // timeout. Without this the docker/bwrap/sandbox-exec command kept
+        // executing after the run was cancelled.
+        signal: options.signal,
     }).pipe(Effect.flatMap((result) => {
         if (result.exitCode === 0) {
             return Effect.succeed({ exitCode: 0 });

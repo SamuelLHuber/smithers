@@ -7,7 +7,7 @@ import type { SandboxBundleResult } from "./SandboxBundleResult.ts";
 export type SandboxTransportService = {
     readonly create: (config: SandboxTransportConfig) => Effect.Effect<SandboxHandle, SmithersError>;
     readonly ship: (bundlePath: string, handle: SandboxHandle) => Effect.Effect<void, SmithersError>;
-    readonly execute: (command: string, handle: SandboxHandle) => Effect.Effect<{
+    readonly execute: (command: string, handle: SandboxHandle, signal?: AbortSignal) => Effect.Effect<{
         exitCode: number;
     }, SmithersError>;
     readonly collect: (handle: SandboxHandle) => Effect.Effect<SandboxBundleResult, SmithersError>;

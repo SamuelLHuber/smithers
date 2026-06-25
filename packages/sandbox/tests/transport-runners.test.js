@@ -17,7 +17,7 @@ import {
 } from "../src/effect/http-runner.js";
 import { BubblewrapSandboxExecutorLive } from "../src/effect/socket-runner.js";
 import { layerForSandboxRuntime, resolveSandboxRuntime } from "../src/transport.js";
-import { bubblewrapArgs, dockerArgs, sandboxExecArgs, sandboxRunnerEnv } from "../src/effect/process-runner.js";
+import { bubblewrapArgs, dockerArgs, sandboxExecArgs, sandboxRunnerEnv, spawnSandboxCommand } from "../src/effect/process-runner.js";
 
 /**
  * @param {string} prefix
@@ -621,4 +621,27 @@ describe("sandbox transport runners", () => {
         expect(args).toContain("--bind");
         expect(args).toContain("/workspace-sibling");
     });
+});
+
+describe("spawnSandboxCommand cancellation", () => {
+    // Regression: the run's AbortSignal was never threaded into the sandbox
+    // command spawn, so a cancel/down left the docker/bwrap/sandbox-exec command
+    // running until its 10-minute default timeout. The signal now SIGKILLs the
+    // detached process group on abort.
+    test("aborting the signal kills the command promptly instead of running to its timeout", async () => {
+        const controller = new AbortController();
+        const start = performance.now();
+        const promise = Effect.runPromise(
+            spawnSandboxCommand("sleep", ["30"], {
+                cwd: process.cwd(),
+                runtime: "test",
+                signal: controller.signal,
+            }),
+        );
+        setTimeout(() => controller.abort(), 100);
+        // The killed process fails the effect rather than hanging for 30s / the
+        // 10-minute sandbox timeout.
+        await expect(promise).rejects.toMatchObject({ code: "PROCESS_ABORTED" });
+        expect(performance.now() - start).toBeLessThan(8000);
+    }, 15_000);
 });
