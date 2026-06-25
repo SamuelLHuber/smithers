@@ -90,6 +90,18 @@ describe("diffSnapshots + applyDelta round trip", () => {
       to: snapshot(73, node(1, [node(30), node(40), node(20), node(10)])),
     },
     {
+      // Regression: a node (5) reparents into a subtree (2) that is itself being
+      // removed-and-re-added because its index changed. node 2's addNode clones
+      // its whole subtree, which now contains 5 under 3. node 5's DIRECT parent
+      // (3) is unchanged, so the old direct-parent-only filter still emitted a
+      // standalone addNode for 5, duplicating it. The filter now walks the full
+      // ancestor chain, so 5 gets added once (via 2's clone). Fuzzing reparenting
+      // tree-pairs hit this in ~2.6% of cases.
+      name: "reparent a node into a re-added subtree (no duplicate)",
+      from: snapshot(74, node(1, [node(5), node(2, [node(3)])])),
+      to: snapshot(75, node(1, [node(2, [node(3, [node(5)])])])),
+    },
+    {
       name: "change only props on a leaf",
       from: snapshot(9, node(1, [node(2, [node(3, [], { value: "a" })])])),
       to: snapshot(10, node(1, [node(2, [node(3, [], { value: "b" })])])),
@@ -250,6 +262,52 @@ describe("diffSnapshots + applyDelta round trip", () => {
     expect(updatedIds.size).toBe(10);
     for (let index = 0; index < 10; index += 1) {
       expect(updatedIds.has(baseline.children[index].id)).toBe(true);
+    }
+  });
+
+  test("property: round-trips random reparenting tree-pairs with no duplicate or lost nodes", () => {
+    // Both trees in each pair share the SAME id set, so every diff is pure
+    // reparent/reorder (the add/remove path, keyed on parent/index/depth change).
+    // A deterministic LCG keeps the test reproducible. Before the ancestor-chain
+    // fix in topLevelAddIds, ~2.6% of these pairs duplicated a node reparented
+    // into a re-added subtree, so 300 iterations reliably caught the regression.
+    let s = 0xc0ffee >>> 0;
+    const rng = () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0x1_0000_0000;
+    };
+    const buildTree = (ids: number[]): DevToolsNode => {
+      const root = node(ids[0], []);
+      const placed: DevToolsNode[] = [root];
+      for (let i = 1; i < ids.length; i += 1) {
+        const parent = placed[Math.floor(rng() * placed.length)];
+        const child = node(ids[i], []);
+        const at = Math.floor(rng() * (parent.children.length + 1));
+        parent.children.splice(at, 0, child);
+        placed.push(child);
+      }
+      return root;
+    };
+    const collectIds = (root: DevToolsNode): number[] => {
+      const ids: number[] = [];
+      const stack = [root];
+      while (stack.length > 0) {
+        const current = stack.pop()!;
+        ids.push(current.id);
+        for (const child of current.children) stack.push(child);
+      }
+      return ids;
+    };
+    for (let iter = 0; iter < 300; iter += 1) {
+      const count = 3 + Math.floor(rng() * 12);
+      const ids = Array.from({ length: count }, (_, i) => i + 1); // id 1 is always the root
+      const from = snapshot(1000 + iter * 2, buildTree(ids));
+      const to = snapshot(1001 + iter * 2, buildTree(ids));
+      const patched = applyDelta(from, diffSnapshots(from, to));
+      expect(patched).toEqual(to);
+      const patchedIds = collectIds(patched.root);
+      expect(new Set(patchedIds).size).toBe(patchedIds.length); // no duplicate node
+      expect([...patchedIds].sort((a, b) => a - b)).toEqual([...ids].sort((a, b) => a - b)); // none lost
     }
   });
 });

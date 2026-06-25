@@ -178,8 +178,20 @@ export function diffSnapshots(a, b) {
         .sort((leftId, rightId) => (from.get(rightId)?.node.depth ?? 0) - (from.get(leftId)?.node.depth ?? 0))
         .map((id) => ({ op: "removeNode", id }));
     const topLevelAddIds = [...addSet].filter((id) => {
-        const parentId = to.get(id)?.parentId;
-        return parentId !== null && !addSet.has(parentId);
+        // Only emit a standalone addNode for a node whose nearest re-added
+        // ancestor is itself. An ancestor in addSet clones its ENTIRE subtree
+        // (cloneValue below), so a node sitting inside a re-added subtree is
+        // already inserted via that clone; emitting another addNode would
+        // duplicate it. Walk the full parent chain in `to`, not just the direct
+        // parent — a node reparented under an UNCHANGED node that happens to
+        // live inside a re-added ancestor otherwise gets added twice.
+        let parentId = to.get(id)?.parentId;
+        if (parentId === null) return false;
+        while (parentId !== null && parentId !== undefined) {
+            if (addSet.has(parentId)) return false;
+            parentId = to.get(parentId)?.parentId;
+        }
+        return true;
     });
     /** @type {DevToolsDeltaOp[]} */
     const addOps = topLevelAddIds
