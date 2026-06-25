@@ -37,12 +37,19 @@ The target behavior is:
    - cloud/multiplayer: real Postgres engine store plus Electric SQL `SyncSource`;
    - PGlite is never an Electric source.
 
+6. Client/UI attachment is also transport-pluggable:
+
+   - local default UI attaches through gateway RPC/WebSocket, with no Electric shape URL and no Electric client runtime;
+   - cloud UI attaches selected collections to Electric shapes through the existing collection registry seam;
+   - writes always flow through gateway actions/RPC, even in Electric read-side mode.
+
 ### Non-Goals
 
 - Do not make PGlite an Electric SQL source. The sync spec explicitly says Electric source is always real Postgres and never PGlite because PGlite lacks the required logical replication source behavior ([.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:291), [.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:296)).
 - Do not remove `createSmithers()`. It is the synchronous SQLite authoring API and currently fails loud if `pglite` or `postgres` is requested ([packages/smithers/src/create.js](/Users/williamcory/smithers/packages/smithers/src/create.js:342), [packages/smithers/src/create.js](/Users/williamcory/smithers/packages/smithers/src/create.js:350)).
 - Do not silently migrate, delete, merge stores, or show empty state when run history exists elsewhere.
 - Do not require Electric, Postgres, or PGlite for local UI liveliness. The gateway transport already works against any backend the engine writes because it reads through `SmithersDb` ([.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:150), [.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:154)).
+- Do not branch per UI component on backend. Backend and sync-source selection must be resolved once and passed through the client attachment seam.
 
 ## 2. Target Architecture
 
@@ -140,6 +147,98 @@ The sync topology is parallel to, not identical with, the engine backend:
 | Cloud/multiplayer | Real Postgres | Electric SQL shapes | Yes |
 
 The existing spec already states the decisive point: local/self-host syncs over gateway transport, cloud syncs over Electric, and the gateway transport works against SQLite, PGlite, or Postgres because it reads through `SmithersDb` ([.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:150), [.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:154)). Electric is cloud-only and requires real Postgres logical replication ([.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:291), [.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:332)).
+
+### Client Attachment
+
+There is already a consumer-side seam for UI sync: `SyncTransport` plus `createGatewayCollections()`.
+
+`SyncTransport` is the minimal interface the sync cache consumes: `rpc(method, params, opts)` plus an optional `stream(scope, params, opts)` that returns an async iterable of `SyncStreamFrame` ([packages/gateway-client/src/sync/SyncTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/SyncTransport.ts:1), [packages/gateway-client/src/sync/SyncTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/SyncTransport.ts:32)). It is deliberately transport-agnostic so tests can pass a stub, production can pass a `SmithersGatewayClient` adapter, and UI code does not need to know whether the data source is gateway RPC/WebSocket or Electric.
+
+`SmithersGatewayClient` is the concrete gateway client. Its options are `baseUrl`, `token`, `headers`, `fetch`, and `WebSocket` ([packages/gateway-client/src/SmithersGatewayClientOptions.ts](/Users/williamcory/smithers/packages/gateway-client/src/SmithersGatewayClientOptions.ts:1)). The WebSocket connection is represented by `SmithersGatewayConnection`, which owns `readonly ws: WebSocket` and the request/event lifecycle ([packages/gateway-client/src/SmithersGatewayConnection.ts](/Users/williamcory/smithers/packages/gateway-client/src/SmithersGatewayConnection.ts:56)). `createSmithersGatewayTransport(client)` adapts that concrete client to `SyncTransport`: `rpc` calls `client.rpcRaw(...)`, and `stream` supports `"streamRunEvents"` and `"streamDevTools"` ([packages/gateway-client/src/sync/createSmithersGatewayTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createSmithersGatewayTransport.ts:33), [packages/gateway-client/src/sync/createSmithersGatewayTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createSmithersGatewayTransport.ts:42), [packages/gateway-client/src/sync/createSmithersGatewayTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createSmithersGatewayTransport.ts:69)).
+
+`createGatewayCollections(options)` is the registry every live hook reads through. Its `syncSource?: "gateway" | "electric"` option is the client-side switch, and the documented default is `"gateway"` ([packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:48), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:84), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:196)). Electric is engaged only when both `syncSource === "electric"` and an `electric` config object is present; otherwise the registry falls back to the gateway path ([packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:204), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:209)). Per collection, the registry chooses `knownCollection(...)` or `electricCollection(...)` under the same `syncKeyFingerprint(...)`, so hooks such as `useGatewayMemoryFacts` do not change when the transport changes ([packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:298), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:349), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:489)).
+
+#### Mode A: Local Default, SQLite Engine + Gateway WS/RPC, No Electric
+
+This is the default client path. Local now defaults to SQLite, and `createGatewayCollections()` defaults `syncSource` to `"gateway"` ([packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:84)). `createGatewayReactRoot()` constructs a `SmithersGatewayClient`, wraps it with `createSmithersGatewayTransport(client)`, and mounts `createGatewayCollections({ client: ... })` without `syncSource` or `electric` ([packages/gateway-react/src/createGatewayReactRoot.ts](/Users/williamcory/smithers/packages/gateway-react/src/createGatewayReactRoot.ts:20), [packages/gateway-react/src/createGatewayReactRoot.ts](/Users/williamcory/smithers/packages/gateway-react/src/createGatewayReactRoot.ts:25)). That means a one-call custom UI is gateway-WS-direct by default.
+
+The client connects to the `smithers gateway` HTTP+WebSocket server. The CLI imports `@smithers-orchestrator/server/gateway` and creates `new Gateway(...)` in the gateway command ([apps/cli/src/index.js](/Users/williamcory/smithers/apps/cli/src/index.js:2192), [apps/cli/src/index.js](/Users/williamcory/smithers/apps/cli/src/index.js:2195)). The gateway discovers and serves workflow UIs from `.smithers/ui/<id>.tsx` ([apps/cli/src/index.js](/Users/williamcory/smithers/apps/cli/src/index.js:2211)). The boot config carries endpoint paths: `GatewayUiBootConfig` includes `rpcPath`, `wsPath`, `mountPath`, `assetBasePath`, `kind`, and `workflowKey` ([packages/gateway-client/src/GatewayUiBootConfig.ts](/Users/williamcory/smithers/packages/gateway-client/src/GatewayUiBootConfig.ts:1)). The default operator UI calls RPC at `(boot.rpcPath ?? "/v1/rpc") + "/" + method` and opens WebSocket at `new URL(boot.wsPath ?? "/", window.location.href)` ([packages/server/src/gatewayUi/defaultOperatorUi.js](/Users/williamcory/smithers/packages/server/src/gatewayUi/defaultOperatorUi.js:482), [packages/server/src/gatewayUi/defaultOperatorUi.js](/Users/williamcory/smithers/packages/server/src/gatewayUi/defaultOperatorUi.js:495)).
+
+Live updates off a SQLite-backed engine store flow through the same gateway registry:
+
+- Pollable list collections call gateway RPC methods such as `listRuns`, `getRun`, `listApprovals`, `cronList`, `listMemoryFacts`, `listScores`, `listTickets`, and `listWorkflows` ([packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:83), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:90), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:97), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:130), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:137), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:144), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:155), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:167), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:180)).
+- Pollable collections re-pull through the in-process `INVALIDATE_SCOPE` pseudo-stream, not through Electric ([packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:95), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:233), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:317)).
+- Per-run live data streams over the gateway WebSocket scope `"streamRunEvents"` ([packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:102), [packages/gateway-client/src/sync/gatewayCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/gatewayCollectionDefs.ts:192), [packages/gateway-client/src/sync/createSmithersGatewayTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createSmithersGatewayTransport.ts:42)).
+
+The gateway reads through `SmithersDb`, so this works against any engine backend the engine wrote: SQLite, PGlite, or Postgres. Local SQLite does not require Postgres or Electric on the client.
+
+What `gateway-client` does not need in local mode:
+
+- no Electric shape URL;
+- no `electric` config object;
+- no Electric source selection;
+- no eager `@electric-sql/client` runtime. The Electric `ShapeStream` is behind a dynamic import, so a gateway-only bundle does not pull it ([packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:133), [packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:135)).
+
+#### Mode B: Cloud/Multiplayer, Postgres Engine + Electric SQL
+
+Cloud mode uses the same UI, hooks, and registry. The caller passes `syncSource: "electric"` plus `electric: { shapeUrl }` into `createGatewayCollections()`. `ElectricCollectionConfig.shapeUrl` is the absolute Electric shape endpoint, because `ShapeStream` constructs `new URL(url)` ([packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:74), [packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:76), [packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:312)).
+
+Electric-dependent pieces plug in through the collection registry, not through ad hoc UI branches:
+
+- `createElectricCollection()` opens a shape with `GET /v1/shape?table=...` for snapshot and live long-poll behavior; the `ShapeStream` runtime is dynamically imported ([packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:9), [packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:24), [packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:133), [packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:309)).
+- `electricCollectionDefs.memoryFacts` is the current Electric twin. It maps `_smithers_memory_facts` and uses a parameterized server-side `where` when namespace filtering is present ([packages/gateway-client/src/sync/electricCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/electricCollectionDefs.ts:89), [packages/gateway-client/src/sync/electricCollectionDefs.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/electricCollectionDefs.ts:97)).
+- The server/proxy shape catalog enumerates run-scoped `_smithers_*` shapes and explicit output-table allowlist entries. It is not a regex catch-all ([packages/electric-proxy/src/smithersElectricShapeCatalog.ts](/Users/williamcory/smithers/packages/electric-proxy/src/smithersElectricShapeCatalog.ts:15), [packages/electric-proxy/src/smithersElectricShapeCatalog.ts](/Users/williamcory/smithers/packages/electric-proxy/src/smithersElectricShapeCatalog.ts:80), [packages/electric-proxy/src/smithersElectricShapeCatalog.ts](/Users/williamcory/smithers/packages/electric-proxy/src/smithersElectricShapeCatalog.ts:96)).
+- The Electric proxy implementation lives in `createSmithersElectricProxy.ts` and `serveSmithersElectricProxy.ts`, which should remain the auth/scoping front for shape reads.
+
+`gateway-client`/`gateway-react` switch to Electric by swapping the per-collection builder from `knownCollection(...)` to `electricCollection(...)` under the same collection fingerprint. The consumer hook remains unchanged ([packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:349), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:489)).
+
+Writes still flow through gateway actions/RPC. Electric shapes are read-side only. The Electric collection builder wires no write/mutation path; mutation hooks call gateway RPC through the sync/gateway transport surface. This preserves server-side validation, auth, task/action semantics, and auditability. PGlite is never an Electric source.
+
+#### The Switch
+
+The client should decide its sync mode from one source of truth, not from component-local branching.
+
+The concrete seam is:
+
+```ts
+createGatewayCollections({
+  client: createSmithersGatewayTransport(gatewayClient),
+  syncSource: boot.sync?.source ?? "gateway",
+  electric: boot.sync?.source === "electric" ? { shapeUrl: boot.sync.shapeUrl } : undefined,
+});
+```
+
+Recommended implementation:
+
+- extend `GatewayUiBootConfig` with an optional server capability, for example:
+
+  ```ts
+  sync?: {
+    source: "gateway" | "electric";
+    shapeUrl?: string;
+  };
+  ```
+
+- local gateway omits it or sets `{ source: "gateway" }`;
+- cloud gateway sets `{ source: "electric", shapeUrl: "<absolute shape proxy url>" }`;
+- `createGatewayReactRoot()` can remain gateway-default for local/simple custom UIs, while cloud shells or a future boot-aware root pass the server-provided sync config.
+
+This makes adding/removing Electric a transport/config swap. App code, `.smithers/ui/*.tsx`, and the `gateway-react` live hooks should not branch on SQLite/PGlite/Postgres. (Note: `packages/components` is the workflow-authoring JSX library — `<Task>`, `<Approval>`, `<Saga>`, etc. — consumed by the reconciler/engine to *define* workflows; it imports no gateway/sync code and is unrelated to this seam.)
+
+#### `smithers ui` and Component Entrypoints
+
+`packages/gateway-react/src/index.ts` exports `createGatewayReactRoot`, `SmithersGatewayProvider`, `SyncProvider`, and the live hooks such as `useGatewayRun` and `useGatewayRuns` ([packages/gateway-react/src/index.ts](/Users/williamcory/smithers/packages/gateway-react/src/index.ts:1), [packages/gateway-react/src/index.ts](/Users/williamcory/smithers/packages/gateway-react/src/index.ts:3), [packages/gateway-react/src/index.ts](/Users/williamcory/smithers/packages/gateway-react/src/index.ts:13), [packages/gateway-react/src/index.ts](/Users/williamcory/smithers/packages/gateway-react/src/index.ts:15), [packages/gateway-react/src/index.ts](/Users/williamcory/smithers/packages/gateway-react/src/index.ts:29)). These are the surfaces the `.smithers/ui/*.tsx` custom UIs consume (22 of them import `createGatewayReactRoot` + `useGateway*`); `packages/components` is unrelated (it is the workflow-authoring JSX library, not a live-data view layer).
+
+`createGatewayReactRoot()` mounts both `SmithersGatewayProvider` for on-demand hooks/actions/node output/extensions and `SyncProvider` for live collection hooks, giving custom workflow UIs the full surface from one call ([packages/gateway-react/src/createGatewayReactRoot.ts](/Users/williamcory/smithers/packages/gateway-react/src/createGatewayReactRoot.ts:20), [packages/gateway-react/src/createGatewayReactRoot.ts](/Users/williamcory/smithers/packages/gateway-react/src/createGatewayReactRoot.ts:33)).
+
+#### Implication of the SQLite Default
+
+Because local now defaults to SQLite and `syncSource` defaults to `"gateway"`, the default client path is gateway-WS-direct with no Electric. Existing or future client code that assumes Electric/Postgres must be made transport-agnostic:
+
+- keep `@electric-sql/client` behind the dynamic import in `createElectricCollection()`;
+- ensure any `createGatewayCollections()` caller defaults to `"gateway"` and only selects `"electric"` from an explicit cloud signal;
+- derive cloud Electric config from server boot capability, build config, or connection URL once, then pass it into the registry;
+- never require an Electric shape URL for local `smithers gateway` or `smithers ui`.
 
 ## 3. Default-Backend Policy
 
@@ -248,7 +347,7 @@ Cases:
 - Clean install: no stores with runs. Default resolves SQLite. Reads do not provision. First write creates `smithers.db`. No migration error.
 - Current default SQLite workspace: SQLite has runs, backend resolves SQLite. No migration error.
 - Explicit PGlite/Postgres with populated SQLite and no migration receipt: fail loud with `SMITHERS_MIGRATION_REQUIRED`, preserving current tests and message shape ([apps/cli/tests/migrate-command.test.js](/Users/williamcory/smithers/apps/cli/tests/migrate-command.test.js:68)).
-- New SQLite default with populated PGlite and no SQLite runs: do not create empty SQLite. Either auto-select PGlite as `source: "existing-store"` or fail loud. Recommendation: fail loud unless `.smithers/backend.json` or config says PGlite, because silent default override is another hidden decision. Error should offer `smithers migrate --from pglite --to sqlite` or `SMITHERS_BACKEND=pglite`.
+- New SQLite default with populated PGlite and no SQLite runs: fail loud. This is a locked maintainer decision, not an open question. Do not create empty SQLite and do not auto-select PGlite unless `.smithers/backend.json`, config, or env explicitly authorizes PGlite. Error should offer `smithers migrate --from pglite --to sqlite` or `SMITHERS_BACKEND=pglite`.
 - Config/env explicitly says PGlite and PGlite has runs: use PGlite.
 - Both SQLite and PGlite/Postgres have runs and no migration receipt explains it: fail with `SMITHERS_BACKEND_CONFLICT` or a richer `SMITHERS_MIGRATION_REQUIRED`, never pick one.
 - Empty stray SQLite file: ignore for migration purposes, matching existing fresh-workspace expectations ([apps/cli/tests/migrate-command.test.js](/Users/williamcory/smithers/apps/cli/tests/migrate-command.test.js:131)).
@@ -359,6 +458,16 @@ Teardown sites:
 
 - Replace `setupSqliteCleanup()` at `loadWorkflowDb`, run, gateway loop, memory, eval, optimize, graph/output workflow-specific commands, and any direct workflow-load path. The current references include `loadWorkflowDb` ([apps/cli/src/index.js](/Users/williamcory/smithers/apps/cli/src/index.js:116)), run ([apps/cli/src/index.js](/Users/williamcory/smithers/apps/cli/src/index.js:1873)), gateway ([apps/cli/src/index.js](/Users/williamcory/smithers/apps/cli/src/index.js:2187)), and optimize dependency injection ([apps/cli/src/optimize-command.js](/Users/williamcory/smithers/apps/cli/src/optimize-command.js:278)).
 
+### Client/Gateway Sync Code
+
+Make the default UI path explicit and preserve the existing client seam:
+
+- Keep `SyncTransport` as the only consumer-side transport contract for live cache code ([packages/gateway-client/src/sync/SyncTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/SyncTransport.ts:32)).
+- Keep `createSmithersGatewayTransport()` as the gateway WS/RPC adapter ([packages/gateway-client/src/sync/createSmithersGatewayTransport.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createSmithersGatewayTransport.ts:33)).
+- Keep `createGatewayCollections()` defaulting to gateway sync and only selecting Electric when explicitly configured ([packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:84), [packages/gateway-react/src/sync/createGatewayCollections.ts](/Users/williamcory/smithers/packages/gateway-react/src/sync/createGatewayCollections.ts:209)).
+- Extend boot/capability config so cloud can supply Electric source information once; do not require each UI/component to decide.
+- Keep Electric code dynamically imported and read-side only ([packages/gateway-client/src/sync/createElectricCollection.ts](/Users/williamcory/smithers/packages/gateway-client/src/sync/createElectricCollection.ts:133)).
+
 ### Seeded Workflows and Workflow Pack
 
 Do not convert all seeded workflows to top-level `await openSmithersBackend()` for the default. Keep `createSmithers()` in the seeded pack so `workflow run hello` stays SQLite and instant.
@@ -423,6 +532,76 @@ Copy scope:
 
 Keep the existing guard refusing to merge into non-empty targets ([packages/smithers/src/migrateSmithersStore.js](/Users/williamcory/smithers/packages/smithers/src/migrateSmithersStore.js:320), [packages/smithers/src/migrateSmithersStore.js](/Users/williamcory/smithers/packages/smithers/src/migrateSmithersStore.js:322)).
 
+### Agent-Assisted Migration Fallback
+
+When deterministic `smithers migrate` fails, Smithers should fail clearly and offer an opt-in durable agent workflow to repair/complete the migration. It should not silently switch to agent behavior.
+
+Failure examples:
+
+- schema drift;
+- dialect edge cases;
+- partial/aborted copy;
+- unmapped table;
+- output table type mismatch;
+- row that will not round-trip;
+- target verification mismatch.
+
+On deterministic failure, the CLI exits non-zero with a clear error and a suggested command, for example:
+
+```txt
+SMITHERS_MIGRATION_FAILED: deterministic migration stopped while copying _smithers_events.
+Source was left intact. Target may contain a partial copy.
+
+Retry deterministic migration:
+  smithers migrate --from pglite --to sqlite --resume
+
+Or run the durable repair workflow:
+  smithers migrate --from pglite --to sqlite --agent
+```
+
+`smithers migrate --agent` should invoke a built-in seeded workflow, for example `migrate-repair`, shipped with the workflow pack. An equivalent explicit workflow command is also acceptable if it is what the CLI already supports best:
+
+```sh
+smithers workflow run migrate-repair -- --from pglite --to sqlite
+```
+
+The failed deterministic migrate output must print the exact command that applies to the detected source/target pair.
+
+The agent workflow responsibilities:
+
+1. Open source and target stores in copy-only mode.
+2. Read the source state and any partial target state.
+3. Diagnose what the deterministic copy could not handle.
+4. Complete repair table-by-table and, where necessary, row-by-row.
+5. Preserve IDs, timestamps, run relationships, node relationships, output rows, memory, cron, scores, docs, approvals, events, and schema metadata.
+6. Verify row counts and key integrity for every copied table.
+7. Verify representative row round-trips for JSON/text/blob-ish columns and dialect-sensitive columns.
+8. Write the same receipts as the deterministic path only after verified success:
+   - `.smithers/migrated.json`;
+   - `.smithers/backend.json`.
+
+Safety constraints:
+
+- Source is never destroyed by default.
+- Migration is copy-only unless a future explicit destructive flag is introduced.
+- The workflow must be idempotent and resumable. It should detect already-copied rows and reconcile them rather than duplicating them.
+- It must tolerate a partially copied target from a failed deterministic run.
+- It must use Smithers’ own durable engine plus compute/agent tasks so the repair is crash-safe and can resume.
+- Any destructive cleanup, target reset, source archive, or source deletion requires an explicit human-approval gate.
+- It must not write `migrated.json` or `backend.json` until verification succeeds.
+
+Where it lives:
+
+- Seed a built-in `migrate-repair` workflow in the pack so it ships with Smithers.
+- Make `smithers migrate --agent` discover and invoke that built-in workflow.
+- The deterministic failure message should mention both `smithers migrate --agent` and the underlying workflow identity for debuggability.
+
+CI constraint:
+
+- CI e2e should cover the deterministic path because CI has no agent CLIs and no browsers.
+- The agent fallback should be covered by a compute-task fixture variant where possible, or documented as manually tested until the durable agent runtime is available in CI.
+- Tests must still prove source-intact and receipt-after-success semantics for the agent path, even if the “agent reasoning” portion is replaced by a deterministic compute task fixture in CI.
+
 ### Existing SQLite Users
 
 With the new SQLite default:
@@ -440,12 +619,13 @@ Existing `SMITHERS_BACKEND=sqlite` behavior stays valid and tested ([apps/cli/te
 
 ### Existing PGlite Users
 
-This is the new default-flip hazard.
+This is the new default-flip hazard, and the decision is locked: fail loud plus migration/opt-out guidance.
 
 If `.smithers/pg` contains runs and SQLite has no runs:
 
 - do not silently create `smithers.db`;
-- recommended behavior: fail loud with guidance:
+- do not auto-select PGlite merely because it has runs;
+- fail loud with guidance:
 
   ```sh
   smithers migrate --from pglite --to sqlite
@@ -453,9 +633,15 @@ If `.smithers/pg` contains runs and SQLite has no runs:
   SMITHERS_BACKEND=pglite smithers ps
   ```
 
-If `.smithers/smithers.config.ts` or env explicitly selects `pglite`, keep using PGlite.
+If `.smithers/smithers.config.ts`, `.smithers/backend.json`, or env explicitly selects `pglite`, keep using PGlite.
 
 If both PGlite and SQLite contain runs and no marker explains it, fail as a conflict.
+
+If deterministic `pglite→sqlite` migration fails, offer the agent fallback:
+
+```sh
+smithers migrate --from pglite --to sqlite --agent
+```
 
 ### Existing Postgres Users
 
@@ -467,6 +653,14 @@ smithers migrate --from postgres --to sqlite --url postgres://...
 
 Cloud deployments should pin `backend=postgres` in config/env and are not affected by the local default flip.
 
+If deterministic migration from Postgres fails, offer:
+
+```sh
+smithers migrate --from postgres --to sqlite --url postgres://... --agent
+```
+
+or the corresponding built-in workflow invocation.
+
 ### Backward Compatibility
 
 - `createSmithers()` remains SQLite and synchronous.
@@ -474,6 +668,7 @@ Cloud deployments should pin `backend=postgres` in config/env and are not affect
 - `migrated.json` remains honored.
 - Copy-only migration remains the default: source stores are left intact unless an explicit destructive flag is added.
 - Existing sqlite→pglite/postgres migration tests remain, but their default expectations must be revised because default target becomes SQLite unless `--to` is specified.
+- Existing populated PGlite stores fail loud under the new SQLite default unless explicit config/env/marker selects PGlite. This is intentional data-loss prevention.
 
 ## 7. Test Plan / E2E Coverage
 
@@ -562,7 +757,10 @@ Add pairwise migration tests:
 - postgres→sqlite;
 - conflict when target has rows;
 - inferred `--from` when exactly one store has runs;
-- fail when multiple stores have runs and no `--from`.
+- fail when multiple stores have runs and no `--from`;
+- existing populated PGlite under the SQLite default fails loud and offers `smithers migrate --from pglite --to sqlite` plus `SMITHERS_BACKEND=pglite`;
+- deterministic migration failure offers `smithers migrate --agent` with the correct source/target pair;
+- agent fallback fixture preserves source, resumes from partial target, verifies row counts, and writes receipts only after success.
 
 Existing tests to keep green in adjusted form:
 
@@ -598,7 +796,26 @@ Add a local SQLite gateway test with no Electric/Postgres:
 4. Connect through gateway client/WS/RPC sync source.
 5. Assert run list/events update from SQLite-backed `SmithersDb`.
 
-This is the steer’s critical sync test: local UI observes SQLite directly through gateway transport.
+This is the critical sync test: local UI observes SQLite directly through gateway transport.
+
+Also add a collection-registry unit test:
+
+- `createGatewayCollections({ client })` defaults to gateway mode;
+- no Electric config is required;
+- `syncSource: "electric"` without config falls back to gateway;
+- `syncSource: "electric"` with config uses the Electric twin only for collections that have one.
+
+### Cloud Electric Attachment Test
+
+Add a cloud-mode integration or package-level test around the registry seam:
+
+- pass `syncSource: "electric"` plus `electric.shapeUrl`;
+- assert `memoryFacts` uses the Electric collection definition;
+- assert collections without Electric twins still use gateway RPC;
+- assert mutation hooks still call gateway RPC, not Electric;
+- assert no PGlite source can be configured as an Electric source.
+
+Where a real Electric service is unavailable in unit tests, keep this at the registry/config seam and cover real Electric proxy behavior in service-backed integration tests.
 
 ### Silent Data Loss Regression
 
@@ -608,8 +825,26 @@ Add explicit regression:
 2. Run with `SMITHERS_BACKEND=pglite`.
 3. Assert no SQLite `smithers.db` is required.
 4. Assert `SMITHERS_BACKEND=pglite smithers ps` shows the run.
+5. Assert plain `smithers ps` under the new SQLite default fails loud and offers migration/explicit-PGlite guidance instead of showing empty state.
 
 This catches the current “read path opens SQLite and shows empty” defect.
+
+### Agent Fallback Coverage
+
+Because CI has no agent CLIs, split coverage:
+
+- deterministic path covered in normal CI e2e;
+- `--agent` command wiring covered by a fixture/built-in workflow discovery test;
+- repair behavior covered by a compute-task variant that simulates the same durable workflow steps without external agent dependencies;
+- full agent-assisted repair documented as manually tested until CI has a suitable durable agent runner.
+
+Minimum assertions:
+
+- source remains intact;
+- partial target is resumed or reconciled;
+- failed repair does not write `migrated.json` or `backend.json`;
+- successful repair writes both receipts;
+- destructive cleanup requires human approval.
 
 ## 8. Phased Rollout
 
@@ -632,6 +867,7 @@ Add PGlite/Postgres probes and symmetric fail-loud detection.
 Must include:
 
 - existing PGlite run history is not hidden by new SQLite default;
+- populated PGlite plus no explicit PGlite selection fails loud with `smithers migrate --from pglite --to sqlite` or `SMITHERS_BACKEND=pglite`;
 - explicit env/config keeps PGlite usable;
 - conflict when multiple stores have runs;
 - current legacy SQLite fail-loud tests remain valid when resolving to non-SQLite.
@@ -642,7 +878,30 @@ Make `smithers migrate` backend-pair based.
 
 This is a launch gate for the default flip if there are real 0.25.x PGlite-default users. At minimum, pglite→sqlite must ship before the release that defaults to SQLite.
 
-### Phase 4: Gateway and Sync Source Validation
+Also include deterministic failure handling:
+
+- clear non-zero error;
+- source-intact guarantee;
+- resume guidance where possible;
+- opt-in agent repair command printed with the exact detected `--from`/`--to`.
+
+### Phase 4: Agent-Assisted Migration Repair
+
+Ship the seeded `migrate-repair` workflow and `smithers migrate --agent` wrapper.
+
+Must include:
+
+- workflow discovery/invocation from failed migrate output;
+- table-by-table and row-by-row repair semantics;
+- crash-safe durable execution;
+- source-intact and idempotent/resumable behavior;
+- row-count/key verification;
+- receipt writes only after success;
+- human-approval gate before destructive operations.
+
+This can land after deterministic pglite→sqlite if deterministic migration is strong enough for the default flip, but it must be part of the migration design before broad rollout.
+
+### Phase 5: Gateway and Sync Source Validation
 
 Fix gateway DB path plumbing and add local SQLite gateway sync test.
 
@@ -650,41 +909,50 @@ Must include:
 
 - no `findSmithersDb()` requirement for PGlite/Postgres gateway startup;
 - SQLite gateway live UI path with no Electric/Postgres;
-- backend-aware cleanup for workspace and discovered workflows.
+- backend-aware cleanup for workspace and discovered workflows;
+- boot/capability path for selecting Electric in cloud without UI component branching.
 
-### Phase 5: Cleanup Across Workflow Load Sites
+### Phase 6: Cleanup Across Workflow Load Sites
 
 Replace all `setupSqliteCleanup()` usages with backend-aware cleanup.
 
 This includes run, gateway, memory, eval, optimize, graph/output workflow-specific commands, TUI detached wait/open logic, and scheduler read acquisition.
 
-### Phase 6: Secondary Apps and Authoring Docs
+### Phase 7: Secondary Apps and Authoring Docs
 
 Update:
 
 - `apps/review`;
 - generated workflow authoring prompts;
 - docs around `createSmithers()` vs `openSmithersBackend()`;
-- seeded pack only where text changes require regeneration.
+- seeded pack only where text changes require regeneration;
+- docs around local gateway sync as the default client path and Electric as cloud read-side sync.
 
 Do not globally convert seeded workflows unless there is a specific PGlite/Postgres requirement.
 
-### Phase 7: Postgres/Electric Cloud
+### Phase 8: Postgres/Electric Cloud
 
 After Postgres engine backend is green in CI:
 
 - Electric proxy/shapes;
 - real Postgres logical replication prerequisites;
-- cloud `SyncSource` selection;
-- no PGlite-as-Electric-source path.
+- cloud `SyncSource` selection through boot capability/config;
+- no PGlite-as-Electric-source path;
+- TanStack DB Electric collections added incrementally behind `electricCollectionDefs`.
 
 This follows the existing sync spec’s cloud-only Electric directive ([.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:302), [.smithers/specs/postgres-tanstack-sync.md](/Users/williamcory/smithers/.smithers/specs/postgres-tanstack-sync.md:314)).
 
 ## 9. Open Questions / Decisions for Maintainer
 
-1. Should existing populated PGlite stores be auto-selected when no config exists, or fail loud under the new SQLite default?
+1. Existing populated PGlite stores under the new SQLite default: decided.
 
-   Recommendation: fail loud. It preserves the “never silently choose a surprising store” rule and gives explicit `migrate --from pglite --to sqlite` or `SMITHERS_BACKEND=pglite` guidance.
+   Fail loud. Do not auto-select PGlite without explicit env/config/marker. Offer:
+
+   ```sh
+   smithers migrate --from pglite --to sqlite
+   # or
+   SMITHERS_BACKEND=pglite smithers <cmd>
+   ```
 
 2. Should read commands get a shared `--backend` option?
 
@@ -705,3 +973,11 @@ This follows the existing sync spec’s cloud-only Electric directive ([.smither
 6. How strict should gateway be when `--backend pglite|postgres` loads SQLite-only `createSmithers()` workflows?
 
    Recommendation: keep the workflow-level fail-loud import error, but make gateway reporting explicit and test it. Do not silently mount a SQLite workflow into a non-SQLite gateway.
+
+7. What should select Electric vs gateway sync on the client?
+
+   Recommendation: server-provided boot capability is the single source of truth. Extend `GatewayUiBootConfig` with an optional sync capability containing `source: "gateway" | "electric"` and, for Electric, `shapeUrl`. Local omits it or sets gateway. Cloud sets Electric. UI code passes that once into `createGatewayCollections()`.
+
+8. How much of the agent-assisted migration fallback must be CI-gated?
+
+   Recommendation: deterministic migration remains the CI e2e gate. The agent fallback should have CI coverage for command wiring, workflow discovery, source-intact behavior, partial-target repair semantics, and receipt ordering using a compute-task fixture. Full external-agent repair can be manually tested until CI has agent CLIs.
