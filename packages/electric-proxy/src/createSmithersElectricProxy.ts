@@ -300,6 +300,19 @@ function validateWhere(
   auth: SmithersElectricAuthContext,
 ): string | null {
   const unscoped = auth.unscoped === true;
+  // A shape with no row-level scoping mechanism at all (no run/workspace/user
+  // column AND no whereTemplate) is a whole-table read. Forwarding it to a
+  // scoped principal (e.g. a `run:read` token granted a single run) would
+  // expose every row of the table regardless of which runs were granted — the
+  // exact fail-open the rest of this module is designed to prevent. Reject it
+  // before any client-supplied `where` is considered; only an explicitly
+  // unscoped principal (a single-user local-cloud install) may read it.
+  const hasRowScoping = Boolean(
+    shape.runIdColumn || shape.workspaceIdColumn || shape.userPrivateColumn || shape.whereTemplate,
+  );
+  if (!hasRowScoping && !unscoped) {
+    throw new Error(`shape "${shape.name}" has no row-level scoping and cannot be served to a scoped principal`);
+  }
   const effectiveWhere = where && where.trim() ? where.trim() : fillWhereTemplate(shape, auth);
   if (!effectiveWhere) {
     // No client where and the template could not be filled. For a scoped shape

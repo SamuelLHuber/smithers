@@ -73,6 +73,64 @@ describe("proxy scoping fails closed", () => {
   });
 });
 
+describe("an unscopable shape (no row-level scoping) is fail-closed to scoped principals", () => {
+  // Regression: the `docs` shape (table `_smithers_docs`) has no run_id column
+  // and no whereTemplate, so the old empty-where guard (which keys off scoping
+  // columns) was skipped and the whole table was forwarded UNFILTERED to any
+  // run:read principal — every ticket/plan/spec/proposal readable by anyone
+  // granted a single run.
+  test("a run:read principal cannot read the docs shape (no where)", async () => {
+    let upstreamHits = 0;
+    const proxy = createSmithersElectricProxy({
+      electricUrl: "http://electric.local/v1/shape",
+      authenticate: () => auth(), // has grantedRunIds, but docs has no run_id to scope by
+      fetchClient: async () => {
+        upstreamHits += 1;
+        return new Response("[]");
+      },
+    });
+
+    const response = await proxy.fetch(new Request("http://proxy.local/v1/shape?table=_smithers_docs"));
+    expect(response.status).toBe(400);
+    expect(await response.text()).toContain("no row-level scoping");
+    expect(upstreamHits).toBe(0);
+  });
+
+  test("a run:read principal cannot bypass it with a client-supplied where", async () => {
+    let upstreamHits = 0;
+    const proxy = createSmithersElectricProxy({
+      electricUrl: "http://electric.local/v1/shape",
+      authenticate: () => auth(),
+      fetchClient: async () => {
+        upstreamHits += 1;
+        return new Response("[]");
+      },
+    });
+
+    const response = await proxy.fetch(
+      new Request("http://proxy.local/v1/shape?table=_smithers_docs&where=kind+%3D+%27spec%27"),
+    );
+    expect(response.status).toBe(400);
+    expect(upstreamHits).toBe(0);
+  });
+
+  test("an explicitly unscoped single-tenant principal may read the docs shape", async () => {
+    let forwardedWhere: string | null = "unset";
+    const proxy = createSmithersElectricProxy({
+      electricUrl: "http://electric.local/v1/shape",
+      authenticate: () => auth({ unscoped: true }),
+      fetchClient: async (url) => {
+        forwardedWhere = new URL(String(url)).searchParams.get("where");
+        return new Response("[]");
+      },
+    });
+
+    const response = await proxy.fetch(new Request("http://proxy.local/v1/shape?table=_smithers_docs"));
+    expect(response.status).toBe(200);
+    expect(forwardedWhere).toBeNull();
+  });
+});
+
 describe("output tables are an explicit allowlist, not a regex catch-all", () => {
   test("an arbitrary identifier-named table is NOT a shape by default", async () => {
     let upstreamHits = 0;
