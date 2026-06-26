@@ -43,6 +43,7 @@ const probeSchema = z.object({
 const changelogSchema = z.object({
   changelogPath: z.string(),
   ok: z.boolean(),
+  sidebarUpdated: z.boolean().default(false),
 });
 
 const marketingContentSchema = z.object({
@@ -142,7 +143,51 @@ export default smithers((ctx) => {
                   `Write the changelog for v${probe.nextVersion} before releasing, then re-run.`,
               );
             }
-            return { changelogPath: probe.changelogPath, ok: true };
+
+            // Ensure the changelog page is registered in the Mintlify sidebar
+            // (docs/docs.json). The file existing on disk is not enough — an
+            // unregistered page never shows up in the published docs sidebar.
+            const pageId = `changelogs/${probe.nextVersion}`;
+            const docsJsonPath = path.resolve(process.cwd(), "docs/docs.json");
+            let sidebarUpdated = false;
+            if (fs.existsSync(docsJsonPath)) {
+              const raw = fs.readFileSync(docsJsonPath, "utf8");
+              const docs = JSON.parse(raw) as unknown;
+              const findChangelogGroup = (node: unknown): { pages: unknown[] } | null => {
+                if (Array.isArray(node)) {
+                  for (const item of node) {
+                    const found = findChangelogGroup(item);
+                    if (found) return found;
+                  }
+                  return null;
+                }
+                if (node && typeof node === "object") {
+                  const obj = node as Record<string, unknown>;
+                  if (obj.group === "Changelog" && Array.isArray(obj.pages)) {
+                    return obj as { pages: unknown[] };
+                  }
+                  for (const value of Object.values(obj)) {
+                    const found = findChangelogGroup(value);
+                    if (found) return found;
+                  }
+                }
+                return null;
+              };
+              const group = findChangelogGroup(docs);
+              if (!group) {
+                throw new Error(
+                  `Could not find a "Changelog" group in docs/docs.json to register ${pageId}.`,
+                );
+              }
+              if (!group.pages.includes(pageId)) {
+                // Newest first — prepend so the latest release sits at the top.
+                group.pages.unshift(pageId);
+                fs.writeFileSync(docsJsonPath, `${JSON.stringify(docs, null, 2)}\n`);
+                sidebarUpdated = true;
+              }
+            }
+
+            return { changelogPath: probe.changelogPath, ok: true, sidebarUpdated };
           }}
         </Task>
 
