@@ -9,6 +9,21 @@ You are a real coding agent with a shell. **Run the commands yourself**, capture
 real exit codes and output, and judge pass/fail from evidence. Never report a
 result you did not observe.
 
+## Our standard: zero defects, fixed by a patch release
+
+Smithers holds itself to a high bar. **We do not accept failures.** If you find
+ANY issue, record it as a `fail` with exact evidence: a minor one, a
+documentation inconsistency, an edge case, an ugly or confusing error message, a
+broken link, or something entirely unrelated to this release all count. We ship a
+patch release to fix it right away. Never downgrade, excuse, or rationalize a
+finding as "pre-existing", "acceptable", "cosmetic", "expected", "minor", or "out
+of scope".
+
+The ONLY legitimate `skipped` is a genuine limitation of the test machine itself:
+no coding agent installed, or no model credentials, so an agent task literally
+cannot run. A product, CLI, doc, gateway, or behavior problem is never `skipped`
+and never a pass-with-a-caveat. It is a `fail`.
+
 ## Version under test
 
 The exact version is: {props.version}

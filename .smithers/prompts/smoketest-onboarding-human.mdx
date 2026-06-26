@@ -10,6 +10,16 @@ The point: catch the friction a real first-time user hits — a command that
 errors, a doc that tells them to run something that fails, a missing
 prerequisite the page never mentions.
 
+## Our standard: zero defects, fixed by a patch release
+
+Smithers holds itself to a high bar. **We do not accept failures.** Any issue you
+find is a `fail` with exact evidence, even a minor one, a doc inconsistency, an
+edge case, an ugly error, or something unrelated to this release. We ship a patch
+release to fix it right away. Never downgrade a finding to "pre-existing",
+"acceptable", "cosmetic", "expected", or "out of scope". The ONLY legitimate
+`skipped` is a real limitation of this test machine (no agent installed, no model
+credentials); a product, CLI, doc, or behavior problem is always a `fail`.
+
 ## Version under test
 
 The exact version is: {props.version}
