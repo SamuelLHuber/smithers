@@ -23,23 +23,43 @@ const greetingSchema = z.object({
   greeting: z.string().describe("A short, friendly one-sentence greeting."),
 });
 
-const { Workflow, Task, smithers, outputs } = createSmithers({
+// The run's final output. The LAST task's output becomes the run output that
+// `smithers up` / `workflow run` prints, so every workflow ends with a small
+// deterministic task that surfaces the useful result instead of `output: null`.
+const outputSchema = z.object({
+  greeting: z.string().describe("The greeting the agent produced."),
+  name: z.string().describe("Who was greeted."),
+});
+
+const { Workflow, Task, Sequence, smithers, outputs } = createSmithers({
   input: inputSchema,
   greeting: greetingSchema,
+  output: outputSchema,
 });
 
 /**
- * Hello World. One task: hand the agent the prompt in
- * `.smithers/prompts/hello.mdx` (edit that file to change what it does) and
- * capture its structured `greeting`. This is the template to copy when you
- * write your own workflow.
+ * Hello World. Hand the agent the prompt in `.smithers/prompts/hello.mdx` (edit
+ * that file to change what it does), capture its structured `greeting`, then end
+ * with an `output` task that surfaces the result as the run's printed output.
+ * This is the template to copy when you write your own workflow.
  *
  * Input fields arrive null when unsupplied, so coalesce `name` to its default.
  */
-export default smithers((ctx) => (
-  <Workflow name="hello">
-    <Task id="greet" output={outputs.greeting} agent={agents.cheapFast}>
-      <HelloPrompt name={ctx.input.name ?? "world"} />
-    </Task>
-  </Workflow>
-));
+export default smithers((ctx) => {
+  const name = ctx.input.name ?? "world";
+  const greet = ctx.outputMaybe("greeting", { nodeId: "greet" });
+  return (
+    <Workflow name="hello">
+      <Sequence>
+        <Task id="greet" output={outputs.greeting} agent={agents.cheapFast}>
+          <HelloPrompt name={name} />
+        </Task>
+        {greet ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({ greeting: greet.greeting, name })}
+          </Task>
+        ) : null}
+      </Sequence>
+    </Workflow>
+  );
+});

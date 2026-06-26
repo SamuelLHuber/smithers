@@ -251,6 +251,44 @@ function formatStatusExitCode(status) {
     return 1;
 }
 /**
+ * The run's output is the last task's stored output, which arrives as a row array
+ * carrying internal run_id/node_id/iteration columns. Strip those and unwrap a
+ * single row so the printed `output` is the useful payload a workflow surfaced.
+ * @param {unknown} value
+ */
+function normalizeRunOutputForDisplay(value) {
+    const strip = (row) => {
+        if (!row || typeof row !== "object" || Array.isArray(row))
+            return row;
+        const out = {};
+        for (const [key, val] of Object.entries(row)) {
+            if (key === "runId" || key === "nodeId" || key === "iteration" || key === "run_id" || key === "node_id")
+                continue;
+            out[key] = val;
+        }
+        return out;
+    };
+    if (!Array.isArray(value))
+        return strip(value);
+    const rows = value.map(strip);
+    if (rows.length === 0)
+        return null;
+    if (rows.length === 1)
+        return rows[0];
+    return rows;
+}
+/**
+ * Build the printed run summary: normalize `output` to its useful payload and
+ * omit it entirely when there is nothing to show, so a successful run never
+ * prints a noisy `output: null`.
+ * @param {{ output?: unknown }} result
+ */
+function summarizeRunResult(result) {
+    const normalized = normalizeRunOutputForDisplay(result.output);
+    const { output: _drop, ...rest } = result;
+    return normalized == null ? rest : { ...rest, output: normalized };
+}
+/**
  * @param {string | null | undefined} status
  */
 function isWaitingStatus(status) {
@@ -2035,7 +2073,7 @@ async function executeUpCommand(c, workflowPath, options, fail) {
                 process.once("SIGTERM", () => shutdown());
             });
             process.exitCode = formatStatusExitCode(result.status);
-            return c.ok(result, {
+            return c.ok(summarizeRunResult(result), {
                 cta: result.runId ? {
                     description: isWaitingStatus(result.status)
                         ? "Run is paused (exit 3 = awaiting a decision, not a failure). Next steps:"
@@ -2068,7 +2106,7 @@ async function executeUpCommand(c, workflowPath, options, fail) {
             signal: abort.signal,
         }));
         process.exitCode = formatStatusExitCode(result.status);
-        return c.ok(result, {
+        return c.ok(summarizeRunResult(result), {
             cta: result.runId ? {
                 description: isWaitingStatus(result.status)
                     ? "Run is paused (exit 3 = awaiting a decision, not a failure). Next steps:"
