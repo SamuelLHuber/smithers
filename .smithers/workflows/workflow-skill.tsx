@@ -137,7 +137,9 @@ export default smithers((ctx) => {
       <Task id="collect" output={outputs.collect}>
         {async () => {
           const root = process.cwd();
-          const workflowTarget = ctx.input.workflow.trim() || "all";
+          // ctx.input fields arrive null (not their zod default) when unsupplied,
+          // so coalesce before calling string methods or the collect step throws.
+          const workflowTarget = (ctx.input.workflow ?? "all").trim() || "all";
           const output = ctx.input.output?.trim() || null;
           const allWorkflows = discoverWorkflowSources(root).filter(
             (workflow) => workflow.id !== WORKFLOW_ID,
