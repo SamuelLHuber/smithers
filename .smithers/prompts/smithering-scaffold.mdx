@@ -81,7 +81,7 @@ Hard contract for the generated workflow:
   idempotency keys; no caching of side-effect tasks.
 - CAPTURE VERDICTS FROM DISK, NOT FROM AGENT RETURNS. The loop-exit / "is this ticket done?"
   check MUST read each ticket's verdict from the on-disk evidence bundle the agents write
-  (e.g. `verify.json.pass`, advisory `review.json`, and safety `challenge.json.approved` under artifacts/smithering/build/<runId>/<id>/),
+  (e.g. `verify.json.pass`, advisory `review.json`, and safety `challenge.json.approved` under `artifacts/smithering/build/<runId>/<id>/`),
   NOT from the verify/review agents' structured task-return values. Agent structured returns
   are unreliable and frequently come back empty (they persist their verdict to the bundle and
   emit prose); gating "done" on them deadlocks the loop: the ticket can NEVER reach done and
