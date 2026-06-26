@@ -153,6 +153,10 @@ function readMigratedMarker(workspaceRoot) {
         return {
             exists: true,
             backend: normalizeBackend(parsed?.target?.backend ?? parsed?.target ?? parsed?.backend, markerPath),
+            // The migration SOURCE backend, recorded by `migrate` for every
+            // direction. A reverse (target sqlite) receipt uses it to tolerate the
+            // kept source store (pglite/postgres) without hiding an unrelated one.
+            sourceBackend: normalizeBackend(parsed?.source?.backend ?? (typeof parsed?.source === "string" ? parsed.source : undefined), markerPath),
         };
     }
     catch {
@@ -376,13 +380,31 @@ export async function resolveSmithersBackendChoice(opts = {}) {
     // otherwise an explicit pglite/postgres open beside a populated SQLite store
     // would hide the SQLite history.
     const marker = migratedMarker.exists && (migratedMarker.backend === "pglite" || migratedMarker.backend === "postgres");
+    // A REVERSE migration receipt (target sqlite) is authoritative the same way a
+    // forward one is — but the only leftover store it authorizes keeping is the
+    // recorded migration SOURCE (pglite/postgres). It must NOT silently hide an
+    // unrelated populated store, so it requires a recorded source backend (a bare
+    // or sourceless receipt does not suppress) and resolves only when we actually
+    // land on sqlite. Symmetric to the forward path's sqlite-source tolerance.
+    const reverseMarker = migratedMarker.exists
+        && migratedMarker.backend === "sqlite"
+        && backend === "sqlite"
+        && (migratedMarker.sourceBackend === "pglite" || migratedMarker.sourceBackend === "postgres");
     const populated = [
         ...(sqliteStore.runCount > 0 ? [{ backend: /** @type {"sqlite"} */ ("sqlite"), location: sqliteStore.dbPath, runCount: sqliteStore.runCount, schemaVersion: sqliteStore.schemaVersion }] : []),
         ...(pgliteStore.runCount > 0 ? [{ backend: /** @type {"pglite"} */ ("pglite"), location: pgliteStore.dataDir, runCount: pgliteStore.runCount, schemaVersion: pgliteStore.schemaVersion }] : []),
         ...(postgresStore.runCount > 0 ? [{ backend: /** @type {"postgres"} */ ("postgres"), location: postgresStore.connectionString === "set" ? "postgres connection" : "postgres", runCount: postgresStore.runCount, schemaVersion: postgresStore.schemaVersion }] : []),
     ];
-    if (!marker && populated.length > 1) {
+    if (!marker && !reverseMarker && populated.length > 1) {
         throw backendConflictError({ populated });
+    }
+    if (reverseMarker) {
+        // Tolerate sqlite (the migration target) and the recorded source only;
+        // any other populated store would be hidden, so refuse to choose.
+        const unexpectedPopulated = populated.filter((store) => store.backend !== "sqlite" && store.backend !== migratedMarker.sourceBackend);
+        if (unexpectedPopulated.length > 0) {
+            throw backendConflictError({ populated });
+        }
     }
     const migratedTargetBackend = marker && (migratedMarker.backend ?? markerBackend) !== "sqlite"
         ? /** @type {"pglite" | "postgres" | undefined} */ (migratedMarker.backend ?? markerBackend)
@@ -452,6 +474,6 @@ export async function resolveSmithersBackendChoice(opts = {}) {
         sqlite: sqliteStore,
         pglite: pgliteStore,
         postgres: postgresStore,
-        migratedMarker: marker,
+        migratedMarker: marker || reverseMarker,
     };
 }

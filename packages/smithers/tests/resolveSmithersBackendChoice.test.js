@@ -230,6 +230,96 @@ describe("resolveSmithersBackendChoice", () => {
     }
   });
 
+  test("reverse migrated.json (target sqlite, source pglite) resolves to sqlite beside the kept pglite source", async () => {
+    const cwd = makeWorkspace("resolver-reverse-marker");
+    seedSqliteRuns(cwd);
+    await seedPgliteRuns(cwd);
+    writeFileSync(
+      join(cwd, ".smithers", "migrated.json"),
+      JSON.stringify({ migratedAt: 1, target: { backend: "sqlite" }, source: { backend: "pglite" } }),
+    );
+
+    const choice = await resolveSmithersBackendChoice({ cwd, env: {} });
+    expect(choice).toMatchObject({
+      backend: "sqlite",
+      source: "marker",
+      migratedMarker: true,
+      sqlite: { runCount: 1 },
+      pglite: { runCount: 1 },
+    });
+
+    const api = await openSmithersBackend({}, { cwd, env: {} });
+    try {
+      // The pg/pglite backends expose `dialect` as the string "postgres"; bun:sqlite
+      // exposes a SQLiteSyncDialect instance. Either way it must be the sqlite path.
+      const dialectName =
+        typeof api.db.dialect === "string" ? api.db.dialect : (api.db.dialect?.constructor?.name ?? "");
+      expect(dialectName.toLowerCase()).toContain("sqlite");
+    } finally {
+      await closeApi(api);
+    }
+  });
+
+  test("reverse marker refuses a leftover store that is NOT the recorded migration source", async () => {
+    // Receipt says the source was postgres, but a populated pglite store sits
+    // beside sqlite. pglite was never the source, so its runs must not be hidden.
+    const cwd = makeWorkspace("resolver-reverse-marker-stray");
+    seedSqliteRuns(cwd);
+    await seedPgliteRuns(cwd);
+    writeFileSync(
+      join(cwd, ".smithers", "migrated.json"),
+      JSON.stringify({ migratedAt: 1, target: { backend: "sqlite" }, source: { backend: "postgres" } }),
+    );
+
+    await expect(resolveSmithersBackendChoice({ cwd, env: {} })).rejects.toMatchObject({
+      code: "SMITHERS_BACKEND_CONFLICT",
+      details: { populatedBackends: ["sqlite", "pglite"] },
+    });
+  });
+
+  test("reverse marker without a recorded source does not suppress the multi-store conflict", async () => {
+    const cwd = makeWorkspace("resolver-reverse-marker-nosource");
+    seedSqliteRuns(cwd);
+    await seedPgliteRuns(cwd);
+    writeFileSync(
+      join(cwd, ".smithers", "migrated.json"),
+      JSON.stringify({ migratedAt: 1, target: { backend: "sqlite" } }),
+    );
+
+    await expect(resolveSmithersBackendChoice({ cwd, env: {} })).rejects.toMatchObject({
+      code: "SMITHERS_BACKEND_CONFLICT",
+    });
+  });
+
+  test("reverse marker does not authorize opening the source backend over a populated sqlite store", async () => {
+    // The receipt says sqlite is authoritative; an explicit --backend pglite must
+    // still fail loud rather than silently serving the old pglite source.
+    const cwd = makeWorkspace("resolver-reverse-marker-explicit-pglite");
+    seedSqliteRuns(cwd);
+    writeFileSync(
+      join(cwd, ".smithers", "migrated.json"),
+      JSON.stringify({ migratedAt: 1, target: { backend: "sqlite" }, source: { backend: "pglite" } }),
+    );
+
+    await expect(resolveSmithersBackendChoice({ cwd, backend: "pglite", env: {} })).rejects.toMatchObject({
+      code: "SMITHERS_MIGRATION_REQUIRED",
+      details: { sourceBackend: "sqlite", targetBackend: "pglite" },
+    });
+  });
+
+  test("reverse marker fails loud when the sqlite target is empty but the pglite source still has runs", async () => {
+    const cwd = makeWorkspace("resolver-reverse-marker-missing-target");
+    await seedPgliteRuns(cwd);
+    writeFileSync(
+      join(cwd, ".smithers", "migrated.json"),
+      JSON.stringify({ migratedAt: 1, target: { backend: "sqlite" }, source: { backend: "pglite" } }),
+    );
+
+    await expect(resolveSmithersBackendChoice({ cwd, env: {} })).rejects.toMatchObject({
+      code: "SMITHERS_MIGRATION_REQUIRED",
+    });
+  });
+
   test("migrated.json target fails loud when migrated target is missing but kept sqlite has runs", async () => {
     const cwd = makeWorkspace("resolver-migrated-marker-missing-target");
     seedSqliteRuns(cwd);
