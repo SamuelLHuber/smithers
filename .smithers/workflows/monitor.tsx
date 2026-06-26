@@ -42,7 +42,7 @@ const inputSchema = z.object({
 
 // 1. Deterministic capture of the target run's state (no agent).
 const gatherSchema = z.looseObject({
-  runId: z.string().default("").describe("The resolved target run id."),
+  targetRunId: z.string().default("").describe("The resolved target run id."),
   ok: z.boolean().default(false).describe("Whether `smithers inspect` returned usable JSON."),
   state: z.string().default("unknown").describe("Run status: running | completed | failed | unknown."),
   summary: z.string().default("").describe("One-line human summary of the capture."),
@@ -267,7 +267,7 @@ async function gatherSnapshot(explicitRunId: string | null, staleMinutes: number
   const runId = await resolveRunId(explicitRunId);
   if (!runId) {
     return {
-      runId: "",
+      targetRunId: "",
       ok: false,
       state: "unknown",
       summary: "No target run found. Pass a run id, or start a run first.",
@@ -336,7 +336,7 @@ async function gatherSnapshot(explicitRunId: string | null, staleMinutes: number
     : `Could not inspect run ${runId}: ${(inspectErr || inspectOut || "no output").slice(0, 300)}`;
 
   return {
-    runId,
+    targetRunId: runId,
     ok,
     state,
     summary,
@@ -386,7 +386,7 @@ export default smithers((ctx) => {
   const fix = ctx.outputMaybe("fix", { nodeId: "fix" });
   const report = ctx.outputMaybe("report", { nodeId: "report" });
 
-  const runId = gather?.runId || explicitRunId || "";
+  const runId = gather?.targetRunId || explicitRunId || "";
   const title = ctx.input.title ?? (runId ? `Monitor: run ${runId}` : "Monitor");
 
   const unhealthy = diagnosis !== undefined && diagnosis.health !== "healthy";
