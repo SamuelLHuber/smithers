@@ -2519,8 +2519,32 @@ const memoryListArgs = z.object({
     namespace: z.string().describe("Namespace to list facts for (e.g. 'workflow:my-flow')"),
 });
 const memoryListOptions = z.object({
-    workflow: z.string().describe("Path to a .tsx workflow file"),
+    workflow: z.string().optional().describe("Path to a .tsx workflow file (defaults to this workspace's store)"),
 });
+/**
+ * Resolve a workflow-like handle (carrying the bun:sqlite `.db`) for the memory
+ * commands. Memory facts live in the shared WORKSPACE store, not in any single
+ * workflow, so `--workflow` is optional: with no flag we open the workspace
+ * store directly (the same DB `ps`/`inspect` read), which is what lets
+ * `smithers memory set workflow:ns key value` work right after `init` without
+ * pointing at an arbitrary `.tsx`.
+ *
+ * @param {string | undefined} workflowPath
+ */
+async function resolveMemoryWorkflowAsync(workflowPath) {
+    if (workflowPath)
+        return loadWorkflowAsync(workflowPath);
+    // Every workflow in the pack opens the same shared `.smithers/smithers.db`,
+    // so default to any discovered workflow file (preferring the seeded `hello`)
+    // rather than forcing the user to name one for a workspace-scoped read/write.
+    const localPackDir = resolvePackDirs(process.cwd()).find((dir) => dir.scope === "local")?.packDir;
+    const workspace = localPackDir ? dirname(localPackDir) : process.cwd();
+    const discovered = discoverWorkflows(workspace).filter((w) => w.entryFile);
+    const entry = discovered.find((w) => w.id === "hello") ?? discovered[0];
+    if (!entry?.entryFile)
+        throw new SmithersError("CLI_DB_NOT_FOUND", "No workflow found to resolve this workspace's store. Run `smithers init`, or pass --workflow <file>.");
+    return loadWorkflowAsync(entry.entryFile);
+}
 const memoryCli = Cli.create({
     name: "memory",
     description: "View and query cross-run memory facts.",
@@ -2534,7 +2558,7 @@ const memoryCli = Cli.create({
         try {
             const { createMemoryStore } = await import("@smithers-orchestrator/memory/store");
             const { parseNamespace } = await import("@smithers-orchestrator/memory/types");
-            const workflow = await loadWorkflowAsync(c.options.workflow);
+            const workflow = await resolveMemoryWorkflowAsync(c.options.workflow);
             ensureSmithersTables(workflow.db);
             setupSqliteCleanup(workflow);
             const store = createMemoryStore(workflow.db);
@@ -2569,7 +2593,7 @@ const memoryCli = Cli.create({
         try {
             const { createMemoryStore } = await import("@smithers-orchestrator/memory/store");
             const { parseNamespace } = await import("@smithers-orchestrator/memory/types");
-            const workflow = await loadWorkflowAsync(c.options.workflow);
+            const workflow = await resolveMemoryWorkflowAsync(c.options.workflow);
             ensureSmithersTables(workflow.db);
             setupSqliteCleanup(workflow);
             const store = createMemoryStore(workflow.db);
@@ -2602,7 +2626,7 @@ const memoryCli = Cli.create({
         try {
             const { createMemoryStore } = await import("@smithers-orchestrator/memory/store");
             const { parseNamespace } = await import("@smithers-orchestrator/memory/types");
-            const workflow = await loadWorkflowAsync(c.options.workflow);
+            const workflow = await resolveMemoryWorkflowAsync(c.options.workflow);
             ensureSmithersTables(workflow.db);
             setupSqliteCleanup(workflow);
             const store = createMemoryStore(workflow.db);
@@ -2628,7 +2652,7 @@ const memoryCli = Cli.create({
         try {
             const { createMemoryStore } = await import("@smithers-orchestrator/memory/store");
             const { parseNamespace } = await import("@smithers-orchestrator/memory/types");
-            const workflow = await loadWorkflowAsync(c.options.workflow);
+            const workflow = await resolveMemoryWorkflowAsync(c.options.workflow);
             ensureSmithersTables(workflow.db);
             setupSqliteCleanup(workflow);
             const store = createMemoryStore(workflow.db);
