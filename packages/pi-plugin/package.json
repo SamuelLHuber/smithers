@@ -1,6 +1,6 @@
 {
   "name": "@smithers-orchestrator/pi-plugin",
-  "version": "0.25.2",
+  "version": "0.25.3",
   "description": "PI coding agent integration for Smithers workflow inspection",
   "type": "module",
   "sideEffects": false,
