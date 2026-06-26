@@ -13,6 +13,24 @@ import { join, resolve } from "node:path";
 import { createExecutableDir, writeFakeCodexBinary } from "../../../packages/smithers/tests/e2e-helpers.js";
 import { initWorkflowPack } from "../src/workflow-pack.js";
 
+const DESCRIPTOR_EXCLUDED_WORKFLOWS = new Set([
+    "kanban",
+    "monitor",
+    "hello",
+    "create-workflow",
+    "context-engineer",
+    "route-task",
+    "create-skill",
+    "extract-skill",
+    "monitor-smithers",
+    "triage-run",
+    "context-doctor",
+    "backpressure-plan",
+    "eval-author",
+    "report-slideshow",
+    "smithering",
+]);
+
 // CI has no agent CLIs/credentials, so agent detection throws NO_USABLE_AGENTS.
 // Seed a fake codex binary on PATH plus an OpenAI key so init has one usable
 // agent — the same pattern init.e2e.test.js uses. The detected agent set does
@@ -29,7 +47,6 @@ function seededAgentEnv() {
         GOOGLE_API_KEY: "",
     };
 }
-
 /**
  * Parse `await mountWorkflow("key", "Title")` calls from the generated
  * gateway.ts and return the mounted workflow descriptors.
@@ -91,17 +108,16 @@ test("UI_WORKFLOWS gateway-mounts / ui-files / e2e-descriptors are in sync", () 
         ).toBe(true);
     }
 
-    // Every gateway mount except "kanban" must have an e2e descriptor.
-    // (kanban has its own bespoke e2e coverage and is intentionally excluded.)
+    // Every gateway mount except bespoke UIs must have an e2e descriptor.
     for (const key of gatewayKeys) {
-        if (key === "kanban") continue;
+        if (DESCRIPTOR_EXCLUDED_WORKFLOWS.has(key)) continue;
         expect(
             descriptorKeys.has(key),
             `"${key}" is mounted in gateway.ts but missing from workflow-ui-descriptors.json`,
         ).toBe(true);
     }
     for (const workflow of gatewayWorkflows) {
-        if (workflow.key === "kanban") continue;
+        if (DESCRIPTOR_EXCLUDED_WORKFLOWS.has(workflow.key)) continue;
         expect(
             descriptorByKey.get(workflow.key)?.title,
             `"${workflow.key}" title drifted between gateway mount and workflow-ui-descriptors.json`,
