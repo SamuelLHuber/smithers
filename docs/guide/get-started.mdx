@@ -27,7 +27,7 @@ bunx smithers-orchestrator workflow run hello --interactive
 A durable run completes and you see the output. Edit `.smithers/prompts/hello.mdx`, run it again, watch the output change.
 
 <Note>
-Normally you won't run Smithers workflows yourself - your agent runs them on your behalf. This command is here so you can see a run end to end the first time.
+This runs the coding agent `init` detected (Claude Code, Codex, ...), so have one installed and signed in. Normally your agent runs workflows for you; this command lets you watch one end to end the first time. The `--interactive` flag needs a real terminal, so in a script or when an agent runs it, use plain `workflow run hello`.
 </Note>
 
 </Step>
