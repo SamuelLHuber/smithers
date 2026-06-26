@@ -632,6 +632,11 @@ declare class Gateway {
    */
     handleUiHttp(req: IncomingMessage, res: ServerResponse$1): Promise<boolean>;
     /**
+   * @param {IncomingMessage} req
+   * @param {ServerResponse} res
+   */
+    handleRootRequest(req: IncomingMessage, res: ServerResponse$1): void;
+    /**
    * @param {string} key
    * @param {RegisteredWorkflow} entry
    */
