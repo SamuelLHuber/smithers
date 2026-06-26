@@ -24,9 +24,9 @@ import {
  * existing UI e2e only boots each UI's frontend bundle, so it never caught it.
  */
 
-const RESERVED_ERROR = /reserved field name/i;
+const LOAD_ERROR = /reserved field name|Missing 'default' export|Workflow not found|Cannot read properties/i;
 
-test("no seeded init-pack workflow declares a reserved output-column field (monitor regression guard)", () => {
+test("every seeded init-pack workflow renders its graph without a load-time error", () => {
   const binDir = createExecutableDir();
   writeFakeClaudeBinary(binDir);
   writeFakeCodexBinary(binDir);
@@ -54,25 +54,21 @@ test("no seeded init-pack workflow declares a reserved output-column field (moni
   // pack is broken, so assert we are actually exercising the catalog.
   expect(files.length).toBeGreaterThan(10);
 
-  // A reserved-column collision throws at createSmithers time, so it surfaces in
-  // the graph output for ANY workflow regardless of whether it also needs input
-  // to fully render. We assert on exactly that error class (the regression),
-  // not on a clean exit — some seeded meta-workflows legitimately need an input
-  // to resolve a target before their graph completes.
-  const reservedOffenders = [];
+  // `graph` loads the workflow and builds one frame (running createSmithers and
+  // the compute tasks needed to resolve the tree) but dispatches no agent, so it
+  // is the cheapest trigger for the whole class of load-time authoring bugs:
+  // reserved output columns (monitor's `gather.runId`), MDX prompts that lose
+  // their default export to a bare `<tag>` (smithering), and `ctx.input` fields
+  // dereferenced before coalescing their null (workflow-skill).
+  const failures = [];
   for (const file of files) {
     const rel = join(".smithers", "workflows", file);
     const r = runSmithers(["graph", rel], { cwd: repo.dir, env, timeoutMs: 90_000 });
-    if (RESERVED_ERROR.test(`${r.stdout}\n${r.stderr}`)) reservedOffenders.push(file);
+    const out = `${r.stdout}\n${r.stderr}`;
+    if (r.exitCode !== 0 || LOAD_ERROR.test(out)) {
+      const detail = out.split("\n").find((l) => /message:|error/i.test(l))?.trim().slice(0, 120) ?? "";
+      failures.push(`${file} (exit ${r.exitCode}): ${detail}`);
+    }
   }
-  expect(reservedOffenders).toEqual([]);
-
-  // And the previously-broken `monitor` (its `gather` output declared `runId`)
-  // now renders its graph cleanly end to end.
-  const monitor = runSmithers(["graph", join(".smithers", "workflows", "monitor.tsx")], {
-    cwd: repo.dir,
-    env,
-    timeoutMs: 90_000,
-  });
-  expect(monitor.exitCode).toBe(0);
+  expect(failures).toEqual([]);
 }, 600_000);
