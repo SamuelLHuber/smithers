@@ -2,6 +2,7 @@
 // smithers-description: Generate claim-checked changelogs, launch threads, and release blog posts with dry-run previews, approval markers, and optional publishing.
 // smithers-tags: marketing, release, changelog, publish
 /** @jsxImportSource smithers-orchestrator */
+import { Database } from "bun:sqlite";
 import { createSmithers, approvalDecisionSchema } from "smithers-orchestrator";
 import { z } from "zod/v4";
 import { agents } from "../agents";
@@ -150,6 +151,23 @@ function buildContentBrief(
 
 export default smithers((rawCtx) => {
   const input = normalizeReleaseContentInput(rawCtx.input);
+  if (input.version === undefined && input.bump === undefined) {
+    try {
+      const db = new Database("smithers.db", { readonly: true });
+      const row = db
+        .query("select version, bump from input where run_id = ?")
+        .get(rawCtx.runId) as { version?: string | null; bump?: "patch" | "minor" | "major" | null } | null;
+      db.close();
+      if (row?.version || row?.bump) {
+        Object.assign(input, {
+          version: row.version ?? input.version,
+          bump: row.bump ?? input.bump,
+        });
+      }
+    } catch {
+      // Best effort: older stores or non-SQLite backends can still use the decoded input.
+    }
+  }
   const probe = rawCtx.outputMaybe(outputs.probe, { nodeId: "probe-release" });
   const context = rawCtx.outputMaybe(outputs.collectedContext, { nodeId: "collect-context" });
   const analysis = rawCtx.outputMaybe(outputs.releaseAnalysis, { nodeId: "analyze-release" });
@@ -193,7 +211,7 @@ export default smithers((rawCtx) => {
     (input.skip.scoring || latestScore?.passed === true);
 
   return (
-    <Workflow name="release-content" cache>
+    <Workflow name="release-content">
       <Sequence>
         <Task id="probe-release" output={outputs.probe}>
           {() => probeRelease(input)}

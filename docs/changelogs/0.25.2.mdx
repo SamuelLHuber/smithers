@@ -1,0 +1,18 @@
+---
+title: "0.25.2"
+description: "Gateway root routing, CLI skill discoverability guidance, and parallel CI coverage."
+---
+
+Smithers 0.25.2 is a focused patch with two user-facing fixes and a CI improvement.
+
+## Gateway
+
+The Gateway root now routes to the console or landing page instead of returning a bare response.
+
+## CLI
+
+Workflow skill discoverability prints next-step guidance after discovery, so operators know what to do next without consulting docs.
+
+## CI
+
+Coverage reporting runs in its own parallel CI job, keeping the main test gate faster.
