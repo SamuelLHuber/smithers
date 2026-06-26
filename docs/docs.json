@@ -406,6 +406,7 @@
           {
             "group": "Changelog",
             "pages": [
+              "changelogs/0.25.3",
               "changelogs/0.25.2",
               "changelogs/0.25.1",
               "changelogs/0.25.0",
