@@ -1,108 +1,116 @@
-# Smoke Test
+# Smoke Test — Features across the last releases
 
-You are running a **release smoke test** for the `smithers-orchestrator`
-npm package. Your job is to prove that a user who has never touched
-Smithers can install it and exercise the feature set — and that every
-claim in the changelog below actually holds against the published
-`smithers-orchestrator@{props.version}` on npm.
+You are running the **feature** slice of a release smoke test for the
+`smithers-orchestrator` npm package. Your job: prove that every user-facing
+change shipped across the last few releases actually holds against the published
+package, and that the baseline install path is not broken.
+
+You are a real coding agent with a shell. **Run the commands yourself**, capture
+real exit codes and output, and judge pass/fail from evidence. Never report a
+result you did not observe.
 
 ## Version under test
 
-`{props.version}` — pinned by the workflow from the monorepo's
-`package.json` at load time. Do not guess or re-derive this; the
-workflow already picked it for you.
+The exact version is: {props.version}
 
-## Changelog entry for this version
-
-The full `docs/changelogs/{props.version}.mdx` is embedded below. Every
-bullet under `## Fixes` or `## Features` is a test case. Do not go
-looking for it elsewhere — this text is the source of truth.
-
-```
-{props.changelog}
-```
+Pin it on EVERY invocation — run commands as `bunx smithers-orchestrator@VERSION SUBCOMMAND`, substituting VERSION with the version above (do not use `@latest`, do not re-derive it).
 
 ## Setup — always work in a brand-new folder
 
-1. Before doing anything else, clear caches so you're testing the
-   registry, not a stale copy:
-   - `bun pm cache rm`
-   - macOS: `rm -rf $(echo $TMPDIR)bunx-*smithers-orchestrator*`
-     (or check `/var/folders/**/T/bunx-*smithers-orchestrator*`).
-   - Linux / other: `rm -rf $TMPDIR/bunx-*smithers-orchestrator*`.
-2. Create a fresh scratch directory outside any existing project:
-   `SMOKE_DIR=$(mktemp -d)/smoketest && mkdir -p "$SMOKE_DIR" && cd
-   "$SMOKE_DIR"`. Never reuse an existing folder. Never work in the
-   monorepo itself.
-3. Run `bunx smithers-orchestrator@latest init` from the scratch
-   directory. Capture stdout/stderr.
+1. Clear caches so you test the registry, not a stale copy: `bun pm cache rm`,
+   then remove any `bunx-*smithers-orchestrator*` dir from `$TMPDIR` (macOS:
+   `rm -rf $(echo $TMPDIR)bunx-*smithers-orchestrator*`; Linux:
+   `rm -rf $TMPDIR/bunx-*smithers-orchestrator*`).
+2. `SMOKE_DIR=$(mktemp -d)/smoke-features && mkdir -p "$SMOKE_DIR" && cd "$SMOKE_DIR"`.
+   Never reuse a folder. Never work in the monorepo.
 
-## Baseline tests — run these every time
+## Baseline — run every time
 
-Do each, record pass/fail with evidence (exact command, exit code,
-relevant output lines):
+- `init` succeeds on a fresh folder. Confirm `.smithers/package.json`,
+  `.smithers/workflows/hello.tsx`, `.smithers/prompts/hello.mdx` exist, and that
+  `.smithers/.gitignore` ignores `pg/` and `migrated.json` (added in 0.25.1).
+- `.smithers/node_modules/.bin/smithers` resolves to
+  `smithers-orchestrator/src/bin/smithers.js` (use `readlink`).
+- `workflow list` prints the seeded workflows (hello, implement, review, plan,
+  ralph, debug, audit, ...) without crashing.
+- The default backend is SQLite: after `init`, runs must be visible to
+  `ps`/`inspect` with NO `--backend` flag.
 
-- `bunx smithers-orchestrator@latest init` succeeds on a fresh folder.
-  Confirm `.smithers/package.json` exists, `.smithers/workflows/`
-  contains workflow files, and the `install` result reports
-  `status: ok` (i.e. `bun install` ran inside `.smithers/`).
-- `.smithers/node_modules/skills/` exists with at least one
-  `<name>/SKILL.md` inside — proving the `github:mattpocock/skills`
-  dep was fetched (runtime auto-install can't do that).
-- Both `$(echo $TMPDIR)bunx-*smithers-orchestrator*/node_modules/.bin/smithers`
-  AND `.smithers/node_modules/.bin/smithers` symlink to
-  `smithers-orchestrator/src/bin/smithers.js` (not
-  `@smithers-orchestrator/cli/src/index.js`). Use `readlink`.
-- `bunx smithers-orchestrator@latest workflow grill-me` loads without
-  crashing. The agent call itself is allowed to fail for unrelated
-  reasons (API auth, scorer schema errors). What matters is that you
-  see `workflowName=grill-me` and `→ grill-me:grill (attempt 1,
-  iteration 0)` in the output, and that you do NOT see any of:
-  - `Cannot find module 'skills/...'`
-  - `TypeError: resolveEventTimeStamp is not a function`
-  - `TypeError: resolveEventType is not a function`
-  - `Invalid hook call. Hooks can only be called inside of the body of
-    a function component.`
-  - `dispatcher.useContext is not a function`
-  Any of those is a **regression** and the smoke test fails.
+## The ranked feature checklist — verify each, oldest-fix-still-holds
 
-## Changelog-driven tests — one per bullet above
+For each, run the command and record `pass | fail | skipped` with the exact
+command and the key output line. A changelog bullet that claims "X now works"
+but X still fails is a smoke-test **failure**.
 
-For every bullet under `## Fixes` or `## Features` in the changelog
-embedded above, construct a minimal reproduction of the *original* bug
-and verify it no longer reproduces on
-`smithers-orchestrator@{props.version}`. Common patterns:
+1. **`features.backend-default-sqlite`** (0.25.2, HIGH) — The default backend
+   flipped pglite to sqlite and CLI reads route through the resolved backend.
+   After `init`, runs must be visible to `ps`/`inspect`/`output` with no
+   `--backend` flag (the 0.25.0/0.25.1 defect: `ps` returned `[]`, `inspect`
+   NOT_FOUND).
+2. **`features.migrate`** (0.25.x, HIGH) — `migrate --to pglite` copies runs
+   forward with per-table progress and writes `migrated.json`; then
+   `--backend pglite ps` shows them. `migrate --to sqlite` reverses it (new in
+   0.25.2) and default `ps` still shows them. `migrate --to postgres` with no
+   `--url` fails fast reporting the missing url requirement (exit 4), NOT a
+   masked source-store error.
+3. **`features.backend-flag-on-reads`** (0.25.0, HIGH) — `ps --backend sqlite`
+   and `inspect RUNID --backend sqlite` must NOT reject `--backend` as unknown.
+4. **`features.gateway-root-routing`** (0.25.2, MEDIUM) — boot `gateway` on a
+   free port in the background; `GET /` returns 302 (Location to the console) OR
+   200 text/html (a landing page), never a bare `404` NOT_FOUND JSON. `GET
+   /health` returns ok. Kill it.
+5. **`features.interactive-tty-guard`** (0.25.0, MEDIUM) — piped (non-TTY)
+   `up --interactive` exits 4 with `INTERACTIVE_REQUIRES_TTY`; `smithers tui` is
+   now an unknown/removed command (folded into `--interactive`).
+6. **`features.memory`** (0.25.0, LOW) — `memory set workflow:demo k '{"v":1}'`,
+   then `memory get workflow:demo k` prints `{"v":1}`, `memory list` includes it,
+   `memory rm workflow:demo k` deletes it, and a follow-up `get` reports the
+   missing fact cleanly.
+7. **`features.workflow-skills-nextsteps`** (0.25.2, LOW) — `workflow skills`
+   prints next-step guidance about `.smithers/skills` being Smithers-owned and
+   that Claude Code / Codex do not auto-scan it (link/copy into `.agents/skills`).
+8. **`features.mcp-add-fallback`** (0.24.2, LOW) — `mcp add` against an agent
+   whose own `mcp add` errors prints a copy-paste manual fallback command rather
+   than dying silently.
+9. **`features.docs-bundles`** (LOW) — `docs` prints a non-empty `llms.txt`
+   index; `docs-full` prints thousands of lines (not truncated) and exits 0. No
+   stale model ids: expect `claude-sonnet-4-6` / `gpt-5.5`, never
+   `claude-sonnet-4-5` / `gpt-5.2-codex`.
+10. **`features.paused-exit3`** (0.25.0, MEDIUM) — a seeded workflow with an
+    approval gate (e.g. `review`) parks the run; `up`/`workflow run` exits 3 and
+    prints a "Run is paused (exit 3 = awaiting a decision, not a failure)" header
+    with approve/deny/why CTAs; `ps` shows `waiting-approval`, not failed. If no
+    agent/key is available to drive it to the gate, mark `skipped` with the
+    reason — do NOT mark `fail` for an agent-auth issue.
 
-- Fix says a dependency was missing from a generated file → open the
-  file after `init` and grep for the dep.
-- Fix says a command crashed → run that exact command and confirm no
-  crash.
-- Feature introduces a new command or flag → run it with `--help` and
-  exercise at least one non-trivial path.
+Then scan the embedded changelogs below for any other user-facing bullet (new
+command, new flag, fixed crash) not covered above and add a finding for it.
 
-Be ruthless: a changelog bullet that claims "X now works" but X still
-fails is a smoke test failure, even if every baseline test passed.
+## A failing agent is not a failing feature
+
+Some checks need a working coding agent (claude/codex) on PATH and credentials.
+If a command fails ONLY because no agent is configured or a provider is out of
+credits, mark it `skipped` with that exact reason. Reserve `fail` for an actual
+Smithers/CLI regression (a crash, a wrong exit code, a removed-but-documented
+command, an unknown-flag rejection, a 404 where routing was promised).
+
+## Changelogs (source of truth)
+
+Versions in scope: {props.versions}
+
+The full changelog text for each version follows. Every bullet under a
+features/fixes heading is a candidate test case:
+
+{props.changelogs}
 
 ## Output
 
-Return a single JSON object matching the required output schema.
+Return JSON matching the schema below. `passed` is `true` only if every baseline
+check AND every non-skipped feature check passed. `findings`: one entry per check
+with a dotted `area` (e.g. `features.migrate`), a `status`, and `evidence` (exact
+command + the proving output line). `reproSteps`: if `passed` is `false`,
+pasteable shell commands to reproduce each failure from a clean machine.
 
-- `passed`: `true` only if every baseline test AND every
-  changelog-derived test passed. Any regression → `false`.
-- `summary`: 1-3 sentences. What worked, what broke.
-- `findings`: one entry per test. `area` is a short label
-  (e.g. `init.install`, `workflow.grill-me`,
-  `changelog.{props.version}.bin-delegation`). `status` is
-  `pass | fail | skipped`. `evidence` is the exact command + the key
-  line of output that proves the result. Never skip a changelog
-  bullet; if a bullet is genuinely impossible to reproduce as a user
-  (e.g. internal CI-only notes), still emit a finding explaining why.
-- `reproSteps`: if `passed` is `false`, a numbered list of shell
-  commands someone can paste to reproduce each failure from a clean
-  machine.
+Required output shape (an example of the JSON to return):
 
-REQUEST:
-{props.prompt}
-
-REQUIRED OUTPUT:
 {props.schema}
