@@ -38,12 +38,21 @@ const probeSchema = z.object({
   nextVersion: z.string(),
   bump: z.enum(["patch", "minor", "major"]),
   changelogPath: z.string(),
+  /** Last version published to npm (the source of truth for "last release"). */
+  lastPublishedVersion: z.string().nullable().default(null),
+  /** Git ref the published version resolved to (e.g. "v0.25.1"), if found. */
+  lastReleaseRef: z.string().nullable().default(null),
+  /** One-line `<sha> <subject>` for every commit since the last npm release. */
+  commitsSinceRelease: z.array(z.string()).default([]),
+  commitCount: z.number().default(0),
 });
 
 const changelogSchema = z.object({
   changelogPath: z.string(),
   ok: z.boolean(),
   sidebarUpdated: z.boolean().default(false),
+  /** How many commits this release covers, per the npm-based probe. */
+  commitsSinceRelease: z.number().default(0),
 });
 
 const marketingContentSchema = z.object({
@@ -121,11 +130,67 @@ export default smithers((ctx) => {
               pat += 1;
             }
             const next = `${maj}.${min}.${pat}`;
+
+            // Source of truth for "the last release" is npm, not a local git
+            // tag or HEAD. A local tag can be ahead of what actually shipped,
+            // or missing, which is how a changelog ends up undercounting the
+            // commits in a release. Ask npm what the published `latest` is,
+            // resolve that to a git ref, and list every commit since.
+            const { execSync } = await import("node:child_process");
+            const run = (cmd: string) =>
+              execSync(cmd, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+            let lastPublishedVersion: string | null = null;
+            let lastReleaseRef: string | null = null;
+            let commitsSinceRelease: string[] = [];
+            try {
+              lastPublishedVersion = run("npm view smithers-orchestrator version") || null;
+            } catch {
+              // Offline or never-published: fall back to nothing rather than
+              // failing the whole release. The changelog gate still runs.
+              lastPublishedVersion = null;
+            }
+            if (lastPublishedVersion) {
+              // Prefer the annotated tag; fall back to the release commit
+              // (`chore(release): <version>`) if the tag is missing locally.
+              const candidates = [`v${lastPublishedVersion}`, lastPublishedVersion];
+              for (const ref of candidates) {
+                try {
+                  run(`git rev-parse --verify --quiet ${ref}^{commit}`);
+                  lastReleaseRef = ref;
+                  break;
+                } catch {
+                  // try next candidate
+                }
+              }
+              if (!lastReleaseRef) {
+                try {
+                  const sha = run(
+                    `git log --grep="release): ${lastPublishedVersion}" --fixed-strings -n 1 --format=%H`,
+                  );
+                  if (sha) lastReleaseRef = sha;
+                } catch {
+                  lastReleaseRef = null;
+                }
+              }
+              if (lastReleaseRef) {
+                try {
+                  const out = run(`git log ${lastReleaseRef}..HEAD --oneline --no-merges`);
+                  commitsSinceRelease = out.split("\n").map((l) => l.trim()).filter(Boolean);
+                } catch {
+                  commitsSinceRelease = [];
+                }
+              }
+            }
+
             return {
               currentVersion: pkg.version,
               nextVersion: next,
               bump: ctx.input.bump,
               changelogPath: `docs/changelogs/${next}.mdx`,
+              lastPublishedVersion,
+              lastReleaseRef,
+              commitsSinceRelease,
+              commitCount: commitsSinceRelease.length,
             };
           }}
         </Task>
@@ -187,7 +252,27 @@ export default smithers((ctx) => {
               }
             }
 
-            return { changelogPath: probe.changelogPath, ok: true, sidebarUpdated };
+            // Surface the real scope of this release (commits since the last
+            // npm publish) so the changelog can be checked for completeness.
+            // This is the data that, when ignored, lets a 67-commit release
+            // ship a "two small fixes" changelog.
+            const since = probe.lastPublishedVersion
+              ? `v${probe.lastPublishedVersion}`
+              : "(no published version found on npm)";
+            console.log(
+              `[release] v${probe.nextVersion} covers ${probe.commitCount} commit(s) since ${since}:`,
+            );
+            for (const line of probe.commitsSinceRelease) console.log(`  ${line}`);
+            console.log(
+              `[release] Confirm ${probe.changelogPath} reflects all ${probe.commitCount} commit(s) above before publishing.`,
+            );
+
+            return {
+              changelogPath: probe.changelogPath,
+              ok: true,
+              sidebarUpdated,
+              commitsSinceRelease: probe.commitCount,
+            };
           }}
         </Task>
 
