@@ -31,6 +31,8 @@ The release smoke test (`.smithers/workflows/smoketest.tsx`) is now comprehensiv
 
 New regression tests cover the fixes and the gaps that hid them: a `memory` CLI round-trip with no `--workflow`, a guard that renders every seeded workflow's graph and asserts each loads without a reserved-column, MDX, or null-input error (it would have caught the `monitor`, `smithering`, and `workflow-skill` defects), and a real-browser end-to-end test for Gateway root routing plus a workflow UI mount.
 
+The `@smithers-orchestrator/components` declaration build is now hermetic. It emitted `src/index.d.ts` with `clean: false`, so each build read its own prior output and re-wrapped the React import, growing the `React__default` alias by one `__default` every build. The build now removes the stale declaration first, so repeated builds are byte-identical.
+
 ## Migration notes
 
 No breaking changes are identified in 0.25.3. All changes are additive bug fixes. If you scripted around the `memory` commands by passing `--workflow`, that still works; the flag is now optional rather than required.
