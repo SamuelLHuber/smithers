@@ -21,13 +21,15 @@ This creates `.smithers/` and seeds **`.smithers/prompts/hello.mdx`** - your edi
 <Step title="Run your hello-world workflow">
 
 ```bash
-bunx smithers-orchestrator workflow run hello --interactive
+bunx smithers-orchestrator workflow run hello
 ```
 
 A durable run completes and you see the output. Edit `.smithers/prompts/hello.mdx`, run it again, watch the output change.
 
+In a real terminal, add `--interactive` for a live status card with inline approvals; the plain command above works everywhere (scripts, CI, devcontainers, and agent-driven runs).
+
 <Note>
-This runs the coding agent `init` detected (Claude Code, Codex, ...), so have one installed and signed in. Normally your agent runs workflows for you; this command lets you watch one end to end the first time. The `--interactive` flag needs a real terminal, so in a script or when an agent runs it, use plain `workflow run hello`.
+This runs the coding agent `init` detected (Claude Code, Codex, ...), so have one installed and signed in. Normally your agent runs workflows for you; this command lets you watch one end to end the first time.
 </Note>
 
 </Step>
