@@ -15,6 +15,10 @@ Smithers 0.25.3 is a focused patch. It fixes two user-facing defects a release s
 
 The seeded `monitor` workflow renders and runs again. Its `gather` output schema declared a top-level `runId` field, which collides with the reserved `run_id` output column the 0.25.0 schema guard rejects, so `bunx smithers-orchestrator graph monitor.tsx`, any run of `monitor`, and `bunx smithers-orchestrator workflow skills` over the whole pack all failed with `INVALID_INPUT: uses reserved field name(s): runId`. The field is renamed to `targetRunId`, matching the input convention the workflow already used.
 
+The seeded `smithering` workflow renders again. Two of its prompts wrote a bare path like `artifacts/smithering/build/<runId>/<id>/` in prose, and MDX parsed `<runId>` and `<id>` as JSX tags, which dropped the prompt module's default export so the workflow failed to load. The paths are now wrapped in backticks.
+
+The seeded `workflow-skill` workflow no longer fails with `Workflow not found: undefined`. It dereferenced `ctx.input.workflow` directly, but that field arrives null when unsupplied, so it is now coalesced to the documented `all` default.
+
 The `release` workflow no longer fails at its first step when run with no `--input`. Its probe returned `bump: ctx.input.bump`, but `ctx.input` fields arrive null rather than their Zod default, so the probe row failed its `bump` enum before anything was bumped. The probe now coalesces the field to its `patch` default, matching the version math it already used.
 
 ## Docs
@@ -25,7 +29,7 @@ The `cli/quickstart` verify step no longer prints a stale `e.g. 0.23.0` version 
 
 The release smoke test (`.smithers/workflows/smoketest.tsx`) is now comprehensive: four parallel agents work in throwaway directories to exercise the human onboarding flow, the agent onboarding flow, every user-facing change across the last four releases, and a real workflow UI served over the Gateway, then a deterministic step aggregates the verdict. This run is what found the `memory` and `monitor` defects above.
 
-New regression tests cover the fixes and the gaps that hid them: a `memory` CLI round-trip with no `--workflow`, a guard that renders every seeded workflow's graph and asserts none declares a reserved output column, and a real-browser end-to-end test for Gateway root routing plus a workflow UI mount.
+New regression tests cover the fixes and the gaps that hid them: a `memory` CLI round-trip with no `--workflow`, a guard that renders every seeded workflow's graph and asserts each loads without a reserved-column, MDX, or null-input error (it would have caught the `monitor`, `smithering`, and `workflow-skill` defects), and a real-browser end-to-end test for Gateway root routing plus a workflow UI mount.
 
 ## Migration notes
 
