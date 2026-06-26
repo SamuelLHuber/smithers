@@ -185,7 +185,11 @@ export default smithers((ctx) => {
             return {
               currentVersion: pkg.version,
               nextVersion: next,
-              bump: ctx.input.bump,
+              // ctx.input fields arrive null (not the zod default) when no
+              // --input is passed, so coalesce to match the patch default the
+              // version math above already uses; otherwise the probe row fails
+              // its `bump` enum and the whole release errors before bumping.
+              bump: ctx.input.bump ?? "patch",
               changelogPath: `docs/changelogs/${next}.mdx`,
               lastPublishedVersion,
               lastReleaseRef,
