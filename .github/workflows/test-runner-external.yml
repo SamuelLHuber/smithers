@@ -26,8 +26,8 @@ jobs:
       workflow-repo: smithersai/smithers
       workflow-ref: main
       input: |
-        {"features": {"test": ["verify runner can load external workflows"]}, "focus": "integration test"}
-      timeout-minutes: 10
+        {"features": {"test": ["verify runner can load external workflows"]}, "focus": "integration test", "maxConcurrency": 1}
+      timeout-minutes: 3
     secrets: inherit
 
   report:
