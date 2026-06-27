@@ -1,0 +1,28 @@
+---
+title: "0.25.5"
+description: "Workflow runs print a useful result: the run summary surfaces a workflow's output cleanly and never as output: null, and every seeded workflow ends with an output task that says what it did."
+---
+
+Smithers 0.25.5 makes a workflow run tell you what it produced. Previously `bunx smithers-orchestrator workflow run hello` finished with `output: null` even though the agent had produced a greeting, and the Get Started promise of "you see the output" did not hold. Now the run summary surfaces the workflow's output, and every seeded workflow ends with a task that emits a useful result.
+
+---
+
+## CLI
+
+The `workflow run` / `up` summary now prints the run's output cleanly. The run output is the last task's result; the summary strips the internal `run_id` / `node_id` / `iteration` columns, unwraps a single row, and omits the `output` field entirely when there is nothing to show, so a successful run never prints a noisy `output: null`.
+
+## Workflows
+
+Every seeded init-pack workflow now ends with a deterministic `output` task that aggregates its genuinely useful terminal result, so running one prints something meaningful instead of nothing:
+
+- `hello` surfaces the greeting it produced.
+- `create-workflow` / `create-skill` / `extract-skill` surface the files written and the skill path.
+- `route-task` and `context-engineer` surface the chosen route, the recommended workflow, and a summary.
+- `triage-run`, `monitor`, `monitor-smithers`, and `context-doctor` surface the run state, health, root cause, recommended action, and report path.
+- `backpressure-plan`, `eval-author`, `report-slideshow`, and `smithering` surface verdicts, counts, written paths, and (for `smithering`) the files changed and PR url.
+
+The additions touch only the final output task; no existing task logic, ids, or agents changed, and all init-pack workflows still render. The legacy-inline workflows (`implement`, `plan`, `review`, and the rest) get the same treatment in a later release.
+
+## Migration notes
+
+No breaking changes are identified in 0.25.5. Workflow authors who relied on `RunResult.output` already received the last task's output; the CLI now simply presents it without internal columns. Add a final `output` task to your own workflows to control what their run prints.
