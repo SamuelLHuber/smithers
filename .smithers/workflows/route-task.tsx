@@ -89,11 +89,35 @@ const recommendSchema = z.looseObject({
     .describe("Other seeded workflows that could also fit, best-first."),
 });
 
+// 3. Terminal summary: a small, human-meaningful digest of whatever path ran, so
+//    the run's printed output (the LAST task) is useful instead of empty.
+const outputSchema = z.object({
+  mode: z.string().describe("The task mode the classifier picked."),
+  durable: z.boolean().describe("Whether the task needed a durable workflow."),
+  reason: z.string().describe("The classifier's justification."),
+  outcome: z
+    .enum(["executed", "recommended"])
+    .describe("Whether the task was run directly or a durable workflow was recommended."),
+  summary: z.string().nullable().default(null).describe("Non-durable path: what was done."),
+  done: z.boolean().nullable().default(null).describe("Non-durable path: whether it fully completed."),
+  recommendedWorkflow: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe("Durable path: the best-fit seeded workflow to run."),
+  why: z.string().nullable().default(null).describe("Durable path: why that workflow fits."),
+  alternativeWorkflows: z
+    .array(z.string())
+    .default([])
+    .describe("Durable path: other seeded workflows that could fit."),
+});
+
 const { Workflow, Task, Sequence, Branch, smithers, outputs } = createSmithers({
   input: inputSchema,
   classify: classifySchema,
   execute: executeSchema,
   recommend: recommendSchema,
+  output: outputSchema,
 });
 
 export default smithers((ctx) => {
@@ -105,6 +129,13 @@ export default smithers((ctx) => {
   // Gate the two paths on the classifier's verdict. Only one branch runs.
   const classified = classify !== undefined;
   const durable = classify?.durable === true;
+
+  // Pull whichever terminal output actually ran, so the final summary task can
+  // aggregate the genuinely useful fields. Only the branch that matched exists.
+  const execute = ctx.outputMaybe("execute", { nodeId: "execute" });
+  const recommend = ctx.outputMaybe("recommend", { nodeId: "recommend" });
+  const terminal = durable ? recommend : execute;
+  const summaryReady = classified && terminal !== undefined;
 
   return (
     <Workflow name="route-task">
@@ -133,6 +164,24 @@ export default smithers((ctx) => {
               </Task>
             }
           />
+        ) : null}
+
+        {/* 3 — Surface a concise, deterministic digest as the run's printed output. */}
+        {summaryReady ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({
+              mode: classify?.mode ?? "single_task",
+              durable,
+              reason: classify?.reason ?? "",
+              outcome: durable ? ("recommended" as const) : ("executed" as const),
+              summary: execute?.summary ?? null,
+              done: execute?.done ?? null,
+              recommendedWorkflow:
+                recommend?.recommendedWorkflow ?? classify?.recommendedWorkflow ?? null,
+              why: recommend?.why ?? null,
+              alternativeWorkflows: recommend?.alternativeWorkflows ?? [],
+            })}
+          </Task>
         ) : null}
       </Sequence>
     </Workflow>

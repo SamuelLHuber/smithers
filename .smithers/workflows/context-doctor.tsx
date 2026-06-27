@@ -47,10 +47,25 @@ const adviseSchema = z.looseObject({
   summary: z.string(),
 });
 
+// 3. Final terminal summary — the run's printed output. A concise, human-meaningful
+//    roll-up of the diagnosis verdict and the agent's remediation advice.
+const outputSchema = z.object({
+  verdict: z.enum(["pass", "fail"]).describe("`fail` when the contract has any error-severity findings, else `pass`."),
+  score: z.number().describe("0–100 health score from the deterministic checks."),
+  passed: z.number().describe("Number of checks that passed (ok severity)."),
+  errors: z.number().describe("Number of error-severity findings."),
+  warnings: z.number().describe("Number of warning-severity findings."),
+  total: z.number().describe("Total number of checks run."),
+  diagnosis: z.string().describe("One-line summary of the deterministic diagnosis."),
+  advice: z.string().describe("One-line summary of the agent's remediation advice."),
+  fixes: z.number().describe("Number of concrete fixes the agent suggested."),
+});
+
 const { Workflow, Task, Sequence, smithers, outputs } = createSmithers({
   input: inputSchema,
   check: checkSchema,
   advise: adviseSchema,
+  output: outputSchema,
 });
 
 // --- Deterministic contract checks: the hardcoded path, no agent involved. ---
@@ -230,6 +245,7 @@ function diagnose(raw: string): z.infer<typeof checkSchema> {
  */
 export default smithers((ctx) => {
   const check = ctx.outputMaybe("check", { nodeId: "check" });
+  const advise = ctx.outputMaybe("advise", { nodeId: "advise" });
 
   return (
     <Workflow name="context-doctor">
@@ -250,6 +266,30 @@ export default smithers((ctx) => {
               score={check.score}
               issues={check.issues}
             />
+          </Task>
+        ) : null}
+
+        {/* 3 — Terminal summary: the run's printed output. Aggregates the
+            deterministic verdict/score with the agent's advice so a bare
+            run surfaces a concise, human-meaningful result. */}
+        {check && advise ? (
+          <Task id="output" output={outputs.output}>
+            {() => {
+              const errors = check.issues.filter((i) => i.severity === "error").length;
+              const warnings = check.issues.filter((i) => i.severity === "warning").length;
+              const passed = check.issues.filter((i) => i.severity === "ok").length;
+              return {
+                verdict: errors > 0 ? "fail" : "pass",
+                score: check.score,
+                passed,
+                errors,
+                warnings,
+                total: check.issues.length,
+                diagnosis: check.summary,
+                advice: advise.summary,
+                fixes: advise.fixes.length,
+              };
+            }}
           </Task>
         ) : null}
       </Sequence>

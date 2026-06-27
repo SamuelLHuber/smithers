@@ -48,14 +48,24 @@ const writtenSuiteSchema = z.looseObject({
   runCommand: z.string().describe("The smithers eval command to run the suite."),
 });
 
+// 3. The concise terminal summary printed when the run finishes.
+const outputSchema = z.object({
+  suiteName: z.string().describe("The eval suite id / fixture filename stem."),
+  fixturePath: z.string().describe("Path to the written .jsonl eval fixture."),
+  caseCount: z.number().describe("Number of eval cases written to the fixture."),
+  runCommand: z.string().describe("The smithers eval command to run the suite."),
+});
+
 const { Workflow, Task, Sequence, smithers, outputs } = createSmithers({
   input: inputSchema,
   derive: derivedSuiteSchema,
   write: writtenSuiteSchema,
+  output: outputSchema,
 });
 
 export default smithers((ctx) => {
   const derive = ctx.outputMaybe("derive", { nodeId: "derive" });
+  const write = ctx.outputMaybe("write", { nodeId: "write" });
 
   return (
     <Workflow name="eval-author">
@@ -73,6 +83,18 @@ export default smithers((ctx) => {
         {derive ? (
           <Task id="write" output={outputs.write} agent={agents.smartTool} heartbeatTimeoutMs={600_000}>
             <WritePrompt suite={derive} workflow={ctx.input.workflow} evalsDir={EVALS_DIR} />
+          </Task>
+        ) : null}
+
+        {/* 3 — Surface the terminal result as the run's printed output. */}
+        {write ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({
+              suiteName: derive?.suiteName ?? "",
+              fixturePath: write.path,
+              caseCount: write.caseCount,
+              runCommand: write.runCommand,
+            })}
           </Task>
         ) : null}
       </Sequence>

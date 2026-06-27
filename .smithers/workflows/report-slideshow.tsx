@@ -50,10 +50,22 @@ const renderSchema = z.looseObject({
   slideCount: z.number().default(0).describe("How many slide sections the report contains."),
 });
 
+// 3. Concise terminal summary so the run's printed output is human-meaningful
+// (the full HTML lives in the render node, not here).
+const outputSchema = z.object({
+  targetRunId: z.string().describe("The run the slideshow reports on."),
+  title: z.string().describe("The report title produced by the render step."),
+  state: z.string().describe("Reported status of the target run."),
+  nodeCount: z.number().describe("How many nodes the target run had."),
+  slideCount: z.number().describe("How many slides the slideshow contains."),
+  summary: z.string().describe("Short human summary of what the target run did."),
+});
+
 const { Workflow, Task, Sequence, smithers, outputs } = createSmithers({
   input: inputSchema,
   gather: gatherSchema,
   render: renderSchema,
+  output: outputSchema,
 });
 
 // --- Deterministic helpers for the gather step (no agent). ---
@@ -94,6 +106,9 @@ export default smithers((ctx) => {
 
   // Gate the render step on the gather output being present.
   const gather = ctx.outputMaybe("gather", { nodeId: "gather" });
+
+  // Gate the terminal summary on the render output being present.
+  const render = ctx.outputMaybe("render", { nodeId: "render" });
 
   const fallbackTitle = ctx.input.title ?? `Smithers run ${runId}`;
 
@@ -154,6 +169,20 @@ export default smithers((ctx) => {
               title={fallbackTitle}
               gather={gather}
             />
+          </Task>
+        ) : null}
+
+        {/* 3 — Surface a concise, human-meaningful terminal summary. */}
+        {gather && render ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({
+              targetRunId: runId,
+              title: render.title,
+              state: gather.state,
+              nodeCount: Array.isArray(gather.nodes) ? gather.nodes.length : 0,
+              slideCount: render.slideCount ?? 0,
+              summary: gather.summary,
+            })}
           </Task>
         ) : null}
       </Sequence>

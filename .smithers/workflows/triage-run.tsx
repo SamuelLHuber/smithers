@@ -78,11 +78,25 @@ const recommendSchema = z.looseObject({
     .describe("Why this action over the alternatives, grounded in the diagnosis."),
 });
 
+// 4. The terminal summary surfaced as the run's printed output.
+const outputSchema = z.object({
+  targetRunId: z.string().describe("The triaged run's id."),
+  state: z.string().describe("The triaged run's overall status."),
+  failingNodes: z.number().describe("Count of failing/stuck nodes found."),
+  pendingApprovals: z.number().describe("Count of approval gates still pending."),
+  rootCause: z.string().describe("The diagnosed most-likely root cause."),
+  confidence: z.string().describe("Confidence in the root-cause hypothesis."),
+  recommendedAction: z.string().describe("fix | rewind | retry | escalate."),
+  command: z.string().describe("The exact CLI command to run next."),
+  summary: z.string().describe("One-line read of the run's state + evidence."),
+});
+
 const { Workflow, Task, Sequence, smithers, outputs } = createSmithers({
   input: inputSchema,
   gather: gatherSchema,
   diagnose: diagnoseSchema,
   recommend: recommendSchema,
+  output: outputSchema,
 });
 
 const MAX_EVENT_LINES = 60;
@@ -143,6 +157,7 @@ export default smithers((ctx) => {
   // re-renders from exactly where it left off.
   const gather = ctx.outputMaybe("gather", { nodeId: "gather" });
   const diagnose = ctx.outputMaybe("diagnose", { nodeId: "diagnose" });
+  const recommend = ctx.outputMaybe("recommend", { nodeId: "recommend" });
 
   return (
     <Workflow name="triage-run">
@@ -226,6 +241,23 @@ export default smithers((ctx) => {
         {gather && diagnose ? (
           <Task id="recommend" output={outputs.recommend} agent={agents.smart}>
             <RecommendPrompt runId={runId} evidence={gather} diagnosis={diagnose} />
+          </Task>
+        ) : null}
+
+        {/* 4 — Surface the triage as the run's printed terminal output. */}
+        {gather && diagnose && recommend ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({
+              targetRunId: runId,
+              state: gather.state,
+              failingNodes: gather.failingNodes.length,
+              pendingApprovals: gather.pendingApprovals.length,
+              rootCause: diagnose.rootCauseHypothesis,
+              confidence: diagnose.confidence,
+              recommendedAction: recommend.recommendedAction,
+              command: recommend.command,
+              summary: gather.summary,
+            })}
           </Task>
         ) : null}
       </Sequence>

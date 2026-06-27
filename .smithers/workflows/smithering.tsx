@@ -739,6 +739,23 @@ const deliverySchema = z.looseObject({
   mergedToMain: z.boolean().default(false), // invariant: stays false; merging is the human's act
 });
 
+// Terminal run summary — the LAST task's output, so `smithers output`/the run's
+// printed result surfaces something human-meaningful instead of nothing. Pure
+// aggregation of rows the workflow already wrote (finalReport + delivery + route);
+// no new work, no invented data.
+const outputSchema = z.looseObject({
+  route: z.string().default("unknown"), // trivial | complex | full-build
+  status: z.string().default("incomplete"), // delivered | cancelled | incomplete
+  summary: z.string().default(""),
+  reportPath: z.string().nullable().default(null),
+  branch: z.string().nullable().default(null),
+  prUrl: z.string().nullable().default(null),
+  filesChanged: z.array(z.string()).default([]), // direct tiers only; full builds report via implRunId
+  ticketCount: z.number().default(0),
+  mustFixCount: z.number().default(0),
+  implRunId: z.string().nullable().default(null), // child build run to inspect
+});
+
 const { Workflow, Task, Sequence, Parallel, Branch, Loop, Approval, Timer, smithers, outputs } =
   createSmithers({
     input: inputSchema,
@@ -779,6 +796,7 @@ const { Workflow, Task, Sequence, Parallel, Branch, Loop, Approval, Timer, smith
     reportGather: reportGatherSchema,
     finalReport: finalReportSchema,
     delivery: deliverySchema,
+    output: outputSchema,
   });
 
 // ─── Workflow ────────────────────────────────────────────────────────────────
@@ -907,6 +925,13 @@ export default smithers((ctx) => {
   const gather = (ctx as any).outputMaybe("reportGather", { nodeId: "report:gather", iteration: 0 });
   const finalReport = (ctx as any).outputMaybe("finalReport", { nodeId: "report:final", iteration: 0 });
   const deliveryApproved = !!finalReport && gatePassed("gate:delivery");
+  const deliveryOut = (ctx as any).outputMaybe("delivery", { nodeId: "delivery", iteration: 0 });
+
+  // Every terminal path (direct tiers, each cancelled:* task, and report:final) writes
+  // exactly one finalReport row; grab whichever ran so the final output task can run
+  // last regardless of which branch the router took.
+  const terminalReports: any[] = (ctx as any).outputs("finalReport") ?? [];
+  const terminalReport = terminalReports.length > 0 ? terminalReports[terminalReports.length - 1] : null;
 
   const targetRepo = intake?.targetRepo ?? cfg?.repo ?? ".";
 
@@ -1561,6 +1586,27 @@ export default smithers((ctx) => {
               reportPath={finalReport.artifactPath ?? ""}
             />
             <Rules />
+          </Task>
+        ) : null}
+
+        {/* ── Terminal output: the run's printed result. Gated on a finalReport row
+               (written by every terminal path) so it runs LAST — after delivery when
+               that happened — and surfaces a concise, human-meaningful summary instead
+               of an empty output. Pure aggregation; no new work. ── */}
+        {terminalReport ? (
+          <Task id="output" output={outputs.output}>
+            {{
+              route: routeTier ?? "unknown",
+              status: terminalReport.status ?? "incomplete",
+              summary: terminalReport.summary ?? "",
+              reportPath: terminalReport.artifactPath ?? null,
+              branch: deliveryOut?.branch ?? null,
+              prUrl: deliveryOut?.prUrl ?? null,
+              filesChanged: directResult?.filesChanged ?? [],
+              ticketCount: (tickets?.tickets ?? []).length,
+              mustFixCount: (reviewSynth?.mustFix ?? []).length,
+              implRunId: launched ? implRunId : null,
+            }}
           </Task>
         ) : null}
       </Sequence>

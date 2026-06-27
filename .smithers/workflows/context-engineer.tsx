@@ -160,6 +160,23 @@ const reportSchema = z.looseObject({
   summary: z.string().default("").describe("One-line summary of the run for the CLI."),
 });
 
+// 9. The concise terminal summary printed as the run's output. Aggregated
+//    deterministically from the steps above — no new model work.
+const outputSchema = z.object({
+  goal: z.string().describe("The outcome the script was after."),
+  modes: z.array(z.string()).describe("Task modes the classifier mapped the script onto."),
+  route: z.string().describe("How the work was carried out (single_task/skills/workflow/manual)."),
+  selectedWorkflow: z.string().nullable().describe("The seeded workflow routed to, if any."),
+  selectedSkills: z.array(z.string()).describe("Skills the executor was told to load."),
+  approved: z.boolean().describe("Whether the contract cleared its approval gate."),
+  executed: z.boolean().describe("Whether the contracted work was fully carried out."),
+  executionSummary: z.string().describe("What the executor did or dispatched."),
+  artifacts: z.array(z.string()).describe("Files written, outputs produced, or workflows dispatched."),
+  gateCount: z.number().describe("Total backpressure gates defined."),
+  blockingGateCount: z.number().describe("How many of those gates are blocking."),
+  summary: z.string().describe("One-line summary of the whole run."),
+});
+
 const { Workflow, Task, Sequence, Branch, Ralph, Approval, smithers, outputs } = createSmithers({
   input: inputSchema,
   classify: classifySchema,
@@ -170,6 +187,7 @@ const { Workflow, Task, Sequence, Branch, Ralph, Approval, smithers, outputs } =
   approval: approvalSchema,
   execute: executeSchema,
   report: reportSchema,
+  output: outputSchema,
 });
 
 export default smithers((ctx) => {
@@ -183,6 +201,7 @@ export default smithers((ctx) => {
   const route = ctx.outputMaybe("route", { nodeId: "route" });
   const backpressure = ctx.outputMaybe("backpressure", { nodeId: "build-backpressure" });
   const approval = ctx.outputMaybe("approval", { nodeId: "approve-contract" });
+  const report = ctx.outputMaybe("report", { nodeId: "report" });
 
   // Grill bookkeeping: the latest answer from the one-question-at-a-time loop.
   const grills = ctx.outputs.grill ?? [];
@@ -309,6 +328,26 @@ export default smithers((ctx) => {
               execution={lastExecute ?? null}
               sharedUnderstanding={lastGrill?.sharedUnderstanding ?? null}
             />
+          </Task>
+        ) : null}
+
+        {/* 9 — Surface a concise, deterministic summary as the run's printed output. */}
+        {report ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({
+              goal: contract?.goal ?? prompt,
+              modes: classify?.modes ?? [],
+              route: route?.selectedRoute ?? "manual",
+              selectedWorkflow: route?.selectedWorkflow ?? null,
+              selectedSkills: route?.selectedSkills ?? [],
+              approved,
+              executed,
+              executionSummary: lastExecute?.summary ?? "",
+              artifacts: lastExecute?.artifacts ?? [],
+              gateCount: backpressure?.gates?.length ?? 0,
+              blockingGateCount: (backpressure?.gates ?? []).filter((g) => g.gateType === "blocking").length,
+              summary: report?.summary ?? "",
+            })}
           </Task>
         ) : null}
       </Sequence>

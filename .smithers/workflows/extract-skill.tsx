@@ -77,11 +77,25 @@ const scaffoldSkillSchema = z.looseObject({
   skillPath: z.string().nullable().default(null),
 });
 
+// Terminal summary so the run prints a concise, human-meaningful result instead
+// of whichever conditional task happened to run last.
+const outputSchema = z.object({
+  pattern: z.string().describe("One-line gist of the harvested pattern."),
+  reusableAsSkill: z.boolean(),
+  reusableAsWorkflow: z.boolean(),
+  proposedSkill: z.string().nullable().describe("kebab-case id of the proposed skill, if any."),
+  proposedWorkflow: z.string().nullable().describe("kebab-case id of the proposed workflow, if any."),
+  skillPath: z.string().nullable().describe("Path of the skill file written to disk, if any."),
+  memoryFactsCount: z.number().describe("Number of durable memory facts to persist."),
+  summary: z.string().describe("Human-readable one-liner of what this run produced."),
+});
+
 const { Workflow, Task, Sequence, Branch, smithers, outputs } = createSmithers({
   input: inputSchema,
   analyze: analyzeSchema,
   propose: proposeSchema,
   scaffoldSkill: scaffoldSkillSchema,
+  output: outputSchema,
 });
 
 export default smithers((ctx) => {
@@ -90,6 +104,7 @@ export default smithers((ctx) => {
   const prompt = ctx.input.prompt ?? DEFAULT_PROMPT;
   const analyze = ctx.outputMaybe("analyze", { nodeId: "analyze" });
   const propose = ctx.outputMaybe("propose", { nodeId: "propose" });
+  const scaffold = ctx.outputMaybe("scaffoldSkill", { nodeId: "scaffold-skill" });
 
   // Only scaffold a skill file when the analysis says the pattern is skill-shaped
   // and the proposal actually produced a skill to write.
@@ -132,6 +147,39 @@ export default smithers((ctx) => {
             }
             else={null}
           />
+        ) : null}
+
+        {/* 4 — Surface a concise, human-meaningful summary as the run's printed output. */}
+        {propose ? (
+          <Task id="output" output={outputs.output}>
+            {() => {
+              const skillName = propose.proposedSkill?.name ?? null;
+              const workflowId = propose.proposedWorkflow?.id ?? null;
+              const skillPath = scaffold?.skillPath ?? null;
+              const memoryFactsCount = propose.memoryToPersist?.length ?? 0;
+              const summary = [
+                skillPath
+                  ? `Wrote skill${skillName ? ` ${skillName}` : ""} to ${skillPath}`
+                  : skillName
+                    ? `Proposed skill: ${skillName}`
+                    : null,
+                workflowId ? `Proposed workflow: ${workflowId}` : null,
+                `${memoryFactsCount} memory fact(s) to persist`,
+              ]
+                .filter(Boolean)
+                .join("; ");
+              return {
+                pattern: analyze?.repeatedPattern ?? "",
+                reusableAsSkill: analyze?.reusableAsSkill ?? false,
+                reusableAsWorkflow: analyze?.reusableAsWorkflow ?? false,
+                proposedSkill: skillName,
+                proposedWorkflow: workflowId,
+                skillPath,
+                memoryFactsCount,
+                summary,
+              };
+            }}
+          </Task>
         ) : null}
       </Sequence>
     </Workflow>

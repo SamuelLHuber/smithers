@@ -144,6 +144,22 @@ const documentSchema = z.looseObject({
   skillPath: z.string().nullable().default(null),
 });
 
+// 8. Final terminal summary — surfaced as the run's printed output so a finished
+//    run reports what it built instead of nothing. Aggregated from the steps
+//    above; nothing here is invented.
+const outputSchema = z.object({
+  workflow: z.string().describe("Workflow id that was built (or attempted)."),
+  workflowFile: z.string().describe("Path to the scaffolded workflow .tsx."),
+  status: z
+    .string()
+    .describe("Terminal status: built | verify-failed | denied | designed | incomplete."),
+  summary: z.string().describe("One-line summary of what the run produced."),
+  filesWritten: z.array(z.string()).default([]).describe("Paths the scaffolder wrote."),
+  fileCount: z.number().default(0).describe("How many files were written."),
+  verified: z.boolean().default(false).describe("Whether the new workflow's graph renders cleanly."),
+  skillPath: z.string().nullable().default(null).describe("Agent skill doc written for the new workflow."),
+});
+
 const { Workflow, Task, Sequence, Branch, Loop, Approval, smithers, outputs } = createSmithers({
   input: inputSchema,
   clarify: clarifiedSpecSchema,
@@ -153,6 +169,7 @@ const { Workflow, Task, Sequence, Branch, Loop, Approval, smithers, outputs } = 
   scaffold: scaffoldSchema,
   verify: verifySchema,
   document: documentSchema,
+  output: outputSchema,
 });
 
 export default smithers((ctx) => {
@@ -165,6 +182,7 @@ export default smithers((ctx) => {
   const design = ctx.outputMaybe("design", { nodeId: "design" });
   const approval = ctx.outputMaybe("approval", { nodeId: "approve-design" });
   const scaffold = ctx.outputMaybe("scaffold", { nodeId: "scaffold" });
+  const documentation = ctx.outputMaybe("document", { nodeId: "document" });
 
   const designed = design !== undefined;
   const approved = !review || approval?.approved === true;
@@ -180,6 +198,26 @@ export default smithers((ctx) => {
   const lastVerify = verifyOutputs.at(-1);
   const verifyPassed = lastVerify?.passed === true;
   const verifyFailed = lastVerify !== undefined && lastVerify.passed === false;
+
+  // Terminal summary surfaced as the run's printed output. Pulled straight from
+  // the steps above — never invented.
+  const filesWritten = (scaffold?.filesWritten ?? []).map((f) => f.path);
+  const terminalStatus =
+    documentation && verifyPassed
+      ? "built"
+      : scaffold && verifyFailed
+        ? "verify-failed"
+        : review && approval?.approved === false
+          ? "denied"
+          : design
+            ? "designed"
+            : "incomplete";
+  const terminalSummary =
+    documentation?.summary ??
+    scaffold?.summary ??
+    design?.summary ??
+    clarify?.goal ??
+    `Workflow "${workflowName}".`;
 
   return (
     <Workflow name="create-workflow">
@@ -300,6 +338,23 @@ export default smithers((ctx) => {
         {proceed && verifyPassed ? (
           <Task id="document" output={outputs.document} agent={agents.cheapFast}>
             <DocumentPrompt workflowName={workflowName} design={design} skillsDir={SKILLS_DIR} />
+          </Task>
+        ) : null}
+
+        {/* 8 — Terminal summary: aggregate the useful results so the run prints
+            something meaningful. Runs last in the sequence on every exit path. */}
+        {clarify ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({
+              workflow: workflowName,
+              workflowFile,
+              status: terminalStatus,
+              summary: terminalSummary,
+              filesWritten,
+              fileCount: filesWritten.length,
+              verified: verifyPassed,
+              skillPath: documentation?.skillPath ?? null,
+            })}
           </Task>
         ) : null}
       </Sequence>

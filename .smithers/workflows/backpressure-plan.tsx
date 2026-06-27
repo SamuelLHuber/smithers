@@ -79,11 +79,24 @@ const verifySchema = z.object({
   summary: z.string(),
 });
 
+// 4. The run's printed terminal result: a concise, human-meaningful roll-up of
+//    the plan (counts, verdict, gaps) drawn only from what the stages produced.
+const outputSchema = z.object({
+  verdict: z.string().describe("pass when every criterion maps to one in-order gate, else fail."),
+  criteriaCount: z.number().describe("Acceptance criteria extracted from the goal."),
+  gateCount: z.number().describe("Gates produced in the matrix."),
+  blockingGates: z.number().describe("Gates that stop the run on failure."),
+  humanApprovals: z.number().describe("Gates that require a durable human approval."),
+  missing: z.array(z.string()).describe("Criteria with no matching gate."),
+  summary: z.string().describe("Plain-English overview of the backpressure plan and its verdict."),
+});
+
 const { Workflow, Task, Sequence, smithers, outputs } = createSmithers({
   input: inputSchema,
   extractCriteria: criteriaSchema,
   planGates: gatesSchema,
   verify: verifySchema,
+  output: outputSchema,
 });
 
 export default smithers((ctx) => {
@@ -94,6 +107,9 @@ export default smithers((ctx) => {
   // Gate the plan-gates stage on the extracted criteria being available.
   const criteria = ctx.outputMaybe("extractCriteria", { nodeId: "extract-criteria" });
   const gates = ctx.outputMaybe("planGates", { nodeId: "plan-gates" });
+
+  // Gate the printed terminal roll-up on the parity check having run.
+  const verify = ctx.outputMaybe("verify", { nodeId: "verify" });
 
   return (
     <Workflow name="backpressure-plan">
@@ -147,6 +163,30 @@ export default smithers((ctx) => {
                 missing,
                 unverifiedBlocking,
                 summary,
+              };
+            }}
+          </Task>
+        ) : null}
+
+        {/* 4 — Concise terminal roll-up so the run prints something useful. */}
+        {verify ? (
+          <Task id="output" output={outputs.output}>
+            {() => {
+              const planGates = gates ? gates.gates : [];
+              const blockingGates = planGates.filter((gate) => gate.gateType === "blocking").length;
+              const humanApprovals = planGates.filter((gate) => gate.humanApprovalRequired).length;
+              const planSummary = gates && gates.summary.trim().length > 0 ? gates.summary.trim() : "";
+              const summary = [planSummary, verify.summary]
+                .filter((part) => part.trim().length > 0)
+                .join(" ");
+              return {
+                verdict: verify.match ? "pass" : "fail",
+                criteriaCount: verify.criteriaCount,
+                gateCount: verify.gateCount,
+                blockingGates,
+                humanApprovals,
+                missing: verify.missing,
+                summary: summary.length > 0 ? summary : verify.summary,
               };
             }}
           </Task>

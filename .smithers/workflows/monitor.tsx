@@ -171,6 +171,24 @@ const artifactSchema = z.looseObject({
   digest: z.string().default(""),
 });
 
+// 6. The run's terminal summary — the at-a-glance result an operator wants
+//    when this monitor run finishes. Aggregated deterministically from the
+//    steps above so the printed run output is meaningful, not empty.
+const outputSchema = z.object({
+  targetRunId: z.string(),
+  state: z.string(),
+  health: z.string(),
+  summary: z.string(),
+  waitingOn: z.string().nullable(),
+  rootCause: z.string(),
+  recommendedActionCount: z.number(),
+  topRecommendation: z.string().nullable(),
+  fixApplied: z.boolean(),
+  reportPath: z.string().nullable(),
+  nodeCount: z.number(),
+  eventCount: z.number(),
+});
+
 const { Workflow, Task, Sequence, Branch, Approval, smithers, outputs } = createSmithers({
   input: inputSchema,
   gather: gatherSchema,
@@ -179,6 +197,7 @@ const { Workflow, Task, Sequence, Branch, Approval, smithers, outputs } = create
   fix: fixSchema,
   report: reportSchema,
   artifact: artifactSchema,
+  output: outputSchema,
 });
 
 // --- Deterministic helpers for the gather + artifact steps (no agent). ---
@@ -385,6 +404,7 @@ export default smithers((ctx) => {
   const approval = ctx.outputMaybe("approval", { nodeId: "approve-fix" });
   const fix = ctx.outputMaybe("fix", { nodeId: "fix" });
   const report = ctx.outputMaybe("report", { nodeId: "report" });
+  const artifact = ctx.outputMaybe("artifact", { nodeId: "artifact" });
 
   const runId = gather?.targetRunId || explicitRunId || "";
   const title = ctx.input.title ?? (runId ? `Monitor: run ${runId}` : "Monitor");
@@ -446,6 +466,26 @@ export default smithers((ctx) => {
         {report ? (
           <Task id="artifact" output={outputs.artifact}>
             {async () => await writeReport(ctx.runId, runId, report)}
+          </Task>
+        ) : null}
+
+        {/* 7 — Surface the run's most useful terminal result as the run output. */}
+        {artifact ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({
+              targetRunId: runId,
+              state: gather?.state ?? "unknown",
+              health: diagnosis?.health ?? "unknown",
+              summary: diagnosis?.summary || gather?.summary || "",
+              waitingOn: diagnosis?.waitingOn ?? null,
+              rootCause: diagnosis?.rootCause ?? "",
+              recommendedActionCount: diagnosis?.recommendedActions?.length ?? 0,
+              topRecommendation: diagnosis?.recommendedActions?.[0]?.problem ?? null,
+              fixApplied: fix?.applied ?? false,
+              reportPath: artifact?.path ?? null,
+              nodeCount: gather?.nodes?.length ?? 0,
+              eventCount: gather?.events?.count ?? 0,
+            })}
           </Task>
         ) : null}
       </Sequence>

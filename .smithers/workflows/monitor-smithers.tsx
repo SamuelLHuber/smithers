@@ -57,11 +57,25 @@ const triageSchema = z.looseObject({
   digest: z.string(),
 });
 
+// 4. The concise, human-meaningful watchdog verdict that becomes the run's
+// printed output: a one-word health verdict plus the counts and best summary
+// gathered from the steps above.
+const outputSchema = z.object({
+  verdict: z.string().describe("healthy when nothing needs escalation, otherwise problems detected"),
+  runsSeen: z.number(),
+  staleThresholdMinutes: z.number(),
+  healthyRuns: z.number(),
+  unhealthyRuns: z.number(),
+  escalations: z.number().describe("count of concrete escalation actions produced by triage"),
+  summary: z.string(),
+});
+
 const { Workflow, Task, Sequence, Branch, smithers, outputs } = createSmithers({
   input: inputSchema,
   poll: pollSchema,
   classify: classifySchema,
   triage: triageSchema,
+  output: outputSchema,
 });
 
 // Pull the live run table from the CLI. Deterministic, no agent: shell out, parse
@@ -121,6 +135,7 @@ export default smithers((ctx) => {
 
   const poll = ctx.outputMaybe("poll", { nodeId: "poll" });
   const classify = ctx.outputMaybe("classify", { nodeId: "classify" });
+  const triage = ctx.outputMaybe("triage", { nodeId: "triage" });
 
   // Anything not in the `healthy` bucket needs escalation.
   const buckets = classify?.buckets;
@@ -154,6 +169,23 @@ export default smithers((ctx) => {
           }
           else={null}
         />
+
+        {/* 4 — Aggregate the run's terminal verdict so `smithers output` prints
+            something useful. Gated on classify, which is always produced once
+            the fleet is polled; triage fields are folded in when present. */}
+        {classify ? (
+          <Task id="output" output={outputs.output}>
+            {() => ({
+              verdict: hasProblems ? "problems detected" : "healthy",
+              runsSeen: poll?.runs.length ?? 0,
+              staleThresholdMinutes: staleMinutes,
+              healthyRuns: classify.buckets.healthy.length,
+              unhealthyRuns: unhealthy.length,
+              escalations: triage?.actions.length ?? 0,
+              summary: triage?.digest ?? classify.summary,
+            })}
+          </Task>
+        ) : null}
       </Sequence>
     </Workflow>
   );

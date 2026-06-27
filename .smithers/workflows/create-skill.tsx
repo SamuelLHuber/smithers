@@ -101,6 +101,16 @@ const documentSchema = z.looseObject({
   skillPath: z.string().nullable().default(null),
 });
 
+// 5. Terminal run summary — the concise object printed as the run's output.
+const outputSchema = z.object({
+  skillName: z.string().describe("The kebab-case id of the skill that was created."),
+  skillPath: z.string().nullable().describe("Path to the written SKILL.md, if known."),
+  approved: z.boolean().describe("Whether the design was approved (or no approval was required)."),
+  summary: z.string().describe("Human-facing summary of what was created and how to use it."),
+  filesWritten: z.array(z.string()).default([]).describe("Paths of the files the scaffold wrote."),
+  fileCount: z.number().default(0).describe("How many files were written."),
+});
+
 const { Workflow, Task, Sequence, Branch, Approval, smithers, outputs } = createSmithers({
   input: inputSchema,
   clarify: skillSpecSchema,
@@ -108,6 +118,7 @@ const { Workflow, Task, Sequence, Branch, Approval, smithers, outputs } = create
   approval: approvalSchema,
   scaffold: scaffoldSchema,
   document: documentSchema,
+  output: outputSchema,
 });
 
 export default smithers((ctx) => {
@@ -119,6 +130,7 @@ export default smithers((ctx) => {
   const design = ctx.outputMaybe("design", { nodeId: "design" });
   const approval = ctx.outputMaybe("approval", { nodeId: "approve-design" });
   const scaffold = ctx.outputMaybe("scaffold", { nodeId: "scaffold" });
+  const document = ctx.outputMaybe("document", { nodeId: "document" });
 
   const designed = design !== undefined;
   const approved = !review || approval?.approved === true;
@@ -180,6 +192,23 @@ export default smithers((ctx) => {
         {proceed && scaffold ? (
           <Task id="document" output={outputs.document} agent={agents.cheapFast}>
             <DocumentPrompt skillName={skillName} design={design} scaffold={scaffold} />
+          </Task>
+        ) : null}
+
+        {/* 6 — Terminal summary: surface the most useful result as the run's output. */}
+        {document ? (
+          <Task id="output" output={outputs.output}>
+            {() => {
+              const files = (scaffold?.filesWritten ?? []).map((f) => f.path);
+              return {
+                skillName,
+                skillPath: document.skillPath ?? null,
+                approved,
+                summary: document.summary,
+                filesWritten: files,
+                fileCount: files.length,
+              };
+            }}
           </Task>
         ) : null}
       </Sequence>
