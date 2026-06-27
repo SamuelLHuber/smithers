@@ -1,0 +1,17 @@
+{
+  "name": "Smithers Architecture Test",
+  "description": "Validate architecture constraints (hexagonal, clean architecture, dependency rules) using AI-driven Smithers workflow packs. Runs on PRs and weekly schedule for drift detection.",
+  "iconName": "octicon package",
+  "categories": [
+    "Code Review",
+    "Testing",
+    "Continuous Integration"
+  ],
+  "filePatterns": [
+    "src/.*",
+    "lib/.*",
+    "apps/.*",
+    "\\.project\\.json$",
+    "tsconfig.*\\.json$"
+  ]
+}

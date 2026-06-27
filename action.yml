@@ -1,0 +1,256 @@
+name: Run Smithers workflow
+branding:
+  icon: play-circle
+  color: purple
+
+description: >
+  Execute a Smithers workflow in CI/CD. Supports local workflows and
+  workflows distributed via external git repositories (shared packs,
+  security reviews, architecture tests, etc.).
+
+inputs:
+  workflow:
+    description: >
+      Path to the .tsx workflow file. Relative to repo root for local mode;
+      relative to the cloned external repo root when workflow-repo is set.
+    required: true
+
+  workflow-repo:
+    description: >
+      GitHub owner/repo (e.g. "smithersai/security-workflows") or a full git
+      URL. When set, the action clones this repo and executes the workflow
+      from inside it.
+    required: false
+    default: ""
+
+  workflow-ref:
+    description: "Git ref (branch, tag, or SHA) to checkout from workflow-repo"
+    required: false
+    default: main
+
+  input:
+    description: "JSON-stringified workflow input payload"
+    required: false
+    default: "{}"
+
+  run-id:
+    description: "Explicit run ID"
+    required: false
+    default: ""
+
+  allow-network:
+    description: "Allow bash tool network requests"
+    required: false
+    default: "false"
+
+  root:
+    description: "Tool sandbox root directory"
+    required: false
+    default: ""
+
+  max-concurrency:
+    description: "Maximum parallel tasks"
+    required: false
+    default: ""
+
+  timeout-minutes:
+    description: "Job timeout in minutes"
+    required: false
+    default: "60"
+
+  allow-suspend:
+    description: "Treat suspension (exit code 3) as success"
+    required: false
+    default: "false"
+
+  build-first:
+    description: "Run pnpm -r build before executing (local mode only)"
+    required: false
+    default: "true"
+
+outputs:
+  run-id:
+    description: "The Smithers run ID"
+    value: ${{ steps.execute.outputs.run-id }}
+  status:
+    description: "Final run status"
+    value: ${{ steps.execute.outputs.status }}
+  exit-code:
+    description: "CLI exit code"
+    value: ${{ steps.execute.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    # ── Checkout ───────────────────────────────────────────────────────────
+    - name: Checkout caller repo
+      uses: actions/checkout@v6.0.2
+
+    # ── Toolchain setup (always needed for Bun runtime) ────────────────────
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2.2.0
+      with:
+        bun-version: latest
+
+    # ── External repo mode ─────────────────────────────────────────────────
+    - name: Clone external workflow repo
+      id: clone
+      if: ${{ inputs.workflow-repo != '' }}
+      shell: bash
+      env:
+        REPO: ${{ inputs.workflow-repo }}
+        REF: ${{ inputs.workflow-ref }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        if [[ "$REPO" == http* || "$REPO" == git@* ]]; then
+          CLONE_URL="$REPO"
+        else
+          CLONE_URL="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+        fi
+        REPO_NAME="$(basename "$REPO" .git)"
+        CLONE_DIR="${{ runner.temp }}/smithers-workflows/${REPO_NAME}"
+        rm -rf "$CLONE_DIR"
+        mkdir -p "$(dirname "$CLONE_DIR")"
+        git clone --depth 1 --branch "$REF" "$CLONE_URL" "$CLONE_DIR"
+        echo "clone-dir=${CLONE_DIR}" >> "$GITHUB_OUTPUT"
+        echo "repo-name=${REPO_NAME}" >> "$GITHUB_OUTPUT"
+
+    - name: Detect external repo package manager
+      id: detect-pm
+      if: ${{ inputs.workflow-repo != '' }}
+      shell: bash
+      env:
+        CLONE_DIR: ${{ steps.clone.outputs.clone-dir }}
+      run: |
+        set -euo pipefail
+        cd "$CLONE_DIR"
+        if [ -f bun.lock ] || [ -f bun.lockb ]; then echo "pm=bun" >> "$GITHUB_OUTPUT"
+        elif [ -f pnpm-lock.yaml ]; then echo "pm=pnpm" >> "$GITHUB_OUTPUT"
+        elif [ -f package-lock.json ]; then echo "pm=npm" >> "$GITHUB_OUTPUT"
+        elif [ -f yarn.lock ]; then echo "pm=yarn" >> "$GITHUB_OUTPUT"
+        else echo "pm=auto" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Setup pnpm (external)
+      if: ${{ inputs.workflow-repo != '' && steps.detect-pm.outputs.pm == 'pnpm' }}
+      uses: pnpm/action-setup@v6.0.8
+      with:
+        version: 10.10.0
+        run_install: false
+
+    - name: Setup Node (external)
+      if: ${{ inputs.workflow-repo != '' }}
+      uses: actions/setup-node@v6.4.0
+      with:
+        node-version: 22
+        cache: ${{ steps.detect-pm.outputs.pm == 'npm' && 'npm' || steps.detect-pm.outputs.pm == 'pnpm' && 'pnpm' || '' }}
+
+    - name: Install external deps
+      if: ${{ inputs.workflow-repo != '' }}
+      shell: bash
+      env:
+        CLONE_DIR: ${{ steps.clone.outputs.clone-dir }}
+        PM: ${{ steps.detect-pm.outputs.pm }}
+      run: |
+        set -euo pipefail
+        cd "$CLONE_DIR"
+        case "$PM" in
+          bun) bun install ;;
+          pnpm) pnpm install --frozen-lockfile ;;
+          npm) npm ci ;;
+          yarn) yarn install --frozen-lockfile ;;
+          auto)
+            if [ -f package.json ]; then bun install
+            else bun add smithers-orchestrator zod; fi
+            ;;
+        esac
+
+    # ── Local repo setup ───────────────────────────────────────────────────
+    - name: Setup pnpm (local)
+      if: ${{ inputs.workflow-repo == '' }}
+      uses: pnpm/action-setup@v6.0.8
+      with:
+        version: 10.10.0
+        run_install: false
+
+    - name: Setup Node (local)
+      if: ${{ inputs.workflow-repo == '' }}
+      uses: actions/setup-node@v6.4.0
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - name: Install local deps
+      if: ${{ inputs.workflow-repo == '' }}
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Build workspace packages (local)
+      if: ${{ inputs.workflow-repo == '' && inputs.build-first == 'true' }}
+      shell: bash
+      run: pnpm -r build
+
+    # ── Execute ────────────────────────────────────────────────────────────
+    - name: Execute workflow
+      id: execute
+      shell: bash
+      env:
+        WORKFLOW: ${{ inputs.workflow }}
+        RUN_ID: ${{ inputs.run-id }}
+        INPUT: ${{ inputs.input }}
+        ALLOW_NETWORK: ${{ inputs.allow-network }}
+        ROOT: ${{ inputs.root }}
+        MAX_CONCURRENCY: ${{ inputs.max-concurrency }}
+        ALLOW_SUSPEND: ${{ inputs.allow-suspend }}
+        CLONE_DIR: ${{ steps.clone.outputs.clone-dir }}
+        REPO_NAME: ${{ steps.clone.outputs.repo-name }}
+      run: |
+        set +e
+        if [[ -n "$CLONE_DIR" ]]; then
+          cd "$CLONE_DIR"
+          WORKING_DIR="$CLONE_DIR"
+          if [[ -z "$ROOT" ]]; then ROOT="$CLONE_DIR"
+          elif [[ ! "$ROOT" = /* ]]; then ROOT="$CLONE_DIR/$ROOT"; fi
+        else
+          WORKING_DIR="${{ github.workspace }}"
+          if [[ -n "$ROOT" && ! "$ROOT" = /* ]]; then ROOT="$WORKING_DIR/$ROOT"; fi
+        fi
+        if [[ ! "$WORKFLOW" = /* ]]; then WORKFLOW="$WORKING_DIR/$WORKFLOW"; fi
+        if [[ ! -f "$WORKFLOW" ]]; then echo "✗ Workflow not found: $WORKFLOW"; exit 1; fi
+        ARGS=("up" "$WORKFLOW")
+        [[ -n "$RUN_ID" ]] && ARGS+=("--run-id" "$RUN_ID")
+        [[ "$INPUT" != "" && "$INPUT" != "{}" ]] && ARGS+=("--input" "$INPUT")
+        [[ "$ALLOW_NETWORK" == "true" ]] && ARGS+=("--allow-network")
+        [[ -n "$ROOT" ]] && ARGS+=("--root" "$ROOT")
+        [[ -n "$MAX_CONCURRENCY" ]] && ARGS+=("--max-concurrency" "$MAX_CONCURRENCY")
+        echo "▶ bun run smithers ${ARGS[*]}"
+        bun run smithers "${ARGS[@]}"
+        EXIT_CODE=$?
+        if [[ -z "$RUN_ID" ]]; then
+          RUN_ID="${REPO_NAME:-local}-gha-$(date +%s)"
+        fi
+        echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
+        echo "exit-code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+        if [[ "$EXIT_CODE" -eq 0 ]]; then
+          echo "status=finished" >> "$GITHUB_OUTPUT"; echo "✓ Finished"; exit 0
+        elif [[ "$EXIT_CODE" -eq 3 ]]; then
+          echo "status=suspended" >> "$GITHUB_OUTPUT"
+          if [[ "$ALLOW_SUSPEND" == "true" ]]; then echo "⚠ Suspended (ok)"; exit 0; else exit 3; fi
+        elif [[ "$EXIT_CODE" -eq 2 ]]; then
+          echo "status=cancelled" >> "$GITHUB_OUTPUT"; exit 2
+        else
+          echo "status=failed" >> "$GITHUB_OUTPUT"; exit 1
+        fi
+
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: smithers-logs-${{ steps.execute.outputs.run-id || 'unknown' }}
+        path: |
+          .smithers-runners/**/*.log
+          ${{ runner.temp }}/smithers-workflows/**/*.log
+          .smithers/*.log
+          *.log
+        if-no-files-found: ignore

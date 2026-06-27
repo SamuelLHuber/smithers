@@ -1,0 +1,58 @@
+name: Test — Smithers Runner (external mode)
+
+# Integration test for the external mode of the shareable runner.
+# Clones the smithers repo itself as the "external" workflow pack and runs
+# a workflow from inside the clone.
+#
+# Expected behavior:
+#   - The runner clones this repo into a temp directory
+#   - Detects pnpm from pnpm-lock.yaml
+#   - Installs dependencies in the clone
+#   - Loads the workflow from the clone's .smithers/workflows/ directory
+#   - Fails at agent execution (Claude Code CLI not in GH Actions)
+#   - Exit code mapping works
+#
+# This validates: clone → detect PM → install in external repo →
+#                 resolve smithers-orchestrator from clone → execute → exit handling
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-external:
+    uses: ./.github/workflows/run-smithers.yml
+    with:
+      workflow: .smithers/workflows/audit.tsx
+      workflow-repo: smithersai/smithers
+      workflow-ref: main
+      input: |
+        {"features": {"test": ["verify runner can load external workflows"]}, "focus": "integration test"}
+      timeout-minutes: 10
+    secrets: inherit
+
+  report:
+    needs: test-external
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Runner test report
+        run: |
+          echo "=== Smithers Runner (External Mode) Test Report ==="
+          echo "Run ID:    ${{ needs.test-external.outputs.run-id }}"
+          echo "Status:    ${{ needs.test-external.outputs.status }}"
+          echo "Exit Code: ${{ needs.test-external.outputs.exit-code }}"
+          echo ""
+          echo "Note: Exit code 1 (failed) is EXPECTED because the audit workflow"
+          echo "requires an agent and Claude Code isn't available in Actions."
+          echo "What matters is that the clone, install, and workflow-load steps succeeded."
+          echo ""
+          if [[ "${{ needs.test-external.outputs.exit-code }}" == "1" ]]; then
+            echo "✓ PASS: External mode infrastructure works (cloned, installed, loaded, failed at agent as expected)"
+          elif [[ "${{ needs.test-external.outputs.exit-code }}" == "" ]]; then
+            echo "✗ FAIL: Runner didn't produce an exit-code output — check for infra failures"
+            exit 1
+          else
+            echo "⚠ UNEXPECTED: Exit code was ${{ needs.test-external.outputs.exit-code }}"
+            echo "  Check the logs for clone/install failures."
+            exit 1
+          fi

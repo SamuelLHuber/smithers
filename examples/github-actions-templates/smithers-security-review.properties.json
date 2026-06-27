@@ -1,0 +1,19 @@
+{
+  "name": "Smithers Security Review",
+  "description": "AI-powered security review on every pull request. Detects secrets, injection risks, auth flaws, and more using distributable Smithers workflow packs.",
+  "iconName": "octicon shield",
+  "categories": [
+    "Security",
+    "Code Review"
+  ],
+  "filePatterns": [
+    "\\.ts$",
+    "\\.tsx$",
+    "\\.js$",
+    "\\.jsx$",
+    "\\.py$",
+    "\\.go$",
+    "\\.rb$",
+    "\\.java$"
+  ]
+}

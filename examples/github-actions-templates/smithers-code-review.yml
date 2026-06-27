@@ -1,0 +1,43 @@
+name: Smithers Code Review
+
+# AI-powered code review on every pull request. Uses a shared Smithers
+# workflow pack that can be swapped for domain-specific reviewers
+# (frontend, backend, API design, etc.).
+#
+# Customize by pointing `workflow-repo` at your team's review pack:
+#   - `smithersai/review-packs` — general-purpose reviews
+#   - `your-org/frontend-reviews` — React/Vue/Svelte specific
+#   - `your-org/api-reviews` — OpenAPI/GraphQL contract reviews
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [$default-branch]
+
+  workflow_dispatch:
+    inputs:
+      workflow-repo:
+        description: "Review workflow pack (owner/repo)"
+        required: true
+        default: "smithersai/review-packs"
+      workflow-ref:
+        description: "Git ref (branch/tag/SHA)"
+        required: true
+        default: "main"
+
+jobs:
+  code-review:
+    uses: smithersai/smithers/.github/workflows/run-smithers.yml@main
+    with:
+      workflow: .smithers/workflows/code-review.tsx
+      workflow-repo: ${{ github.event.inputs.workflow-repo || 'smithersai/review-packs' }}
+      workflow-ref: ${{ github.event.inputs.workflow-ref || 'main' }}
+      input: |
+        {"sha": "${{ github.event.pull_request.head.sha }}",
+         "repo": "${{ github.repository }}",
+         "pr": ${{ github.event.pull_request.number || -1 }},
+         "base": "${{ github.event.pull_request.base.sha }}"}
+      allow-network: false
+      timeout-minutes: 30
+      root: .
+    secrets: inherit

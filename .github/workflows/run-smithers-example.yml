@@ -1,0 +1,114 @@
+# Example workflows showing how to call the shareable Smithers runner.
+#
+# This demonstrates three patterns:
+#   1. Local workflow  — the workflow lives in this repo.
+#   2. External public — the workflow lives in another public GitHub repo.
+#   3. Manual dispatch — a human picks the workflow and parameters.
+#
+# Usage for your own repo:
+#   - For workflows in THIS repo:    uses: ./.github/workflows/run-smithers.yml
+#   - For a shared remote runner:    uses: smithersai/smithers/.github/workflows/run-smithers.yml@main
+#   - For a dedicated runner repo:   uses: smithersai/github-actions-runner/.github/workflows/run-smithers.yml@v1
+
+name: Example — Smithers workflow caller
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - '.github/workflows/**'
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: true
+        default: 'local'
+        type: choice
+        options:
+          - local
+          - external
+      workflow:
+        description: 'Path to the workflow file'
+        required: true
+        default: '.smithers/workflows/audit.tsx'
+      workflow-repo:
+        description: 'External repo (owner/repo or URL). Leave empty for local mode.'
+        required: false
+      workflow-ref:
+        description: 'Git ref for external repo'
+        required: false
+        default: 'main'
+      input:
+        description: 'JSON input for the workflow'
+        required: false
+        default: '{}'
+      allow-network:
+        description: 'Allow network access for bash tools'
+        required: false
+        default: 'false'
+
+# NOTE: Workflow-level `env:` does NOT propagate to reusable workflows
+# per GitHub docs. The runner sets its own environment. If you need to
+# pass custom env vars, do it inside a job step or via runner inputs.
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Pattern 1: Local workflow (runs on every PR affecting source files)
+  # ──────────────────────────────────────────────────────────────────────────
+  local-audit:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/run-smithers.yml
+    with:
+      workflow: .smithers/workflows/audit.tsx
+      input: '{"repo": "${{ github.repository }}", "sha": "${{ github.event.pull_request.head.sha }}"}'
+      allow-network: true
+      timeout-minutes: 30
+      root: '.'
+    secrets: inherit
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Pattern 2: External workflow from a shared security pack
+  #   Replace 'smithersai/security-workflows' with your real shared repo.
+  # ──────────────────────────────────────────────────────────────────────────
+  external-security-review:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/run-smithers.yml
+    with:
+      workflow: .smithers/workflows/pr-security-review.tsx
+      workflow-repo: smithersai/security-workflows
+      workflow-ref: main
+      input: '{"pr": ${{ github.event.pull_request.number }}, "repo": "${{ github.repository }}"}'
+      allow-network: false
+      timeout-minutes: 45
+      root: '.'         # sandbox tools to the caller repo
+    secrets: inherit
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Pattern 3: Manual dispatch — pick local or external at run time
+  # ──────────────────────────────────────────────────────────────────────────
+  manual-run:
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/run-smithers.yml
+    with:
+      workflow: ${{ github.event.inputs.workflow }}
+      workflow-repo: ${{ github.event.inputs.workflow-repo }}
+      workflow-ref: ${{ github.event.inputs.workflow-ref }}
+      input: ${{ github.event.inputs.input }}
+      allow-network: ${{ github.event.inputs.allow-network == 'true' }}
+      timeout-minutes: 60
+    secrets: inherit
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Downstream job that reports results from whichever job ran
+  # ──────────────────────────────────────────────────────────────────────────
+  report-results:
+    needs: [local-audit, external-security-review, manual-run]
+    if: always() && (needs.local-audit.result == 'success' || needs.external-security-review.result == 'success' || needs.manual-run.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report Smithers run summary
+        run: |
+          echo "Run ID:    ${{ needs.local-audit.outputs.run-id || needs.external-security-review.outputs.run-id || needs.manual-run.outputs.run-id }}"
+          echo "Status:    ${{ needs.local-audit.outputs.status || needs.external-security-review.outputs.status || needs.manual-run.outputs.status }}"
+          echo "Exit code: ${{ needs.local-audit.outputs.exit-code || needs.external-security-review.outputs.exit-code || needs.manual-run.outputs.exit-code }}"

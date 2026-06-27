@@ -1,0 +1,54 @@
+name: Smithers Architecture Test
+
+# Validates architecture constraints against a Smithers workflow pack.
+# Useful for enforcing hexagonal architecture, dependency rules, layer
+# boundaries, or custom architectural decisions encoded as agentic checks.
+#
+# Customization:
+#   - `workflow-repo`: your architecture test pack
+#   - `workflow`: the specific test suite (hexagonal, clean-arch, etc.)
+#   - `input.srcDir`: which directory to analyze (default: src/)
+#   - Run on schedule for continuous drift detection, or on PR for gating
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'lib/**'
+      - 'apps/**'
+    branches: [$default-branch]
+
+  schedule:
+    # Weekly architecture drift check — every Monday at 09:00 UTC
+    - cron: "0 9 * * 1"
+
+  workflow_dispatch:
+    inputs:
+      workflow-repo:
+        description: "Architecture test pack (owner/repo)"
+        required: true
+        default: "smithersai/architecture-tests"
+      workflow-ref:
+        description: "Git ref (branch/tag/SHA)"
+        required: true
+        default: "main"
+      src-dir:
+        description: "Source directory to analyze"
+        required: true
+        default: "src"
+
+jobs:
+  architecture-test:
+    uses: smithersai/smithers/.github/workflows/run-smithers.yml@main
+    with:
+      workflow: .smithers/workflows/validate-hexagonal.tsx
+      workflow-repo: ${{ github.event.inputs.workflow-repo || 'smithersai/architecture-tests' }}
+      workflow-ref: ${{ github.event.inputs.workflow-ref || 'main' }}
+      input: |
+        {"repo": "${{ github.repository }}",
+         "sha": "${{ github.sha }}",
+         "srcDir": "${{ github.event.inputs.src-dir || 'src' }}"}
+      allow-network: false
+      timeout-minutes: 20
+      root: .
+    secrets: inherit

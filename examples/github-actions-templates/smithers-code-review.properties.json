@@ -1,0 +1,23 @@
+{
+  "name": "Smithers Code Review",
+  "description": "AI-driven code review on pull requests. Pluggable workflow packs for frontend, backend, API design, or domain-specific patterns.",
+  "iconName": "octicon eye",
+  "categories": [
+    "Code Review"
+  ],
+  "filePatterns": [
+    "\\.ts$",
+    "\\.tsx$",
+    "\\.js$",
+    "\\.jsx$",
+    "\\.py$",
+    "\\.go$",
+    "\\.rs$",
+    "\\.rb$",
+    "\\.java$",
+    "\\.cpp$",
+    "\\.c$",
+    "\\.swift$",
+    "\\.kt$"
+  ]
+}

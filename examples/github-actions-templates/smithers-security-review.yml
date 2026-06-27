@@ -1,0 +1,43 @@
+name: Smithers Security Review
+
+# Runs an AI-powered security review on every pull request using a shared
+# Smithers workflow pack. The workflow is cloned from an external repository
+# at runtime and executed in its own isolated environment.
+#
+# To customize:
+#   - Change `workflow-repo` to point to your own security workflow pack
+#   - Change `workflow-ref` to pin a specific version (tag or SHA)
+#   - Adjust `timeout-minutes` for your codebase size
+#   - Set `allow-network: true` only if the security tools need external APIs
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [$default-branch]
+
+  workflow_dispatch:
+    inputs:
+      workflow-repo:
+        description: "Workflow pack repository (owner/repo)"
+        required: true
+        default: "smithersai/security-workflows"
+      workflow-ref:
+        description: "Git ref (branch/tag/SHA)"
+        required: true
+        default: "main"
+
+jobs:
+  security-review:
+    uses: smithersai/smithers/.github/workflows/run-smithers.yml@main
+    with:
+      workflow: .smithers/workflows/pr-security-review.tsx
+      workflow-repo: ${{ github.event.inputs.workflow-repo || 'smithersai/security-workflows' }}
+      workflow-ref: ${{ github.event.inputs.workflow-ref || 'main' }}
+      input: |
+        {"sha": "${{ github.event.pull_request.head.sha }}",
+         "repo": "${{ github.repository }}",
+         "pr": ${{ github.event.pull_request.number || -1 }}}
+      allow-network: false
+      timeout-minutes: 45
+      root: .
+    secrets: inherit
