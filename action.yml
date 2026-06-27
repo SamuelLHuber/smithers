@@ -207,6 +207,13 @@ runs:
         REPO_NAME: ${{ steps.clone.outputs.repo-name }}
       run: |
         set +e
+
+        # Default outputs — written immediately so they're available even if
+        # the workflow process crashes before reaching the normal output block.
+        echo "run-id=${RUN_ID:-unknown}" >> "$GITHUB_OUTPUT"
+        echo "exit-code=1" >> "$GITHUB_OUTPUT"
+        echo "status=failed" >> "$GITHUB_OUTPUT"
+
         if [[ -n "$CLONE_DIR" ]]; then
           cd "$CLONE_DIR"
           WORKING_DIR="$CLONE_DIR"

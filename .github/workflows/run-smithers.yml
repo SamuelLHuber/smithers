@@ -289,6 +289,13 @@ jobs:
         run: |
           set +e
 
+          # Write output defaults immediately so they're available even if
+          # the workflow process crashes (SIGABRT, SIGKILL, etc.) before we
+          # reach the normal output block.
+          echo "run-id=${RUN_ID:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "exit-code=1" >> "$GITHUB_OUTPUT"
+          echo "status=failed" >> "$GITHUB_OUTPUT"
+
           if [[ -n "$CLONE_DIR" ]]; then
             # ── EXTERNAL MODE ──
             echo "Running in EXTERNAL mode (repo: ${REPO_NAME})"
@@ -358,6 +365,7 @@ jobs:
             fi
           fi
 
+          # Overwrite the defaults with actual values
           echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
           echo "exit-code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
 
