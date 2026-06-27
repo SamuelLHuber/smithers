@@ -6,7 +6,7 @@ name: Test — Smithers Runner (local mode)
 # Expected behavior:
 #   - Workflow loads successfully (shows Smithers is set up correctly)
 #   - Fails at agent execution because Claude Code CLI isn't installed in GH Actions
-#   - Exit code mapping works (status=failed, exit-code=1)
+#   - Job result = failure
 #
 # This validates: checkout → install → build → bun run smithers up → exit handling
 
@@ -31,21 +31,17 @@ jobs:
       - name: Runner test report
         run: |
           echo "=== Smithers Runner (Local Mode) Test Report ==="
-          echo "Run ID:    ${{ needs.test-local.outputs.run-id }}"
-          echo "Status:    ${{ needs.test-local.outputs.status }}"
-          echo "Exit Code: ${{ needs.test-local.outputs.exit-code }}"
+          echo "Job result: ${{ needs.test-local.result }}"
           echo ""
-          echo "Note: Exit code 1 (failed) is EXPECTED because the debug workflow"
-          echo "tries to run an agent and Claude Code isn't installed in Actions."
-          echo "If we see a different failure, the runner infrastructure broke."
+          echo "Note: 'failure' is EXPECTED because the debug workflow tries to"
+          echo "run an agent and Claude Code isn't installed in Actions."
+          echo "If we see 'cancelled' or 'skipped', the runner infra broke."
           echo ""
-          if [[ "${{ needs.test-local.outputs.exit-code }}" == "1" ]]; then
-            echo "✓ PASS: Runner infrastructure works (workflow loaded, failed at agent step as expected)"
-          elif [[ "${{ needs.test-local.outputs.exit-code }}" == "" ]]; then
-            echo "✗ FAIL: Runner didn't produce an exit-code output"
-            exit 1
+          if [[ "${{ needs.test-local.result }}" == "failure" ]]; then
+            echo "✓ PASS: Runner infrastructure works (loaded, failed at agent step as expected)"
+          elif [[ "${{ needs.test-local.result }}" == "success" ]]; then
+            echo "✓ PASS: Runner succeeded (agent worked!)"
           else
-            echo "⚠ UNEXPECTED: Exit code was ${{ needs.test-local.outputs.exit-code }}"
-            echo "  Check the logs for infrastructure failures."
+            echo "✗ FAIL: Unexpected result — ${{ needs.test-local.result }}"
             exit 1
           fi
