@@ -22,12 +22,11 @@ jobs:
   test-external:
     uses: ./.github/workflows/run-smithers.yml
     with:
-      workflow: .smithers/workflows/audit.tsx
-      workflow-repo: SamuelLHuber/smithers
-      workflow-ref: main
-      input: |
-        {"features": {"test": ["verify runner can load external workflows"]}, "focus": "integration test", "maxConcurrency": 1}
-      timeout-minutes: 2
+      workflow: .smithers/workflows/test-echo.tsx
+      workflow-repo: SamuelLHuber/smithers-test-workflow
+      workflow-ref: master
+      input: '{"message": "external mode works"}'
+      timeout-minutes: 3
     secrets: inherit
 
   report:
