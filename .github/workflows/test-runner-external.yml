@@ -23,11 +23,11 @@ jobs:
     uses: ./.github/workflows/run-smithers.yml
     with:
       workflow: .smithers/workflows/audit.tsx
-      workflow-repo: smithersai/smithers
+      workflow-repo: SamuelLHuber/smithers
       workflow-ref: main
       input: |
         {"features": {"test": ["verify runner can load external workflows"]}, "focus": "integration test", "maxConcurrency": 1}
-      timeout-minutes: 3
+      timeout-minutes: 2
     secrets: inherit
 
   report:
