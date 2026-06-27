@@ -550,6 +550,7 @@ export const FeatureGroups = {
   // Source: apps/cli/src/index.js — top-level commands
   CLI_COMMANDS: [
     "CLI_UP_COMMAND",
+    "CLI_RUN_OUTPUT_SUMMARY_PRINTED",
     "CLI_EVAL_COMMAND",
     "CLI_PS_COMMAND",
     "CLI_LOGS_COMMAND",
@@ -1796,6 +1797,7 @@ export const FeatureGroups = {
 
   // Source: .smithers/workflows/*.tsx
   BUILTIN_WORKFLOW_PACKS: [
+    "SEEDED_WORKFLOW_TERMINAL_OUTPUT_TASKS",
     "AUDIT_WORKFLOW",
     "AUDIT_BURNDOWN_WORKFLOW",
     "BACKPRESSURE_PLAN_WORKFLOW",
