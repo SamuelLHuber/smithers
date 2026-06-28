@@ -508,10 +508,17 @@ function withAgentFallback(error, from, to) {
     if (message.includes("Agent-assisted repair is tracked as a follow-up")) {
         return error;
     }
+    // DB_WRITE_FAILED means the target already has data or is corrupt — retrying
+    // the same command will hit the same guard. Guide the operator to inspect or
+    // remove the conflicting target instead of suggesting a futile retry.
+    const isWriteConflict = error instanceof SmithersError && error.code === "DB_WRITE_FAILED";
+    const suffix = isWriteConflict
+        ? `\n\nThe target store already contains data or is not writable; retrying the same command will fail again. Inspect or remove the conflicting target store before re-running the migration. Agent-assisted repair is tracked as a follow-up and is not available in this build.`
+        : agentFallbackText(from, to);
     if (error instanceof SmithersError) {
-        return new SmithersError(error.code, `${message}${agentFallbackText(from, to)}`, error.details, { cause: error });
+        return new SmithersError(error.code, `${message}${suffix}`, error.details, { cause: error });
     }
-    return new SmithersError("DB_WRITE_FAILED", `${message}${agentFallbackText(from, to)}`, {}, { cause: error });
+    return new SmithersError("DB_WRITE_FAILED", `${message}${suffix}`, {}, { cause: error });
 }
 
 // bun:sqlite surfaces a corrupt, encrypted, or non-SQLite source file with one
@@ -885,6 +892,26 @@ async function pgliteRunCountAt(cwd, workspaceRoot, opts) {
  * @param {string} workspaceRoot
  * @returns {MigrateSmithersBackend | undefined}
  */
+/**
+ * Read the source dbPath recorded in the migrated.json receipt from the last
+ * forward migration. Returns undefined when there is no receipt or it does not
+ * record a source dbPath (e.g. a reverse migration receipt).
+ * @param {string} workspaceRoot
+ * @returns {string | undefined}
+ */
+function readReceiptSourceDbPath(workspaceRoot) {
+    const receiptPath = join(workspaceRoot, ".smithers", MIGRATION_MARKER_NAME);
+    if (!existsSync(receiptPath)) return undefined;
+    try {
+        const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
+        const dbPath = receipt?.source?.dbPath;
+        return typeof dbPath === "string" && dbPath.length > 0 ? dbPath : undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
+
 function readReceiptCurrentBackend(workspaceRoot) {
     const receiptPath = join(workspaceRoot, ".smithers", MIGRATION_MARKER_NAME);
     if (!existsSync(receiptPath)) return undefined;
@@ -969,10 +996,18 @@ async function migratePgToSqlite(opts, context) {
         });
         // Refuse to overwrite a populated SQLite target: the atomic publish
         // below would replace it, so guard the FINAL dbPath (not the temp).
+        // Exception: if the migrated.json receipt records that this exact sqlite
+        // file WAS the source of the forward migration (keepSqlite:true left it on
+        // disk), allow the reverse migration to overwrite it — we are restoring the
+        // data back to where it came from, not merging two independent histories.
         if (sqliteRunCountAt(dbPath) > 0) {
-            throw new SmithersError("DB_WRITE_FAILED", `Target SQLite store at ${dbPath} already has run history; refusing to merge a one-shot Smithers migration into a non-empty target.`, {
-                dbPath,
-            });
+            const receiptSourceDbPath = readReceiptSourceDbPath(workspaceRoot);
+            const isForwardMigrationSource = receiptSourceDbPath !== undefined && resolve(receiptSourceDbPath) === resolve(dbPath);
+            if (!isForwardMigrationSource) {
+                throw new SmithersError("DB_WRITE_FAILED", `Target SQLite store at ${dbPath} already has run history; refusing to merge a one-shot Smithers migration into a non-empty target.`, {
+                    dbPath,
+                });
+            }
         }
         // Build the SQLite target in a temp file, never the live smithers.db.
         for (const suffix of ["", "-wal", "-shm", "-journal"]) {

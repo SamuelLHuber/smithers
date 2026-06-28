@@ -134,6 +134,37 @@ function readPackageVersion() {
         return "unknown";
     }
 }
+/**
+ * Read the backend marker from the nearest .smithers/backend.json anchor above
+ * `cwd`. Returns the backend string (e.g. "pglite") or undefined if there is no
+ * marker or it cannot be parsed. Used by executeUpCommand to redirect workflow.db
+ * to the correct store after a `smithers migrate` has moved runs to pglite.
+ * @param {string} cwd
+ * @returns {string | undefined}
+ */
+function readBackendMarkerForCwd(cwd) {
+    let dir = resolve(cwd);
+    const fsRoot = resolve("/");
+    const home = process.env.HOME ? resolve(process.env.HOME) : undefined;
+    while (true) {
+        if (home && (dir === home || !dir.startsWith(home + "/"))) return undefined;
+        if (dir === fsRoot) return undefined;
+        const markerPath = `${dir}/.smithers/backend.json`;
+        if (existsSync(markerPath)) {
+            try {
+                const parsed = JSON.parse(readFileSync(markerPath, "utf8"));
+                const backend = parsed?.backend;
+                return typeof backend === "string" && backend.length > 0 ? backend.toLowerCase() : undefined;
+            }
+            catch {
+                return undefined;
+            }
+        }
+        const next = dirname(dir);
+        if (next === dir) return undefined;
+        dir = next;
+    }
+}
 const CLI_ARGUMENT_MAX_LENGTH = 4096;
 const CLI_IDENTIFIER_MAX_LENGTH = 256;
 const CLI_TEXT_ARGUMENT_MAX_LENGTH = 64 * 1024;
@@ -1928,11 +1959,30 @@ async function executeUpCommand(c, workflowPath, options, fail) {
             });
         }
         const workflow = await loadWorkflow(workflowPath);
+        // If the workspace has been migrated to pglite (backend.json says pglite),
+        // open the pglite backend and redirect workflow.db to it so new runs
+        // land in the correct store instead of the leftover sqlite file.
+        let pgliteBackendApi;
+        if (!options.backend) {
+            const markerBackend = readBackendMarkerForCwd(process.cwd());
+            if (markerBackend === "pglite") {
+                try {
+                    const { openSmithersBackend } = await import("smithers-orchestrator");
+                    pgliteBackendApi = await openSmithersBackend({}, { backend: "pglite" });
+                    workflow.db = pgliteBackendApi.db;
+                }
+                catch {
+                    // Non-fatal: if pglite open fails, fall through to the default sqlite workflow.db.
+                }
+            }
+        }
         ensureSmithersTables(workflow.db);
         if (options.hot) {
             process.stderr.write(`[hot] Hot reload enabled\n`);
         }
-        setupSqliteCleanup(workflow);
+        if (!pgliteBackendApi) {
+            setupSqliteCleanup(workflow);
+        }
         const adapter = new SmithersDb(workflow.db);
         // Recover rewinds interrupted by a prior crash before driving the run.
         // jumpToFrame writes a durable in_progress audit marker before mutating,
@@ -2691,7 +2741,14 @@ const memoryCli = Cli.create({
             ensureSmithersTables(workflow.db);
             setupSqliteCleanup(workflow);
             const store = createMemoryStore(workflow.db);
-            await store.setFact(parseNamespace(c.args.namespace), c.args.key, c.args.value, c.options.ttl);
+            let factValue;
+            try {
+                factValue = JSON.parse(c.args.value);
+            }
+            catch {
+                factValue = c.args.value;
+            }
+            await store.setFact(parseNamespace(c.args.namespace), c.args.key, factValue, c.options.ttl);
             console.log(`Set ${pc.bold(c.args.key)} in "${c.args.namespace}".`);
             return c.ok({ namespace: c.args.namespace, key: c.args.key });
         }

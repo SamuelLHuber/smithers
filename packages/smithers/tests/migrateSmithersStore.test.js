@@ -670,7 +670,7 @@ describe("migrateSmithersStore", () => {
     expect(existsSync(join(cwd, ".smithers", "backend.json"))).toBe(false);
   });
 
-  test("deterministic migration failures include exact agent fallback guidance and keep receipts absent", async () => {
+  test("deterministic migration failures include agent fallback guidance and keep receipts absent", async () => {
     const cwd = makeWorkspace("smithers-migrate-agent-guidance");
     await seedPgliteStore(cwd);
     rmSync(join(cwd, ".smithers", "migrated.json"), { force: true });
@@ -685,7 +685,10 @@ describe("migrateSmithersStore", () => {
     }
 
     expect(caught).toBeInstanceOf(SmithersError);
-    expect(caught.message).toContain("smithers migrate --from pglite --to sqlite");
+    // DB_WRITE_FAILED (target already has data) must NOT suggest retrying the
+    // same command — the guard would fire again. It must instead tell the
+    // operator to inspect or remove the conflicting target.
+    expect(caught.message).not.toContain("smithers migrate --from pglite --to sqlite");
     expect(caught.message).toContain("Agent-assisted repair is tracked as a follow-up");
     expect(caught.message).not.toContain("is not defined");
     expect(existsSync(join(cwd, ".smithers", "migrated.json"))).toBe(false);
@@ -713,7 +716,9 @@ describe("migrateSmithersStore", () => {
     }
 
     expect(caught).toBeInstanceOf(SmithersError);
-    expect(caught.message).toContain("smithers migrate --from sqlite --to pglite");
+    // DB_WRITE_FAILED (target pglite already has rows) must NOT suggest retrying
+    // the same command — the guard would fire again.
+    expect(caught.message).not.toContain("smithers migrate --from sqlite --to pglite");
     expect(caught.message).toContain("Agent-assisted repair is tracked as a follow-up");
     expect(caught.message).not.toContain("is not defined");
     expect(existsSync(join(cwd, ".smithers", "migrated.json"))).toBe(false);
@@ -813,6 +818,56 @@ describe("migrateSmithersStore", () => {
     } finally {
       sqlite.close();
     }
+  });
+
+  // Issue 1: round-trip sqlite→pglite (keepSqlite:true) then pglite→sqlite must
+  // succeed. The receipt records the original sqlite source; the reverse migration
+  // reads it to allow overwriting that specific populated file.
+  test("round-trip pglite→sqlite succeeds when keepSqlite:true left the source sqlite on disk", async () => {
+    const cwd = makeWorkspace("smithers-migrate-roundtrip-keepsqlite");
+    seedSqliteStore(cwd);
+
+    // Forward migration with keepSqlite:true — leaves smithers.db on disk.
+    const forward = await migrateSmithersStore({ cwd, from: "sqlite", to: "pglite", keepSqlite: true });
+    expect(forward.backend).toBe("pglite");
+    expect(forward.sqliteRemoved).toBe(false);
+    expect(existsSync(join(cwd, "smithers.db"))).toBe(true);
+
+    // Reverse migration must NOT throw DB_WRITE_FAILED even though smithers.db
+    // has runs — it was the forward-migration source, so overwriting it restores
+    // the data to its origin, not a merge of two independent histories.
+    const reverse = await migrateSmithersStore({ cwd, from: "pglite", to: "sqlite" });
+    expect(reverse.backend).toBe("sqlite");
+    expect(reverse.source.backend).toBe("pglite");
+    expect(sqliteRunIds(join(cwd, "smithers.db"))).toEqual(["run-migrate-1"]);
+  });
+
+  // Issue 5: DB_WRITE_FAILED must not suggest retrying the exact same command
+  // because retrying will always hit the same target-has-data guard.
+  test("DB_WRITE_FAILED error message does not suggest retrying the same command", async () => {
+    const cwd = makeWorkspace("smithers-migrate-write-conflict-message");
+    await seedPgliteStore(cwd);
+    rmSync(join(cwd, ".smithers", "migrated.json"), { force: true });
+    rmSync(join(cwd, ".smithers", "backend.json"), { force: true });
+    seedSqliteStore(cwd, join(cwd, "smithers.db"));
+
+    let caught;
+    try {
+      await migrateSmithersStore({ cwd, from: "pglite", to: "sqlite" });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(SmithersError);
+    expect(caught.code).toBe("DB_WRITE_FAILED");
+    // Must NOT suggest retrying the exact same failing command — it will always
+    // hit the same populated-target guard.
+    expect(caught.message).not.toContain("smithers migrate --from pglite --to sqlite");
+    // Must still include the "Agent-assisted repair" marker (withAgentFallback
+    // is still called, just with different text for write-conflict errors).
+    expect(caught.message).toContain("Agent-assisted repair is tracked as a follow-up");
+    // Should tell the operator to inspect or remove the conflicting target.
+    expect(caught.message.toLowerCase()).toContain("target store");
   });
 });
 

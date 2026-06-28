@@ -26,7 +26,7 @@ function setupRepo() {
     HOME: repo.dir,
     PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`,
     ANTHROPIC_API_KEY: "",
-    OPENAI_API_KEY: "test-openai-key",
+    OPENAI_API_KEY: "sk-test-openai-key",
   };
   repo.write(".claude/.credentials.json", "{}\n");
   repo.write(".codex/auth.json", "{}\n");
@@ -66,6 +66,40 @@ test("memory set/get/list/rm round-trips against the workspace store with no --w
   const missed = runSmithers(["memory", "get", ns, "answer"], opts);
   expect(missed.exitCode).toBe(0);
   expect(missed.stdout.toLowerCase()).toContain("no fact");
+}, 120_000);
+
+test("memory set does not double-encode JSON object values", () => {
+  const { repo, env } = setupRepo();
+  const ns = "workflow:memcli-json";
+  const opts = { cwd: repo.dir, env };
+
+  // Set a JSON object value — the CLI should parse it and store it as an object
+  // (valueJson = '{"x":1}'), not double-encode it ('{"x":1}' -> '"{\\"x\\":1}"').
+  const jsonVal = JSON.stringify({ x: 1, label: "test" });
+  const set = runSmithers(["memory", "set", ns, "cfg", jsonVal], opts);
+  expect(set.exitCode).toBe(0);
+
+  // get prints fact.valueJson to stdout. For an object value (stored without
+  // double-encoding), valueJson should be '{"x":1,...}', not '"{\\"x\\":1,...}"'.
+  const get = runSmithers(["memory", "get", ns, "cfg"], opts);
+  expect(get.exitCode).toBe(0);
+  // The FIRST line of stdout must be the raw JSON object, not a quoted string.
+  const firstLine = get.stdout.split("\n")[0].trim();
+  // Must parse as an object, not as a plain string wrapping JSON
+  const parsed = JSON.parse(firstLine);
+  expect(typeof parsed).toBe("object");
+  expect(parsed).toMatchObject({ x: 1, label: "test" });
+
+  // Setting a plain string should still round-trip as a plain string
+  const setStr = runSmithers(["memory", "set", ns, "name", "hello"], opts);
+  expect(setStr.exitCode).toBe(0);
+  const getStr = runSmithers(["memory", "get", ns, "name"], opts);
+  expect(getStr.exitCode).toBe(0);
+  const firstLineStr = getStr.stdout.split("\n")[0].trim();
+  // A plain string value is stored as its JSON representation ("hello") and
+  // printed as-is. It must not be double-encoded (would print '"hello"').
+  // JSON.parse('"hello"') gives "hello"; JSON.parse('"\\\"hello\\\""') would give '"hello"'.
+  expect(JSON.parse(firstLineStr)).toBe("hello");
 }, 120_000);
 
 test("memory set still accepts an explicit --workflow pointing at a pack workflow", () => {

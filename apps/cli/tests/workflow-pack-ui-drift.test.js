@@ -9,7 +9,8 @@
 import { expect, onTestFinished, test } from "bun:test";
 import { mkdtempSync, rmSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createExecutableDir, writeFakeCodexBinary } from "../../../packages/smithers/tests/e2e-helpers.js";
 import { initWorkflowPack } from "../src/workflow-pack.js";
 
@@ -41,7 +42,7 @@ function seededAgentEnv() {
     return {
         ...process.env,
         PATH: `${binDir}:${process.env.PATH ?? ""}`,
-        OPENAI_API_KEY: "test-openai-key",
+        OPENAI_API_KEY: "sk-test-openai-key",
         ANTHROPIC_API_KEY: "",
         GEMINI_API_KEY: "",
         GOOGLE_API_KEY: "",
@@ -131,4 +132,15 @@ test("UI_WORKFLOWS gateway-mounts / ui-files / e2e-descriptors are in sync", () 
             `workflow-ui-descriptors.json has "${key}" but it is not mounted in gateway.ts`,
         ).toBe(true);
     }
+});
+
+test("seeded-workflow-pack.generated.js does not reference stale model gpt-5.3-codex", () => {
+    // smithering.tsx used gpt-5.3-codex; the live model is gpt-5.5. Guard against
+    // the model string being re-introduced by any workflow in the generated pack.
+    const packPath = resolve(
+        dirname(fileURLToPath(import.meta.url)),
+        "../src/seeded-workflow-pack.generated.js",
+    );
+    const packSource = readFileSync(packPath, "utf8");
+    expect(packSource).not.toContain("gpt-5.3-codex");
 });
