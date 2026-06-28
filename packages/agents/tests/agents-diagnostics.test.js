@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getDiagnosticStrategy, enrichReportWithErrorAnalysis, formatDiagnosticSummary, runDiagnostics, } from "../src/diagnostics/index.js";
 // ---------------------------------------------------------------------------
 // getDiagnosticStrategy — strategy registry lookup
@@ -213,5 +216,36 @@ describe("runDiagnostics", () => {
         expect(report.checks).toHaveLength(1);
         expect(report.checks[0].status).toBe("error");
         expect(report.checks[0].message).toContain("BOOM");
+    });
+
+    test("Claude subscription diagnostics fail when auth status reports logged out", async () => {
+        const binDir = mkdtempSync(join(tmpdir(), "smithers-claude-auth-"));
+        const home = mkdtempSync(join(tmpdir(), "smithers-claude-home-"));
+        try {
+            const claudeBin = join(binDir, "claude");
+            writeFileSync(claudeBin, [
+                `#!${process.execPath}`,
+                "if (process.argv.slice(2).join(' ') === 'auth status') {",
+                "  process.stdout.write(JSON.stringify({ loggedIn: false, authMethod: null }) + '\\n');",
+                "  process.exit(1);",
+                "}",
+                "process.stdout.write('ok\\n');",
+                "",
+            ].join("\n"));
+            chmodSync(claudeBin, 0o755);
+
+            const report = await runDiagnostics(getDiagnosticStrategy("claude"), {
+                env: { HOME: home, PATH: `${binDir}:/usr/bin:/bin` },
+                cwd: home,
+            });
+
+            const authCheck = report.checks.find((check) => check.id === "api_key_valid");
+            expect(authCheck?.status).toBe("fail");
+            expect(authCheck?.message).toContain("not logged in");
+        }
+        finally {
+            rmSync(binDir, { recursive: true, force: true });
+            rmSync(home, { recursive: true, force: true });
+        }
     });
 });

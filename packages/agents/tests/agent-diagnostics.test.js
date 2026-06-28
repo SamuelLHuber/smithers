@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runDiagnostics, getDiagnosticStrategy, enrichReportWithErrorAnalysis, formatDiagnosticSummary, launchDiagnostics, } from "../src/diagnostics/index.js";
@@ -284,15 +284,30 @@ describe("BaseCliAgent diagnostics integration", () => {
 // Strategy-specific checks (unit tests for individual check logic)
 // ---------------------------------------------------------------------------
 describe("claude strategy checks", () => {
-    test("api_key_valid passes in subscription mode (no key)", async () => {
+    test("api_key_valid passes in subscription mode when Claude Code is logged in", async () => {
+        const binDir = mkdtempSync(join(tmpdir(), "smithers-claude-auth-"));
+        writeFileSync(join(binDir, "claude"), [
+            `#!${process.execPath}`,
+            "if (process.argv.slice(2).join(' ') === 'auth status') {",
+            "  process.stdout.write(JSON.stringify({ loggedIn: true, authMethod: 'claude.ai' }) + '\\n');",
+            "  process.exit(0);",
+            "}",
+            "",
+        ].join("\n"));
+        chmodSync(join(binDir, "claude"), 0o755);
         const strategy = getDiagnosticStrategy("claude");
-        const report = await runDiagnostics(strategy, {
-            env: {},
-            cwd: "/tmp",
-        });
-        const apiKeyCheck = report.checks.find((c) => c.id === "api_key_valid");
-        expect(apiKeyCheck.status).toBe("pass");
-        expect(apiKeyCheck.message).toContain("subscription mode");
+        try {
+            const report = await runDiagnostics(strategy, {
+                env: { PATH: `${binDir}:/usr/bin:/bin` },
+                cwd: "/tmp",
+            });
+            const apiKeyCheck = report.checks.find((c) => c.id === "api_key_valid");
+            expect(apiKeyCheck.status).toBe("pass");
+            expect(apiKeyCheck.message).toContain("subscription auth");
+        }
+        finally {
+            rmSync(binDir, { recursive: true, force: true });
+        }
     });
     test("api_key_valid fails for invalid format", async () => {
         const strategy = getDiagnosticStrategy("claude");

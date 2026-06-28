@@ -70,12 +70,47 @@ const claudeApiKeyCheck = {
     run: async (ctx) => {
         const start = performance.now();
         const apiKey = ctx.env.ANTHROPIC_API_KEY;
-        // No API key means subscription mode — valid for Claude Code CLI
         if (!apiKey) {
+            const status = spawnSync("claude", ["auth", "status"], {
+                env: ctx.env,
+                stdio: ["ignore", "pipe", "pipe"],
+                timeout: 3_000,
+                encoding: "utf8",
+            });
+            const output = [status.stdout, status.stderr].filter(Boolean).join("\n").trim();
+            try {
+                const parsed = JSON.parse(status.stdout?.toString("utf8") ?? "");
+                if (parsed?.loggedIn === true) {
+                    return {
+                        id: "api_key_valid",
+                        status: "pass",
+                        message: "Claude Code subscription auth is logged in",
+                        durationMs: performance.now() - start,
+                    };
+                }
+                if (parsed?.loggedIn === false) {
+                    return {
+                        id: "api_key_valid",
+                        status: "fail",
+                        message: "Claude Code is not logged in — run `claude` then `/login` or `claude auth login`",
+                        durationMs: performance.now() - start,
+                    };
+                }
+            }
+            catch { }
+            const credentials = readClaudeCliCredentials(ctx.env);
+            if (credentials.valid) {
+                return {
+                    id: "api_key_valid",
+                    status: "pass",
+                    message: "Claude Code OAuth credentials are present",
+                    durationMs: performance.now() - start,
+                };
+            }
             return {
                 id: "api_key_valid",
-                status: "pass",
-                message: "No ANTHROPIC_API_KEY set — using subscription mode",
+                status: "fail",
+                message: output || credentials.reason || "Claude Code login not verified — run `claude` then `/login` or `claude auth login`",
                 durationMs: performance.now() - start,
             };
         }
@@ -97,6 +132,29 @@ const claudeApiKeyCheck = {
         };
     },
 };
+
+/**
+ * @param {Record<string, string | undefined>} env
+ */
+function readClaudeCliCredentials(env) {
+    const configDir = env.CLAUDE_CONFIG_DIR?.trim() || join(env.HOME?.trim() || homedir(), ".claude");
+    try {
+        const parsed = JSON.parse(readFileSync(join(configDir, ".credentials.json"), "utf8"));
+        const oauth = parsed?.claudeAiOauth;
+        const accessToken = oauth?.accessToken;
+        if (typeof accessToken !== "string" || !accessToken.trim()) {
+            return { valid: false, reason: "Claude Code OAuth access token is missing" };
+        }
+        const expiresAt = oauth?.expiresAt;
+        if (typeof expiresAt === "number" && expiresAt <= Date.now()) {
+            return { valid: false, reason: "Claude Code OAuth token expired — run `claude` to refresh" };
+        }
+        return { valid: true };
+    }
+    catch {
+        return { valid: false, reason: "Claude Code credentials are missing or unreadable" };
+    }
+}
 const claudeRateLimitCheck = {
     id: "rate_limit_status",
     run: async (ctx) => {
