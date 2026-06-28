@@ -1,6 +1,6 @@
 {
   "name": "smithers-monorepo",
-  "version": "0.25.5",
+  "version": "0.25.6",
   "description": "Durable control plane for long-running coding agents",
   "author": "William Cory",
   "license": "MIT",

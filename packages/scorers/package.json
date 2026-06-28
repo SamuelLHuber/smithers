@@ -1,6 +1,6 @@
 {
   "name": "@smithers-orchestrator/scorers",
-  "version": "0.25.5",
+  "version": "0.25.6",
   "description": "Smithers scorer definitions, execution, aggregation, and persistence helpers",
   "type": "module",
   "sideEffects": false,

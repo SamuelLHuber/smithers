@@ -1,6 +1,6 @@
 {
   "name": "smithers-orchestrator",
-  "version": "0.25.5",
+  "version": "0.25.6",
   "description": "Public Smithers facade for durable coding-agent workflows and Gateway operation",
   "license": "MIT",
   "homepage": "https://smithers.sh",
