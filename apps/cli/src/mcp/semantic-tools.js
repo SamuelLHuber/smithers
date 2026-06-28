@@ -10,6 +10,7 @@ import { diagnoseRunEffect, } from "../why-diagnosis.js";
 import { chatAttemptKey, parseChatAttemptMeta, parseNodeOutputEvent, selectChatAttempts, } from "../chat.js";
 import { WATCH_MIN_INTERVAL_MS } from "../watch.js";
 import { discoverWorkflows, resolveWorkflow } from "../workflows.js";
+import { buildMonitoringGuidance, hasCustomUi, workflowIdFromPath } from "../monitoring-suggestion.js";
 import { mdxPlugin } from "../mdx-plugin.js";
 import { approveNode, denyNode } from "@smithers-orchestrator/engine/approvals";
 import { buildAgentAskRequestRow, waitForHumanAnswer, } from "@smithers-orchestrator/engine/human-requests";
@@ -299,6 +300,14 @@ const runWorkflowDataSchema = z.object({
         output: z.unknown().optional(),
         error: z.unknown().optional(),
     }).nullable(),
+    monitoring: z.object({
+        text: z.string(),
+        options: z.array(z.object({
+            id: z.string(),
+            title: z.string(),
+            how: z.string(),
+        })),
+    }).nullable().describe("For background launches: agent-directed guidance to offer the user a way to watch the run (a status-report cron, a live custom UI, or a quick HTML page). Null when waitForTerminal=true."),
 });
 const listRunsInputSchema = z.object({
     limit: z.number().int().min(1).max(200).default(20),
@@ -970,6 +979,14 @@ export function createSemanticToolDefinitions(options = {}) {
                     : null;
                 const workflowInput = input.input ??
                     (typeof input.prompt === "string" ? { prompt: input.prompt } : {});
+                // A background run has no UI for the user; hand the agent guidance
+                // to offer them a way to watch it (cron report, live UI, or HTML page).
+                const monitorWorkflowId = workflowIdFromPath(summary.entryFile) || input.workflowId;
+                const monitoring = buildMonitoringGuidance({
+                    runId,
+                    workflowId: monitorWorkflowId,
+                    hasUi: hasCustomUi(monitorWorkflowId, context.cwd()),
+                });
                 const launchState = {
                     settled: false,
                     result: null,
@@ -1010,6 +1027,7 @@ export function createSemanticToolDefinitions(options = {}) {
                             ? await buildRunSummary(adapter, observedRun)
                             : null,
                         result,
+                        monitoring: null,
                     };
                 }
                 void launchPromise.catch((error) => {
@@ -1037,6 +1055,7 @@ export function createSemanticToolDefinitions(options = {}) {
                                 ? await buildRunSummary(adapter, finalRun)
                                 : null,
                             result: launchState.result,
+                            monitoring,
                         };
                     }
                 }
@@ -1048,6 +1067,7 @@ export function createSemanticToolDefinitions(options = {}) {
                     status: observedRun?.status ?? "running",
                     observedRun,
                     result: null,
+                    monitoring,
                 };
             }),
         },

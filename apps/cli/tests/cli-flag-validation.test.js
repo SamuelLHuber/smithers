@@ -235,4 +235,22 @@ describe("--annotations streaming via stdin", () => {
         expect(status).toBe("finished");
         expect(readFileSync(result.json.logFile, "utf8")).not.toContain("INVALID_JSON");
     }, 15_000);
+
+    test("detached runs return monitoring guidance so the agent can offer the user a way to watch", () => {
+        const repo = createTempRepo();
+        writeTestWorkflow(repo);
+        const result = runSmithers(["up", "workflow.tsx", "--detach"], {
+            cwd: repo.dir,
+            format: "json",
+        });
+        expect(result.exitCode).toBe(0);
+        const monitoring = result.json?.monitoring;
+        expect(monitoring?.text).toContain("background");
+        expect(monitoring?.text).toContain(String(result.json.runId));
+        expect(monitoring?.options?.map((o) => o.id)).toEqual([
+            "cron-report",
+            "live-ui",
+            "html-page",
+        ]);
+    });
 });

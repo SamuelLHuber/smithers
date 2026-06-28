@@ -49,6 +49,7 @@ import { getUsageForAccounts, formatUsageReports } from "@smithers-orchestrator/
 import { runAgentAdd, pingAccount } from "./agent-commands/runAgentAdd.js";
 import { agentAddWizard } from "./agent-commands/agentAddWizard.js";
 import { getWorkflowFollowUpCtas } from "./workflow-pack.js";
+import { buildMonitoringGuidance, hasCustomUi, workflowIdFromPath } from "./monitoring-suggestion.js";
 import { discoverWorkflows, resolveWorkflow, createWorkflowFile, renderWorkflowSkill, writeWorkflowSkillFiles, resolvePackDirs, summarizeWorkflowInputSchema, workflowInputJsonSchema } from "./workflows.js";
 import {
     assertEvalRunIdsAvailable,
@@ -1926,10 +1927,21 @@ async function executeUpCommand(c, workflowPath, options, fail) {
                 env: process.env,
             });
             child.unref();
-            return c.ok({ runId: effectiveRunId, logFile, pid: child.pid }, {
+            const monitorWorkflowId = workflowIdFromPath(workflowPath);
+            const monitorHasUi = hasCustomUi(monitorWorkflowId, process.cwd());
+            const monitoring = buildMonitoringGuidance({
+                runId: effectiveRunId,
+                workflowId: monitorWorkflowId,
+                hasUi: monitorHasUi,
+            });
+            const monitorCommands = monitorHasUi
+                ? [{ command: `ui ${effectiveRunId}`, description: "Open the live workflow UI" }]
+                : [];
+            return c.ok({ runId: effectiveRunId, logFile, pid: child.pid, monitoring }, {
                 cta: {
-                    description: "Next steps:",
+                    description: `${monitoring.text}\n\nOperate the run:`,
                     commands: [
+                        ...monitorCommands,
                         { command: `logs ${effectiveRunId}`, description: "Tail run logs" },
                         { command: `chat ${effectiveRunId} --follow`, description: "Watch agent chat" },
                         { command: `ps`, description: "List all runs" },
