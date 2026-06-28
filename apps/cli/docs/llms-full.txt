@@ -2002,7 +2002,7 @@ If no Gateway is reachable on the default local port, `bunx smithers-orchestrato
 Commands listed by dotted name. `human` and `alerts` use an action positional instead of nested subcommands.
 
 ```toon
-commands[78]:
+commands[79]:
   - name: init
     purpose: Install the workflow pack into .smithers/ (local) or ~/.smithers/ (--global)
     flags[6]{name,short,type,default,desc}:
@@ -2021,6 +2021,8 @@ commands[78]:
       goal,,string,,Filter by goal such as plan, build, debug, or quality
       workflow,,string,,Filter by seeded workflow ID
       tag,,string,,Filter by starter tag
+  - name: hermes
+    purpose: Add Smithers to a local Hermes agent (register the MCP server and install the native Hermes plugin); alias for mcp add --agent hermes
   - name: up
     purpose: Start or resume a workflow execution from a .tsx workflow file path (use `workflow run` to start from a discovered workflow id instead)
     args[1]{name,type,required,desc}:
@@ -11735,9 +11737,10 @@ new HermesCliAgent({
 ```
 
 Smithers also installs a native Hermes plugin (slash commands, a live-run status
-injector, lifecycle hooks, a bundled skill, and approval buttons) during
-`bunx smithers-orchestrator mcp add --agent hermes`, so Hermes can drive Smithers as its durable
-control plane. See the MCP server page.
+injector, lifecycle hooks, a bundled skill, and approval buttons) when you run
+`bunx smithers-orchestrator hermes` (an alias for `bunx smithers-orchestrator mcp add --agent hermes`),
+so Hermes can drive Smithers as its durable control plane. See the
+Hermes & Eliza page.
 
 `AmpAgent` wraps the Amp CLI in `--execute` headless mode. Key additions: `visibility`, `mcpConfig`, `dangerouslyAllowAll`.
 
@@ -13111,17 +13114,16 @@ entry. MCP can only expose tools. The plugin adds:
 
 ### Distribution is one command
 
-The plugin ships inside the Smithers CLI, so installing it is automatic:
+The plugin ships inside the Smithers CLI, so installing it is one command:
 
 ```bash
-# Auto-installs the plugin whenever Hermes is detected on this machine:
-bunx smithers-orchestrator init
+bunx smithers-orchestrator hermes
 
-# Or target Hermes explicitly:
+# `hermes` is a convenience alias for the generic form:
 bunx smithers-orchestrator mcp add --agent hermes
 ```
 
-Either command writes the plugin into `~/.hermes/plugins/smithers/`, installs the
+The command writes the plugin into `~/.hermes/plugins/smithers/`, installs the
 gateway hook into `~/.hermes/hooks/smithers/`, enables it in
 `~/.hermes/config.yaml`, and also registers the MCP server as a floor (so tools
 work even if user plugins are disabled). It is idempotent: rerun it any time to

@@ -3510,6 +3510,28 @@ const cli = Cli.create({
     },
 })
     // =========================================================================
+    // smithers hermes
+    // =========================================================================
+    .command("hermes", {
+    description: "Add Smithers to a local Hermes agent: register the MCP server and install the native Hermes plugin (slash commands, live status line, approval buttons). Alias for `mcp add --agent hermes`.",
+    run(c) {
+        const results = wireExtraAgents({ kind: "mcp", agents: ["hermes"] });
+        if (results.every((r) => r.reason === "not-detected")) {
+            console.error("Hermes was not found (no ~/.hermes directory on this machine).");
+            console.error("Install Hermes first, then re-run: https://github.com/NousResearch/hermes-agent");
+            return c.ok({ installed: false, results });
+        }
+        for (const r of results) {
+            if (r.registered) console.error(`✓ ${r.agent} MCP server: ${r.path}`);
+            else if (r.installedPlugin) console.error(`✓ ${r.agent} plugin: ${r.path}${r.enabled ? " (enabled)" : ""}`);
+            else if (r.reason && r.reason !== "not-detected") console.error(`⚠ ${r.agent}: skipped (${r.reason})`);
+        }
+        console.error("");
+        console.error("Smithers is ready in Hermes. From the Hermes CLI or any chat, try: /smithers ps");
+        return c.ok({ installed: true, results });
+    },
+})
+    // =========================================================================
     // smithers up [workflow]
     // =========================================================================
     .command("up", {

@@ -15,7 +15,10 @@ SMITHERS_RUN = {
         "retries on failure, and stays inspectable for days. Prefer a workflow "
         "over a one-off skill: a workflow is a superset of a skill. If no "
         "workflow fits yet, run the 'create-workflow' workflow first to author "
-        "one from a plain-English description."
+        "one from a plain-English description. After it starts, keep the human "
+        "updated as it runs (a short summary, a diff of what changed, or a live "
+        "page via `smithers ui`) so they always know what's happening; don't let "
+        "a run go dark."
     ),
     "parameters": {
         "type": "object",

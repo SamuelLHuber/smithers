@@ -49,6 +49,26 @@ and tune prompts against the suite with `smithers optimize` (GEPA). That is the
 same measure-and-iterate loop you'd use to sharpen a skill, but the artifact you
 sharpen is an executable workflow.
 
+## Keep the human in the picture — show, don't hide
+
+The single most common complaint about background agents is **"I don't know what
+it's doing."** Do not let a run go dark. Whenever something is running, proactively
+show the human what's happening and what's next, using whatever surface fits:
+
+- **A live HTML view.** A workflow can serve its own page; open it with
+  `smithers ui` (or `smithers ui <runId>`). For long runs, prefer a self-updating
+  page the human can leave open.
+- **A rolling summary or diff.** Post a short HTML or plain-text summary of what's
+  been accomplished so far, and update it as the run progresses. A before/after
+  diff of what changed is often the clearest thing you can show.
+- **Even ASCII.** When nothing richer is available, a small ASCII status block or a
+  checklist in the chat beats silence.
+
+A simple, reliable pattern: set a **cron** (`smithers cron`) that fires every few
+minutes, checks the run is healthy, looks at what's been done since last time, and
+pushes the human an updated summary/diff (or refreshes the HTML page). Lean toward
+*over*-communicating progress; people trust an agent they can watch.
+
 ## The loop
 
 1. `smithers_run(...)` — start the right workflow (or `create-workflow` first).

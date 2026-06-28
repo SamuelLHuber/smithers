@@ -548,9 +548,10 @@ new HermesCliAgent({
 ```
 
 Smithers also installs a native Hermes plugin (slash commands, a live-run status
-injector, lifecycle hooks, a bundled skill, and approval buttons) during
-`bunx smithers-orchestrator mcp add --agent hermes`, so Hermes can drive Smithers as its durable
-control plane. See the [MCP server](/integrations/mcp-server) page.
+injector, lifecycle hooks, a bundled skill, and approval buttons) when you run
+`bunx smithers-orchestrator hermes` (an alias for `bunx smithers-orchestrator mcp add --agent hermes`),
+so Hermes can drive Smithers as its durable control plane. See the
+[Hermes & Eliza](/integrations/hermes) page.
 
 `AmpAgent` wraps the Amp CLI in `--execute` headless mode. Key additions: `visibility`, `mcpConfig`, `dangerouslyAllowAll`.
 
@@ -1942,17 +1943,16 @@ entry. MCP can only expose tools. The plugin adds:
 
 ### Distribution is one command
 
-The plugin ships inside the Smithers CLI, so installing it is automatic:
+The plugin ships inside the Smithers CLI, so installing it is one command:
 
 ```bash
-# Auto-installs the plugin whenever Hermes is detected on this machine:
-bunx smithers-orchestrator init
+bunx smithers-orchestrator hermes
 
-# Or target Hermes explicitly:
+# `hermes` is a convenience alias for the generic form:
 bunx smithers-orchestrator mcp add --agent hermes
 ```
 
-Either command writes the plugin into `~/.hermes/plugins/smithers/`, installs the
+The command writes the plugin into `~/.hermes/plugins/smithers/`, installs the
 gateway hook into `~/.hermes/hooks/smithers/`, enables it in
 `~/.hermes/config.yaml`, and also registers the MCP server as a floor (so tools
 work even if user plugins are disabled). It is idempotent: rerun it any time to

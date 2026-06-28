@@ -463,9 +463,10 @@ new HermesCliAgent({
 ```
 
 Smithers also installs a native Hermes plugin (slash commands, a live-run status
-injector, lifecycle hooks, a bundled skill, and approval buttons) during
-`bunx smithers-orchestrator mcp add --agent hermes`, so Hermes can drive Smithers as its durable
-control plane. See the [MCP server](/integrations/mcp-server) page.
+injector, lifecycle hooks, a bundled skill, and approval buttons) when you run
+`bunx smithers-orchestrator hermes` (an alias for `bunx smithers-orchestrator mcp add --agent hermes`),
+so Hermes can drive Smithers as its durable control plane. See the
+[Hermes & Eliza](/integrations/hermes) page.
 
 `AmpAgent` wraps the Amp CLI in `--execute` headless mode. Key additions: `visibility`, `mcpConfig`, `dangerouslyAllowAll`.
 

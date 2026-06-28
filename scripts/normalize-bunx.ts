@@ -38,7 +38,7 @@ const CHECK = process.argv.includes("--check");
 const KNOWN_SUBCOMMANDS = [
   "agents", "alerts", "approve", "ask", "ask-human", "cancel", "capabilities",
   "chat", "chat-create", "create", "cron", "deny", "diff", "docs", "docs-full",
-  "doctor", "down", "eval", "events", "fork", "graph", "gui", "hijack", "human",
+  "doctor", "down", "eval", "events", "fork", "graph", "gui", "hermes", "hijack", "human",
   "init", "inspect", "issue", "list", "logs", "mcp", "memory", "node",
   "observability", "openapi", "optimize", "output", "path", "prompt", "ps",
   "rag", "replay", "reset", "restore", "retry-task", "revert", "revoke",

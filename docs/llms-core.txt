@@ -1982,7 +1982,7 @@ If no Gateway is reachable on the default local port, `bunx smithers-orchestrato
 Commands listed by dotted name. `human` and `alerts` use an action positional instead of nested subcommands.
 
 ```toon
-commands[78]:
+commands[79]:
   - name: init
     purpose: Install the workflow pack into .smithers/ (local) or ~/.smithers/ (--global)
     flags[6]{name,short,type,default,desc}:
@@ -2001,6 +2001,8 @@ commands[78]:
       goal,,string,,Filter by goal such as plan, build, debug, or quality
       workflow,,string,,Filter by seeded workflow ID
       tag,,string,,Filter by starter tag
+  - name: hermes
+    purpose: Add Smithers to a local Hermes agent (register the MCP server and install the native Hermes plugin); alias for mcp add --agent hermes
   - name: up
     purpose: Start or resume a workflow execution from a .tsx workflow file path (use `workflow run` to start from a discovered workflow id instead)
     args[1]{name,type,required,desc}:
