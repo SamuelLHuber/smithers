@@ -13079,14 +13079,14 @@ Smithers does not provide a chat interface for PI. Chat UI integration is the re
 
 ## Hermes & Eliza
 
-> First-class Smithers support for the Hermes agent (as a native Hermes plugin) and the Eliza (elizaOS) agent. Make Smithers the durable control plane for both.
+> First-class Smithers support for the Hermes agent (a native Hermes plugin) and the Eliza (elizaOS) agent (built in by default). Make Smithers the durable control plane for both.
 
-Smithers ships **first-class support for two agent runtimes you can drop it into
-today**: Hermes (Nous Research)
-as a native Hermes plugin, and [Eliza (elizaOS)](https://github.com/elizaOS/eliza)
-as a plugin that auto-injects live run status into the agent. In both, Smithers
-becomes the durable control plane: the agent launches crash-safe, multi-step
-workflows, clears human approval gates, and stays aware of every in-flight run.
+Smithers ships **first-class support for two agent runtimes**:
+Hermes (Nous Research) via a
+native Hermes plugin, and [Eliza (elizaOS)](https://github.com/elizaOS/eliza),
+which has Smithers built in by default. In both, Smithers becomes the durable
+control plane: the agent launches crash-safe, multi-step workflows, clears human
+approval gates, and stays aware of every in-flight run.
 
 The relationship is bidirectional:
 
@@ -13136,25 +13136,14 @@ hermes plugins list        # shows `smithers`
 hermes -z "/smithers ps"   # lists your runs from inside Hermes
 ```
 
-## Eliza (elizaOS): a drop-in plugin
+## Eliza (elizaOS): built in by default
 
-For Eliza, Smithers ships
-[`@smithers-orchestrator/eliza-plugin`](https://github.com/smithersai/smithers/tree/main/integrations/eliza).
-Add it to your character and the Smithers capability is **automatically included**
-in the agent: a provider injects live Smithers run status into the agent's context
-on every turn, and actions let it launch and operate runs.
+Eliza has Smithers support **built in by
+default**: there is no plugin to install. Any Eliza agent can launch and operate
+durable Smithers workflows out of the box, and a provider injects live Smithers
+run status into the agent's context on every turn.
 
-```ts
-import { smithersPlugin } from "@smithers-orchestrator/eliza-plugin";
-
-export const character = {
-  name: "Ada",
-  plugins: [smithersPlugin],
-  // ...
-};
-```
-
-What the agent gains:
+What the agent gets:
 
 - `RUN_SMITHERS_WORKFLOW`: start a durable workflow for any multi-step or
   background task (falls back to `create-workflow` to author one from the
@@ -13163,9 +13152,8 @@ What the agent gains:
 - `SMITHERS_RUNS` provider: every turn, the agent automatically sees what is
   running and what needs a human.
 
-The plugin is dependency-light and duck-types the Eliza runtime, so it works
-across elizaOS versions. It reaches Smithers through the `smithers` CLI (override
-the binary with `$SMITHERS_BIN`).
+It reaches Smithers through the `smithers` CLI (override the binary with
+`$SMITHERS_BIN`).
 
 ## Why a workflow, not a skill
 
@@ -13180,7 +13168,6 @@ workflows (even small one-task ones), and optimize them like skills with
 
 - Hermes agent: github.com/NousResearch/hermes-agent
 - Eliza (elizaOS): github.com/elizaOS/eliza
-- Smithers Eliza plugin source: integrations/eliza
 - Hermes plugin source: [apps/cli/src/hermes-plugin](https://github.com/smithersai/smithers/tree/main/apps/cli/src/hermes-plugin)
 
 
