@@ -1,9 +1,9 @@
 ---
 title: "0.26.0"
-description: "Smithers becomes the durable control plane for two new agent runtimes (Hermes and Eliza), every built-in workflow run now prints a useful result, and memory list works across all namespaces."
+description: "Smithers becomes the durable control plane for the Hermes agent runtime, every built-in workflow run now prints a useful result, and memory list works across all namespaces."
 ---
 
-Smithers 0.26.0 is a feature release. It adds first-class support for two agent runtimes, makes every built-in workflow print something useful when it finishes, and fixes a few rough edges in the CLI.
+Smithers 0.26.0 is a feature release. It adds first-class support for the Hermes agent runtime, makes every built-in workflow print something useful when it finishes, and fixes a few rough edges in the CLI.
 
 This release also rolls up the output-task and run-output work that was prepared as 0.25.5 and 0.25.6 but never published to npm, so npm goes straight from 0.25.4 to 0.26.0.
 
@@ -11,12 +11,11 @@ This release also rolls up the output-task and run-output work that was prepared
 
 ## Agent integrations
 
-Smithers now drops into two more agent runtimes, in both directions: the agent operates durable Smithers workflows, and a Smithers workflow can delegate a task back to the agent.
+Smithers now drops into the Hermes agent runtime, in both directions: the agent operates durable Smithers workflows, and a Smithers workflow can delegate a task back to the agent.
 
 - **Hermes** ([Nous Research](https://github.com/NousResearch/hermes-agent)) gets a **native Smithers plugin**, which is richer than a bare MCP entry. It adds slash commands (`/smithers run|ps|inspect|approve|deny|watch`) usable in the Hermes CLI and every gateway it speaks to, a `pre_llm_call` hook that injects live run status and pending approval gates into Hermes on every turn, the `smithers_run` / `smithers_ps` / `smithers_inspect` / `smithers_approve` / `smithers_deny` / `smithers_output` / `smithers_human_answer` tools, and a bundled `smithers:orchestrate` skill. A new `HermesCliAgent` also lets a workflow `<Task>` delegate to the Hermes agent itself.
-- **Eliza** ([elizaOS](https://github.com/elizaOS/eliza)) gets a dependency-light plugin with `RUN_SMITHERS_WORKFLOW`, `SMITHERS_APPROVE`, and `SMITHERS_DENY` actions, plus a provider that auto-injects live run status into the agent's context every turn. It lives outside the workspace and reaches Smithers through the CLI, so it never gates CI.
 
-See [Hermes & Eliza](/integrations/hermes) for setup.
+See [Hermes](/integrations/hermes) for setup.
 
 ## Every workflow run prints a useful result
 
