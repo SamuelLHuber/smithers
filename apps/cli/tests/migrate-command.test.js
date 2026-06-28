@@ -239,3 +239,128 @@ test("a fresh workspace never triggers the ps migration guard", () => {
   // A fresh `.smithers/` has no run history, so the guard never fires.
   expect(`${result.stdout}\n${result.stderr}`).not.toContain("SMITHERS_MIGRATION_REQUIRED");
 });
+
+// Issue 2: after `migrate --to pglite`, running `smithers workflow run` without
+// SMITHERS_BACKEND env must write new runs to the pglite store (via backend.json),
+// not to the leftover sqlite file. This exercises the readBackendMarkerForCwd +
+// workflow.db redirect code path inside executeUpCommand.
+// Timeout is 5 minutes: migration (pglite init ~30s) + workflow run (pglite open ~30s).
+test("post-migration smithers workflow run writes new runs to pglite without SMITHERS_BACKEND env", () => {
+  const repo = createTempRepo();
+  const env = { HOME: repo.dir };
+  seedLegacyStore(repo);
+
+  // Write a compute-only workflow that uses createSmithers() (the default db path).
+  // No AI agents — pure synchronous output so the test is deterministic and fast.
+  repo.write(".smithers/workflows/up-backend-test.tsx", [
+    "/** @jsxImportSource smithers-orchestrator */",
+    'import { createSmithers } from "smithers-orchestrator";',
+    'import { z } from "zod";',
+    "",
+    "const { Workflow, Task, smithers, outputs } = createSmithers({",
+    "  output: z.object({ result: z.string() }),",
+    "});",
+    "",
+    "export default smithers(() => (",
+    '  <Workflow name="up-backend-test">',
+    '    <Task id="result" output={outputs.output}>',
+    "      {() => ({ result: \"backend-write-path-ok\" })}",
+    "    </Task>",
+    "  </Workflow>",
+    "));",
+    "",
+  ].join("\n"));
+
+  // Migrate sqlite → pglite. This writes backend.json (authoritative = pglite)
+  // and keeps the source smithers.db on disk (keepSqlite default = true).
+  const migrate = runSmithers(["migrate", "--to", "pglite"], {
+    cwd: repo.dir,
+    env,
+    format: "json",
+    timeoutMs: 120_000,
+  });
+  expect(migrate.exitCode).toBe(0);
+  expect(repo.exists(".smithers/backend.json")).toBe(true);
+
+  // Run the workflow WITHOUT any SMITHERS_BACKEND env override. executeUpCommand
+  // must read backend.json via readBackendMarkerForCwd and redirect workflow.db
+  // to pglite, so the new run lands in pglite. Use the workflow ID (not the file
+  // path) since `smithers workflow run` resolves by ID from .smithers/workflows/.
+  const run = runSmithers(
+    ["workflow", "run", "up-backend-test", "--run-id", "post-migrate-up-run"],
+    // HOME deliberately equals the workspace to exercise the marker lookup at
+    // $HOME/.smithers/backend.json. No SMITHERS_BACKEND=pglite override.
+    { cwd: repo.dir, env, format: "json", timeoutMs: 240_000 },
+  );
+  expect(run.exitCode).toBe(0);
+  expect(run.stderr).not.toContain("SMITHERS_MIGRATION_REQUIRED");
+
+  // ps without env should read pglite (backend.json) and show the new run.
+  const ps = runSmithers(["ps", "--all"], {
+    cwd: repo.dir,
+    env,
+    format: "json",
+    timeoutMs: 30_000,
+  });
+  expect(ps.exitCode).toBe(0);
+  expect(JSON.stringify(ps.json)).toContain("post-migrate-up-run");
+
+  // The original migrated legacy run should also appear (it's in pglite now).
+  expect(JSON.stringify(ps.json)).toContain("cli-migrate-run");
+
+  // Verify the new run is in pglite: ps with SMITHERS_BACKEND=sqlite should
+  // NOT list it (it was written to pglite, not the leftover sqlite file).
+  const psSqlite = runSmithers(["ps", "--all"], {
+    cwd: repo.dir,
+    env: { ...env, SMITHERS_BACKEND: "sqlite" },
+    format: "json",
+    timeoutMs: 30_000,
+  });
+  expect(psSqlite.exitCode).toBe(0);
+  expect(JSON.stringify(psSqlite.json)).not.toContain("post-migrate-up-run");
+}, 300_000); // 5 min: pglite migration (~30s) + pglite workflow run (~30s) + ps reads
+
+test("authoritative pglite open failure stops workflow run instead of writing stale sqlite", () => {
+  const repo = createTempRepo();
+  const env = { HOME: repo.dir };
+
+  repo.write(".smithers/backend.json", JSON.stringify({ backend: "pglite" }, null, 2) + "\n");
+  repo.write(".smithers/pg", "not a directory\n");
+  repo.write(".smithers/workflows/up-backend-fail.tsx", [
+    "/** @jsxImportSource smithers-orchestrator */",
+    'import { createSmithers } from "smithers-orchestrator";',
+    'import { z } from "zod";',
+    "",
+    "const { Workflow, Task, smithers, outputs } = createSmithers({",
+    "  output: z.object({ result: z.string() }),",
+    "});",
+    "",
+    "export default smithers(() => (",
+    '  <Workflow name="up-backend-fail">',
+    '    <Task id="result" output={outputs.output}>',
+    "      {() => ({ result: \"should-not-run\" })}",
+    "    </Task>",
+    "  </Workflow>",
+    "));",
+    "",
+  ].join("\n"));
+
+  const run = runSmithers(["workflow", "run", "up-backend-fail", "--run-id", "must-not-hit-sqlite"], {
+    cwd: repo.dir,
+    env,
+    format: "json",
+    timeoutMs: 60_000,
+  });
+
+  expect(run.exitCode).toBe(4);
+  expect(`${run.stdout}\n${run.stderr}`).toContain("BACKEND_OPEN_FAILED");
+  expect(`${run.stdout}\n${run.stderr}`).toContain("backend.json designates pglite as authoritative");
+
+  const psSqlite = runSmithers(["ps", "--all"], {
+    cwd: repo.dir,
+    env: { ...env, SMITHERS_BACKEND: "sqlite" },
+    format: "json",
+    timeoutMs: 30_000,
+  });
+  expect(JSON.stringify(psSqlite.json)).not.toContain("must-not-hit-sqlite");
+}, 120_000);

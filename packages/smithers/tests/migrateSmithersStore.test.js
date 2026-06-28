@@ -842,6 +842,36 @@ describe("migrateSmithersStore", () => {
     expect(sqliteRunIds(join(cwd, "smithers.db"))).toEqual(["run-migrate-1"]);
   });
 
+  test("reverse migration refuses to overwrite a kept SQLite source modified after migration", async () => {
+    const cwd = makeWorkspace("smithers-migrate-roundtrip-modified-source");
+    seedSqliteStore(cwd);
+
+    const forward = await migrateSmithersStore({ cwd, from: "sqlite", to: "pglite", keepSqlite: true });
+    expect(forward.backend).toBe("pglite");
+
+    const sqlite = new Database(join(cwd, "smithers.db"));
+    try {
+      sqlite.exec(`
+        INSERT INTO _smithers_runs (run_id, workflow_name, workflow_path, status, created_at_ms, started_at_ms, finished_at_ms)
+          VALUES ('run-sqlite-only', 'sqlite-only', '.smithers/workflows/sqlite-only.tsx', 'finished', 30, 31, 32);
+      `);
+    } finally {
+      sqlite.close();
+    }
+
+    let caught;
+    try {
+      await migrateSmithersStore({ cwd, from: "pglite", to: "sqlite" });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(SmithersError);
+    expect(caught.code).toBe("DB_WRITE_FAILED");
+    expect(caught.message).toContain("changed after that migration");
+    expect(sqliteRunIds(join(cwd, "smithers.db"))).toEqual(["run-migrate-1", "run-sqlite-only"]);
+  });
+
   // Issue 5: DB_WRITE_FAILED must not suggest retrying the exact same command
   // because retrying will always hit the same target-has-data guard.
   test("DB_WRITE_FAILED error message does not suggest retrying the same command", async () => {

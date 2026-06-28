@@ -912,6 +912,31 @@ function readReceiptSourceDbPath(workspaceRoot) {
     }
 }
 
+/**
+ * Read the source dbPath AND recorded size/mtime from the migrated.json receipt.
+ * Returns undefined when there is no receipt or it does not record a source dbPath.
+ * @param {string} workspaceRoot
+ * @returns {{ dbPath: string; sizeBytes: number | null; mtimeMs: number | null; runCount: number | null } | undefined}
+ */
+function readReceiptSource(workspaceRoot) {
+    const receiptPath = join(workspaceRoot, ".smithers", MIGRATION_MARKER_NAME);
+    if (!existsSync(receiptPath)) return undefined;
+    try {
+        const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
+        const dbPath = receipt?.source?.dbPath;
+        if (typeof dbPath !== "string" || dbPath.length === 0) return undefined;
+        return {
+            dbPath,
+            sizeBytes: receipt?.source?.sizeBytes ?? null,
+            mtimeMs: receipt?.source?.mtimeMs ?? null,
+            runCount: typeof receipt?.source?.runCount === "number" ? receipt.source.runCount : null,
+        };
+    }
+    catch {
+        return undefined;
+    }
+}
+
 function readReceiptCurrentBackend(workspaceRoot) {
     const receiptPath = join(workspaceRoot, ".smithers", MIGRATION_MARKER_NAME);
     if (!existsSync(receiptPath)) return undefined;
@@ -1001,12 +1026,35 @@ async function migratePgToSqlite(opts, context) {
         // disk), allow the reverse migration to overwrite it — we are restoring the
         // data back to where it came from, not merging two independent histories.
         if (sqliteRunCountAt(dbPath) > 0) {
-            const receiptSourceDbPath = readReceiptSourceDbPath(workspaceRoot);
-            const isForwardMigrationSource = receiptSourceDbPath !== undefined && resolve(receiptSourceDbPath) === resolve(dbPath);
+            const receiptSource = readReceiptSource(workspaceRoot);
+            const isForwardMigrationSource = receiptSource !== undefined && resolve(receiptSource.dbPath) === resolve(dbPath);
             if (!isForwardMigrationSource) {
                 throw new SmithersError("DB_WRITE_FAILED", `Target SQLite store at ${dbPath} already has run history; refusing to merge a one-shot Smithers migration into a non-empty target.`, {
                     dbPath,
                 });
+            }
+            // The path matches the forward-migration source. Verify that the file
+            // was not modified after the forward migration (size/mtime check). If
+            // it was, some runs may have been written to sqlite after migration; do
+            // not overwrite them with the pglite copy.
+            const currentStats = sourceFileStats(dbPath);
+            const sizeChanged = receiptSource.sizeBytes !== null && currentStats.sizeBytes !== null &&
+                currentStats.sizeBytes !== receiptSource.sizeBytes;
+            const mtimeChanged = receiptSource.mtimeMs !== null && currentStats.mtimeMs !== null &&
+                currentStats.mtimeMs > receiptSource.mtimeMs;
+            const runCountChanged = receiptSource.runCount !== null && sqliteRunCountAt(dbPath) !== receiptSource.runCount;
+            if (sizeChanged || mtimeChanged || runCountChanged) {
+                throw new SmithersError("DB_WRITE_FAILED",
+                    `Target SQLite store at ${dbPath} matches the prior migration source, but it changed after that migration; refusing to overwrite possible sqlite-only run history.`,
+                    {
+                        dbPath,
+                        recordedSizeBytes: receiptSource.sizeBytes,
+                        currentSizeBytes: currentStats.sizeBytes,
+                        recordedMtimeMs: receiptSource.mtimeMs,
+                        currentMtimeMs: currentStats.mtimeMs,
+                        recordedRunCount: receiptSource.runCount,
+                        currentRunCount: sqliteRunCountAt(dbPath),
+                    });
             }
         }
         // Build the SQLite target in a temp file, never the live smithers.db.
@@ -1139,7 +1187,7 @@ export async function migrateSmithersStore(opts = {}) {
     const markerPath = markerPathFor(dbPath, workspaceRoot);
     const batchSize = Math.max(1, Math.floor(opts.batchSize ?? DEFAULT_BATCH_SIZE));
     const keepSqlite = opts.keepSqlite ?? true;
-    const sourceStats = sourceFileStats(dbPath);
+    let sourceStats = sourceFileStats(dbPath);
     /** @type {Database | undefined} */
     let sqlite;
     /** @type {(import("./CreateSmithersApi.ts").CreateSmithersApi<Record<string, import("zod").ZodObject<any>>> & { close?: () => Promise<void> }) | undefined} */
@@ -1187,6 +1235,7 @@ export async function migrateSmithersStore(opts = {}) {
                 });
             }
         }
+        sourceStats = sourceFileStats(dbPath);
         const durationMs = Date.now() - startedAt;
         const result = {
             backend: target,
