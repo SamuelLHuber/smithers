@@ -198,6 +198,15 @@ That's the loop: scaffold → author / run a workflow → watch the run. The "ah
 running a workflow (step 4): you kicked off a multi-step agent job that you can
 crash, resume, fork, and inspect, all from the CLI you already live in.
 
+When you start a run in the background (`up --detach`, `run --detach`, or the MCP
+`run_workflow` tool), the user can't see its progress. The CLI hands you a
+`monitoring` block telling you to offer them one of three ways to watch it, then
+set up whichever they pick: (1) a status-report cron that runs `smithers inspect
+<run-id> --format json` every 5 minutes, (2) a live custom UI (`smithers ui
+<run-id>`, authoring `.smithers/ui/<workflow>.tsx` first if none exists), or (3)
+a quick static HTML page you write from `smithers inspect <run-id>` and refresh
+every ~5 minutes. Surface these instead of leaving the user blind.
+
 Two verbs start a run, split by what you hand them. `smithers up <file>.tsx`
 runs a workflow **file by path** (use this to start a run from a `.tsx` file).
 `smithers workflow run <id>` (step 3 above) runs a **discovered/seeded**

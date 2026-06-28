@@ -1962,6 +1962,16 @@ To drive a run to completion across pauses, use a keeper loop around the persist
 
 If resume fails with `RESUME_METADATA_MISMATCH`, the workflow file changed after the run started. Resume validates the original workflow metadata and source hash; it is not a hot-reload mechanism for stopped runs. Start a fresh run instead, for example with a new `--run-id`, or overwrite an existing planned id with `--force` when that command supports it. When iterating on a workflow definition, expect each edit to require a fresh run rather than `--resume`.
 
+## Monitoring a background run
+
+A detached run (`up --detach` / `run --detach`) and an MCP `run_workflow` background launch both execute where the user has no live view of progress. To close that gap, the CLI returns a `monitoring` block with the run and prints agent-directed guidance in the "Next steps" CTA: offer the user one of three ways to watch the run, then set up whichever they pick.
+
+1. **Status-report cron (hands-off):** a job that every 5 minutes reads `bunx smithers-orchestrator inspect RUN_ID --format json` and reports the status.
+2. **Live custom UI (richest):** run `bunx smithers-orchestrator ui RUN_ID` when a `.smithers/ui/<workflow>.tsx` already exists, otherwise author one with the gateway-react hooks first. See [custom workflow UIs](/guides/custom-workflow-ui).
+3. **Quick HTML page (fastest):** write a static status page from `bunx smithers-orchestrator inspect RUN_ID`, open it, and refresh it about every 5 minutes.
+
+The same `monitoring` object (its `text` plus structured `options`) is in the `run_workflow` MCP result for background launches, and is `null` when `waitForTerminal` is set (the run already finished).
+
 ## Workflow UIs
 
 Open a run's custom browser UI with:
