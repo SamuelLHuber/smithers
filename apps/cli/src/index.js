@@ -148,8 +148,9 @@ function readBackendMarkerForCwd(cwd) {
     const fsRoot = resolve("/");
     const home = process.env.HOME ? resolve(process.env.HOME) : undefined;
     while (true) {
-        if (home && (dir === home || !dir.startsWith(home + "/"))) return undefined;
-        if (dir === fsRoot) return undefined;
+        // Check this directory before deciding whether to stop. This ensures
+        // workspaces in /tmp (outside $HOME) and workspaces AT $HOME both find
+        // their .smithers/backend.json on the first iteration.
         const markerPath = `${dir}/.smithers/backend.json`;
         if (existsSync(markerPath)) {
             try {
@@ -161,6 +162,11 @@ function readBackendMarkerForCwd(cwd) {
                 return undefined;
             }
         }
+        if (dir === fsRoot) return undefined;
+        // Don't traverse above HOME — stop after checking HOME itself so we
+        // never pick up a backend.json belonging to a different workspace that
+        // is an ancestor of the user's home directory.
+        if (home && dir === home) return undefined;
         const next = dirname(dir);
         if (next === dir) return undefined;
         dir = next;
@@ -1983,8 +1989,12 @@ async function executeUpCommand(c, workflowPath, options, fail) {
                     pgliteBackendApi = await openSmithersBackend({}, { backend: "pglite" });
                     workflow.db = pgliteBackendApi.db;
                 }
-                catch {
-                    // Non-fatal: if pglite open fails, fall through to the default sqlite workflow.db.
+                catch (err) {
+                    return fail({
+                        code: "BACKEND_OPEN_FAILED",
+                        message: `backend.json designates pglite as authoritative, but opening the pglite store failed: ${err?.message ?? String(err)}`,
+                        exitCode: 4,
+                    });
                 }
             }
         }
@@ -2753,12 +2763,18 @@ const memoryCli = Cli.create({
             ensureSmithersTables(workflow.db);
             setupSqliteCleanup(workflow);
             const store = createMemoryStore(workflow.db);
-            let factValue;
-            try {
-                factValue = JSON.parse(c.args.value);
-            }
-            catch {
-                factValue = c.args.value;
+            const trimmedValue = c.args.value.trim();
+            let factValue = c.args.value;
+            if (trimmedValue.startsWith("{") || trimmedValue.startsWith("[")) {
+                try {
+                    const parsed = JSON.parse(c.args.value);
+                    if (parsed !== null && typeof parsed === "object") {
+                        factValue = parsed;
+                    }
+                }
+                catch {
+                    factValue = c.args.value;
+                }
             }
             await store.setFact(parseNamespace(c.args.namespace), c.args.key, factValue, c.options.ttl);
             console.log(`Set ${pc.bold(c.args.key)} in "${c.args.namespace}".`);

@@ -102,6 +102,62 @@ test("memory set does not double-encode JSON object values", () => {
   expect(JSON.parse(firstLineStr)).toBe("hello");
 }, 120_000);
 
+test("memory list does not double-encode JSON object values", () => {
+  const { repo, env } = setupRepo();
+  const ns = "workflow:memcli-json-list";
+  const opts = { cwd: repo.dir, env };
+
+  // Set a JSON object value and a plain string in the same namespace.
+  const jsonVal = JSON.stringify({ score: 42, tag: "list-test" });
+  expect(runSmithers(["memory", "set", ns, "cfg", jsonVal], opts).exitCode).toBe(0);
+  expect(runSmithers(["memory", "set", ns, "name", "alice"], opts).exitCode).toBe(0);
+
+  // memory list <ns> should print each fact as "  key = valueJson  (age)".
+  // For an object value the valueJson must be '{"score":42,...}', not '"{\\"score\\":42,...}"'.
+  const list = runSmithers(["memory", "list", ns], opts);
+  expect(list.exitCode).toBe(0);
+
+  // Find the line for the JSON-object fact "cfg".
+  const cfgLine = list.stdout.split("\n").find((l) => l.includes("cfg"));
+  expect(cfgLine).toBeTruthy();
+  // Extract the value portion: everything after " = " up to the trailing dim "(age)" block.
+  const match = cfgLine.match(/=\s+(.+?)\s{2}/);
+  expect(match).toBeTruthy();
+  const rawValue = match[1].trim();
+  const parsed = JSON.parse(rawValue);
+  expect(typeof parsed).toBe("object");
+  expect(parsed).toMatchObject({ score: 42, tag: "list-test" });
+
+  // The plain-string fact "name" must not be double-encoded either.
+  const nameLine = list.stdout.split("\n").find((l) => l.includes("name"));
+  expect(nameLine).toBeTruthy();
+  const nameMatch = nameLine.match(/=\s+(.+?)\s{2}/);
+  expect(nameMatch).toBeTruthy();
+  const nameRaw = nameMatch[1].trim();
+  // "alice" is stored as the JSON string "alice" and printed as '"alice"'.
+  expect(JSON.parse(nameRaw)).toBe("alice");
+}, 120_000);
+
+test("memory set keeps JSON scalar-looking CLI values as strings", () => {
+  const { repo, env } = setupRepo();
+  const ns = "workflow:memcli-json-scalars";
+  const opts = { cwd: repo.dir, env };
+
+  for (const [key, value] of [
+    ["numberish", "42"],
+    ["booleanish", "true"],
+    ["nullish", "null"],
+  ]) {
+    const set = runSmithers(["memory", "set", ns, key, value], opts);
+    expect(set.exitCode).toBe(0);
+
+    const get = runSmithers(["memory", "get", ns, key], opts);
+    expect(get.exitCode).toBe(0);
+    const firstLine = get.stdout.split("\n")[0].trim();
+    expect(JSON.parse(firstLine)).toBe(value);
+  }
+}, 120_000);
+
 test("memory set still accepts an explicit --workflow pointing at a pack workflow", () => {
   const { repo, env } = setupRepo();
   const opts = { cwd: repo.dir, env };
