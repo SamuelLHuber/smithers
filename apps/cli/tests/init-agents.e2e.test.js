@@ -200,3 +200,40 @@ test("smithers init does not crash when a Hermes agent is detected (regression)"
     expect(agentsSource).toContain("HermesCliAgent");
     expect(agentsSource).toContain("hermes: new SmithersHermesCliAgent");
 });
+test("smithers init survives a legacy unknown provider account (regression)", () => {
+    // Regression: published 0.26.0 crashed `smithers init` with
+    // `undefined is not an object (evaluating CONSTRUCTORS[provider.id].importName)`
+    // when ~/.smithers/accounts.json held an account whose provider id was the
+    // old `gemini` (renamed to `gemini-api`). The legacy entry must be
+    // warn-and-skipped at the parse layer, so init still exits 0 and scaffolds
+    // agents.ts without leaking a `Smithersundefined` provider line.
+    const repo = createTempRepo();
+    const binDir = createExecutableDir();
+    // A usable base agent so detection succeeds and we reach generation.
+    writeFakeClaudeBinary(binDir);
+    repo.write(".claude/.credentials.json", "{}\n");
+    // Legacy account at $HOME/.smithers/accounts.json (HOME === repo.dir here).
+    repo.write(".smithers/accounts.json", JSON.stringify({
+        version: 1,
+        accounts: [
+            {
+                label: "my-gemini",
+                provider: "gemini",
+                configDir: join(repo.dir, ".gemini"),
+                model: "gemini-2.0",
+            },
+        ],
+    }) + "\n");
+    const result = runSmithers(["init"], {
+        cwd: repo.dir,
+        format: "json",
+        env: buildEnv(repo.dir, binDir),
+    });
+    expect(result.exitCode).toBe(0);
+    const agentsSource = repo.read(".smithers/agents.ts");
+    expect(agentsSource).toContain("claude: ClaudeCodeAgent");
+    // The legacy account must not leak into the generated providers map.
+    expect(agentsSource).not.toContain("Smithersundefined");
+    expect(agentsSource).not.toContain("my-gemini");
+    expect(agentsSource).not.toContain("myGemini");
+});
