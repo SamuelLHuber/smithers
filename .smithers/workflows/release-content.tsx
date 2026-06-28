@@ -58,6 +58,12 @@ const qualityGateSchema = z.object({
   message: z.string(),
 });
 
+const commitResultSchema = z.object({
+  committed: z.boolean(),
+  commit: z.string().nullable().default(null),
+  message: z.string(),
+});
+
 const { Workflow, Task, Sequence, Parallel, Branch, Loop, Approval, smithers, outputs } =
   createSmithers({
     input: releaseContentInputSchema,
@@ -79,6 +85,7 @@ const { Workflow, Task, Sequence, Parallel, Branch, Loop, Approval, smithers, ou
     approval: approvalDecisionSchema,
     approvalRecord: approvalRecordSchema,
     publishResult: publishResultSchema,
+    commitResult: commitResultSchema,
   });
 
 function manualAnalysis(input: ReleaseContentInput, probe: Probe, context: CollectedContext): ReleaseAnalysis {
@@ -183,6 +190,7 @@ export default smithers((rawCtx) => {
   const media = rawCtx.outputMaybe(outputs.media, { nodeId: "render-media" });
   const artifacts = rawCtx.outputMaybe(outputs.artifacts, { nodeId: "write-preview-artifacts" });
   const approval = rawCtx.outputMaybe(outputs.approval, { nodeId: "approve-content" });
+  const publishResult = rawCtx.outputs.publishResult?.at(-1);
   const changelogReady = !input.channels.changelog || input.skip.changelog || changelog !== undefined;
   const threadReady = !input.channels.tweetThread || input.skip.tweetThread || thread !== undefined;
   const blogReady = !input.channels.blogPost || input.skip.blogPost || blog !== undefined;
@@ -540,6 +548,42 @@ export default smithers((rawCtx) => {
               </Task>
             }
           />
+        ) : null}
+
+        {probe && publishResult ? (
+          <Task
+            id="commit-release-content"
+            output={outputs.commitResult}
+            agent={agents.cheapFast}
+            skipIf={input.skip.autoCommit}
+            heartbeatTimeoutMs={300_000}
+          >
+            {`Commit any release-content files created by this workflow run.
+
+Repository: ${process.cwd()}
+Run ID: ${rawCtx.runId}
+Version: ${probe.version}
+Dry run: ${input.dryRun}
+Publish requested: ${input.publish}
+Artifact directory: ${artifacts?.artifactDir ?? "(none)"}
+Publish files: ${JSON.stringify(publishResult.files ?? [])}
+
+Rules:
+- First run \`jj st\` and inspect the working copy.
+- Only commit files created or modified by this release-content run, such as versioned marketing assets or published release-content files.
+- Do not commit unrelated changes, package manager metadata, database files, logs, or ignored preview artifacts.
+- Use explicit pathspecs with \`git add <path> ...\` and \`git commit <path> ...\`; never use \`git add -A\`, \`git add .\`, or blanket pathspecs.
+- Use an emoji + Conventional Commit subject, and include this trailer:
+  Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- If there are no matching working-copy changes, do not commit.
+
+Return JSON:
+{
+  "committed": boolean,
+  "commit": string | null,
+  "message": "short summary of what happened"
+}`}
+          </Task>
         ) : null}
       </Sequence>
     </Workflow>
