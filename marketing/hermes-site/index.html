@@ -150,6 +150,30 @@
     .cap-grid{grid-template-columns:1fr}.dist{grid-template-columns:1fr}.signal{grid-template-columns:repeat(2,1fr)}
     .top nav a:not(.cta){display:none}
   }
+
+  .setup-grid{margin-top:22px;display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+  .setup-item{text-align:left;cursor:pointer;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:17px 17px 15px;transition:transform .2s,border-color .2s,box-shadow .2s;font:inherit;color:inherit;width:100%}
+  .setup-item:hover{transform:translateY(-3px);border-color:rgba(94,234,212,.32);box-shadow:var(--shadow)}
+  .setup-item .ic{font-size:17px;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--teal);background:rgba(94,234,212,.08);border:1px solid rgba(94,234,212,.2);margin-bottom:11px}
+  .setup-item h3{font-size:14.5px;font-weight:750;letter-spacing:-.2px}
+  .setup-item p{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .setup-item .more{margin-top:10px;font-size:11px;font-weight:700;color:var(--violet);letter-spacing:.3px}
+  .setup-item:hover .more{color:var(--teal)}
+  @media(max-width:980px){.setup-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.setup-grid{grid-template-columns:1fr}}
+
+  .modal{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:22px}
+  .modal.open{display:flex}
+  .modal .scrim{position:absolute;inset:0;background:rgba(4,6,12,.8);backdrop-filter:blur(6px);animation:mfade .25s ease}
+  @keyframes mfade{from{opacity:0}to{opacity:1}}
+  .modal .box{position:relative;width:min(560px,100%);max-height:88vh;overflow-y:auto;background:linear-gradient(180deg,#0f1626,#0b1120);border:1px solid var(--line2);border-radius:18px;box-shadow:0 40px 100px -30px rgba(0,0,0,.9);padding:28px 30px;animation:mpop .3s cubic-bezier(.2,.8,.2,1)}
+  @keyframes mpop{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}
+  .modal .box .ksub{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--teal);margin-bottom:8px}
+  .modal .box h3{font-size:21px;font-weight:800;letter-spacing:-.3px;margin-bottom:14px;padding-right:30px}
+  .modal .box p{color:var(--muted);font-size:14.5px;line-height:1.62;margin-bottom:10px}
+  .modal .box code{color:#bfe9df;background:rgba(94,234,212,.08);padding:1px 6px;border-radius:5px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .modal .close{position:absolute;top:13px;right:13px;width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;font-size:19px;line-height:1;transition:.15s}
+  .modal .close:hover{color:var(--txt);border-color:var(--line2);background:var(--panel);transform:rotate(90deg)}
 </style>
 </head>
 <body>
@@ -347,6 +371,24 @@
   </div>
 </section>
 
+<section class="section" id="setup">
+  <div class="wrap reveal">
+    <div class="shead"><h2>What it sets up, exactly</h2><span class="count">tap any to learn more</span>
+      <p>One command does all of this, right inside your Hermes folder. Curious what each piece does? Tap it.</p>
+    </div>
+    <div class="setup-grid">
+      <button class="setup-item" data-modal="slash"><div class="ic">/</div><h3>Slash commands</h3><p>Run and check jobs from any chat.</p><div class="more">what this is →</div></button>
+      <button class="setup-item" data-modal="tools"><div class="ic">⛁</div><h3>Tools for your agent</h3><p>Actions it can take on its own.</p><div class="more">what this is →</div></button>
+      <button class="setup-item" data-modal="status"><div class="ic">◉</div><h3>A live status line</h3><p>It always knows what's running.</p><div class="more">what this is →</div></button>
+      <button class="setup-item" data-modal="memory"><div class="ic">⟲</div><h3>Remembers your runs</h3><p>"How's it going?" just works.</p><div class="more">what this is →</div></button>
+      <button class="setup-item" data-modal="skill"><div class="ic">✦</div><h3>A habits skill</h3><p>Teaches it to finish &amp; report.</p><div class="more">what this is →</div></button>
+      <button class="setup-item" data-modal="updates"><div class="ic">↩</div><h3>Updates in your chat</h3><p>Results come back to you.</p><div class="more">what this is →</div></button>
+      <button class="setup-item" data-modal="approve"><div class="ic">✓</div><h3>Approve / Deny buttons</h3><p>One tap on Slack.</p><div class="more">what this is →</div></button>
+      <button class="setup-item" data-modal="where"><div class="ic">⌗</div><h3>Where it lives</h3><p>All in your Hermes folder.</p><div class="more">what this is →</div></button>
+    </div>
+  </div>
+</section>
+
 <section class="section">
   <div class="wrap reveal">
     <div class="closing">
@@ -379,11 +421,62 @@
   </div>
 </footer>
 
+<div class="modal" id="modal" aria-hidden="true">
+  <div class="scrim" data-close></div>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <button class="close" data-close aria-label="Close">×</button>
+    <div class="ksub" id="m-sub"></div>
+    <h3 id="m-title"></h3>
+    <div id="m-body"></div>
+  </div>
+</div>
+
 <script>
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
   }, { threshold: 0.12 });
   document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+  // "What it sets up" modals — plain-language detail per item.
+  const MODALS = {
+    slash: { sub: "in any chat", title: "Slash commands", body:
+      "<p>Type <code>/smithers</code> right in the conversation — Telegram, Discord, Slack, or the terminal — to run and check on jobs without leaving the chat.</p>" +
+      "<p><code>/smithers run</code> starts a job · <code>/smithers ps</code> shows what's going · <code>/smithers approve</code> clears a gate · <code>/smithers watch</code> follows along. No separate app to open.</p>" },
+    tools: { sub: "your agent's buttons", title: "Tools your agent can use", body:
+      "<p>Your agent gets a set of actions it can take on its own: start a job, list jobs, check one, approve or deny a gate, and read a finished result.</p>" +
+      "<p>So when you ask in plain English — \"kick off the nightly audit\" — it actually knows how to do it, instead of just talking about it.</p>" },
+    status: { sub: "every turn", title: "A live status line", body:
+      "<p>Right before each reply, your agent gets a short note of what's running and what's waiting on you.</p>" +
+      "<p>That's why it always knows the state of your jobs without being reminded — and why it can nudge you the moment something needs your OK.</p>" },
+    memory: { sub: "so it keeps track", title: "It remembers your runs", body:
+      "<p>When your agent starts a job it quietly notes which one, so later you can just say \"how's it going?\" and it knows what you mean.</p>" +
+      "<p>When the chat ends it leaves a one-line status, so nothing slips through the cracks.</p>" },
+    skill: { sub: "good habits", title: "A skill that teaches good habits", body:
+      "<p>We include a short instruction sheet that teaches your agent two things: reach for durable jobs (instead of doing something big in one go and dropping it), and keep you posted with progress — a summary, a diff, or a live page.</p>" +
+      "<p>It's the difference between an agent that finishes things and one that loses them.</p>" },
+    updates: { sub: "results come to you", title: "Updates back in your chat", body:
+      "<p>A small hook posts results into the same conversation you started from.</p>" +
+      "<p>Kick a job off and walk away; when it's done, the summary shows up right where you asked — no checking back.</p>" },
+    approve: { sub: "on Slack", title: "Approve / Deny buttons", body:
+      "<p>On Slack, when a job pauses for your OK before doing something irreversible — deleting, sending, spending — you get <b style='color:var(--txt)'>Approve</b> and <b style='color:var(--txt)'>Deny</b> buttons.</p>" +
+      "<p>One tap and it continues. No commands to remember.</p>" },
+    where: { sub: "all in your folder", title: "Where it all lives", body:
+      "<p>Everything goes in your Hermes folder, nothing hidden elsewhere:</p>" +
+      "<p>· the plugin in <code>~/.hermes/plugins/smithers/</code><br>· the chat hook in <code>~/.hermes/hooks/smithers/</code><br>· switched on in your <code>~/.hermes/config.yaml</code></p>" +
+      "<p>It also registers as a standard tool server, so things keep working even if you turn plugins off. Run the one command again any time to update.</p>" },
+  };
+  const modal = document.getElementById("modal");
+  function openModal(key) {
+    const m = MODALS[key]; if (!m) return;
+    document.getElementById("m-sub").textContent = m.sub;
+    document.getElementById("m-title").textContent = m.title;
+    document.getElementById("m-body").innerHTML = m.body;
+    modal.classList.add("open"); modal.setAttribute("aria-hidden", "false");
+  }
+  function closeModal() { modal.classList.remove("open"); modal.setAttribute("aria-hidden", "true"); }
+  document.querySelectorAll(".setup-item").forEach((b) => b.addEventListener("click", () => openModal(b.dataset.modal)));
+  modal.querySelectorAll("[data-close]").forEach((e) => e.addEventListener("click", closeModal));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 </script>
 </body>
 </html>
