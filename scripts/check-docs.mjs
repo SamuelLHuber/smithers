@@ -423,8 +423,8 @@ function currentDocFiles() {
 
 // Packages documented for external install that are intentionally NOT wired
 // into this monorepo's node_modules, so they cannot be import-resolved here.
-// They live as standalone, dependency-light integrations (e.g. integrations/eliza).
-const EXTERNAL_DOC_PACKAGES = new Set(["@smithers-orchestrator/eliza-plugin"]);
+// Currently none.
+const EXTERNAL_DOC_PACKAGES = new Set();
 
 function collectDocumentedPackageImports() {
   const imports = new Map();
