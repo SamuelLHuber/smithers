@@ -53,6 +53,14 @@ test("memory set/get/list/rm round-trips against the workspace store with no --w
   expect(list.exitCode).toBe(0);
   expect(list.stdout).toContain("answer");
 
+  // list with NO namespace — lists every namespace's facts (used to throw a raw
+  // VALIDATION_ERROR because `namespace` was a required positional). It must
+  // exit 0 and surface both the namespace header and the key.
+  const listAll = runSmithers(["memory", "list"], opts);
+  expect(listAll.exitCode).toBe(0);
+  expect(listAll.stdout).toContain(ns);
+  expect(listAll.stdout).toContain("answer");
+
   // rm — deletes it, and a follow-up get reports the miss cleanly (exit 0).
   expect(runSmithers(["memory", "rm", ns, "answer"], opts).exitCode).toBe(0);
   const missed = runSmithers(["memory", "get", ns, "answer"], opts);

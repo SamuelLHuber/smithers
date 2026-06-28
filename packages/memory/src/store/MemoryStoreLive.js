@@ -162,6 +162,24 @@ function makeMemoryStore(db) {
             ttlMs: row.ttlMs,
         }))));
     }
+    /**
+   * List every fact across all namespaces, ordered by namespace then key.
+   * @returns {Effect.Effect<MemoryFact[], SmithersError>}
+   */
+    function listAllFactsEffect() {
+        return readEffect("memory listAllFacts", () => db
+            .select()
+            .from(smithersMemoryFacts)
+            .orderBy(smithersMemoryFacts.namespace, smithersMemoryFacts.key)).pipe(Effect.map((rows) => rows.map((row) => ({
+            namespace: row.namespace,
+            key: row.key,
+            valueJson: row.valueJson,
+            schemaSig: row.schemaSig,
+            createdAtMs: row.createdAtMs,
+            updatedAtMs: row.updatedAtMs,
+            ttlMs: row.ttlMs,
+        }))));
+    }
     // --- Thread Effects ---
     /**
    * @param {MemoryNamespace} ns
@@ -330,6 +348,7 @@ function makeMemoryStore(db) {
         setFact: (ns, key, value, ttlMs) => Effect.runPromise(setFactEffect(ns, key, value, ttlMs)),
         deleteFact: (ns, key) => Effect.runPromise(deleteFactEffect(ns, key)),
         listFacts: (ns) => Effect.runPromise(listFactsEffect(ns)),
+        listAllFacts: () => Effect.runPromise(listAllFactsEffect()),
         createThread: (ns, title) => Effect.runPromise(createThreadEffect(ns, title)),
         getThread: (threadId) => Effect.runPromise(getThreadEffect(threadId)),
         listThreads: () => Effect.runPromise(listThreadsEffect()),
@@ -344,6 +363,7 @@ function makeMemoryStore(db) {
         setFactEffect,
         deleteFactEffect,
         listFactsEffect,
+        listAllFactsEffect,
         createThreadEffect,
         getThreadEffect,
         listThreadsEffect,

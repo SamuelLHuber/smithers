@@ -2554,7 +2554,10 @@ const cronPathArgs = z.object({
 // smithers memory ...
 // ---------------------------------------------------------------------------
 const memoryListArgs = z.object({
-    namespace: z.string().describe("Namespace to list facts for (e.g. 'workflow:my-flow')"),
+    namespace: z
+        .string()
+        .optional()
+        .describe("Namespace to list facts for (e.g. 'workflow:my-flow'). Omit to list every namespace."),
 });
 const memoryListOptions = z.object({
     workflow: z.string().optional().describe("Path to a .tsx workflow file (defaults to this workspace's store)"),
@@ -2600,6 +2603,28 @@ const memoryCli = Cli.create({
             ensureSmithersTables(workflow.db);
             setupSqliteCleanup(workflow);
             const store = createMemoryStore(workflow.db);
+            const printFact = (f) => {
+                const value = f.valueJson.length > 100 ? f.valueJson.slice(0, 100) + "..." : f.valueJson;
+                const age = formatAge(f.updatedAtMs);
+                console.log(`  ${pc.bold(f.key)} = ${value}  ${pc.dim(`(${age})`)}`);
+            };
+            // No namespace → list every fact across all namespaces, grouped by namespace.
+            if (c.args.namespace === undefined) {
+                const facts = await store.listAllFacts();
+                if (facts.length === 0) {
+                    console.log("No memory facts found in this workspace.");
+                    return c.ok({ facts: [], namespace: null });
+                }
+                let current = null;
+                for (const f of facts) {
+                    if (f.namespace !== current) {
+                        current = f.namespace;
+                        console.log(pc.cyan(current));
+                    }
+                    printFact(f);
+                }
+                return c.ok({ facts, namespace: null });
+            }
             const ns = parseNamespace(c.args.namespace);
             const facts = await store.listFacts(ns);
             if (facts.length === 0) {
@@ -2607,9 +2632,7 @@ const memoryCli = Cli.create({
                 return c.ok({ facts: [], namespace: c.args.namespace });
             }
             for (const f of facts) {
-                const value = f.valueJson.length > 100 ? f.valueJson.slice(0, 100) + "..." : f.valueJson;
-                const age = formatAge(f.updatedAtMs);
-                console.log(`  ${pc.bold(f.key)} = ${value}  ${pc.dim(`(${age})`)}`);
+                printFact(f);
             }
             return c.ok({ facts, namespace: c.args.namespace });
         }

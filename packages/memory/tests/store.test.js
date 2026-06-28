@@ -59,6 +59,24 @@ describe("MemoryStore - Working Memory", () => {
         expect(facts).toHaveLength(2);
         expect(facts.map((f) => f.key).sort()).toEqual(["a", "b"]);
     });
+    test("listAllFacts returns facts across every namespace, ordered by namespace then key", async () => {
+        await store.setFact(WF_NS, "b", 2);
+        await store.setFact(WF_NS, "a", 1);
+        await store.setFact(AGENT_NS, "c", 3);
+        const facts = await store.listAllFacts();
+        expect(facts).toHaveLength(3);
+        // Namespaces sort before keys; both WF and AGENT namespaces are present.
+        const namespaces = new Set(facts.map((f) => f.namespace));
+        expect(namespaces.has("workflow:test-wf")).toBe(true);
+        expect(namespaces.size).toBe(2);
+        // Within a namespace, keys are ordered.
+        const wfKeys = facts.filter((f) => f.namespace === "workflow:test-wf").map((f) => f.key);
+        expect(wfKeys).toEqual(["a", "b"]);
+    });
+    test("listAllFacts returns an empty array when no facts exist", async () => {
+        const facts = await store.listAllFacts();
+        expect(facts).toEqual([]);
+    });
     test("setFact with TTL stores ttlMs", async () => {
         await store.setFact(WF_NS, "ephemeral", "temp", 5000);
         const fact = await store.getFact(WF_NS, "ephemeral");

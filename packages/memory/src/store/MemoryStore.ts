@@ -18,6 +18,7 @@ export type MemoryStore = {
   ) => Promise<void>;
   deleteFact: (ns: MemoryNamespace, key: string) => Promise<void>;
   listFacts: (ns: MemoryNamespace) => Promise<MemoryFact[]>;
+  listAllFacts: () => Promise<MemoryFact[]>;
   createThread: (ns: MemoryNamespace, title?: string) => Promise<MemoryThread>;
   getThread: (threadId: string) => Promise<MemoryThread | undefined>;
   listThreads: () => Promise<MemoryThread[]>;
@@ -46,6 +47,7 @@ export type MemoryStore = {
   listFactsEffect: (
     ns: MemoryNamespace,
   ) => Effect.Effect<MemoryFact[], SmithersError>;
+  listAllFactsEffect: () => Effect.Effect<MemoryFact[], SmithersError>;
   createThreadEffect: (
     ns: MemoryNamespace,
     title?: string,
