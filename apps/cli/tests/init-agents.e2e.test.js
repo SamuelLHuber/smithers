@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { createExecutableDir, createTempRepo, runSmithers, writeFakeAntigravityBinary, writeFakeClaudeBinary, writeFakeCodexBinary, writeFakeOpenCodeBinary, } from "../../../packages/smithers/tests/e2e-helpers.js";
 /**
  * @param {string} homeDir
@@ -173,4 +175,28 @@ test("smithers init ignores old Gemini CLI credentials", () => {
     expect(trusted.exitCode).toBe(4);
     expect(JSON.stringify(trusted.json)).toContain("Antigravity");
     expect(JSON.stringify(trusted.json)).not.toContain("Gemini");
+});
+test("smithers init does not crash when a Hermes agent is detected (regression)", () => {
+    // Regression: a detected `hermes` agent used to crash agents.ts generation
+    // with `CONSTRUCTORS[provider.id].importName` because the detector shipped
+    // without a constructor mapping. `init` must succeed and scaffold a
+    // HermesCliAgent provider.
+    const repo = createTempRepo();
+    const binDir = createExecutableDir();
+    writeFakeClaudeBinary(binDir); // a usable base agent so we hit the detection path
+    repo.write(".claude/.credentials.json", "{}\n");
+    // Fake a Hermes install: binary on PATH + ~/.hermes auth signal.
+    writeFileSync(join(binDir, "hermes"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(binDir, "hermes"), 0o755);
+    mkdirSync(join(repo.dir, ".hermes"), { recursive: true });
+    writeFileSync(join(repo.dir, ".hermes", "config.yaml"), "model: hermes\n");
+    const result = runSmithers(["init"], {
+        cwd: repo.dir,
+        format: "json",
+        env: buildEnv(repo.dir, binDir),
+    });
+    expect(result.exitCode).toBe(0);
+    const agentsSource = repo.read(".smithers/agents.ts");
+    expect(agentsSource).toContain("HermesCliAgent");
+    expect(agentsSource).toContain("hermes: new SmithersHermesCliAgent");
 });

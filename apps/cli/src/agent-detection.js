@@ -195,6 +195,10 @@ const CONSTRUCTORS = {
         importName: "VibeAgent",
         expr: 'new SmithersVibeAgent({ agent: "auto-approve", cwd: process.cwd() })',
     },
+    hermes: {
+        importName: "HermesCliAgent",
+        expr: "new SmithersHermesCliAgent({ cwd: process.cwd() })",
+    },
 };
 /**
  * @param {string} id
@@ -686,10 +690,21 @@ export function generateAgentsTs(env = process.env, options = {}) {
     if (available.length === 0) {
         return generateAccountsAgentsTs(registeredAccounts, env);
     }
-    // Base providers in detection order
+    // Base providers in detection order. Never let a detected provider we
+    // can't render (no local scaffold and no SDK constructor mapping) crash
+    // agents.ts generation with an opaque `CONSTRUCTORS[...].importName` error —
+    // skip it with a warning instead. This keeps `smithers init` working even
+    // when a newer detector ships before its constructor mapping.
     const orderedProviders = DETECTORS
         .map((detector) => availableById.get(detector.id))
-        .filter((entry) => Boolean(entry));
+        .filter((entry) => Boolean(entry))
+        .filter((entry) => {
+            if (usesLocalScaffold(entry.id) || CONSTRUCTORS[entry.id]) return true;
+            console.warn(
+                `agents.ts: skipping detected agent "${entry.id}" (no SDK constructor mapping yet).`,
+            );
+            return false;
+        });
     // Derive variants (e.g. claudeSonnet from claude)
     const availableIds = new Set(orderedProviders.map((p) => p.id));
     const activeVariants = AGENT_VARIANTS.filter((v) => availableIds.has(v.derivedFrom));
