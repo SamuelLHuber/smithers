@@ -3519,7 +3519,7 @@ const cli = Cli.create({
         if (results.every((r) => r.reason === "not-detected")) {
             console.error("Hermes was not found (no ~/.hermes directory on this machine).");
             console.error("Install Hermes first, then re-run: https://github.com/NousResearch/hermes-agent");
-            return c.ok({ installed: false, results });
+            return c.ok({ installed: false });
         }
         for (const r of results) {
             if (r.registered) console.error(`✓ ${r.agent} MCP server: ${r.path}`);
@@ -3528,7 +3528,9 @@ const cli = Cli.create({
         }
         console.error("");
         console.error("Smithers is ready in Hermes. From the Hermes CLI or any chat, try: /smithers ps");
-        return c.ok({ installed: true, results });
+        const mcp = results.find((r) => r.registered);
+        const plugin = results.find((r) => r.installedPlugin);
+        return c.ok({ installed: true, mcpServer: mcp?.path, plugin: plugin?.path, enabled: Boolean(plugin?.enabled) });
     },
 })
     // =========================================================================
