@@ -138,6 +138,12 @@
   footer.foot a:hover{color:var(--teal);border-color:var(--teal)}
   footer.foot .links{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px}
 
+  .shots{margin-top:24px;display:flex;flex-direction:column;gap:20px}
+  .shot{border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:#0a0f1c;box-shadow:var(--shadow);transition:transform .25s,border-color .25s}
+  .shot:hover{transform:translateY(-3px);border-color:rgba(94,234,212,.3)}
+  .shot img{display:block;width:100%;height:auto}
+  .shot .cap{padding:12px 16px;font-size:13.5px;color:var(--muted);border-top:1px solid var(--line);background:rgba(255,255,255,.02)}
+  .shot .cap b{color:var(--teal);font-weight:700}
   @media(max-width:900px){.cap-grid{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:760px){
     .narrative{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}
@@ -153,6 +159,7 @@
     <div class="brand"><span class="dot"></span> Smithers <small>× Hermes</small></div>
     <nav>
       <a href="#how">How it helps</a>
+      <a href="#see">See it</a>
       <a href="#install">Set up</a>
       <a class="cta" href="https://smithers.sh/integrations/hermes" target="_blank" rel="noopener">Docs →</a>
     </nav>
@@ -238,6 +245,28 @@
         <div class="cap-top"><div class="cap-icon">↩</div><h3>Reports back</h3></div>
         <p>Kick a job off and walk away. When it's done, the result lands back in the same chat you
         started it from.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="see">
+  <div class="wrap reveal">
+    <div class="shead"><h2>See it</h2><span class="count">add it · ask · watch</span>
+      <p>One line to add it. After that you just talk to your agent like always.</p>
+    </div>
+    <div class="shots">
+      <div class="shot">
+        <img src="assets/install.gif" alt="Adding Smithers to Hermes with one command" loading="lazy" width="1100" height="340" />
+        <div class="cap"><b>Add it in one line.</b> One command wires Smithers into Hermes.</div>
+      </div>
+      <div class="shot">
+        <img src="assets/using.gif" alt="Asking your Hermes agent to run a recurring job" loading="lazy" width="1100" height="380" />
+        <div class="cap"><b>Just ask.</b> Your agent turns it into a job that runs on schedule and recovers on its own.</div>
+      </div>
+      <div class="shot">
+        <img src="assets/updates.gif" alt="Hermes posting progress updates as the job runs" loading="lazy" width="1100" height="380" />
+        <div class="cap"><b>It keeps you posted.</b> Progress and the finished summary land right in your chat.</div>
       </div>
     </div>
   </div>
