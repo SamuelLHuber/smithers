@@ -3934,6 +3934,15 @@ const cli = Cli.create({
             }
         }
         catch (err) {
+            // A never-initialized workspace simply has zero runs. Treat the
+            // benign "no store exists yet" case (CLI_DB_NOT_FOUND, raised by
+            // openSmithersStore when no smithers.db / store has been created)
+            // as an empty run list with exit 0, matching the pluggable-DB
+            // contract. A genuinely corrupt/locked/unreadable store surfaces a
+            // different error code and still fails as PS_FAILED below.
+            if (err instanceof SmithersError && err.code === "CLI_DB_NOT_FOUND") {
+                return c.ok({ runs: [] });
+            }
             return fail({ code: "PS_FAILED", message: err?.message ?? String(err), exitCode: 1 });
         }
     },
