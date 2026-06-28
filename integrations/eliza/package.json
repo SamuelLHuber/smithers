@@ -1,0 +1,33 @@
+{
+  "name": "@smithers-orchestrator/eliza-plugin",
+  "version": "0.1.0",
+  "description": "Smithers plugin for Eliza (elizaOS): run durable, crash-safe coding workflows and clear approval gates from an Eliza agent.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "keywords": [
+    "eliza",
+    "elizaos",
+    "smithers",
+    "agent",
+    "plugin",
+    "orchestration",
+    "durable"
+  ],
+  "homepage": "https://smithers.sh/integrations/hermes",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smithersai/smithers",
+    "directory": "integrations/eliza"
+  },
+  "peerDependencies": {
+    "smithers-orchestrator": "*"
+  },
+  "license": "MIT"
+}
