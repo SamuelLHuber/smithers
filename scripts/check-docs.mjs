@@ -421,6 +421,11 @@ function currentDocFiles() {
   return [...walk(DOCS).filter((file) => !file.startsWith(`${changelogDir}/`)), README];
 }
 
+// Packages documented for external install that are intentionally NOT wired
+// into this monorepo's node_modules, so they cannot be import-resolved here.
+// They live as standalone, dependency-light integrations (e.g. integrations/eliza).
+const EXTERNAL_DOC_PACKAGES = new Set(["@smithers-orchestrator/eliza-plugin"]);
+
 function collectDocumentedPackageImports() {
   const imports = new Map();
   const importPattern =
@@ -429,6 +434,7 @@ function collectDocumentedPackageImports() {
     const source = stripGeneratedSource(readFileSync(file, "utf8"));
     for (const match of source.matchAll(importPattern)) {
       const specifier = match[2];
+      if (EXTERNAL_DOC_PACKAGES.has(specifier)) continue;
       const isTypeImport = /import\s+type\s*\{/.test(match[0]);
       const entry = imports.get(specifier) ?? new Map();
       for (const raw of match[1].split(",")) {
@@ -3494,12 +3500,13 @@ function checkCliAgentDocsMatchCurrentModelDefaults() {
   ]);
   const required = [
     [BASE_CLI_AGENT_SOURCE, "this.model = opts.model;"],
-    [CLI_AGENTS_INTEGRATION, "agents[10]{class,cli,modelDefault,hijack,notes}:"],
+    [CLI_AGENTS_INTEGRATION, "agents[11]{class,cli,modelDefault,hijack,notes}:"],
     [CLI_AGENTS_INTEGRATION, "ClaudeCodeAgent,claude,CLI default,native session id"],
     [CLI_AGENTS_INTEGRATION, "CodexAgent,codex,CLI default,native thread id"],
     [CLI_AGENTS_INTEGRATION, "PiAgent,pi,CLI default,native session id"],
     [CLI_AGENTS_INTEGRATION, "KimiAgent,kimi,CLI default,native session id"],
     [CLI_AGENTS_INTEGRATION, "ForgeAgent,forge,CLI default,conversation id"],
+    [CLI_AGENTS_INTEGRATION, "HermesCliAgent,hermes,CLI default,session id"],
     [CLI_AGENTS_INTEGRATION, "AmpAgent,amp,CLI default,thread id"],
     [CLI_AGENTS_INTEGRATION, "VibeAgent,vibe,CLI default,headless session id"],
     [CLI_AGENTS_INTEGRATION, "OpenCodeAgent,opencode,CLI default,not yet"],
@@ -3507,8 +3514,9 @@ function checkCliAgentDocsMatchCurrentModelDefaults() {
     [CLI_AGENT_AVAILABILITY_TYPE, '"vibe"'],
   ];
   const forbidden = [
-    [CLI_AGENTS_INTEGRATION, "agents[10]{class,cli,defaultModel,hijack,notes}:"],
+    [CLI_AGENTS_INTEGRATION, "agents[11]{class,cli,defaultModel,hijack,notes}:"],
     [CLI_AGENTS_INTEGRATION, "ClaudeCodeAgent,claude,claude-sonnet-4-20250514,"],
+    [CLI_AGENTS_INTEGRATION, "HermesCliAgent,hermes,hermes-4,"],
     [CLI_AGENTS_INTEGRATION, "CodexAgent,codex,gpt-5.3-codex,"],
     [CLI_AGENTS_INTEGRATION, "PiAgent,pi,gpt-5.2-codex,"],
     [CLI_AGENTS_INTEGRATION, "KimiAgent,kimi,kimi-latest,"],

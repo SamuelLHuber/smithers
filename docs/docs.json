@@ -253,6 +253,7 @@
           "integrations/custom-ui",
           "integrations/mcp-server",
           "integrations/pi-integration",
+          "integrations/hermes",
           "integrations/ecosystem"
         ]
       },

@@ -142,6 +142,7 @@ const INTEGRATIONS_PAGES = [
   "integrations/community-connectors.mdx",
   "integrations/ecosystem.mdx",
   "integrations/pi-integration.mdx",
+  "integrations/hermes.mdx",
 ];
 
 // -----------------------------------------------------------------------------

@@ -11305,7 +11305,7 @@ export default smithers((ctx) => (
 ## Available agents
 
 ```toon
-agents[10]{class,cli,modelDefault,hijack,notes}:
+agents[11]{class,cli,modelDefault,hijack,notes}:
   ClaudeCodeAgent,claude,CLI default,native session id,Anthropic Claude Code CLI
   CodexAgent,codex,CLI default,native thread id,OpenAI Codex CLI (codex exec via stdin + JSON stream)
   AntigravityAgent,agy,CLI default,native session id,Google Antigravity CLI
@@ -11313,12 +11313,18 @@ agents[10]{class,cli,modelDefault,hijack,notes}:
   PiAgent,pi,CLI default,native session id,Pi CLI (text/json/rpc modes + extension UI hooks)
   KimiAgent,kimi,CLI default,native session id,Moonshot Kimi CLI (auto-isolates KIMI_SHARE_DIR)
   ForgeAgent,forge,CLI default,conversation id,Forge CLI (300+ models)
+  HermesCliAgent,hermes,CLI default,session id,Nous Research Hermes Agent CLI (hermes -z headless)
   AmpAgent,amp,CLI default,thread id,Amp CLI (--execute headless mode)
   VibeAgent,vibe,CLI default,headless session id,Mistral Vibe CLI
   OpenCodeAgent,opencode,CLI default,not yet,OpenCode CLI (opencode run --format json)
 ```
 
-CLI binaries must be on `PATH`: `claude`, `codex`, `agy`, `gemini`, `pi`, `kimi`, `forge`, `amp`, `vibe`, `opencode`.
+CLI binaries must be on `PATH`: `claude`, `codex`, `agy`, `gemini`, `pi`, `kimi`, `forge`, `hermes`, `amp`, `vibe`, `opencode`.
+
+`HermesCliAgent` drives the Hermes *agent* CLI. It is distinct from `HermesAgent`,
+which talks to the Hermes *model* over an OpenAI-compatible HTTP API. Use
+`HermesCliAgent` to delegate a task to the Hermes coding agent itself; use
+`HermesAgent` to call a Hermes model endpoint.
 
 ## Codex CLI Agent
 
@@ -11712,6 +11718,24 @@ new ForgeAgent({
   verbose?: boolean; workflow?: string; event?: string; conversation?: string;
 });
 ```
+
+`HermesCliAgent` wraps the Nous Research Hermes Agent CLI in its headless one-shot
+mode (`hermes -z "<prompt>"`): a single prompt in, the final response text out.
+Key additions: `provider`, `continueSession`. A per-call `resumeSession` emits
+`-r <session>`; a configured `continueSession` emits `-c [name]`.
+
+```ts
+import { HermesCliAgent } from "smithers-orchestrator";
+new HermesCliAgent({
+  model?: string; provider?: string;
+  continueSession?: string | boolean;
+});
+```
+
+Smithers also installs a native Hermes plugin (slash commands, a live-run status
+injector, lifecycle hooks, a bundled skill, and approval buttons) during
+`bunx smithers-orchestrator mcp add --agent hermes`, so Hermes can drive Smithers as its durable
+control plane. See the MCP server page.
 
 `AmpAgent` wraps the Amp CLI in `--execute` headless mode. Key additions: `visibility`, `mcpConfig`, `dangerouslyAllowAll`.
 
@@ -13045,6 +13069,115 @@ pi --version
 ## Limitations
 
 Smithers does not provide a chat interface for PI. Chat UI integration is the responsibility of the host application using `@smithers-orchestrator/pi-plugin`.
+
+---
+
+## Hermes & Eliza
+
+> First-class Smithers support for the Hermes agent (as a native Hermes plugin) and the Eliza (elizaOS) agent. Make Smithers the durable control plane for both.
+
+Smithers ships **first-class support for two agent runtimes you can drop it into
+today**: Hermes (Nous Research)
+as a native Hermes plugin, and [Eliza (elizaOS)](https://github.com/elizaOS/eliza)
+as a plugin that auto-injects live run status into the agent. In both, Smithers
+becomes the durable control plane: the agent launches crash-safe, multi-step
+workflows, clears human approval gates, and stays aware of every in-flight run.
+
+The relationship is bidirectional:
+
+- **Hermes / Eliza drive Smithers**: they run and operate durable workflows.
+- **Smithers drives Hermes**: `HermesCliAgent` lets a workflow `<Task>` delegate
+  to the Hermes agent itself (see CLI agents).
+
+## Hermes: a native plugin (not just MCP)
+
+Smithers installs a **native Hermes plugin**, which is far richer than a bare MCP
+entry. MCP can only expose tools. The plugin adds:
+
+- **Slash commands** (`/smithers run|ps|inspect|approve|deny|watch`) usable in the
+  Hermes CLI and every gateway (Discord, Telegram, Slack).
+- **A live-run status injector** (`pre_llm_call` hook) so Hermes is aware of
+  active and paused runs, and any pending approval gates, on every turn.
+- **Tools**: `smithers_run`, `smithers_ps`, `smithers_inspect`, `smithers_approve`,
+  `smithers_deny`, `smithers_output`, `smithers_human_answer`.
+- **A bundled skill** (`smithers:orchestrate`) that teaches Hermes to prefer a
+  durable workflow over a one-off skill.
+- **Gateway push-back**: a detached run launched from a chat session reports its
+  result back into that same session.
+- **Slack approval buttons**: an approval gate becomes Approve / Deny buttons that
+  map straight to `bunx smithers-orchestrator approve` / `bunx smithers-orchestrator deny`.
+
+### Distribution is one command
+
+The plugin ships inside the Smithers CLI, so installing it is automatic:
+
+```bash
+# Auto-installs the plugin whenever Hermes is detected on this machine:
+bunx smithers-orchestrator init
+
+# Or target Hermes explicitly:
+bunx smithers-orchestrator mcp add --agent hermes
+```
+
+Either command writes the plugin into `~/.hermes/plugins/smithers/`, installs the
+gateway hook into `~/.hermes/hooks/smithers/`, enables it in
+`~/.hermes/config.yaml`, and also registers the MCP server as a floor (so tools
+work even if user plugins are disabled). It is idempotent: rerun it any time to
+upgrade.
+
+Verify it loaded:
+
+```bash
+hermes plugins list        # shows `smithers`
+hermes -z "/smithers ps"   # lists your runs from inside Hermes
+```
+
+## Eliza (elizaOS): a drop-in plugin
+
+For Eliza, Smithers ships
+[`@smithers-orchestrator/eliza-plugin`](https://github.com/smithersai/smithers/tree/main/integrations/eliza).
+Add it to your character and the Smithers capability is **automatically included**
+in the agent: a provider injects live Smithers run status into the agent's context
+on every turn, and actions let it launch and operate runs.
+
+```ts
+import { smithersPlugin } from "@smithers-orchestrator/eliza-plugin";
+
+export const character = {
+  name: "Ada",
+  plugins: [smithersPlugin],
+  // ...
+};
+```
+
+What the agent gains:
+
+- `RUN_SMITHERS_WORKFLOW`: start a durable workflow for any multi-step or
+  background task (falls back to `create-workflow` to author one from the
+  request).
+- `SMITHERS_APPROVE` / `SMITHERS_DENY`: clear approval gates.
+- `SMITHERS_RUNS` provider: every turn, the agent automatically sees what is
+  running and what needs a human.
+
+The plugin is dependency-light and duck-types the Eliza runtime, so it works
+across elizaOS versions. It reaches Smithers through the `smithers` CLI (override
+the binary with `$SMITHERS_BIN`).
+
+## Why a workflow, not a skill
+
+In both runtimes the guidance is the same: a Smithers workflow is a **superset of
+a skill**. A skill is static instructions; a workflow is executable, durable,
+typed, inspectable, composable, and optimizable. Capture reusable procedures as
+workflows (even small one-task ones), and optimize them like skills with
+`bunx smithers-orchestrator eval`, scorers, and `bunx smithers-orchestrator optimize`. See the
+[smithers skill](https://github.com/smithersai/smithers/blob/main/skills/smithers/SKILL.md).
+
+## Links
+
+- Hermes agent: github.com/NousResearch/hermes-agent
+- Eliza (elizaOS): github.com/elizaOS/eliza
+- Smithers Eliza plugin source: integrations/eliza
+- Hermes plugin source: [apps/cli/src/hermes-plugin](https://github.com/smithersai/smithers/tree/main/apps/cli/src/hermes-plugin)
 
 
 ===============================================================================

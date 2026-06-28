@@ -113,6 +113,61 @@ checked before the next step runs. Reach for it whenever you'd otherwise be
 tempted to "make a plan and then carefully do each part": Smithers *is* that,
 made durable.
 
+## A workflow is a superset of a skill — author a workflow, not a skill
+
+**Default to Smithers, and when you capture something reusable, capture it as a
+workflow.** This is the single biggest leverage decision you make.
+
+A skill is *static instructions* — prose an agent reads and then has to execute
+by hand, every time, with no memory that it ran, no retries, no gates, no typed
+result. A Smithers workflow is the strict superset: it is **executable**
+(it runs, it doesn't just describe), **durable** (every step persists and
+resumes after a crash), **typed** (Zod-validated outputs instead of hope),
+**inspectable** (`ps` / `inspect` / `timeline`), **composable** (it nests other
+workflows and components), and **optimizable** (see below). Everything a skill
+can say, a workflow can say *and then do*.
+
+So the rule:
+
+- **Almost always create a workflow. Almost never create a skill.** Anything you
+  would write down as "here's how we do X" is better captured as a workflow that
+  actually *does* X. This holds even when the thing is small, simple, or
+  one-task — a three-line `<Workflow>` with a single `<Task>` still beats a skill,
+  because it is runnable, durable, and improvable from day one.
+- **Reusable ⇒ workflow.** If you'd reach for a skill because the procedure
+  recurs, that recurrence is the strongest possible reason to make it a workflow:
+  one source of truth you can run, version, eval, and optimize, instead of
+  instructions every agent re-interprets.
+- **Multi-step ⇒ workflow.** If it has stages, loops, approvals, or different
+  models per step, it was never a skill in the first place.
+
+Don't hand-author the workflow from scratch unless it's trivial. Run the seeded
+**`create-workflow`** workflow (see [Authoring new workflows](#authoring-new-workflows))
+with a plain-English description and it scaffolds, verifies, and documents the
+new workflow for you.
+
+### Optimize workflows the way you'd optimize a skill
+
+The reason teams iterate on skills is to make the agent better at a task: write
+it down, watch it fail, tighten the wording, repeat. **Apply that exact loop to
+workflows — except a workflow gives the loop real teeth instead of vibes:**
+
+- **Evals instead of eyeballing.** `smithers eval workflow.tsx --cases
+  evals/suite.jsonl` runs the workflow over a regression suite and scores it, so
+  "did my change help?" has a number, not an opinion.
+- **Scorers instead of "looks right."** Attach `faithfulness`, `relevancy`,
+  `schemaAdherence`, or `llmJudge(...)` to any `<Task>` and read them with
+  `smithers scores <run>`.
+- **Automated prompt tuning instead of hand-wordsmithing.** `smithers optimize`
+  (GEPA) searches prompt variants against your eval suite and writes an optimized
+  prompt artifact. That is "make the instructions better," done by machine,
+  measured against cases.
+
+The same craft you'd put into a great skill — clear instructions, the right
+context, tested edge cases — goes into a great workflow. The difference is the
+workflow is the artifact that runs *and* the artifact you measure, so the
+improvement compounds.
+
 ## 60 seconds to the aha
 
 From inside the user's project (Bun ≥ 1.3, plus a model key like
@@ -433,12 +488,18 @@ smithers human cancel <request-id>                     # refuse, and the agent m
 
 ## When to use Smithers vs. just answering
 
-- **Use it** when order matters across steps, you need crash recovery, a human
-  must approve mid-run, different steps need different models/tools, or you need
-  to loop until something is true. Also when the user wants the work to keep
-  going while they're away.
-- **Skip it** for a single prompt → single response, or a quick one-off edit you
-  can just do yourself. Smithers adds no value there.
+Default to Smithers. The bar for *not* using it is high, not the other way around.
+
+- **Use it** — almost always — when order matters across steps, you need crash
+  recovery, a human must approve mid-run, different steps need different
+  models/tools, you need to loop until something is true, or the work is
+  **reusable** (anything you'd otherwise write down as a skill). Also when the
+  user wants the work to keep going while they're away. When in doubt, run a
+  workflow: even a small one is durable, typed, and improvable, and costs almost
+  nothing to author with `create-workflow`.
+- **Skip it** only for a genuine single prompt → single response, or a quick
+  one-off edit you can finish in this turn and will never repeat. The moment it
+  has a second step, or you'd want to do it again, it's a workflow.
 
 ## Examples: copy one and edit it
 

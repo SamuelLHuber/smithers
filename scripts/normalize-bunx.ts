@@ -53,8 +53,10 @@ const SUB = KNOWN_SUBCOMMANDS.join("|");
 // immediately followed by a known subcommand or an angle-bracket placeholder
 // (`<command>`, `<subcommand>`, ...). Capture an optional `$ ` prompt that may
 // sit before a bare `smithers` so we can preserve it.
+// A leading `/` means this is a slash command (e.g. Hermes's `/smithers run`),
+// not a CLI invocation, so never rewrite `/smithers <sub>`.
 const CMD_RE = new RegExp(
-  String.raw`(bunx\s+|npx\s+)?smithers(?!-orchestrator)(\s+(?:<[^>]+>|(?:${SUB})\b))`,
+  String.raw`(bunx\s+|npx\s+)?(?<![/\w])smithers(?!-orchestrator)(\s+(?:<[^>]+>|(?:${SUB})\b))`,
   "g",
 );
 
