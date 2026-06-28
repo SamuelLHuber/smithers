@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Smithers × Hermes — durable runs for the agent that grows with you</title>
-<meta name="description" content="Hermes runs unattended on a $5 VPS and spawns subagents for long jobs. Smithers makes those jobs survive a restart: steps persist, failures retry, irreversible moves wait for your OK, and the result lands back in your chat." />
+<title>Smithers × Hermes — your agent's skills, faster, cheaper, more reliable</title>
+<meta name="description" content="Smithers lets your Hermes agent take on bigger jobs and actually finish them: steps run side by side so it's faster, easy parts use a cheap model so it costs less, flaky steps retry so it's reliable, and it checks with you before anything risky." />
 <style>
   :root{
     --bg:#080b14; --bg2:#0c1120; --panel:#111829; --panel2:#0e1424;
@@ -54,10 +54,10 @@
   @keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
   .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--teal);border:1px solid rgba(94,234,212,.28);background:rgba(94,234,212,.06);padding:6px 13px;border-radius:999px;margin-bottom:22px}
   .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal);animation:pulse 2.6s ease-in-out infinite}
-  .hero h1{font-size:clamp(30px,5vw,54px);line-height:1.04;font-weight:800;letter-spacing:-.5px;max-width:19ch}
+  .hero h1{font-size:clamp(30px,5vw,54px);line-height:1.04;font-weight:800;letter-spacing:-.5px;max-width:18ch}
   .hero h1 .grad{background:linear-gradient(110deg,var(--teal),var(--violet) 45%,var(--blue) 70%,var(--teal));background-size:280% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shimmerText 7s linear infinite}
   @keyframes shimmerText{to{background-position:280% center}}
-  .hero p.lede{margin-top:20px;font-size:clamp(16px,2vw,19px);color:var(--muted);max-width:66ch}
+  .hero p.lede{margin-top:20px;font-size:clamp(16px,2vw,19px);color:var(--muted);max-width:64ch}
   .hero .actions{margin-top:28px;display:flex;gap:12px;flex-wrap:wrap}
   .btn{display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:700;text-decoration:none;padding:12px 18px;border-radius:11px;border:1px solid var(--line2);transition:.2s}
   .btn.primary{color:#06121b;background:linear-gradient(135deg,var(--teal),var(--violet));border-color:transparent;box-shadow:0 10px 30px -10px var(--teal)}
@@ -90,17 +90,16 @@
   .reveal{opacity:0;transform:translateY(22px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
   .reveal.in{opacity:1;transform:none}
 
-  .cap-grid{margin-top:22px;display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .cap-grid{margin-top:22px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
   .cap-card{position:relative;border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg,var(--panel),var(--panel2));padding:22px;transition:transform .22s cubic-bezier(.2,.7,.2,1),border-color .22s,box-shadow .22s;overflow:hidden}
   .cap-card::before{content:"";position:absolute;top:0;left:-120%;width:80%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.07),transparent);transform:skewX(-18deg);transition:left .65s ease;pointer-events:none}
   .cap-card:hover::before{left:140%}
   .cap-card:hover{transform:translateY(-5px);border-color:var(--line2);box-shadow:var(--shadow)}
-  .cap-top{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+  .cap-top{display:flex;align-items:center;gap:13px;margin-bottom:11px}
   .cap-icon{flex:none;width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:20px;color:var(--teal);background:rgba(94,234,212,.08);border:1px solid rgba(94,234,212,.2);transition:transform .25s,background .25s}
   .cap-card:hover .cap-icon{transform:scale(1.1);background:rgba(94,234,212,.16)}
-  .cap-card h3{font-size:17.5px;font-weight:750;letter-spacing:-.2px;flex:1}
-  .cap-card p{color:var(--muted);font-size:13.8px}
-  .cap-card p code{color:#bfe9df;background:rgba(94,234,212,.08);padding:1px 5px;border-radius:5px;font-size:12.5px}
+  .cap-card h3{font-size:17px;font-weight:750;letter-spacing:-.2px;flex:1}
+  .cap-card p{color:var(--muted);font-size:13.6px}
 
   .dist{margin-top:22px;display:grid;grid-template-columns:1.05fr 1fr;gap:18px;align-items:stretch}
   .code{border:1px solid var(--line2);border-radius:14px;background:#0a0f1c;overflow:hidden;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
@@ -139,6 +138,7 @@
   footer.foot a:hover{color:var(--teal);border-color:var(--teal)}
   footer.foot .links{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px}
 
+  @media(max-width:900px){.cap-grid{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:760px){
     .narrative{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}
     .cap-grid{grid-template-columns:1fr}.dist{grid-template-columns:1fr}.signal{grid-template-columns:repeat(2,1fr)}
@@ -152,10 +152,8 @@
   <div class="wrap">
     <div class="brand"><span class="dot"></span> Smithers <small>× Hermes</small></div>
     <nav>
-      <a href="#problem">The gap</a>
-      <a href="#durable">What you get</a>
-      <a href="#install">Install</a>
-      <a href="#eliza">Eliza</a>
+      <a href="#how">How it helps</a>
+      <a href="#install">Set up</a>
       <a class="cta" href="https://smithers.sh/integrations/hermes" target="_blank" rel="noopener">Docs →</a>
     </nav>
   </div>
@@ -163,106 +161,83 @@
 
 <section class="hero">
   <div class="wrap">
-    <span class="eyebrow anim d1"><span class="dot"></span> For self-hosted, always-on agents</span>
-    <h1 class="anim d2">Durable runs for the agent that <span class="grad">grows with you.</span></h1>
+    <span class="eyebrow anim d1"><span class="dot"></span> Add-on for your Hermes agent</span>
+    <h1 class="anim d2">Your agent's skills, <span class="grad">faster, cheaper, more reliable.</span></h1>
     <p class="lede anim d3">
-      Hermes runs unattended on a $5 VPS, hibernates when idle, and spawns subagents for the long
-      jobs. Smithers is the layer that makes those jobs <b>survive a restart</b>: every step persists,
-      a failed step retries, anything irreversible waits for your OK, and the finished result lands
-      back in your chat. Open source, one command, any model. Same box as Hermes.
+      Smithers lets your Hermes agent take on bigger jobs and actually get them done. It splits a job
+      into steps, runs them at the same time so it's faster, uses a cheap model for the easy parts so
+      it costs less, redoes only the bits that flake so it's reliable, and checks with you before
+      anything risky. Free, open, runs right alongside Hermes.
     </p>
     <div class="actions anim d4">
-      <a class="btn primary" href="#install">Install in one command →</a>
+      <a class="btn primary" href="#install">Set it up in one line →</a>
       <a class="btn ghost" href="https://smithers.sh/integrations/hermes" target="_blank" rel="noopener">Read the docs</a>
     </div>
 
     <div class="narrative anim d5">
       <div class="nbox before">
-        <span class="tag">A long job today</span>
-        <h3>One restart and it's gone</h3>
+        <span class="tag">A big task on its own</span>
+        <h3>Slow, pricey, and easy to break</h3>
         <ul>
-          <li>A 12-step overnight job is halfway done</li>
-          <li>The VPS reboots, or the gateway wakes from idle, and it starts over</li>
-          <li>One flaky model call fails and takes the whole pipeline down</li>
-          <li>It hits something irreversible and guesses, while you're asleep</li>
+          <li>It tries to do the whole thing in one go</li>
+          <li>One model does every part, so it's slow and expensive</li>
+          <li>One step trips and you get half an answer, or nothing</li>
+          <li>If it gets interrupted, it starts over from scratch</li>
         </ul>
       </div>
       <div class="arrow" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </div>
       <div class="nbox after">
-        <span class="tag">With Smithers</span>
-        <h3>It finishes what it starts</h3>
+        <span class="tag">The same task with Smithers</span>
+        <h3>Faster, cheaper, and it finishes</h3>
         <ul>
-          <li>Every finished step is saved the instant it completes</li>
-          <li>After any restart it resumes at the last step, not the first</li>
-          <li>The failed step retries on its own</li>
-          <li>It DMs you Approve / Deny before the irreversible move, then reports back</li>
+          <li>The job is split into steps that run side by side</li>
+          <li>Cheap model for the easy parts, smart one only where it counts</li>
+          <li>A step that flakes is retried, so you get the full result</li>
+          <li>If it's interrupted, it picks up where it left off</li>
         </ul>
       </div>
     </div>
   </div>
 </section>
 
-<section class="section" id="problem">
+<section class="section" id="how">
   <div class="wrap reveal">
-    <div class="shead"><h2>Hermes is great at starting long jobs. The gap is finishing them.</h2>
-      <p>Hermes spawns isolated subagents and schedules automations that run unattended. But a run is
-      a process: when the box reboots, the gateway hibernates, or a step throws, the work in flight is
-      gone. Smithers turns a run into durable, checkpointed state so the long jobs actually complete.</p>
+    <div class="shead"><h2>What it does for your agent</h2>
+      <p>Hermes already learns skills and does tasks for you. Smithers makes those skills do more, for
+      less, without falling over.</p>
     </div>
     <div class="cap-grid">
       <div class="cap-card">
-        <div class="cap-top"><div class="cap-icon">↺</div><h3>The run survives the restart</h3></div>
-        <p>Your $5 VPS reboots, the gateway wakes from idle, a call times out. The job picks up at the
-        last completed step instead of redoing the whole thing. Durability for the work, not just the
-        environment.</p>
+        <div class="cap-top"><div class="cap-icon">⚡</div><h3>Faster</h3></div>
+        <p>It does several steps at the same time instead of one after another. A job that used to take
+        all night can finish in a fraction of the time.</p>
       </div>
       <div class="cap-card">
-        <div class="cap-top"><div class="cap-icon">✶</div><h3>It tells you when it's stuck</h3></div>
-        <p>Hermes guesses or stops. A Smithers run pauses and waits, durably, for an answer, then keeps
-        going from exactly where it paused. No lost context, no restart.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="section" id="durable">
-  <div class="wrap reveal">
-    <div class="shead"><h2>What your agent gets</h2><span class="count">durability, in your chat</span>
-      <p>Every one of these maps to how Hermes already runs: unattended, multi-platform, idle-cheap.</p>
-    </div>
-    <div class="cap-grid">
-      <div class="cap-card">
-        <div class="cap-top"><div class="cap-icon">⏸</div><h3>Approve / Deny in your chat</h3></div>
-        <p>Before the agent deletes, deploys, sends, or spends, it pauses and asks you on Telegram,
-        Discord, or Slack with buttons. No more guessing on irreversible moves while you're away.</p>
+        <div class="cap-top"><div class="cap-icon">$</div><h3>Cheaper</h3></div>
+        <p>It uses a cheap, fast model for the simple steps and a smart one only where it really matters,
+        and never pays to redo work it already finished.</p>
       </div>
       <div class="cap-card">
-        <div class="cap-top"><div class="cap-icon">↩</div><h3>Reports back into the thread</h3></div>
-        <p>Kick off an overnight research sweep or a weekly audit from Telegram. It runs unattended and
-        posts the result into the same conversation. Pair it with Hermes's cron scheduler: schedule the
-        start, let Smithers keep the body durable.</p>
+        <div class="cap-top"><div class="cap-icon">✓</div><h3>More reliable</h3></div>
+        <p>Big jobs actually finish. If a step trips, it tries again instead of dropping everything, so
+        you get the whole result, not half.</p>
       </div>
       <div class="cap-card">
-        <div class="cap-top"><div class="cap-icon">⟳</div><h3>Retries and checkpoints</h3></div>
-        <p>Each step is checkpointed and its output validated before the next runs. A flaky tool or a
-        rate-limited model retries itself instead of dropping the whole job.</p>
+        <div class="cap-top"><div class="cap-icon">✦</div><h3>Takes on more</h3></div>
+        <p>Hand it bigger, multi-step jobs: research something all week, keep an eye on things, pull a
+        report together. Not just one answer at a time.</p>
       </div>
       <div class="cap-card">
-        <div class="cap-top"><div class="cap-icon">$</div><h3>Costs nothing while it waits</h3></div>
-        <p>A paused run is a row in a database, not a running process. It can wait on your approval or a
-        schedule for days without burning a cent. Same idle-cheap model as your gateway.</p>
+        <div class="cap-top"><div class="cap-icon">⏸</div><h3>Checks with you first</h3></div>
+        <p>Before it deletes, sends, or spends anything, it asks you right in your chat, on Telegram,
+        Discord, or Slack. No nasty surprises.</p>
       </div>
       <div class="cap-card">
-        <div class="cap-top"><div class="cap-icon">◷</div><h3>Watch and steer from the CLI</h3></div>
-        <p>Type <code>/smithers ps</code> or <code>/smithers watch</code> from any platform to see
-        what's running, what's paused, and what needs you. Inspect, replay, or rewind any run.</p>
-      </div>
-      <div class="cap-card">
-        <div class="cap-top"><div class="cap-icon">⌗</div><h3>Open, local, any model</h3></div>
-        <p>Open source. Runs on the same box as Hermes. Bring your own keys, switch models freely, no
-        lock-in, nothing to sign up for. The ethos you already chose Hermes for.</p>
+        <div class="cap-top"><div class="cap-icon">↩</div><h3>Reports back</h3></div>
+        <p>Kick a job off and walk away. When it's done, the result lands back in the same chat you
+        started it from.</p>
       </div>
     </div>
   </div>
@@ -270,26 +245,24 @@
 
 <section class="section" id="install">
   <div class="wrap reveal">
-    <div class="shead"><h2>One command, and Hermes can drive it</h2><span class="count">native plugin</span>
-      <p>Smithers installs as a native Hermes plugin: tools and <code>/smithers</code> commands to run,
-      watch, and approve durable jobs, plus a live status line so the agent always knows what's in
-      flight. Not just an MCP entry.</p>
+    <div class="shead"><h2>One line to set up</h2><span class="count">then just ask</span>
+      <p>Smithers adds itself to Hermes so your agent can start, watch, and finish these bigger jobs.
+      Nothing to maintain.</p>
     </div>
     <div class="dist">
       <div class="code">
-        <div class="bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>same box as Hermes</span></div>
-<pre><span class="c"># Installs the plugin wherever Hermes is set up:</span>
+        <div class="bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>same place you run Hermes</span></div>
+<pre><span class="c"># Add Smithers to Hermes, once:</span>
 <span class="k">bunx smithers-orchestrator</span> mcp add <span class="v">--agent</span> hermes
 
-<span class="c"># Then, from Telegram / Discord / the CLI:</span>
-/smithers run <span class="v">"overnight: audit my repos, summarize at 7am"</span>
-/smithers ps               <span class="c"># what's running / paused</span>
-/smithers approve <span class="v">run_8f2</span>    <span class="c"># clear a gate it asked about</span></pre>
+<span class="c"># Then just ask, from Telegram / Discord / your terminal:</span>
+/smithers run <span class="v">"every morning, check my sites and text me a summary"</span>
+/smithers ps               <span class="c"># see what it's working on</span></pre>
       </div>
       <div class="steps">
-        <div class="step"><div class="n">/</div><div><h4>Slash commands everywhere</h4><p>run · ps · inspect · approve · deny · watch, in the CLI and every gateway.</p></div></div>
-        <div class="step"><div class="n">◉</div><div><h4>A live status line</h4><p>The agent sees active and paused runs, and pending approvals, on every turn.</p></div></div>
-        <div class="step"><div class="n">↻</div><div><h4>Idempotent</h4><p>Rerun the command any time to upgrade. Nothing to maintain by hand.</p></div></div>
+        <div class="step"><div class="n">1</div><div><h4>Ask in plain language</h4><p>Tell your agent what you want done. It figures out the steps.</p></div></div>
+        <div class="step"><div class="n">2</div><div><h4>It does the work</h4><p>Faster and cheaper, and it keeps going even if something hiccups.</p></div></div>
+        <div class="step"><div class="n">3</div><div><h4>You stay in the loop</h4><p>It checks in before anything risky, and tells you when it's done.</p></div></div>
       </div>
     </div>
   </div>
@@ -297,47 +270,17 @@
 
 <section class="section" id="skill">
   <div class="wrap reveal">
-    <div class="shead"><h2>A workflow is a skill that runs</h2><span class="count">procedural memory, executable</span>
-      <p>Hermes already thinks in skills: procedural memory it curates and improves. A Smithers workflow
-      is the next step.</p>
+    <div class="shead"><h2>Think of it as a skill that can do a lot more</h2>
+      <p>Your agent already builds skills. A Smithers skill is one that can handle a whole multi-step
+      job, run it faster and cheaper, and not give up halfway.</p>
     </div>
     <div class="pills">
-      <span class="pill">Capture a recurring job <b>once</b></span>
-      <span class="pill">It runs the same way <b>every time</b></span>
-      <span class="pill"><b>Durable</b> — survives restarts</span>
-      <span class="pill"><b>Typed</b> — validated outputs, not hope</span>
-      <span class="pill"><b>Inspectable</b> — ps · inspect · replay</span>
-      <span class="pill"><b>Measurable</b> — eval &amp; tune it like a skill</span>
-    </div>
-    <p style="margin-top:18px;color:var(--muted);font-size:14px;max-width:74ch">
-      Same idea as a Hermes skill, but it executes durably, retries, resumes, and you can measure and
-      improve it with real evals instead of vibes. Reach for a workflow whenever a job is more than one
-      step.
-    </p>
-  </div>
-</section>
-
-<section class="section" id="eliza">
-  <div class="wrap reveal">
-    <div class="shead"><h2>Running Eliza instead?</h2><span class="count">drop-in plugin</span>
-      <p>The same durability for <a href="https://github.com/elizaOS/eliza" target="_blank" rel="noopener" style="color:var(--teal)">elizaOS</a> agents.</p>
-    </div>
-    <div class="dist">
-      <div class="code">
-        <div class="bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>character.ts</span></div>
-<pre><span class="v">import</span> { smithersPlugin } <span class="v">from</span> <span class="k">"@smithers-orchestrator/eliza-plugin"</span>;
-
-<span class="v">export const</span> character = {
-  name: <span class="k">"Ada"</span>,
-  plugins: [smithersPlugin],
-  <span class="c">// ...</span>
-};</pre>
-      </div>
-      <div class="steps">
-        <div class="step"><div class="n">◉</div><div><h4>Always aware</h4><p>A provider drops live run status into the agent's context every turn.</p></div></div>
-        <div class="step"><div class="n">▶</div><div><h4>Runs durable jobs</h4><p>Launch crash-safe, multi-step work from the agent.</p></div></div>
-        <div class="step"><div class="n">✓</div><div><h4>Clears its own gates</h4><p>Approve and deny straight from the conversation.</p></div></div>
-      </div>
+      <span class="pill"><b>More steps</b> in one job</span>
+      <span class="pill"><b>Faster</b> — steps run together</span>
+      <span class="pill"><b>Cheaper</b> — right model for each part</span>
+      <span class="pill"><b>Won't drop</b> the whole job over one error</span>
+      <span class="pill"><b>Asks you</b> before anything risky</span>
+      <span class="pill"><b>Gets better</b> over time</span>
     </div>
   </div>
 </section>
@@ -346,17 +289,17 @@
   <div class="wrap reveal">
     <div class="closing">
       <span class="tag">the point</span>
-      <blockquote>Your agent should finish what it starts, even after the box reboots.</blockquote>
+      <blockquote>Let your agent take on the big jobs, and actually finish them, for less.</blockquote>
       <div class="actions">
         <a class="btn primary" href="https://smithers.sh/integrations/hermes" target="_blank" rel="noopener">Get started →</a>
-        <a class="btn ghost" href="https://github.com/smithersai/smithers" target="_blank" rel="noopener">View on GitHub</a>
+        <a class="btn ghost" href="https://github.com/smithersai/smithers" target="_blank" rel="noopener">See the project</a>
       </div>
     </div>
     <div class="signal">
-      <div class="stat"><b>survives reboots</b><span>resumes at the last finished step</span></div>
-      <div class="stat"><b>1 command</b><span>installs the native plugin</span></div>
-      <div class="stat"><b>$0 idle</b><span>a paused run is a row, not a process</span></div>
-      <div class="stat"><b>any model</b><span>open source, bring your own keys</span></div>
+      <div class="stat"><b>faster</b><span>steps run at the same time</span></div>
+      <div class="stat"><b>cheaper</b><span>cheap model for the easy parts</span></div>
+      <div class="stat"><b>reliable</b><span>retries, and finishes the job</span></div>
+      <div class="stat"><b>free</b><span>open, runs alongside Hermes</span></div>
     </div>
   </div>
 </section>
@@ -365,13 +308,12 @@
   <div class="wrap">
     <div class="links">
       <a href="https://github.com/NousResearch/hermes-agent" target="_blank" rel="noopener">Hermes on GitHub ↗</a>
-      <a href="https://github.com/elizaOS/eliza" target="_blank" rel="noopener">Eliza on GitHub ↗</a>
-      <a href="https://smithers.sh/integrations/hermes" target="_blank" rel="noopener">Integration docs ↗</a>
+      <a href="https://smithers.sh/integrations/hermes" target="_blank" rel="noopener">Set-up guide ↗</a>
       <a href="https://github.com/smithersai/smithers" target="_blank" rel="noopener">Smithers ↗</a>
     </div>
-    <p>Smithers is an open-source durability layer for long-running agents: runs persist every step,
-    survive restarts, retry on failure, and pause for a human. Hermes is the self-improving agent by
-    Nous Research; Eliza is by elizaOS. Smithers ships the plugins for both and runs on the same box.</p>
+    <p>Smithers is a free, open add-on for Hermes, the self-improving agent by Nous Research. It helps
+    your agent take on bigger jobs and finish them faster, cheaper, and more reliably, and runs right
+    alongside Hermes.</p>
   </div>
 </footer>
 

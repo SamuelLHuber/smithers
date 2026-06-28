@@ -1,12 +1,13 @@
 # marketing/hermes-site
 
-Marketing site for **Smithers × Hermes**: how Smithers gives a self-hosted,
-always-on Hermes agent durable, crash-safe long-running jobs that survive a
-restart, ask for approval in your chat, and report back into the thread. Also
-covers the [Eliza (elizaOS)](https://github.com/elizaOS/eliza) drop-in plugin.
+Marketing site for **Smithers × Hermes**: how Smithers makes a Hermes agent's
+skills faster, cheaper, and more reliable, and lets it take on bigger multi-step
+jobs and actually finish them.
 
-The copy is written for the Hermes audience (self-hosters running an autonomous
-agent on a VPS via Telegram / Discord / Slack), not for IDE/CI coding workflows.
+The copy is written in plain language for the Hermes audience (everyday people
+running an agent in Telegram / Discord / Slack), not for technical or IDE/CI
+readers. No jargon ("durable", "VPS", "checkpoints"). The site is Hermes-only;
+the Eliza integration lives in the docs, not here.
 
 Single self-contained `index.html` (no external assets), dark-aurora style.
 Deployed to Cloudflare via Alchemy at **hermes.smithers.sh**.
@@ -35,6 +36,5 @@ must live in that Cloudflare account. `node_modules/`, `dist/`, and `.alchemy/`
 ## Links
 
 - Hermes: https://github.com/NousResearch/hermes-agent
-- Eliza: https://github.com/elizaOS/eliza
 - Smithers: https://github.com/smithersai/smithers
 - Integration docs: https://smithers.sh/integrations/hermes
