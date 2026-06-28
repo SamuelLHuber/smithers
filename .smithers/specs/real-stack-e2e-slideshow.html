@@ -521,7 +521,7 @@ bunx smithers-orchestrator workflow run real-stack-e2e --resume &lt;RUN_ID&gt;  
     <tr><td>Vite proxy and gateway WS quirks (custom-UI iframes use a root WS path that vite owns for HMR)</td>
         <td>Specs assert run progress via the RPC path the app actually uses (poll + <code>/v1/rpc</code> with ws:true). The iframe WS limitation is dev-known and out of scope for these six specs.</td></tr>
     <tr><td>OAuth buttons cannot complete on localhost (cross-origin cookie jar)</td>
-        <td>Token sign-in is the tested path; it is the documented reliable local flow. Real WorkOS OAuth stays a prod-path follow-up.</td></tr>
+        <td>Token sign-in is the tested path; it is the documented reliable local flow.</td></tr>
     <tr><td>Other agents share this working tree and git index</td>
         <td>Explicit pathspecs only, no <code>git add -A</code>; sequential tickets; push happens once, after the full gate.</td></tr>
     <tr><td>A ticket exhausts its 5 iterations</td>

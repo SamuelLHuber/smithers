@@ -257,7 +257,7 @@ The browser sees a single origin. The page at `/workflows/<key>` is served by th
 If you embed a custom workflow UI in your own host, put the Gateway behind a reverse proxy that forwards the Gateway route families on the host's origin:
 
 ```
-/api/auth/*    →  WorkOS / Auth0 / GitHub (user session terminator)
+/api/auth/*    →  GitHub (user session terminator)
 /v1/rpc/*      →  Smithers Gateway   (RPC, trusted-proxy headers or service token attached)
 /workflows/*   →  Smithers Gateway   (HTML shell + bundle)
 /health        →  Smithers Gateway   (liveness)

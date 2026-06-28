@@ -15,7 +15,7 @@ import { reviewOutputSchema } from "../components/Review";
  *
  * The dependency gate is conditional. An agent reads the research, decides whether
  * the ticket leans on a third-party dependency or external infra (Docker, Plue,
- * the gateway, WorkOS, Cerebras, Cloudflare), and if so AUTHORS real
+ * the gateway, GitHub App, Cerebras, Cloudflare), and if so AUTHORS real
  * assumption-validation tests into the project's own suite (no mocks). A compute
  * task then RUNS those tests for real. If they fail, an <Approval> blocks the run
  * and asks a human to fix the environment (start Docker, clone Plue, provide a
@@ -188,7 +188,7 @@ Investigate thoroughly with your tools (read files, grep, run read-only commands
 - findings: concrete facts with file:line references.
 - fileRefs: the specific files/paths a fix would touch.
 - unknowns: open questions a human or a validation test must answer.
-- dependencies: every third-party dependency or external infra this ticket leans on (Docker, Plue, the gateway, WorkOS, Cerebras, Cloudflare, a token, etc.). Empty array if the ticket is self-contained.`;
+- dependencies: every third-party dependency or external infra this ticket leans on (Docker, Plue, the gateway, GitHub App, Cerebras, Cloudflare, a token, etc.). Empty array if the ticket is self-contained.`;
 
   const depgatePrompt = `You are the DEPENDENCY GATE for ticket "${ticketId}". Decide whether this ticket depends on a third-party dependency or external infrastructure, and if so, AUTHOR real assumption-validation tests that prove the dependency actually works.
 

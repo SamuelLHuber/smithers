@@ -107,7 +107,7 @@
       <div class="title-meta">
         <span class="pill"><span class="dot" style="background:var(--brand)"></span> apps/smithers · web (Cloudflare)</span>
         <span class="pill"><span class="dot" style="background:var(--okink)"></span> apps/smithers · Electrobun native (planned)</span>
-        <span class="pill"><span class="dot" style="background:var(--muted)"></span> Plue / Gateway / Cerebras / WorkOS</span>
+        <span class="pill"><span class="dot" style="background:var(--muted)"></span> Plue / Gateway / Cerebras / GitHub App</span>
       </div>
       <div class="footnote">June 2026 · ← / → or Space to move · press F for fullscreen</div>
     </div>
@@ -155,9 +155,9 @@
         <div class="card"><h3><span class="dot" style="background:var(--chat)"></span> Cerebras chat</h3>
           <p>Runs <em>inside</em> the Cloudflare Worker at <code>/api/chat</code>
           (gpt-oss-120b). The API key is a Worker secret and never reaches the browser.</p></div>
-        <div class="card"><h3><span class="dot" style="background:var(--warn)"></span> WorkOS</h3>
-          <p>External OAuth provider behind the "Continue with Google / GitHub / SSO" buttons.
-          Auth0 is a configured alternative. Plue does the redirect dance.</p></div>
+        <div class="card"><h3><span class="dot" style="background:var(--warn)"></span> GitHub App</h3>
+          <p>External OAuth provider behind the "Continue with GitHub" button.
+          Plue does the redirect dance and exchanges the callback for the user session.</p></div>
         <div class="card"><h3><span class="dot" style="background:#b07cff"></span> Electric (ElectricSQL)</h3>
           <p>Real-time Postgres sync. Lives at <span class="mono">electric.smithers.sh</span> in prod
           (its own Helm chart + auth proxy). Not on the sign-in path.</p></div>
@@ -227,8 +227,8 @@
 GET /api/user
 <span class="r">→ 200 OK   content-type: text/html</span>   <span class="c"># the SPA, not a user</span>
 
-<span class="c"># "Continue with Google" navigates here</span>
-GET /api/auth/workos/authorize
+<span class="c"># "Continue with GitHub" navigates here</span>
+GET /api/auth/github/authorize
 <span class="r">→ 200 OK   content-type: text/html</span>   <span class="c"># reloads the app</span>
           </div>
         </div>
@@ -261,9 +261,9 @@ GET /api/auth/workos/authorize
 GET /api/user
 <span class="g">→ 401  {"message":"authentication required"}</span>
 
-GET /api/auth/workos/authorize
-<span class="g">→ 302  api.workos.com/...authorize</span>
-   <span class="c">client_id=client_01KKGCQ...</span>
+GET /api/auth/github/authorize
+<span class="g">→ 302  github.com/login/oauth/authorize</span>
+   <span class="c">client_id=Iv1...</span>
           </div>
           <p style="margin-top:10px">Real Plue, on GKE + Cloud SQL. Serves exactly the routes the app needs.</p>
         </div>
@@ -303,7 +303,7 @@ GET /  (any path)
             <td><code>scripts/dev-with-plue.sh</code> boots Plue's docker-compose and points the proxies
               at it. <span class="muted">Real Go API on :4000.</span></td>
             <td class="warn">Docker + a Plue clone</td>
-            <td>Token box (real users);<br/>OAuth needs WorkOS creds</td>
+            <td>Token box (real users);<br/>OAuth needs GitHub App creds</td>
           </tr>
           <tr>
             <td><span class="badge b-warn">C · remote Plue</span></td>
@@ -343,7 +343,7 @@ GET /  (any path)
         <span class="mono">/api/auth/*</span> on port 4000</strong> — exactly what the web app's auth proxy needs.
         Boot order is enforced by <code>depends_on</code>. Plue's own command is
         <code>docker compose up -d --build</code> (wrapped by <code>zig build docker-up</code>).</p>
-      <div class="footnote">/Users/williamcory/plue/docker-compose.yml · WorkOS creds default empty · SMITHERS_ENABLE_E2E_TEST_ROUTES=true</div>
+      <div class="footnote">/Users/williamcory/plue/docker-compose.yml · GitHub App creds default empty · SMITHERS_ENABLE_E2E_TEST_ROUTES=true</div>
     </div>
   </section>
 
@@ -360,18 +360,18 @@ GET /  (any path)
         </div>
         <div class="card" style="border-color:#5a4a1c">
           <h3 class="warn">OAuth buttons — need same-origin help</h3>
-          <p>WorkOS sends the browser back to the auth origin's <code>/callback</code>, so the session
+          <p>GitHub sends the browser back to the auth origin's <code>/callback</code>, so the session
           cookie lands on a different origin than localhost. Different cookie jar, still 401.</p>
         </div>
       </div>
       <ul class="clean" style="margin-top:18px">
-        <li class="g">The <strong>Cloudflare Worker</strong> fixes this in prod: it rewrites the WorkOS
+        <li class="g">The <strong>Cloudflare Worker</strong> fixes this in prod: it rewrites the GitHub
           <code>redirect_uri</code> to its own origin (<code>AUTH_CALLBACK_BASE_URL</code>), so the callback and
           the app share one cookie jar. Running the Worker locally (<code>alchemy dev</code>) reproduces that.</li>
-        <li class="y">Real OAuth also needs <strong>WorkOS credentials</strong> in Plue's env
-          (<code>SMITHERS_AUTH_WORKOS_CLIENT_ID/API_KEY</code>), which the local compose leaves empty by default.</li>
+        <li class="y">Real OAuth also needs <strong>GitHub App credentials</strong> in Plue's env
+          (<code>SMITHERS_AUTH_GITHUB_CLIENT_ID/SECRET</code>), which the local compose leaves empty by default.</li>
         <li>Local Plue with test routes on does <strong>dev-auto-authorize as user 1 (alice/admin)</strong>,
-          but only on the first-party <code>/api/oauth2/authorize</code> PKCE flow (CLI / native), not the web WorkOS button.</li>
+          but only on the first-party <code>/api/oauth2/authorize</code> PKCE flow (CLI / native), not the web GitHub button.</li>
       </ul>
     </div>
   </section>
@@ -501,7 +501,7 @@ electrobun build
           <h3 style="margin:0 0 8px">Still open (dev only)</h3>
           <ul class="clean">
             <li class="y"><strong>Default dev mode:</strong> plain vite + token sign-in (simple), or the Worker via <code>alchemy dev</code> for full OAuth (faithful to prod)?</li>
-            <li class="y"><strong>WorkOS dev credentials</strong> wired so the buttons work locally, or is the token path enough for now?</li>
+            <li class="y"><strong>GitHub App dev credentials</strong> wired so the buttons work locally, or is the token path enough for now?</li>
           </ul>
           <p class="muted" style="font-size:13.5px;margin-top:14px">Dev shells out to <code>$PLUE_DIR</code>, the same Plue
           clone the deploy path vendors. The dev loop stays in the smithers repo, untouched by the deploy inversion.</p>

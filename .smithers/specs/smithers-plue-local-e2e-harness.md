@@ -46,7 +46,7 @@ GET  /api/repos/:owner/:repo/issues/:n                — one issue
 GET  /api/repos/:owner/:repo/landing-requests         — landings (paginated)
 GET  /api/repos/:owner/:repo/workspaces               — workspaces
 GET  /api/notifications                              — notifications
-GET  /api/auth/workos/authorize                       — WorkOS 302
+GET  /api/auth/github/authorize                       — GitHub 302
 GET  /api/auth/auth0/authorize                        — Auth0 302
 GET  /api/auth/sse-ticket                            — SSE ticket (stub)
 GET  /health                                         — Playwright probe
@@ -85,7 +85,7 @@ the assertion fails closed.
 | Large repo/issue lists | Same as pagination — the fake host serves 250 issues per repo, walked exhaustively. |
 | 401 propagation | Fixture + worker + browser tests. |
 | 403 propagation | `notifications?admin=1` with a non-admin token. Fixture + worker + browser tests. |
-| WorkOS authorize | `plueHarness.spec.ts` uses Playwright's APIRequestContext (`maxRedirects: 0`) to assert status 302 + tight bounds on `client_id`, `state`, `provider`, `redirect_uri` host + path + query. |
+| GitHub authorize | `plueHarness.spec.ts` uses Playwright's APIRequestContext (`maxRedirects: 0`) to assert status 302 + tight bounds on `client_id`, `state`, `provider`, `redirect_uri` host + path + query. |
 | CORS / same-origin | Fixture echoes 127.0.0.1, `[::1]`, and `localhost` origins; rejects external. Browser tests assert `/api/repos` resolves on `baseURL` (same-origin). |
 | UI / store seam | `plueHarness.spec.ts` calls the app's own `platformJson` via a build-gated `window.__smithers_test` hook (`VITE_SMITHERS_E2E_TEST_HOOKS=1`) and asserts the seeded shape plus a `PlatformError` on the 503 path. |
 | Deterministic seeded data | `fakePlueSeed.ts` is pure; no Math.random / Date.now. Builders return stable shapes per `(repo, count)`. |
