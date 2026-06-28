@@ -7284,6 +7284,7 @@ type MemoryStore = {
   setFact(ns: MemoryNamespace, key: string, value: unknown, ttlMs?: number): Promise<void>;
   deleteFact(ns: MemoryNamespace, key: string): Promise<void>;
   listFacts(ns: MemoryNamespace): Promise<MemoryFact[]>;
+  listAllFacts(): Promise<MemoryFact[]>;
   createThread(ns: MemoryNamespace, title?: string): Promise<MemoryThread>;
   getThread(threadId: string): Promise<MemoryThread | undefined>;
   deleteThread(threadId: string): Promise<void>;
@@ -7295,6 +7296,7 @@ type MemoryStore = {
   setFactEffect(ns: MemoryNamespace, key: string, value: unknown, ttlMs?: number): Effect.Effect<void, SmithersError>;
   deleteFactEffect(ns: MemoryNamespace, key: string): Effect.Effect<void, SmithersError>;
   listFactsEffect(ns: MemoryNamespace): Effect.Effect<MemoryFact[], SmithersError>;
+  listAllFactsEffect(): Effect.Effect<MemoryFact[], SmithersError>;
   createThreadEffect(ns: MemoryNamespace, title?: string): Effect.Effect<MemoryThread, SmithersError>;
   getThreadEffect(threadId: string): Effect.Effect<MemoryThread | undefined, SmithersError>;
   deleteThreadEffect(threadId: string): Effect.Effect<void, SmithersError>;
