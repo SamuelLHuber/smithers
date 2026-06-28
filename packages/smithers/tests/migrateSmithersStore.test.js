@@ -220,6 +220,15 @@ async function seedPgliteStore(cwd) {
   return sqliteSourcePath;
 }
 
+// Like seedPgliteStore, but PRESERVES the migrated.json / backend.json receipts
+// the migration writes so reverse-inference can read them. With keepSqlite:false
+// the leftover root smithers.db is removed; with keepSqlite:true it stays.
+async function seedPgliteStoreWithReceipt(cwd, { keepSqlite = false } = {}) {
+  const sqliteSourcePath = seedSqliteStore(cwd);
+  await migrateSmithersStore({ cwd, from: "sqlite", to: "pglite", keepSqlite });
+  return sqliteSourcePath;
+}
+
 function sqliteRunIds(dbPath) {
   const sqlite = new Database(dbPath, { readonly: true });
   try {
@@ -567,6 +576,84 @@ describe("migrateSmithersStore", () => {
     await expect(migrateSmithersStore({ cwd: ambiguous, to: "sqlite" })).rejects.toMatchObject({
       code: "SMITHERS_BACKEND_CONFLICT",
     });
+  });
+
+  // The migrated.json receipt is the AUTHORITY on the current backend after a
+  // prior migration. Reverse-inference (`migrate --to sqlite` with no --from)
+  // must trust it over leftover stores on disk, instead of misreading the
+  // source as sqlite and failing with "source and target are both sqlite".
+  test("reverse-infers pglite->sqlite from the migrated.json receipt when --from is omitted", async () => {
+    const cwd = makeWorkspace("smithers-migrate-receipt-reverse");
+    await seedPgliteStoreWithReceipt(cwd, { keepSqlite: false });
+    expect(existsSync(join(cwd, "smithers.db"))).toBe(false);
+    const receipt = JSON.parse(readFileSync(join(cwd, ".smithers", "migrated.json"), "utf8"));
+    expect(receipt.target.backend).toBe("pglite");
+
+    const result = await migrateSmithersStore({ cwd, to: "sqlite" });
+
+    expect(result.source.backend).toBe("pglite");
+    expect(result.backend).toBe("sqlite");
+    expect(result.runCount).toBe(1);
+    expect(existsSync(join(cwd, "smithers.db"))).toBe(true);
+    expect(sqliteRunIds(join(cwd, "smithers.db"))).toEqual(["run-migrate-1"]);
+  });
+
+  test("honors the migrated.json receipt even when a leftover sqlite store still exists", async () => {
+    const cwd = makeWorkspace("smithers-migrate-receipt-leftover-sqlite");
+    await seedPgliteStoreWithReceipt(cwd, { keepSqlite: false });
+    // A populated leftover sqlite store from before the migration is still on
+    // disk at the nested path. Without the receipt, the run-count heuristic
+    // sees two populated backends (nested sqlite + pglite) and refuses with
+    // SMITHERS_BACKEND_CONFLICT. The receipt resolves it to pglite.
+    seedSqliteStore(cwd, join(cwd, ".smithers", "smithers.db"));
+
+    const result = await migrateSmithersStore({ cwd, to: "sqlite" });
+
+    expect(result.source.backend).toBe("pglite");
+    expect(result.backend).toBe("sqlite");
+    expect(sqliteRunIds(join(cwd, "smithers.db"))).toEqual(["run-migrate-1"]);
+  });
+
+  test("falls back to the run-count heuristic when there is NO migrated.json receipt", async () => {
+    const single = makeWorkspace("smithers-migrate-receipt-absent-single");
+    await seedPgliteStoreWithReceipt(single, { keepSqlite: false });
+    rmSync(join(single, ".smithers", "migrated.json"), { force: true });
+    rmSync(join(single, ".smithers", "backend.json"), { force: true });
+    expect(existsSync(join(single, ".smithers", "migrated.json"))).toBe(false);
+
+    const result = await migrateSmithersStore({ cwd: single, to: "sqlite" });
+    expect(result.source.backend).toBe("pglite");
+    expect(sqliteRunIds(join(single, "smithers.db"))).toEqual(["run-migrate-1"]);
+
+    // And with no receipt, two populated stores stay genuinely ambiguous.
+    const ambiguous = makeWorkspace("smithers-migrate-receipt-absent-ambiguous");
+    await seedPgliteStoreWithReceipt(ambiguous, { keepSqlite: true });
+    rmSync(join(ambiguous, ".smithers", "migrated.json"), { force: true });
+    rmSync(join(ambiguous, ".smithers", "backend.json"), { force: true });
+    await expect(migrateSmithersStore({ cwd: ambiguous, to: "sqlite" })).rejects.toMatchObject({
+      code: "SMITHERS_BACKEND_CONFLICT",
+    });
+  });
+
+  test("a receipt whose current backend equals the target still fires the clear both-X guard", async () => {
+    const cwd = makeWorkspace("smithers-migrate-receipt-equals-target");
+    // Real round-trip: sqlite->pglite (receipt -> pglite), then pglite->sqlite
+    // (inferred from that receipt) leaves a receipt whose target.backend is now
+    // sqlite. Re-running `migrate --to sqlite` must hit the clear guard.
+    await seedPgliteStoreWithReceipt(cwd, { keepSqlite: false });
+    await migrateSmithersStore({ cwd, to: "sqlite" });
+    const receipt = JSON.parse(readFileSync(join(cwd, ".smithers", "migrated.json"), "utf8"));
+    expect(receipt.target.backend).toBe("sqlite");
+
+    let caught;
+    try {
+      await migrateSmithersStore({ cwd, to: "sqlite" });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(SmithersError);
+    expect(caught.code).toBe("INVALID_INPUT");
+    expect(caught.message).toContain("both sqlite");
   });
 
   test("refuses to merge into a non-empty SQLite target and does not write receipts", async () => {

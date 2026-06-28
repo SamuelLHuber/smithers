@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { Effect } from "effect";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { ensureSmithersTables } from "@smithers-orchestrator/db/ensure";
 import { POSTGRES, quoteIdentifier, translateDdl } from "@smithers-orchestrator/db/dialect";
@@ -875,8 +875,44 @@ async function pgliteRunCountAt(cwd, workspaceRoot, opts) {
     }
 }
 
+/**
+ * Read the migration receipt (migrated.json) at the workspace root and return
+ * the CURRENT backend it records. After a prior migration this receipt is the
+ * AUTHORITY on which backend now holds the run store: earlier-backend stores
+ * (e.g. a leftover smithers.db after sqlite->pglite) can still sit on disk, so
+ * a run-count heuristic alone would misread the source. Returns undefined when
+ * there is no usable receipt so callers can fall back to the heuristic.
+ * @param {string} workspaceRoot
+ * @returns {MigrateSmithersBackend | undefined}
+ */
+function readReceiptCurrentBackend(workspaceRoot) {
+    const receiptPath = join(workspaceRoot, ".smithers", MIGRATION_MARKER_NAME);
+    if (!existsSync(receiptPath)) return undefined;
+    try {
+        const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
+        // migrated.json records the destination of the last migration under
+        // `target.backend`; a top-level `backend` (backend.json shape) is also
+        // honored defensively. Either is the current authoritative backend.
+        const current = receipt?.target?.backend ?? receipt?.backend;
+        if (current === undefined || current === null || current === "") {
+            return undefined;
+        }
+        return normalizeBackend(current);
+    }
+    catch {
+        return undefined;
+    }
+}
+
 async function inferSourceBackend(opts, cwd, workspaceRoot, dbPath, target) {
     if (opts.from) return normalizeBackend(opts.from);
+    // The migration receipt is authoritative after a prior migration: trust the
+    // backend it records over any leftover stores on disk. When the receipt's
+    // current backend equals the requested target, the caller's clear
+    // "source and target are both X" guard fires; only fall back to the
+    // run-count heuristic (and SMITHERS_BACKEND_CONFLICT) when no receipt exists.
+    const receiptBackend = readReceiptCurrentBackend(workspaceRoot);
+    if (receiptBackend) return receiptBackend;
     const counts = [
         { backend: "sqlite", runCount: sqliteRunCountAt(inferSqliteSourceDbPath(dbPath, workspaceRoot, Boolean(opts.dbPath))) },
         { backend: "pglite", runCount: await pgliteRunCountAt(cwd, workspaceRoot, opts) },
