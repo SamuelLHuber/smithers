@@ -1,4 +1,5 @@
-import { constants, accessSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { constants, accessSync, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -12,19 +13,54 @@ const DETECTORS = [
         id: "claude",
         displayName: "Claude Code",
         binary: "claude",
-        authSignals: (homeDir) => [
-            join(homeDir, ".claude", ".credentials.json"),
+        authSignals: (homeDir, env) => [
+            join(env.CLAUDE_CONFIG_DIR ? resolve(env.CLAUDE_CONFIG_DIR) : join(homeDir, ".claude"), ".credentials.json"),
             join(homeDir, ".claude.json"),
         ],
-        apiKeys: ["ANTHROPIC_API_KEY"],
-        setupHint: "Install the Claude Code CLI and run `claude` then `/login`, or set `ANTHROPIC_API_KEY`.",
+        apiKeys: [],
+        availabilityProbe: (homeDir, env) => {
+            const status = runProbeCommand("claude", ["auth", "status"], env);
+            const parsed = parseJsonObject(status.stdout);
+            if (parsed && parsed.loggedIn === true) {
+                return passProbe("claude auth status reports logged in");
+            }
+            if (parsed && parsed.loggedIn === false) {
+                return failProbe("claude auth status reports not logged in");
+            }
+            const configDir = env.CLAUDE_CONFIG_DIR ? resolve(env.CLAUDE_CONFIG_DIR) : join(homeDir, ".claude");
+            const credentials = readClaudeCredentials(configDir);
+            if (credentials.valid) {
+                return passProbe("Claude Code OAuth credentials are present");
+            }
+            if (status.ran && status.status !== 0) {
+                return failProbe(status.output || "claude auth status failed");
+            }
+            return failProbe(credentials.reason ?? "Claude Code login not verified");
+        },
+        setupHint: "Install the Claude Code CLI and run `claude` then `/login`, or register an Anthropic API account with `smithers agents add`.",
     },
     {
         id: "codex",
         displayName: "Codex",
         binary: "codex",
-        authSignals: (homeDir) => [join(homeDir, ".codex", "auth.json")],
+        authSignals: (homeDir, env) => [join(env.CODEX_HOME ? resolve(env.CODEX_HOME) : join(homeDir, ".codex"), "auth.json")],
         apiKeys: ["OPENAI_API_KEY"],
+        availabilityProbe: (homeDir, env) => {
+            if (env.OPENAI_API_KEY) {
+                return env.OPENAI_API_KEY.startsWith("sk-")
+                    ? passProbe("OPENAI_API_KEY has expected format")
+                    : failProbe("OPENAI_API_KEY has unexpected format");
+            }
+            const status = runProbeCommand("codex", ["login", "status"], env);
+            if (status.status === 0 && /logged in|api key|chatgpt/i.test(status.output)) {
+                return passProbe("codex login status reports logged in");
+            }
+            const auth = readCodexAuth(homeDir, env);
+            if (auth.valid) {
+                return passProbe("Codex auth.json contains usable credentials");
+            }
+            return failProbe(status.output || auth.reason || "Codex login not verified");
+        },
         setupHint: "Install the Codex CLI and run `codex login`, or set `OPENAI_API_KEY`.",
     },
     {
@@ -37,6 +73,21 @@ const DETECTORS = [
             join(homeDir, ".local", "share", "opencode"),
         ],
         apiKeys: ["OPENCODE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"],
+        availabilityProbe: (homeDir, env) => {
+            const key = detectorFirstEnv(env, ["OPENCODE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"]);
+            if (key) {
+                return passProbe(`$${key} is set`);
+            }
+            const status = runProbeCommand("opencode", ["auth", "list"], env);
+            if (status.status === 0 && hasPositiveOpenCodeAuthList(status.output)) {
+                return passProbe("opencode auth list reports configured credentials");
+            }
+            const auth = readOpenCodeAuth(homeDir);
+            if (auth.valid) {
+                return passProbe("OpenCode auth file contains credentials");
+            }
+            return failProbe(status.output || auth.reason || "OpenCode credentials not verified");
+        },
         setupHint: "Install the OpenCode CLI and run `opencode auth login`, or set a provider API key.",
     },
     {
@@ -51,6 +102,13 @@ const DETECTORS = [
             ];
         },
         apiKeys: [],
+        availabilityProbe: (homeDir, env) => {
+            const configRoot = env.GEMINI_DIR ? resolve(env.GEMINI_DIR) : join(homeDir, ".gemini");
+            if (jsonFileHasContent(join(configRoot, "antigravity-cli", "settings.json"))) {
+                return passProbe("Antigravity settings are present");
+            }
+            return failProbe("Antigravity settings are missing or empty");
+        },
         setupHint: "Install the Antigravity CLI, run `agy`, and complete Google Sign-In.",
     },
     {
@@ -59,6 +117,13 @@ const DETECTORS = [
         binary: "pi",
         authSignals: (homeDir) => [join(homeDir, ".pi", "agent", "auth.json")],
         apiKeys: [],
+        availabilityProbe: (homeDir) => {
+            const authPath = join(homeDir, ".pi", "agent", "auth.json");
+            if (jsonFileHasContent(authPath)) {
+                return passProbe("Pi auth.json contains credentials");
+            }
+            return failProbe("Pi auth.json is missing or empty");
+        },
         setupHint: "Install and authenticate the `pi` CLI.",
     },
     {
@@ -72,6 +137,14 @@ const DETECTORS = [
             return signals;
         },
         apiKeys: [],
+        availabilityProbe: (homeDir, env) => {
+            const shareDir = env.KIMI_SHARE_DIR ? resolve(env.KIMI_SHARE_DIR) : join(homeDir, ".kimi");
+            const credentials = readKimiCredentials(shareDir);
+            if (credentials.valid) {
+                return passProbe("Kimi credentials are present");
+            }
+            return failProbe(credentials.reason ?? "Kimi credentials not verified");
+        },
         setupHint: "Install the Kimi CLI and run `kimi login`.",
     },
     {
@@ -80,6 +153,16 @@ const DETECTORS = [
         binary: "amp",
         authSignals: (homeDir) => [join(homeDir, ".amp")],
         apiKeys: [],
+        availabilityProbe: (_homeDir, env) => {
+            if (env.AMP_API_KEY) {
+                return passProbe("$AMP_API_KEY is set");
+            }
+            const status = runProbeCommand("amp", ["usage"], env);
+            if (status.status === 0 && /signed in|remaining|workspace/i.test(status.output)) {
+                return passProbe("amp usage reports signed-in account");
+            }
+            return failProbe(status.output || "Amp login not verified");
+        },
         setupHint: "Install and authenticate the `amp` CLI.",
     },
     {
@@ -94,6 +177,9 @@ const DETECTORS = [
             ];
         },
         apiKeys: ["MISTRAL_API_KEY"],
+        availabilityProbe: (_homeDir, env) => env.MISTRAL_API_KEY
+            ? passProbe("$MISTRAL_API_KEY is set")
+            : failProbe("$MISTRAL_API_KEY is not set"),
         setupHint: "Install the Vibe CLI and run `vibe --setup` to configure an API key, or set `MISTRAL_API_KEY`.",
     },
     {
@@ -105,6 +191,13 @@ const DETECTORS = [
             join(homeDir, ".hermes"),
         ],
         apiKeys: [],
+        availabilityProbe: (_homeDir, env) => {
+            const status = runProbeCommand("hermes", ["status"], env);
+            if (status.status === 0 && /✓ configured|✓ sk-|✓ exists|Provider:/i.test(status.output)) {
+                return passProbe("hermes status reports configured provider credentials");
+            }
+            return failProbe(status.output || "Hermes credentials not verified");
+        },
         setupHint: "Install the Hermes Agent CLI and run `hermes` to configure a provider.",
     },
 ];
@@ -283,6 +376,210 @@ function commandExists(binary, env) {
         }
     });
 }
+
+/**
+ * @param {string} reason
+ */
+function passProbe(reason) {
+    return { verified: true, reason };
+}
+
+/**
+ * @param {string} reason
+ */
+function failProbe(reason) {
+    return { verified: false, reason: oneLine(reason) };
+}
+
+/**
+ * @param {string} value
+ */
+function oneLine(value) {
+    return value.trim().split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 2).join("; ");
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env
+ * @param {string[]} names
+ */
+function detectorFirstEnv(env, names) {
+    return names.find((name) => Boolean(env[name]));
+}
+
+/**
+ * @param {string} command
+ * @param {string[]} args
+ * @param {NodeJS.ProcessEnv} env
+ */
+function runProbeCommand(command, args, env) {
+    try {
+        const result = spawnSync(command, args, {
+            env,
+            stdio: ["ignore", "pipe", "pipe"],
+            timeout: 3_000,
+            encoding: "utf8",
+        });
+        const stdout = typeof result.stdout === "string" ? result.stdout : "";
+        const stderr = typeof result.stderr === "string" ? result.stderr : "";
+        return {
+            ran: !result.error,
+            status: result.status,
+            stdout,
+            stderr,
+            output: oneLine([stdout, stderr, result.error?.message ?? ""].filter(Boolean).join("\n")),
+        };
+    }
+    catch (error) {
+        return {
+            ran: false,
+            status: null,
+            stdout: "",
+            stderr: "",
+            output: error instanceof Error ? error.message : String(error),
+        };
+    }
+}
+
+/**
+ * @param {string} raw
+ * @returns {Record<string, unknown> | null}
+ */
+function parseJsonObject(raw) {
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    }
+    catch {
+        return null;
+    }
+}
+
+/**
+ * @param {string} path
+ */
+function readJsonObject(path) {
+    try {
+        const parsed = JSON.parse(readFileSync(path, "utf8"));
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    }
+    catch {
+        return null;
+    }
+}
+
+/**
+ * @param {unknown} value
+ */
+function hasNonEmptyStringDeep(value) {
+    if (typeof value === "string") return value.trim().length > 0;
+    if (!value || typeof value !== "object") return false;
+    if (Array.isArray(value)) return value.some(hasNonEmptyStringDeep);
+    return Object.values(value).some(hasNonEmptyStringDeep);
+}
+
+/**
+ * @param {string} path
+ */
+function jsonFileHasContent(path) {
+    const parsed = readJsonObject(path);
+    return parsed ? Object.keys(parsed).length > 0 : false;
+}
+
+/**
+ * @param {string} configDir
+ */
+function readClaudeCredentials(configDir) {
+    const parsed = readJsonObject(join(configDir, ".credentials.json"));
+    const oauth = parsed?.claudeAiOauth;
+    if (!oauth || typeof oauth !== "object") {
+        return { valid: false, reason: "Claude Code OAuth credentials are missing" };
+    }
+    const accessToken = oauth.accessToken;
+    if (typeof accessToken !== "string" || !accessToken.trim()) {
+        return { valid: false, reason: "Claude Code OAuth access token is missing" };
+    }
+    const expiresAt = oauth.expiresAt;
+    if (typeof expiresAt === "number" && expiresAt <= Date.now()) {
+        return { valid: false, reason: "Claude Code OAuth token is expired" };
+    }
+    return { valid: true };
+}
+
+/**
+ * @param {string} homeDir
+ * @param {NodeJS.ProcessEnv} env
+ */
+function readCodexAuth(homeDir, env) {
+    const codexHome = env.CODEX_HOME ? resolve(env.CODEX_HOME) : join(homeDir, ".codex");
+    const parsed = readJsonObject(join(codexHome, "auth.json"));
+    if (!parsed) {
+        return { valid: false, reason: "Codex auth.json is missing or unreadable" };
+    }
+    if (typeof parsed.OPENAI_API_KEY === "string" && parsed.OPENAI_API_KEY.trim()) {
+        return { valid: true };
+    }
+    if (typeof parsed.tokens?.access_token === "string" && parsed.tokens.access_token.trim()) {
+        return { valid: true };
+    }
+    return { valid: false, reason: "Codex auth.json does not contain credentials" };
+}
+
+/**
+ * @param {string} homeDir
+ */
+function readOpenCodeAuth(homeDir) {
+    const parsed = readJsonObject(join(homeDir, ".local", "share", "opencode", "auth.json"));
+    if (!parsed) {
+        return { valid: false, reason: "OpenCode auth.json is missing or unreadable" };
+    }
+    return hasNonEmptyStringDeep(parsed)
+        ? { valid: true }
+        : { valid: false, reason: "OpenCode auth.json does not contain credentials" };
+}
+
+/**
+ * @param {string} output
+ */
+function hasPositiveOpenCodeAuthList(output) {
+    if (/\b[1-9]\d*\s+credentials?\b/i.test(output)) return true;
+    return /logged in|authenticated|configured/i.test(output) && !/\b0\s+credentials?\b/i.test(output);
+}
+
+/**
+ * @param {string} shareDir
+ */
+function readKimiCredentials(shareDir) {
+    const credentialsDir = join(shareDir, "credentials");
+    let entries;
+    try {
+        entries = readdirSync(credentialsDir);
+    }
+    catch {
+        return { valid: false, reason: "Kimi credentials directory is missing" };
+    }
+    for (const entry of entries) {
+        if (!entry.endsWith(".json")) continue;
+        const path = join(credentialsDir, entry);
+        try {
+            if (!statSync(path).isFile()) continue;
+        }
+        catch {
+            continue;
+        }
+        const parsed = readJsonObject(path);
+        if (!parsed) continue;
+        const accessToken = parsed.access_token;
+        const apiKey = parsed.api_key ?? parsed.apiKey;
+        const expiresAt = parsed.expires_at;
+        if (typeof apiKey === "string" && apiKey.trim()) return { valid: true };
+        if (typeof accessToken === "string" && accessToken.trim()) {
+            if (typeof expiresAt !== "number" || expiresAt > Math.floor(Date.now() / 1000)) {
+                return { valid: true };
+            }
+        }
+    }
+    return { valid: false, reason: "Kimi credentials are missing or expired" };
+}
 /**
  * @param {boolean} hasBinary
  * @param {boolean} hasAuthSignal
@@ -384,8 +681,13 @@ export function detectAvailableAgents(env = process.env, options = {}) {
         const hasApiKeySignal = detector.apiKeys.some((name) => Boolean(env[name]));
         const projectTrust = detector.projectTrust?.(homeDir, env, cwd) ?? { trusted: true, checks: [] };
         const hasProjectTrustSignal = projectTrust.trusted;
-        const status = computeStatus(hasBinary, hasAuthSignal, hasApiKeySignal);
-        const hasCredentialSignal = hasAuthSignal || hasApiKeySignal;
+        const availabilityProbe = hasBinary
+            ? detector.availabilityProbe?.(homeDir, env, cwd)
+            : undefined;
+        const hasAvailabilityProbeSignal = availabilityProbe ? availabilityProbe.verified : true;
+        const hasProbeCredentialSignal = availabilityProbe?.verified === true;
+        const status = computeStatus(hasBinary, hasAuthSignal || hasProbeCredentialSignal, hasApiKeySignal);
+        const hasCredentialSignal = hasAuthSignal || hasApiKeySignal || hasProbeCredentialSignal;
         const unusableReasons = [];
         if (!hasBinary) {
             unusableReasons.push(`missing \`${detector.binary}\` on PATH`);
@@ -395,6 +697,11 @@ export function detectAvailableAgents(env = process.env, options = {}) {
         }
         if (!hasProjectTrustSignal) {
             unusableReasons.push("current project is not trusted by Gemini");
+        }
+        if (!hasAvailabilityProbeSignal) {
+            unusableReasons.push(availabilityProbe?.reason
+                ? `availability check failed (${availabilityProbe.reason})`
+                : "availability check failed");
         }
         return {
             id: detector.id,
@@ -414,6 +721,7 @@ export function detectAvailableAgents(env = process.env, options = {}) {
                 ...authSignalChecks.map((check) => `auth:${check.signal}:${check.exists ? "yes" : "no"}`),
                 ...detector.apiKeys.map((name) => `env:${name}:${env[name] ? "yes" : "no"}`),
                 ...projectTrust.checks,
+                ...(availabilityProbe ? [`probe:${detector.id}:${availabilityProbe.verified ? "yes" : "no"}:${availabilityProbe.reason}`] : []),
             ],
             unusableReasons,
         };

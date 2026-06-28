@@ -181,7 +181,7 @@ test("agents add appends to a detection-based agents.ts without dropping detecte
             HOME: repo.dir,
             PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`,
             SMITHERS_HOME: home,
-            ANTHROPIC_API_KEY: "test",
+            ANTHROPIC_API_KEY: "sk-ant-test",
             OPENAI_API_KEY: "",
         },
     });

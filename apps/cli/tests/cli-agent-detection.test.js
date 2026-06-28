@@ -1,5 +1,5 @@
 import { describe, expect, onTestFinished, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createExecutableDir, writeFakeAntigravityBinary, writeFakeClaudeBinary, writeFakeCodexBinary, writeFakeOpenCodeBinary } from "../../../packages/smithers/tests/e2e-helpers.js";
@@ -29,6 +29,20 @@ describe("detectAvailableAgents", () => {
             GEMINI_API_KEY: "",
             ...extra,
         };
+    }
+
+    function writeLoggedOutClaudeBinary(binDir) {
+        const binPath = join(binDir, "claude");
+        writeFileSync(binPath, [
+            `#!${process.execPath}`,
+            "if (process.argv.slice(2).join(' ') === 'auth status') {",
+            "  process.stdout.write(JSON.stringify({ loggedIn: false, authMethod: null }) + '\\n');",
+            "  process.exit(1);",
+            "}",
+            "process.stdout.write('ok\\n');",
+            "",
+        ].join("\n"));
+        chmodSync(binPath, 0o755);
     }
 
     test("returns array with entries for all known agents", () => {
@@ -73,18 +87,15 @@ describe("detectAvailableAgents", () => {
             }
         }
     });
-    test("api key signal detected from env", () => {
+    test("Claude API key env alone is not a default Claude Code harness signal", () => {
         const results = detectAvailableAgents({
             HOME: "/nonexistent-path-xyz",
             ANTHROPIC_API_KEY: "sk-ant-test123",
         });
         const claude = results.find((r) => r.id === "claude");
-        expect(claude.hasApiKeySignal).toBe(true);
-        // Should be "api-key" if no binary, or higher if binary found
-        if (!claude.hasBinary) {
-            expect(claude.status).toBe("api-key");
-            expect(claude.score).toBe(3);
-        }
+        expect(claude.hasApiKeySignal).toBe(false);
+        expect(claude.usable).toBe(false);
+        expect(claude.unusableReasons.join(" ")).toContain("missing credentials");
     });
     test("openai api key detected for codex", () => {
         const emptyPathDir = tempHome();
@@ -103,7 +114,7 @@ describe("detectAvailableAgents", () => {
         const binDir = createExecutableDir();
         writeFakeOpenCodeBinary(binDir);
         mkdirSync(join(home, ".local", "share", "opencode"), { recursive: true });
-        writeFileSync(join(home, ".local", "share", "opencode", "auth.json"), "{}\n");
+        writeFileSync(join(home, ".local", "share", "opencode", "auth.json"), JSON.stringify({ anthropic: { accessToken: "test" } }) + "\n");
         const results = detectAvailableAgents(envWithPath(home, binDir));
         const opencode = results.find((r) => r.id === "opencode");
         expect(opencode.hasBinary).toBe(true);
@@ -115,7 +126,7 @@ describe("detectAvailableAgents", () => {
         const binDir = createExecutableDir();
         writeFakeOpenCodeBinary(binDir);
         mkdirSync(join(home, ".local", "share", "opencode"), { recursive: true });
-        writeFileSync(join(home, ".local", "share", "opencode", "auth.json"), "{}\n");
+        writeFileSync(join(home, ".local", "share", "opencode", "auth.json"), JSON.stringify({ anthropic: { accessToken: "test" } }) + "\n");
         expect(() => generateAgentsTs(envWithPath(home, binDir), {
             cwd: home,
         })).toThrow("required default pools");
@@ -125,7 +136,7 @@ describe("detectAvailableAgents", () => {
         const binDir = createExecutableDir();
         writeFakeAntigravityBinary(binDir);
         mkdirSync(join(home, ".gemini", "antigravity-cli"), { recursive: true });
-        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), "{}\n");
+        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), JSON.stringify({ signedIn: true }) + "\n");
         const results = detectAvailableAgents(envWithPath(home, binDir));
         const antigravity = results.find((r) => r.id === "antigravity");
         expect(antigravity.hasBinary).toBe(true);
@@ -137,7 +148,7 @@ describe("detectAvailableAgents", () => {
         const binDir = createExecutableDir();
         writeFakeAntigravityBinary(binDir);
         mkdirSync(join(home, ".gemini", "antigravity-cli"), { recursive: true });
-        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), "{}\n");
+        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), JSON.stringify({ signedIn: true }) + "\n");
         const source = generateAgentsTs(envWithPath(home, binDir), {
             cwd: home,
             scaffoldProviderIds: ["claude", "codex"],
@@ -159,24 +170,40 @@ describe("detectAvailableAgents", () => {
     });
     test("checks array includes env checks for agents with api keys", () => {
         const results = detectAvailableAgents({});
-        const claude = results.find((r) => r.id === "claude");
-        const envCheck = claude.checks.find((c) => c.startsWith("env:ANTHROPIC_API_KEY:"));
+        const codex = results.find((r) => r.id === "codex");
+        const envCheck = codex.checks.find((c) => c.startsWith("env:OPENAI_API_KEY:"));
         expect(envCheck).toBeDefined();
     });
     test("usable requires both a runnable CLI and credentials", () => {
         const home = tempHome();
         const binDir = createExecutableDir();
         writeFakeClaudeBinary(binDir);
+        mkdirSync(join(home, ".claude"), { recursive: true });
+        writeFileSync(join(home, ".claude", ".credentials.json"), JSON.stringify({
+            claudeAiOauth: { accessToken: "test", expiresAt: Date.now() + 60_000 },
+        }) + "\n");
         const results = detectAvailableAgents({
             HOME: home,
             PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`,
-            ANTHROPIC_API_KEY: "sk-ant-test",
         });
         const claude = results.find((r) => r.id === "claude");
         expect(claude.hasBinary).toBe(true);
-        expect(claude.hasApiKeySignal).toBe(true);
+        expect(claude.hasAuthSignal).toBe(true);
         expect(claude.usable).toBe(true);
         expect(claude.unusableReasons).toEqual([]);
+    });
+    test("Claude stale credential files are not usable when auth status is logged out", () => {
+        const home = tempHome();
+        const binDir = createExecutableDir();
+        writeLoggedOutClaudeBinary(binDir);
+        mkdirSync(join(home, ".claude"), { recursive: true });
+        writeFileSync(join(home, ".claude", ".credentials.json"), "{}\n");
+        const results = detectAvailableAgents(envWithPath(home, binDir));
+        const claude = results.find((r) => r.id === "claude");
+        expect(claude.hasBinary).toBe(true);
+        expect(claude.hasAuthSignal).toBe(true);
+        expect(claude.usable).toBe(false);
+        expect(claude.unusableReasons.join(" ")).toContain("not logged in");
     });
     test("binary-only agents are not usable", () => {
         const home = tempHome();
@@ -196,7 +223,7 @@ describe("detectAvailableAgents", () => {
         const cwd = join(home, "repo");
         mkdirSync(cwd, { recursive: true });
         mkdirSync(join(home, ".gemini", "antigravity-cli"), { recursive: true });
-        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), "{}\n");
+        writeFileSync(join(home, ".gemini", "antigravity-cli", "settings.json"), JSON.stringify({ signedIn: true }) + "\n");
         writeFileSync(join(home, ".gemini", "oauth_creds.json"), "{}\n");
         writeFileSync(join(home, ".gemini", "trustedFolders.json"), JSON.stringify({ [cwd]: "TRUST_FOLDER" }) + "\n");
         const originalEnv = { ...process.env };

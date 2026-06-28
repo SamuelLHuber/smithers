@@ -45,7 +45,7 @@ test("smithers init includes Codex implementation roles when Codex plus OPENAI_A
         cwd: repo.dir,
         format: "json",
         env: buildEnv(repo.dir, binDir, {
-            OPENAI_API_KEY: "test-openai-key",
+            OPENAI_API_KEY: "sk-test-openai-key",
         }),
     });
     expect(result.exitCode).toBe(0);
@@ -62,7 +62,7 @@ test("smithers init rejects OpenCode-only credentials because default smart pool
     const repo = createTempRepo();
     const binDir = createExecutableDir();
     writeFakeOpenCodeBinary(binDir);
-    repo.write(".local/share/opencode/auth.json", "{}\n");
+    repo.write(".local/share/opencode/auth.json", JSON.stringify({ anthropic: { accessToken: "test" } }) + "\n");
     const result = runSmithers(["init"], {
         cwd: repo.dir,
         format: "json",
@@ -84,9 +84,9 @@ test("smithers init orders role chains correctly when multiple local agent CLIs 
     writeFakeOpenCodeBinary(binDir);
     writeFakeAntigravityBinary(binDir);
     repo.write(".claude/.credentials.json", "{}\n");
-    repo.write(".codex/auth.json", "{}\n");
-    repo.write(".local/share/opencode/auth.json", "{}\n");
-    repo.write(".gemini/antigravity-cli/settings.json", "{}\n");
+    repo.write(".codex/auth.json", JSON.stringify({ tokens: { access_token: "test" } }) + "\n");
+    repo.write(".local/share/opencode/auth.json", JSON.stringify({ anthropic: { accessToken: "test" } }) + "\n");
+    repo.write(".gemini/antigravity-cli/settings.json", JSON.stringify({ signedIn: true }) + "\n");
     repo.write(".gemini/oauth_creds.json", "{}\n");
     repo.write(".gemini/trustedFolders.json", JSON.stringify({ [repo.dir]: "TRUST_FOLDER" }) + "\n");
     const result = runSmithers(["init"], {
@@ -186,7 +186,15 @@ test("smithers init does not crash when a Hermes agent is detected (regression)"
     writeFakeClaudeBinary(binDir); // a usable base agent so we hit the detection path
     repo.write(".claude/.credentials.json", "{}\n");
     // Fake a Hermes install: binary on PATH + ~/.hermes auth signal.
-    writeFileSync(join(binDir, "hermes"), "#!/bin/sh\nexit 0\n");
+    writeFileSync(join(binDir, "hermes"), [
+        "#!/bin/sh",
+        "if [ \"$1\" = \"status\" ]; then",
+        "  printf 'Provider: OpenRouter\\nKimi / Moonshot  ✓ configured\\n'",
+        "  exit 0",
+        "fi",
+        "exit 0",
+        "",
+    ].join("\n"));
     chmodSync(join(binDir, "hermes"), 0o755);
     mkdirSync(join(repo.dir, ".hermes"), { recursive: true });
     writeFileSync(join(repo.dir, ".hermes", "config.yaml"), "model: hermes\n");

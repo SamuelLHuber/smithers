@@ -22,7 +22,7 @@ function seededAgentEnv() {
     return {
         ...process.env,
         PATH: `${binDir}:${process.env.PATH ?? ""}`,
-        OPENAI_API_KEY: "test-openai-key",
+        OPENAI_API_KEY: "sk-test-openai-key",
         ANTHROPIC_API_KEY: "",
         GEMINI_API_KEY: "",
         GOOGLE_API_KEY: "",

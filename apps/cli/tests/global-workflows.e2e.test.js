@@ -95,7 +95,7 @@ test("smithers init --global scaffolds the canonical ~/.smithers pack (no nested
             SMITHERS_HOME: smithersHome,
             HOME: globalHome.dir,
             PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`,
-            OPENAI_API_KEY: "test-openai-key",
+            OPENAI_API_KEY: "sk-test-openai-key",
             ANTHROPIC_API_KEY: "",
             GEMINI_API_KEY: "",
             GOOGLE_API_KEY: "",

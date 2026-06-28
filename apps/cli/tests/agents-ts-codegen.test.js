@@ -96,7 +96,7 @@ describe("generateAgentsTs (account-driven)", () => {
         writeFakeClaudeBinary(binDir);
         // No accounts added; reuses existing logic. Detection requires at least
         // one usable agent; we simulate one by setting an API key env var.
-        const generated = generateAgentsTs({ ...env, PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`, ANTHROPIC_API_KEY: "test" });
+        const generated = generateAgentsTs({ ...env, PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`, ANTHROPIC_API_KEY: "sk-ant-test" });
         expect(generated).toContain("// smithers-source: generated");
         // Detection-based output does NOT pull in the accounts.json header.
         expect(generated).not.toContain("~/.smithers/accounts.json");
@@ -129,7 +129,7 @@ describe("generateAgentsTs (account-driven)", () => {
         const initial = generateAgentsTs({
             ...env,
             PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`,
-            ANTHROPIC_API_KEY: "test",
+            ANTHROPIC_API_KEY: "sk-ant-test",
         });
         expect(initial).toContain("claude: ClaudeCodeAgent");
         addAccount({ label: "codex-prod", provider: "codex", configDir: `${env.HOME}/.smithers/accounts/codex-prod` }, { env });

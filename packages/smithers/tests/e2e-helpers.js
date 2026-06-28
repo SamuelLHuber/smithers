@@ -228,6 +228,11 @@ export function writeExecutable(dir, name, contents) {
 export function writeFakeClaudeBinary(dir, response = FAKE_AGENT_RESPONSE) {
     return writeExecutable(dir, "claude", [
         EXECUTABLE_SHEBANG,
+        "const args = process.argv.slice(2);",
+        "if (args.join(' ') === 'auth status') {",
+        "  process.stdout.write(JSON.stringify({ loggedIn: true, authMethod: 'claude.ai' }) + '\\n');",
+        "  process.exit(0);",
+        "}",
         "const payload = process.env.SMITHERS_FAKE_AGENT_RESPONSE ?? " + JSON.stringify(response) + ";",
         "process.stdout.write(JSON.stringify({",
         '  type: "turn_end",',

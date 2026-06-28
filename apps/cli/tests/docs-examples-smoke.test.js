@@ -250,8 +250,8 @@ test("complete single-file workflow snippets in docs render as graphs", () => {
             cwd: projectDir,
             env: {
                 ...process.env,
-                ANTHROPIC_API_KEY: "test",
-                OPENAI_API_KEY: "test",
+                ANTHROPIC_API_KEY: "sk-ant-test",
+                OPENAI_API_KEY: "sk-test",
             },
             encoding: "utf8",
             maxBuffer: 10 * 1024 * 1024,

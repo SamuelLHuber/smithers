@@ -147,7 +147,15 @@ function buildFakeInstallTree() {
 
     // Fake claude binary so init has an agent to write into agents.ts.
     const binDir = join(root, "bin");
-    writeFile(join(binDir, "claude"), "#!/bin/sh\nexit 0\n");
+    writeFile(join(binDir, "claude"), [
+        "#!/bin/sh",
+        "if [ \"$1 $2\" = \"auth status\" ]; then",
+        "  printf '{\"loggedIn\":true,\"authMethod\":\"claude.ai\"}\\n'",
+        "  exit 0",
+        "fi",
+        "exit 0",
+        "",
+    ].join("\n"));
     chmodSync(join(binDir, "claude"), 0o755);
     writeFile(join(root, "home", ".claude", ".credentials.json"), "{}\n");
 

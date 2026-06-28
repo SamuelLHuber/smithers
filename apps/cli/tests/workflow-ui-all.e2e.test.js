@@ -132,7 +132,7 @@ workflowUiTest("every init-pack workflow UI builds + boots; the output-verified 
     HOME: repo.dir,
     PATH: `${binDir}:/usr/bin:/bin:/usr/sbin:/sbin`,
     ANTHROPIC_API_KEY: "",
-    OPENAI_API_KEY: "test-openai-key",
+    OPENAI_API_KEY: "sk-test-openai-key",
     GEMINI_API_KEY: "",
     GOOGLE_API_KEY: "",
   };
