@@ -4,6 +4,7 @@ import { createAntigravityCapabilityRegistry } from "../AntigravityAgent.js";
 import { createClaudeCodeCapabilityRegistry } from "../ClaudeCodeAgent.js";
 import { createCodexCapabilityRegistry } from "../CodexAgent.js";
 import { createForgeCapabilityRegistry } from "../ForgeAgent.js";
+import { createHermesCliCapabilityRegistry } from "../HermesCliAgent.js";
 import { createKimiCapabilityRegistry } from "../KimiAgent.js";
 import { createOpenCodeCapabilityRegistry } from "../OpenCodeAgent.js";
 import { createPiCapabilityRegistry } from "../PiAgent.js";
@@ -36,6 +37,11 @@ const CLI_AGENT_CAPABILITY_ADAPTERS = [
         id: "forge",
         binary: "forge",
         buildRegistry: () => createForgeCapabilityRegistry(),
+    },
+    {
+        id: "hermes",
+        binary: "hermes",
+        buildRegistry: () => createHermesCliCapabilityRegistry(),
     },
     {
         id: "kimi",

@@ -1,10 +1,12 @@
-import * as ai from 'ai';
-import { ToolLoopAgent, ToolSet, ToolLoopAgentSettings, Tool as Tool$1 } from 'ai';
-import { Effect } from 'effect';
-import { SmithersError } from '@smithers-orchestrator/errors/SmithersError';
+import { B as BaseCliAgentOptions$1, a as BaseCliAgentOptions$2, P as PiExtensionUiRequest$1, b as PiExtensionUiResponse$1, A as AgentGenerateOptions$3, c as BaseCliAgent, C as CliOutputInterpreter$b, d as CodexConfigOverrides, e as AgentCliEvent$1, f as CliOutputInterpreter$c } from './index-NKRZ7SAc.js';
 import { openai } from '@ai-sdk/openai';
+import * as ai from 'ai';
+import { ToolSet, ToolLoopAgentSettings, ToolLoopAgent, Tool as Tool$1 } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import * as zod_v4_core from 'zod/v4/core';
+import '@smithers-orchestrator/errors/SmithersError';
+import 'effect';
+import 'node:child_process';
 
 type HttpToolOutput$1 = {
     ok: boolean;
@@ -12,27 +14,6 @@ type HttpToolOutput$1 = {
     statusText: string;
     headers: Record<string, string>;
     body: unknown;
-};
-
-type HttpToolOutput$1 = {
-    ok: boolean;
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    body: unknown;
-};
-
-type HttpToolAuth$1 = {
-    type: "bearer";
-    token: string;
-} | {
-    type: "basic";
-    username: string;
-    password: string;
-} | {
-    type: "header";
-    name: string;
-    value: string;
 };
 
 type HttpToolAuth$1 = {
@@ -58,35 +39,9 @@ type HttpToolInput$1 = {
     timeoutMs?: number;
 };
 
-type HttpToolInput$1 = {
-    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
-    url: string;
-    headers?: Record<string, string>;
-    query?: Record<string, string | number | boolean | null | undefined>;
-    body?: unknown;
-    auth?: HttpToolAuth$1;
-    timeoutMs?: number;
-};
-
 type CreateHttpToolOptions$2 = {
     description?: string;
     defaultHeaders?: Record<string, string>;
-};
-
-type CreateHttpToolOptions$2 = {
-    description?: string;
-    defaultHeaders?: Record<string, string>;
-};
-
-type ImageGenerationToolOptions$1 = {
-    /** Tool name used when returning a toolset. */
-    name?: string;
-    /** Description shown to the model. */
-    description?: string;
-    /** Provider model to use when the agent does not specify one. */
-    model?: string;
-    /** Return `{ [name]: tool }` for direct mounting on an agent. */
-    asToolset?: boolean;
 };
 
 type ImageGenerationToolOptions$1 = {
@@ -111,26 +66,6 @@ type ImageGenerationResult$1 = {
     }>;
 };
 
-type ImageGenerationResult$1 = {
-    provider?: string;
-    model?: string;
-    images: Array<{
-        url?: string;
-        base64?: string;
-        mimeType?: string;
-        revisedPrompt?: string;
-    }>;
-};
-
-type ImageGenerationRequest$1 = {
-    prompt: string;
-    model?: string;
-    size?: string;
-    count?: number;
-    seed?: number;
-    style?: string;
-};
-
 type ImageGenerationRequest$1 = {
     prompt: string;
     model?: string;
@@ -145,12 +80,7 @@ type ImageGenerationProvider$1 = {
     generateImage(request: ImageGenerationRequest$1): Promise<ImageGenerationResult$1> | ImageGenerationResult$1;
 };
 
-type ImageGenerationProvider$1 = {
-    name?: string;
-    generateImage(request: ImageGenerationRequest$1): Promise<ImageGenerationResult$1> | ImageGenerationResult$1;
-};
-
-type CliAgentCapabilityAdapterId$1 = "claude" | "amp" | "antigravity" | "codex" | "forge" | "kimi" | "opencode" | "pi" | "vibe";
+type CliAgentCapabilityAdapterId$1 = "claude" | "amp" | "antigravity" | "codex" | "forge" | "hermes" | "kimi" | "opencode" | "pi" | "vibe";
 
 type CliAgentSurfaceOptionMapping$1 = {
     option: string;
@@ -187,7 +117,7 @@ type AgentToolDescriptor$1 = {
     source?: "builtin" | "mcp" | "extension" | "skill" | "runtime";
 };
 
-type AgentCapabilityRegistry$7 = {
+type AgentCapabilityRegistry$8 = {
     version: 1;
     engine: "claude-code" | "codex" | "antigravity" | "gemini" | "kimi" | "pi" | "amp" | "forge" | "opencode" | "vibe";
     runtimeTools: Record<string, AgentToolDescriptor$1>;
@@ -212,16 +142,16 @@ type AgentCapabilityRegistry$7 = {
  * @param {AgentCapabilityRegistry | null | undefined} registry
  * @returns {string}
  */
-declare function hashCapabilityRegistry(registry: AgentCapabilityRegistry$6 | null | undefined): string;
-type AgentCapabilityRegistry$6 = AgentCapabilityRegistry$7;
+declare function hashCapabilityRegistry(registry: AgentCapabilityRegistry$7 | null | undefined): string;
+type AgentCapabilityRegistry$7 = AgentCapabilityRegistry$8;
 
-type AgentCapabilityRegistry$5 = AgentCapabilityRegistry$7;
+type AgentCapabilityRegistry$6 = AgentCapabilityRegistry$8;
 
 type CliAgentCapabilityReportEntry$3 = {
     id: CliAgentCapabilityAdapterId$1;
     binary: string;
     fingerprint: string;
-    capabilities: AgentCapabilityRegistry$5;
+    capabilities: AgentCapabilityRegistry$6;
     surface: CliAgentSurfaceManifestEntry$2;
 };
 
@@ -264,21 +194,7 @@ type SmithersAgentContract$3 = {
     docsGuidance: string;
 };
 
-type BaseCliAgentOptions$3 = {
-    id?: string;
-    model?: string;
-    systemPrompt?: string;
-    instructions?: string;
-    cwd?: string;
-    env?: Record<string, string>;
-    yolo?: boolean;
-    timeoutMs?: number;
-    idleTimeoutMs?: number;
-    maxOutputBytes?: number;
-    extraArgs?: string[];
-};
-
-type VibeAgentOptions$2 = BaseCliAgentOptions$3 & {
+type VibeAgentOptions$2 = BaseCliAgentOptions$1 & {
     agent?: string;
     maxTurns?: number;
     maxPrice?: number;
@@ -288,175 +204,10 @@ type VibeAgentOptions$2 = BaseCliAgentOptions$3 & {
     continueSession?: boolean;
 };
 
-type RunCommandResult = {
-    stdout: string;
-    stderr: string;
-    exitCode: number | null;
-    /** True when captured stdout exceeded maxOutputBytes and was truncated. */
-    stdoutTruncated?: boolean;
-    /** True when captured stderr exceeded maxOutputBytes and was truncated. */
-    stderrTruncated?: boolean;
-};
-
-type PiExtensionUiResponse$1 = {
-    type: "extension_ui_response";
-    id: string;
-    value?: string;
-    cancelled?: boolean;
-    [key: string]: unknown;
-};
-
-type PiExtensionUiRequest$1 = {
-    type: "extension_ui_request";
-    id: string;
-    method: string;
-    title?: string;
-    placeholder?: string;
-    [key: string]: unknown;
-};
-
-type CodexConfigOverrides = Record<string, string | number | boolean | object | null> | string[];
-
-type AgentCliActionKind = "turn" | "command" | "tool" | "file_change" | "web_search" | "todo_list" | "reasoning" | "warning" | "note";
-
-type AgentCliActionPhase = "started" | "updated" | "completed";
-type AgentCliEventLevel = "debug" | "info" | "warning" | "error";
-type AgentCliStartedEvent = {
-    type: "started";
-    engine: string;
-    title: string;
-    resume?: string;
-    detail?: Record<string, unknown>;
-};
-type AgentCliActionEvent = {
-    type: "action";
-    engine: string;
-    phase: AgentCliActionPhase;
-    entryType?: "thought" | "message";
-    action: {
-        id: string;
-        kind: AgentCliActionKind;
-        title: string;
-        detail?: Record<string, unknown>;
-    };
-    message?: string;
-    ok?: boolean;
-    level?: AgentCliEventLevel;
-};
-type AgentCliCompletedEvent = {
-    type: "completed";
-    engine: string;
-    ok: boolean;
-    answer?: string;
-    error?: string;
-    resume?: string;
-    usage?: Record<string, unknown>;
-};
-type AgentCliEvent$1 = AgentCliStartedEvent | AgentCliActionEvent | AgentCliCompletedEvent;
-
-type CliOutputInterpreter$b = {
-    onStdoutLine?: (line: string) => AgentCliEvent$1[] | AgentCliEvent$1 | null | undefined;
-    onStderrLine?: (line: string) => AgentCliEvent$1[] | AgentCliEvent$1 | null | undefined;
-    onExit?: (result: RunCommandResult) => AgentCliEvent$1[] | AgentCliEvent$1 | null | undefined;
-};
-
 /**
- * Loosely-typed generation options. The AI SDK passes a dynamic shape here
- * (GenerateTextOptions / StreamTextOptions and provider-specific extensions)
- * so we keep this permissive but avoid raw `any`.
+ * Configuration options for the OpenCodeAgent.
  */
-type AgentGenerateOptions$4 = {
-    prompt?: unknown;
-    messages?: unknown;
-    timeout?: unknown;
-    abortSignal?: AbortSignal;
-    rootDir?: string;
-    resumeSession?: string;
-    maxOutputBytes?: number;
-    onStdout?: (text: string) => void;
-    onStderr?: (text: string) => void;
-    onEvent?: (event: AgentCliEvent$1) => unknown;
-    retry?: unknown;
-    isRetry?: unknown;
-    retryAttempt?: unknown;
-    schemaRetry?: unknown;
-    /**
-     * Run context for the task this agent invocation belongs to. Surfaced to the
-     * spawned agent process (and its subprocesses) as SMITHERS_RUN_ID / NODE_ID /
-     * ITERATION / ATTEMPT so the agent can address its own run — e.g. to raise a
-     * blocking `smithers ask-human` request.
-     */
-    taskContext?: {
-        runId?: string;
-        nodeId?: string;
-        iteration?: number;
-        attempt?: number;
-    };
-    [key: string]: unknown;
-};
-
-declare class BaseCliAgent {
-    /**
-   * @param {BaseCliAgentOptions} opts
-   */
-    constructor(opts: BaseCliAgentOptions$2);
-    version: string;
-    tools: {};
-    capabilities: any;
-    id: string;
-    model: string | undefined;
-    systemPrompt: string | undefined;
-    cwd: string | undefined;
-    env: Record<string, string> | undefined;
-    yolo: boolean;
-    timeoutMs: number | undefined;
-    idleTimeoutMs: number | undefined;
-    maxOutputBytes: number | undefined;
-    extraArgs: string[] | undefined;
-    /**
-   * @param {AgentGenerateOptions | undefined} options
-   * @param {AgentInvocationOperation} operation
-   * @returns {Effect.Effect<GenerateTextResult<Record<string, never>, unknown>, SmithersError>}
-   */
-    runGenerateEffect(options: AgentGenerateOptions$3 | undefined, operation: AgentInvocationOperation): Effect.Effect<GenerateTextResult$3<Record<string, never>, unknown>, SmithersError>;
-    /**
-   * @param {AgentGenerateOptions} [options]
-   * @returns {Promise<void>}
-   */
-    preflight(options?: AgentGenerateOptions$3): Promise<void>;
-    /**
-   * @param {AgentGenerateOptions} [options]
-   * @returns {Promise<GenerateTextResult<Record<string, never>, unknown>>}
-   */
-    generate(options?: AgentGenerateOptions$3): Promise<GenerateTextResult$3<Record<string, never>, unknown>>;
-    /**
-   * @param {AgentGenerateOptions} [options]
-   * @returns {Promise<StreamTextResult<Record<string, never>, unknown>>}
-   */
-    stream(options?: AgentGenerateOptions$3): Promise<StreamTextResult<Record<string, never>, unknown>>;
-    /**
-   * @returns {CliOutputInterpreter | undefined}
-   */
-    createOutputInterpreter(): CliOutputInterpreter$a | undefined;
-    /**
-   * @returns {{ provider?: string; model?: string } | undefined}
-   */
-    diagnosticHints(): {
-        provider?: string;
-        model?: string;
-    } | undefined;
-}
-type AgentGenerateOptions$3 = AgentGenerateOptions$4;
-type BaseCliAgentOptions$2 = BaseCliAgentOptions$3;
-type CliOutputInterpreter$a = CliOutputInterpreter$b;
-type GenerateTextResult$3 = ai.GenerateTextResult<any, any>;
-type StreamTextResult = ai.StreamTextResult<any, any>;
-type AgentInvocationOperation = "generate" | "stream";
-
-type BaseCliAgentOptions$1 = BaseCliAgentOptions$3;
-type CliOutputInterpreter$9 = CliOutputInterpreter$b;
-
-type OpenCodeAgentOptions$1 = BaseCliAgentOptions$1 & {
+type OpenCodeAgentOptions$2 = BaseCliAgentOptions$2 & {
     /** Model identifier (e.g., "anthropic/claude-opus-4-8", "openai/gpt-5.4") */
     model?: string;
     /** OpenCode agent name (maps to --agent flag, selects predefined agent config) */
@@ -470,28 +221,8 @@ type OpenCodeAgentOptions$1 = BaseCliAgentOptions$1 & {
     /** Provider-specific model variant/reasoning effort level */
     variant?: string;
 };
-declare class OpenCodeAgent extends BaseCliAgent {
-    private readonly opts;
-    readonly capabilities: AgentCapabilityRegistry$5;
-    readonly cliEngine: "opencode";
-    constructor(opts?: OpenCodeAgentOptions$1);
-    createOutputInterpreter(): CliOutputInterpreter$9;
-    buildCommand(params: {
-        prompt: string;
-        systemPrompt?: string;
-        cwd: string;
-        options: any;
-    }): Promise<{
-        command: string;
-        args: string[];
-        outputFormat: "stream-json";
-        env?: Record<string, string>;
-        stdoutBannerPatterns: RegExp[];
-        stdoutErrorPatterns: RegExp[];
-    }>;
-}
 
-type PiAgentOptions$2 = BaseCliAgentOptions$3 & {
+type PiAgentOptions$2 = BaseCliAgentOptions$1 & {
     provider?: string;
     model?: string;
     apiKey?: string;
@@ -521,6 +252,27 @@ type PiAgentOptions$2 = BaseCliAgentOptions$3 & {
     files?: string[];
     verbose?: boolean;
     onExtensionUiRequest?: (request: PiExtensionUiRequest$1) => Promise<PiExtensionUiResponse$1 | null> | PiExtensionUiResponse$1 | null;
+};
+
+/**
+ * Options for {@link HermesCliAgent}.
+ *
+ * Drives the `hermes` binary (Nous Research's Hermes Agent CLI) in its headless
+ * one-shot mode (`hermes -z "<prompt>"`). Distinct from {@link HermesAgent},
+ * which talks to the Hermes *model* over an OpenAI-compatible HTTP API. Use this
+ * when you want a workflow `<Task>` to delegate to the Hermes agent itself.
+ */
+type HermesCliAgentOptions$2 = BaseCliAgentOptions$1 & {
+    /**
+     * Force a specific provider backend (e.g. `openrouter`, `anthropic`,
+     * `deepseek`). Emitted as `--provider`.
+     */
+    provider?: string;
+    /**
+     * Resume the most recent session, or a named session when a string is given.
+     * Emitted as `-c`/`--continue`. Overridden by a per-call `resumeSession`.
+     */
+    continueSession?: string | boolean;
 };
 
 type SdkAgentOptions<CALL_OPTIONS = never, TOOLS extends ToolSet = {}, MODEL = any> = Omit<ToolLoopAgentSettings<CALL_OPTIONS, TOOLS>, "model"> & {
@@ -600,14 +352,14 @@ type AgentLike$1 = {
     /** Available tools the agent can use */
     tools?: Record<string, unknown>;
     /** Optional structured capability registry for cache and diagnostics */
-    capabilities?: AgentCapabilityRegistry$5;
+    capabilities?: AgentCapabilityRegistry$6;
     /** True when the agent consumes outputSchema through a native structured-output API. */
     supportsNativeStructuredOutput?: boolean;
     /**
      * Performs deterministic startup checks before the first generation call in a
      * workflow run. A rejected promise fails the task without retrying.
      */
-    preflight?: (args?: AgentGenerateOptions$4) => Promise<void>;
+    preflight?: (args?: AgentGenerateOptions$3) => Promise<void>;
     /**
      * Generates a response or action based on the provided arguments.
      *
@@ -621,7 +373,7 @@ type AgentLike$1 = {
      * @param args.outputSchema - Optional Zod schema defining the expected structured output format
      * @returns A promise resolving to the generated output
      */
-    generate: (args?: AgentGenerateOptions$4) => Promise<unknown>;
+    generate: (args?: AgentGenerateOptions$3) => Promise<unknown>;
 };
 
 /** @typedef {import("ai").AgentCallParameters} AgentCallParameters */
@@ -648,7 +400,7 @@ declare class AnthropicAgent extends ToolLoopAgent<never, any, never> {
    */
     generate(args?: AgentGenerateOptions$2): Promise<GenerateTextResult$2<TOOLS, never>>;
 }
-type AgentGenerateOptions$2 = AgentGenerateOptions$4;
+type AgentGenerateOptions$2 = AgentGenerateOptions$3;
 type AnthropicAgentOptions$1<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = AnthropicAgentOptions$2<CALL_OPTIONS, TOOLS>;
 type GenerateTextResult$2 = ai.GenerateTextResult<any, any>;
 
@@ -676,7 +428,7 @@ declare class OpenAIAgent extends ToolLoopAgent<never, any, never> {
    */
     generate(args?: AgentGenerateOptions$1): Promise<GenerateTextResult$1<TOOLS, never>>;
 }
-type AgentGenerateOptions$1 = AgentGenerateOptions$4;
+type AgentGenerateOptions$1 = AgentGenerateOptions$3;
 type GenerateTextResult$1 = ai.GenerateTextResult<any, any>;
 type OpenAIAgentOptions$1<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = OpenAIAgentOptions$2<CALL_OPTIONS, TOOLS>;
 
@@ -703,7 +455,186 @@ declare class HermesAgent<CALL_OPTIONS = never, TOOLS = ai.ToolSet> extends Open
 }
 type HermesAgentOptions$1<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = HermesAgentOptions$2<CALL_OPTIONS, TOOLS>;
 
-type ClaudeCodeAgentOptions$1 = BaseCliAgentOptions$3 & {
+/**
+ * Configuration options for the AmpAgent.
+ */
+type AmpAgentOptions$1 = BaseCliAgentOptions$1 & {
+    /**
+     * Thread id to continue. When set (or when a task passes
+     * `options.resumeSession`), buildCommand emits `amp threads continue <id>`
+     * instead of starting a fresh thread.
+     */
+    resume?: string;
+    /** Visibility setting for the new thread (e.g., private, public) */
+    visibility?: "private" | "public" | "workspace" | "group";
+    /** Path to a specific MCP configuration file */
+    mcpConfig?: string;
+    /** Path to a specific settings file */
+    settingsFile?: string;
+    /** Logging severity level */
+    logLevel?: "error" | "warn" | "info" | "debug" | "audit";
+    /** File path to write logs to */
+    logFile?: string;
+    /**
+     * If true, dangerously allows all commands without asking for permission.
+     * Equivalent to yolo mode but explicit.
+     */
+    dangerouslyAllowAll?: boolean;
+    /** Whether to enable IDE integrations (disabled by default in AmpAgent) */
+    ide?: boolean;
+    /** Whether to enable JetBrains IDE integration */
+    jetbrains?: boolean;
+};
+
+/**
+ * Agent implementation that wraps the 'amp' CLI executable.
+ * It translates generation requests into CLI arguments and executes the process.
+ */
+declare class AmpAgent extends BaseCliAgent {
+    /**
+     * Initializes a new AmpAgent with the given options.
+     *
+     * @param {AmpAgentOptions} [opts] - Configuration options for the agent
+     */
+    constructor(opts?: AmpAgentOptions);
+    opts: AmpAgentOptions$1;
+    /** @type {AgentCapabilityRegistry} */
+    capabilities: AgentCapabilityRegistry$5;
+    cliEngine: string;
+    /**
+   * @returns {CliOutputInterpreter}
+   */
+    createOutputInterpreter(): CliOutputInterpreter$a;
+    /**
+   * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
+   */
+    buildCommand(params: {
+        prompt: string;
+        systemPrompt?: string;
+        cwd: string;
+        options: any;
+    }): Promise<{
+        command: string;
+        args: any[];
+        outputFormat: string;
+    }>;
+}
+type AgentCapabilityRegistry$5 = AgentCapabilityRegistry$8;
+type CliOutputInterpreter$a = CliOutputInterpreter$b;
+type AmpAgentOptions = AmpAgentOptions$1;
+
+type AntigravityAgentOptions$1 = BaseCliAgentOptions$1 & {
+    model?: string;
+    sandbox?: boolean;
+    yolo?: boolean;
+    dangerouslySkipPermissions?: boolean;
+    allowedMcpServerNames?: string[];
+    allowedTools?: string[];
+    /**
+     * @deprecated Antigravity renamed extensions to plugins and manages them via
+     * `agy plugin`; launch-time extension flags are rejected at runtime.
+     */
+    extensions?: string[];
+    /**
+     * @deprecated Use `agy plugin list` outside Smithers. This option is rejected
+     * at runtime because current `agy` builds no longer accept it during launch.
+     */
+    listExtensions?: boolean;
+    /**
+     * Native Antigravity conversation id. Smithers emits `--conversation`.
+     */
+    conversation?: string;
+    /**
+     * Continue the latest Antigravity conversation. Smithers emits `--continue`.
+     */
+    continue?: boolean;
+    /**
+     * @deprecated Use `conversation`; Smithers still maps this to
+     * `--conversation` for compatibility.
+     */
+    resume?: string;
+    /**
+     * @deprecated Conversation listing is interactive via `/resume`; this option
+     * is rejected at runtime.
+     */
+    listSessions?: boolean;
+    /**
+     * @deprecated Conversation deletion is not a supported non-interactive
+     * launch flag; this option is rejected at runtime.
+     */
+    deleteSession?: string;
+    includeDirectories?: string[];
+    /**
+     * @deprecated Current `agy` builds do not expose `--screen-reader`; this
+     * option is rejected at runtime.
+     */
+    screenReader?: boolean;
+    /**
+     * @deprecated Current `agy` builds do not expose `--output-format`; Smithers
+     * reads Antigravity stdout as text.
+     */
+    outputFormat?: "text" | "json" | "stream-json";
+    /**
+     * @deprecated Current `agy` builds do not expose `--debug`; this option is
+     * rejected at runtime.
+     */
+    debug?: boolean;
+    /**
+     * Antigravity CLI binary to execute. The official CLI currently installs
+     * `agy`; this exists for test harnesses and future binary renames.
+     */
+    binary?: string;
+    /**
+     * Path to an isolated Google CLI config root. Smithers passes it as
+     * `--gemini_dir` and `GEMINI_DIR` so Antigravity reads/writes
+     * `<configDir>/antigravity-cli/...` instead of the user's default
+     * `~/.gemini/antigravity-cli/...`.
+     */
+    configDir?: string;
+    /**
+     * Explicit alias for `configDir` when matching the Antigravity CLI flag name.
+     */
+    geminiDir?: string;
+    /**
+     * Google API key for API-billed invocations when supported by the CLI.
+     */
+    apiKey?: string;
+};
+
+declare class AntigravityAgent extends BaseCliAgent {
+    /**
+   * @param {AntigravityAgentOptions} [opts]
+   */
+    constructor(opts?: AntigravityAgentOptions);
+    opts: AntigravityAgentOptions$1;
+    capabilities: AgentCapabilityRegistry$8;
+    cliEngine: string;
+    /**
+   * @returns {CliOutputInterpreter}
+   */
+    createOutputInterpreter(): CliOutputInterpreter$9;
+    /**
+   * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
+   */
+    buildCommand(params: {
+        prompt: string;
+        systemPrompt?: string;
+        cwd: string;
+        options: any;
+    }): Promise<{
+        command: string;
+        args: string[];
+        outputFormat: string;
+        env: {
+            GEMINI_DIR: string | undefined;
+            GEMINI_API_KEY: string;
+        } | undefined;
+    }>;
+}
+type CliOutputInterpreter$9 = CliOutputInterpreter$b;
+type AntigravityAgentOptions = AntigravityAgentOptions$1;
+
+type ClaudeCodeAgentOptions$1 = BaseCliAgentOptions$1 & {
     addDir?: string[];
     agent?: string;
     agents?: Record<string, {
@@ -771,7 +702,7 @@ declare class ClaudeCodeAgent extends BaseCliAgent {
    */
     constructor(opts?: ClaudeCodeAgentOptions);
     opts: ClaudeCodeAgentOptions$1;
-    capabilities: AgentCapabilityRegistry$7;
+    capabilities: AgentCapabilityRegistry$8;
     cliEngine: string;
     /**
    * @returns {CliOutputInterpreter}
@@ -788,7 +719,7 @@ declare class ClaudeCodeAgent extends BaseCliAgent {
     }): Promise<{
         command: string;
         args: string[];
-        outputFormat: "stream-json" | "text" | "json";
+        outputFormat: "text" | "stream-json" | "json";
         env: {
             SMITHERS_SNAPSHOT_SOCK: any;
             CLAUDE_CONFIG_DIR: string;
@@ -799,7 +730,7 @@ declare class ClaudeCodeAgent extends BaseCliAgent {
 type ClaudeCodeAgentOptions = ClaudeCodeAgentOptions$1;
 type CliOutputInterpreter$8 = CliOutputInterpreter$b;
 
-type CodexAgentOptions$1 = BaseCliAgentOptions$3 & {
+type CodexAgentOptions$1 = BaseCliAgentOptions$1 & {
     config?: CodexConfigOverrides;
     enable?: string[];
     disable?: string[];
@@ -852,7 +783,7 @@ declare class CodexAgent extends BaseCliAgent {
    */
     constructor(opts?: CodexAgentOptions);
     opts: CodexAgentOptions$1;
-    capabilities: AgentCapabilityRegistry$7;
+    capabilities: AgentCapabilityRegistry$8;
     cliEngine: string;
     supportsNativeStructuredOutput: boolean;
     /**
@@ -888,7 +819,7 @@ type CodexAgentOptions = CodexAgentOptions$1;
  * @deprecated Gemini CLI support has been sunset. Use AntigravityAgentOptions
  * with the Antigravity CLI (`agy`) for Google CLI integrations.
  */
-type GeminiAgentOptions$1 = BaseCliAgentOptions$3 & {
+type GeminiAgentOptions$1 = BaseCliAgentOptions$1 & {
     debug?: boolean;
     model?: string;
     sandbox?: boolean;
@@ -925,14 +856,14 @@ declare class GeminiAgent extends BaseCliAgent {
    */
     constructor(opts?: GeminiAgentOptions);
     opts: GeminiAgentOptions$1;
-    capabilities: AgentCapabilityRegistry$7;
+    capabilities: AgentCapabilityRegistry$8;
     cliEngine: string;
     /**
    * @returns {CliOutputInterpreter}
    */
     createOutputInterpreter(): CliOutputInterpreter$6;
-    generate(): Promise<never>;
-    buildCommand(): Promise<never>;
+    generate(): Promise<void>;
+    buildCommand(): Promise<void>;
 }
 type CliOutputInterpreter$6 = CliOutputInterpreter$b;
 type GeminiAgentOptions = GeminiAgentOptions$1;
@@ -943,7 +874,7 @@ declare class PiAgent extends BaseCliAgent {
    */
     constructor(opts?: PiAgentOptions$1);
     opts: PiAgentOptions$2;
-    capabilities: AgentCapabilityRegistry$7;
+    capabilities: AgentCapabilityRegistry$8;
     cliEngine: string;
     issuedSessionRef: any;
     /**
@@ -1015,7 +946,7 @@ type PiGenerateOptions = {
     [key: string]: unknown;
 };
 
-type KimiAgentOptions$1 = BaseCliAgentOptions$3 & {
+type KimiAgentOptions$1 = BaseCliAgentOptions$1 & {
     workDir?: string;
     session?: string;
     continue?: boolean;
@@ -1049,7 +980,7 @@ declare class KimiAgent extends BaseCliAgent {
    */
     constructor(opts?: KimiAgentOptions);
     opts: KimiAgentOptions$1;
-    capabilities: AgentCapabilityRegistry$7;
+    capabilities: AgentCapabilityRegistry$8;
     cliEngine: string;
     issuedSessionId: any;
     /**
@@ -1067,7 +998,7 @@ declare class KimiAgent extends BaseCliAgent {
     }): Promise<{
         command: string;
         args: string[];
-        outputFormat: "stream-json" | "text";
+        outputFormat: "text" | "stream-json";
         env: {
             KIMI_SHARE_DIR: string;
         } | undefined;
@@ -1080,6 +1011,178 @@ declare class KimiAgent extends BaseCliAgent {
 }
 type CliOutputInterpreter$4 = CliOutputInterpreter$b;
 type KimiAgentOptions = KimiAgentOptions$1;
+
+type ForgeAgentOptions$1 = BaseCliAgentOptions$1 & {
+    directory?: string;
+    provider?: string;
+    agent?: string;
+    conversationId?: string;
+    sandbox?: string;
+    restricted?: boolean;
+    verbose?: boolean;
+    workflow?: string;
+    event?: string;
+    conversation?: string;
+};
+
+declare class ForgeAgent extends BaseCliAgent {
+    /**
+   * @param {ForgeAgentOptions} [opts]
+   */
+    constructor(opts?: ForgeAgentOptions);
+    opts: ForgeAgentOptions$1;
+    /** @type {AgentCapabilityRegistry} */
+    capabilities: AgentCapabilityRegistry$4;
+    cliEngine: string;
+    issuedConversationId: any;
+    /**
+   * @returns {CliOutputInterpreter}
+   */
+    createOutputInterpreter(): CliOutputInterpreter$3;
+    /**
+   * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
+   */
+    buildCommand(params: {
+        prompt: string;
+        systemPrompt?: string;
+        cwd: string;
+        options: any;
+    }): Promise<{
+        command: string;
+        args: string[];
+        outputFormat: string;
+    }>;
+}
+type AgentCapabilityRegistry$4 = AgentCapabilityRegistry$8;
+type CliOutputInterpreter$3 = CliOutputInterpreter$b;
+type ForgeAgentOptions = ForgeAgentOptions$1;
+
+/**
+ * CLI agent wrapper for OpenCode (https://opencode.ai).
+ *
+ * Shells out to `opencode run` in non-interactive mode with `--format json`
+ * for streaming nd-JSON output. Parses AgentCliEvents from the JSON stream.
+ *
+ * Usage:
+ *   const agent = new OpenCodeAgent({
+ *     model: "anthropic/claude-opus-4-8",
+ *     yolo: true,
+ *   });
+ *   const result = await agent.generate({
+ *     messages: [{ role: "user", content: "Fix the bug" }],
+ *   });
+ */
+declare class OpenCodeAgent extends BaseCliAgent {
+    /**
+     * @param {OpenCodeAgentOptions} [opts]
+     */
+    constructor(opts?: OpenCodeAgentOptions$1);
+    /** @type {OpenCodeAgentOptions} */
+    opts: OpenCodeAgentOptions$1;
+    /** @type {AgentCapabilityRegistry} */
+    capabilities: AgentCapabilityRegistry$3;
+    /** @type {"opencode"} */
+    cliEngine: "opencode";
+    /**
+     * Create an output interpreter that parses OpenCode's nd-JSON streaming format.
+     *
+     * OpenCode `--format json` emits one JSON object per line (verified from source:
+     * packages/opencode/src/cli/cmd/run.ts). The envelope is:
+     *
+     *   { type, timestamp: number, sessionID: string, ...payload }
+     *
+     * Event types:
+     *   step_start  → { part: { type:"step-start", id, sessionID, messageID } }
+     *   text        → { part: { type:"text", text, time: { start, end } } }
+     *   tool_use    → { part: { type:"tool", tool, callID, state: { status, ... } } }
+     *   step_finish → { part: { type:"step-finish", reason, tokens, cost } }
+     *   reasoning   → { part: { type:"reasoning", text } }
+     *   error       → { error: { name, data: { message } } }
+     *
+     * We map these to Smithers' AgentCliEvent union (started | action | completed).
+     *
+     * @returns {CliOutputInterpreter}
+     */
+    createOutputInterpreter(): CliOutputInterpreter$2;
+    /**
+     * Build the CLI command spec for `opencode run`.
+     *
+     * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any }} params
+     */
+    buildCommand(params: {
+        prompt: string;
+        systemPrompt?: string;
+        cwd: string;
+        options: any;
+    }): Promise<{
+        command: string;
+        args: string[];
+        outputFormat: string;
+        env: {
+            OPENCODE_PERMISSION: string;
+        } | undefined;
+        stdoutBannerPatterns: RegExp[];
+        stdoutErrorPatterns: RegExp[];
+    }>;
+}
+type AgentCapabilityRegistry$3 = AgentCapabilityRegistry$6;
+type OpenCodeAgentOptions$1 = OpenCodeAgentOptions$2;
+type CliOutputInterpreter$2 = CliOutputInterpreter$c;
+
+/**
+ * @typedef {BaseCliAgentOptions & {
+ *   agent?: string;
+ *   maxTurns?: number;
+ *   maxPrice?: number;
+ *   maxTokens?: number;
+ *   enabledTools?: string[];
+ *   sessionId?: string;
+ *   continueSession?: boolean;
+ * }} VibeAgentOptions
+ */
+declare class VibeAgent extends BaseCliAgent {
+    /**
+     * @param {VibeAgentOptions} [opts]
+     */
+    constructor(opts?: VibeAgentOptions$1);
+    /** @type {VibeAgentOptions} */
+    opts: VibeAgentOptions$1;
+    /** @type {AgentCapabilityRegistry} */
+    capabilities: AgentCapabilityRegistry$2;
+    /** @type {"vibe"} */
+    cliEngine: "vibe";
+    /** @type {string | undefined} */
+    issuedSessionId: string | undefined;
+    /**
+     * @returns {CliOutputInterpreter}
+     */
+    createOutputInterpreter(): CliOutputInterpreter$1;
+    /**
+     * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any }} params
+     */
+    buildCommand(params: {
+        prompt: string;
+        systemPrompt?: string;
+        cwd: string;
+        options: any;
+    }): Promise<{
+        command: string;
+        args: string[];
+        outputFormat: string;
+    }>;
+}
+type BaseCliAgentOptions = BaseCliAgentOptions$2;
+type AgentCapabilityRegistry$2 = AgentCapabilityRegistry$6;
+type CliOutputInterpreter$1 = CliOutputInterpreter$c;
+type VibeAgentOptions$1 = BaseCliAgentOptions & {
+    agent?: string;
+    maxTurns?: number;
+    maxPrice?: number;
+    maxTokens?: number;
+    enabledTools?: string[];
+    sessionId?: string;
+    continueSession?: boolean;
+};
 
 /**
  * @param {CreateSmithersAgentContractOptions} options
@@ -1180,263 +1283,39 @@ type ElevenLabsTextToSpeechToolset = {
 };
 declare function createElevenLabsTextToSpeechTool(options: ElevenLabsTextToSpeechToolOptions): ElevenLabsTextToSpeechToolset;
 
-/**
- * Configuration options for the AmpAgent.
- */
-type AmpAgentOptions$1 = BaseCliAgentOptions$3 & {
-    /** Visibility setting for the new thread (e.g., private, public) */
-    visibility?: "private" | "public" | "workspace" | "group";
-    /** Path to a specific MCP configuration file */
-    mcpConfig?: string;
-    /** Path to a specific settings file */
-    settingsFile?: string;
-    /** Logging severity level */
-    logLevel?: "error" | "warn" | "info" | "debug" | "audit";
-    /** File path to write logs to */
-    logFile?: string;
-    /**
-     * If true, dangerously allows all commands without asking for permission.
-     * Equivalent to yolo mode but explicit.
-     */
-    dangerouslyAllowAll?: boolean;
-    /** Whether to enable IDE integrations (disabled by default in AmpAgent) */
-    ide?: boolean;
-    /** Whether to enable JetBrains IDE integration */
-    jetbrains?: boolean;
-};
-
 /** @typedef {import("./capability-registry/AgentCapabilityRegistry.ts").AgentCapabilityRegistry} AgentCapabilityRegistry */
 /** @typedef {import("./BaseCliAgent/CliOutputInterpreter.ts").CliOutputInterpreter} CliOutputInterpreter */
+/** @typedef {import("./HermesCliAgentOptions.ts").HermesCliAgentOptions} HermesCliAgentOptions */
 /**
- * Agent implementation that wraps the 'amp' CLI executable.
- * It translates generation requests into CLI arguments and executes the process.
+ * Capability registry for the Hermes Agent CLI.
+ *
+ * @returns {AgentCapabilityRegistry}
  */
-declare class AmpAgent extends BaseCliAgent {
-    /**
-     * Initializes a new AmpAgent with the given options.
-     *
-     * @param {AmpAgentOptions} [opts] - Configuration options for the agent
-     */
-    constructor(opts?: AmpAgentOptions);
-    opts: AmpAgentOptions$1;
-    /** @type {AgentCapabilityRegistry} */
-    capabilities: AgentCapabilityRegistry$4;
-    cliEngine: string;
-    /**
-   * @returns {CliOutputInterpreter}
-   */
-    createOutputInterpreter(): CliOutputInterpreter$3;
-    /**
-   * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
-   */
-    buildCommand(params: {
-        prompt: string;
-        systemPrompt?: string;
-        cwd: string;
-        options: any;
-    }): Promise<{
-        command: string;
-        args: string[];
-        outputFormat: string;
-    }>;
-}
-type AgentCapabilityRegistry$4 = AgentCapabilityRegistry$7;
-type CliOutputInterpreter$3 = CliOutputInterpreter$b;
-type AmpAgentOptions = AmpAgentOptions$1;
-
-type AntigravityAgentOptions$1 = BaseCliAgentOptions$3 & {
-    model?: string;
-    sandbox?: boolean;
-    yolo?: boolean;
-    dangerouslySkipPermissions?: boolean;
-    allowedMcpServerNames?: string[];
-    allowedTools?: string[];
-    /**
-     * @deprecated Antigravity renamed extensions to plugins and manages them via
-     * `agy plugin`; launch-time extension flags are rejected at runtime.
-     */
-    extensions?: string[];
-    /**
-     * @deprecated Use `agy plugin list` outside Smithers. This option is rejected
-     * at runtime because current `agy` builds no longer accept it during launch.
-     */
-    listExtensions?: boolean;
-    /**
-     * Native Antigravity conversation id. Smithers emits `--conversation`.
-     */
-    conversation?: string;
-    /**
-     * Continue the latest Antigravity conversation. Smithers emits `--continue`.
-     */
-    continue?: boolean;
-    /**
-     * @deprecated Use `conversation`; Smithers still maps this to
-     * `--conversation` for compatibility.
-     */
-    resume?: string;
-    /**
-     * @deprecated Conversation listing is interactive via `/resume`; this option
-     * is rejected at runtime.
-     */
-    listSessions?: boolean;
-    /**
-     * @deprecated Conversation deletion is not a supported non-interactive
-     * launch flag; this option is rejected at runtime.
-     */
-    deleteSession?: string;
-    includeDirectories?: string[];
-    /**
-     * @deprecated Current `agy` builds do not expose `--screen-reader`; this
-     * option is rejected at runtime.
-     */
-    screenReader?: boolean;
-    /**
-     * @deprecated Current `agy` builds do not expose `--output-format`; Smithers
-     * reads Antigravity stdout as text.
-     */
-    outputFormat?: "text" | "json" | "stream-json";
-    /**
-     * @deprecated Current `agy` builds do not expose `--debug`; this option is
-     * rejected at runtime.
-     */
-    debug?: boolean;
-    /**
-     * Antigravity CLI binary to execute. The official CLI currently installs
-     * `agy`; this exists for test harnesses and future binary renames.
-     */
-    binary?: string;
-    /**
-     * Path to an isolated Google CLI config root. Smithers passes it as
-     * `--gemini_dir` and `GEMINI_DIR` so Antigravity reads/writes
-     * `<configDir>/antigravity-cli/...` instead of the user's default
-     * `~/.gemini/antigravity-cli/...`.
-     */
-    configDir?: string;
-    /**
-     * Explicit alias for `configDir` when matching the Antigravity CLI flag name.
-     */
-    geminiDir?: string;
-    /**
-     * Google API key for API-billed invocations when supported by the CLI.
-     */
-    apiKey?: string;
-};
-
-declare class AntigravityAgent extends BaseCliAgent {
-    /**
-   * @param {AntigravityAgentOptions} [opts]
-   */
-    constructor(opts?: AntigravityAgentOptions);
-    opts: AntigravityAgentOptions$1;
-    capabilities: AgentCapabilityRegistry$7;
-    cliEngine: string;
-    /**
-   * @returns {CliOutputInterpreter}
-   */
-    createOutputInterpreter(): CliOutputInterpreter$2;
-    /**
-   * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
-   */
-    buildCommand(params: {
-        prompt: string;
-        systemPrompt?: string;
-        cwd: string;
-        options: any;
-    }): Promise<{
-        command: string;
-        args: string[];
-        outputFormat: string;
-        env: {
-            GEMINI_DIR: string | undefined;
-            GEMINI_API_KEY: string;
-        } | undefined;
-    }>;
-}
-type CliOutputInterpreter$2 = CliOutputInterpreter$b;
-type AntigravityAgentOptions = AntigravityAgentOptions$1;
-
-type ForgeAgentOptions$1 = BaseCliAgentOptions$3 & {
-    directory?: string;
-    provider?: string;
-    agent?: string;
-    conversationId?: string;
-    sandbox?: string;
-    restricted?: boolean;
-    verbose?: boolean;
-    workflow?: string;
-    event?: string;
-    conversation?: string;
-};
-
-/** @typedef {import("./capability-registry/AgentCapabilityRegistry.ts").AgentCapabilityRegistry} AgentCapabilityRegistry */
-/** @typedef {import("./BaseCliAgent/BaseCliAgentOptions.ts").BaseCliAgentOptions} BaseCliAgentOptions */
-/** @typedef {import("./BaseCliAgent/CliOutputInterpreter.ts").CliOutputInterpreter} CliOutputInterpreter */
-/** @typedef {import("./ForgeAgentOptions.ts").ForgeAgentOptions} ForgeAgentOptions */
-declare class ForgeAgent extends BaseCliAgent {
-    /**
-   * @param {ForgeAgentOptions} [opts]
-   */
-    constructor(opts?: ForgeAgentOptions);
-    opts: ForgeAgentOptions$1;
-    /** @type {AgentCapabilityRegistry} */
-    capabilities: AgentCapabilityRegistry$2;
-    cliEngine: string;
-    issuedConversationId: any;
-    /**
-   * @returns {CliOutputInterpreter}
-   */
-    createOutputInterpreter(): CliOutputInterpreter$1;
-    /**
-   * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
-   */
-    buildCommand(params: {
-        prompt: string;
-        systemPrompt?: string;
-        cwd: string;
-        options: any;
-    }): Promise<{
-        command: string;
-        args: string[];
-        outputFormat: string;
-    }>;
-}
-type AgentCapabilityRegistry$2 = AgentCapabilityRegistry$7;
-type CliOutputInterpreter$1 = CliOutputInterpreter$b;
-type ForgeAgentOptions = ForgeAgentOptions$1;
-
-/** @typedef {import("./BaseCliAgent/index.ts").BaseCliAgentOptions} BaseCliAgentOptions */
-/** @typedef {import("./capability-registry/index.ts").AgentCapabilityRegistry} AgentCapabilityRegistry */
-/** @typedef {import("./BaseCliAgent/index.ts").CliOutputInterpreter} CliOutputInterpreter */
+declare function createHermesCliCapabilityRegistry(): AgentCapabilityRegistry$1;
 /**
- * @typedef {BaseCliAgentOptions & {
- *   agent?: string;
- *   maxTurns?: number;
- *   maxPrice?: number;
- *   maxTokens?: number;
- *   enabledTools?: string[];
- *   sessionId?: string;
- *   continueSession?: boolean;
- * }} VibeAgentOptions
+ * Hermes Agent (Nous Research) driven through its `hermes` CLI.
+ *
+ * Uses the headless one-shot entry point `hermes -z "<prompt>"`: a single prompt
+ * in, the agent's final response text out, nothing else on stdout/stderr. This
+ * is the CLI coding agent, a peer of Claude Code / Codex — not the Hermes model
+ * API (see {@link HermesAgent} for that). Reach for this to make a workflow
+ * `<Task>` delegate to Hermes itself.
  */
-declare class VibeAgent extends BaseCliAgent {
+declare class HermesCliAgent extends BaseCliAgent {
     /**
-     * @param {VibeAgentOptions} [opts]
+     * @param {HermesCliAgentOptions} [opts]
      */
-    constructor(opts?: VibeAgentOptions$1);
-    /** @type {VibeAgentOptions} */
-    opts: VibeAgentOptions$1;
+    constructor(opts?: HermesCliAgentOptions$1);
+    opts: HermesCliAgentOptions$2;
     /** @type {AgentCapabilityRegistry} */
     capabilities: AgentCapabilityRegistry$1;
-    /** @type {"vibe"} */
-    cliEngine: "vibe";
-    /** @type {string | undefined} */
-    issuedSessionId: string | undefined;
+    cliEngine: string;
     /**
      * @returns {CliOutputInterpreter}
      */
     createOutputInterpreter(): CliOutputInterpreter;
     /**
-     * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any }} params
+     * @param {{ prompt: string; systemPrompt?: string; cwd: string; options: any; }} params
      */
     buildCommand(params: {
         prompt: string;
@@ -1449,18 +1328,9 @@ declare class VibeAgent extends BaseCliAgent {
         outputFormat: string;
     }>;
 }
-type BaseCliAgentOptions = BaseCliAgentOptions$1;
-type AgentCapabilityRegistry$1 = AgentCapabilityRegistry$5;
-type CliOutputInterpreter = CliOutputInterpreter$9;
-type VibeAgentOptions$1 = BaseCliAgentOptions & {
-    agent?: string;
-    maxTurns?: number;
-    maxPrice?: number;
-    maxTokens?: number;
-    enabledTools?: string[];
-    sessionId?: string;
-    continueSession?: boolean;
-};
+type AgentCapabilityRegistry$1 = AgentCapabilityRegistry$8;
+type CliOutputInterpreter = CliOutputInterpreter$b;
+type HermesCliAgentOptions$1 = HermesCliAgentOptions$2;
 
 /**
  * @returns {CliAgentCapabilityReportEntry[]}
@@ -1590,17 +1460,18 @@ declare function createSerperSearchProvider(options: {
 }): GroundedWebSearchProvider;
 type GroundedWebSearchProvider = GroundedWebSearchProvider$5;
 
-type AgentCapabilityRegistry = AgentCapabilityRegistry$7;
-type AgentGenerateOptions = AgentGenerateOptions$4;
+type AgentCapabilityRegistry = AgentCapabilityRegistry$8;
+type AgentGenerateOptions = AgentGenerateOptions$3;
 type AgentLike = AgentLike$1;
 type AgentToolDescriptor = AgentToolDescriptor$1;
 type AnthropicAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = AnthropicAgentOptions$2<CALL_OPTIONS, TOOLS>;
 type OpenAIAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = OpenAIAgentOptions$2<CALL_OPTIONS, TOOLS>;
 type HermesAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = HermesAgentOptions$2<CALL_OPTIONS, TOOLS>;
+type HermesCliAgentOptions = HermesCliAgentOptions$2;
 type PiAgentOptions = PiAgentOptions$2;
 type PiExtensionUiRequest = PiExtensionUiRequest$1;
 type PiExtensionUiResponse = PiExtensionUiResponse$1;
-type OpenCodeAgentOptions = OpenCodeAgentOptions$1;
+type OpenCodeAgentOptions = OpenCodeAgentOptions$2;
 type VibeAgentOptions = VibeAgentOptions$2;
 type SmithersAgentContract = SmithersAgentContract$3;
 type SmithersAgentContractTool = SmithersAgentContractTool$1;
@@ -1625,4 +1496,4 @@ type HttpToolAuth = HttpToolAuth$1;
 type HttpToolInput = HttpToolInput$1;
 type HttpToolOutput = HttpToolOutput$1;
 
-export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, AntigravityAgent, BaseCliAgent, CLI_AGENT_SURFACE_MANIFEST, ClaudeCodeAgent, type CliAgentCapabilityAdapterId, type CliAgentCapabilityDoctorEntry, type CliAgentCapabilityDoctorReport, type CliAgentCapabilityIssue, type CliAgentCapabilityReportEntry, type CliAgentSurfaceManifestEntry, type CliAgentSurfaceOptionMapping, type CliAgentSurfaceResumeContract, type CliAgentUnsupportedFlag, CodexAgent, type CreateHttpToolOptions, ForgeAgent, GeminiAgent, HermesAgent, type HermesAgentOptions, type HttpToolAuth, type HttpToolInput, type HttpToolOutput, type ImageGenerationProvider, type ImageGenerationRequest, type ImageGenerationResult, type ImageGenerationToolOptions, KimiAgent, OpenAIAgent, type OpenAIAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, VibeAgent, type VibeAgentOptions, createBraveSearchProvider, createElevenLabsTextToSpeechTool, createExaSearchProvider, createGroundedWebSearchToolset, createHttpTool, createImageGenerationTool, createSerperSearchProvider, createSmithersAgentContract, createTavilySearchProvider, createTranscriptionTool, formatCliAgentCapabilityDoctorReport, getCliAgentCapabilityDoctorReport, getCliAgentCapabilityReport, getCliAgentSurfaceManifestEntry, hashCapabilityRegistry, listCliAgentSurfaceManifests, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };
+export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, AntigravityAgent, BaseCliAgent, CLI_AGENT_SURFACE_MANIFEST, ClaudeCodeAgent, type CliAgentCapabilityAdapterId, type CliAgentCapabilityDoctorEntry, type CliAgentCapabilityDoctorReport, type CliAgentCapabilityIssue, type CliAgentCapabilityReportEntry, type CliAgentSurfaceManifestEntry, type CliAgentSurfaceOptionMapping, type CliAgentSurfaceResumeContract, type CliAgentUnsupportedFlag, CodexAgent, type CreateHttpToolOptions, ForgeAgent, GeminiAgent, HermesAgent, type HermesAgentOptions, HermesCliAgent, type HermesCliAgentOptions, type HttpToolAuth, type HttpToolInput, type HttpToolOutput, type ImageGenerationProvider, type ImageGenerationRequest, type ImageGenerationResult, type ImageGenerationToolOptions, KimiAgent, OpenAIAgent, type OpenAIAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, VibeAgent, type VibeAgentOptions, createBraveSearchProvider, createElevenLabsTextToSpeechTool, createExaSearchProvider, createGroundedWebSearchToolset, createHermesCliCapabilityRegistry, createHttpTool, createImageGenerationTool, createSerperSearchProvider, createSmithersAgentContract, createTavilySearchProvider, createTranscriptionTool, formatCliAgentCapabilityDoctorReport, getCliAgentCapabilityDoctorReport, getCliAgentCapabilityReport, getCliAgentSurfaceManifestEntry, hashCapabilityRegistry, listCliAgentSurfaceManifests, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };

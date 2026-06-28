@@ -338,6 +338,27 @@ export const CLI_AGENT_SURFACE_MANIFEST = [
     },
   },
   {
+    id: "hermes",
+    displayName: "Hermes",
+    binary: "hermes",
+    packageExport: "HermesCliAgent",
+    defaultOutputFormat: "text",
+    docsUrls: ["https://hermes-agent.nousresearch.com/docs/reference/cli-commands"],
+    emittedFlags: ["--model", "--provider", "-c", "-r", "-z"],
+    supportedFlags: [],
+    unsupportedFlags: [],
+    optionMappings: [
+      { option: "provider", flag: "--provider" },
+      { option: "continueSession", flag: "-c" },
+      { option: "resumeSession", flag: "-r" },
+    ],
+    resume: {
+      kind: "flag",
+      emitted: ["-r", "-c"],
+      notes: "`-r <session>` resumes a specific Hermes session id; `-c [name]` continues the most recent or a named session.",
+    },
+  },
+  {
     id: "amp",
     displayName: "Amp",
     binary: "amp",

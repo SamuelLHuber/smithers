@@ -9,6 +9,7 @@ import {
   ClaudeCodeAgent,
   CodexAgent,
   ForgeAgent,
+  HermesCliAgent,
   KimiAgent,
   OpenCodeAgent,
   PiAgent,
@@ -175,6 +176,21 @@ async function buildDeclaredSurfaceCommands() {
         event: "event",
         conversation: "conversation.json",
         directory: REPO_ROOT,
+      }),
+      params: commonParams(),
+    },
+    {
+      id: "hermes",
+      agent: new HermesCliAgent({
+        model: "m",
+        provider: "openrouter",
+      }),
+      params: commonParams({ resumeSession: "session" }),
+    },
+    {
+      id: "hermes",
+      agent: new HermesCliAgent({
+        continueSession: "latest",
       }),
       params: commonParams(),
     },

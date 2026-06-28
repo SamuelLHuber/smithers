@@ -18,6 +18,7 @@
  * @template [TOOLS=import("ai").ToolSet]
  * @typedef {import("./HermesAgentOptions.ts").HermesAgentOptions<CALL_OPTIONS, TOOLS>} HermesAgentOptions
  */
+/** @typedef {import("./HermesCliAgentOptions.ts").HermesCliAgentOptions} HermesCliAgentOptions */
 /** @typedef {import("./PiAgentOptions.ts").PiAgentOptions} PiAgentOptions */
 /** @typedef {import("./BaseCliAgent/PiExtensionUiRequest.ts").PiExtensionUiRequest} PiExtensionUiRequest */
 /** @typedef {import("./BaseCliAgent/PiExtensionUiResponse.ts").PiExtensionUiResponse} PiExtensionUiResponse */
@@ -52,6 +53,7 @@ export { hashCapabilityRegistry } from "./capability-registry/index.js";
 export { AnthropicAgent } from "./AnthropicAgent.js";
 export { OpenAIAgent } from "./OpenAIAgent.js";
 export { HermesAgent } from "./HermesAgent.js";
+export { HermesCliAgent, createHermesCliCapabilityRegistry } from "./HermesCliAgent.js";
 export { AmpAgent } from "./AmpAgent.js";
 export { AntigravityAgent } from "./AntigravityAgent.js";
 export { ClaudeCodeAgent } from "./ClaudeCodeAgent.js";

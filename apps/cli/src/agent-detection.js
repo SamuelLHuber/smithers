@@ -96,6 +96,17 @@ const DETECTORS = [
         apiKeys: ["MISTRAL_API_KEY"],
         setupHint: "Install the Vibe CLI and run `vibe --setup` to configure an API key, or set `MISTRAL_API_KEY`.",
     },
+    {
+        id: "hermes",
+        displayName: "Hermes",
+        binary: "hermes",
+        authSignals: (homeDir) => [
+            join(homeDir, ".hermes", "config.yaml"),
+            join(homeDir, ".hermes"),
+        ],
+        apiKeys: [],
+        setupHint: "Install the Hermes Agent CLI and run `hermes` to configure a provider.",
+    },
 ];
 const ROLE_PREFERENCES = {
     spec: ["claude", "codex", "opencode"],
