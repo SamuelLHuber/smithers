@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 
 import { linkPiSkills } from "./linkPiSkills.js";
 import { registerHermesMcp } from "./registerHermesMcp.js";
+import { registerHermesPlugin } from "./registerHermesPlugin.js";
 import { registerOpenClawMcp } from "./registerOpenClawMcp.js";
 
 /** Agent ids handled here that the underlying `mcp add` / `skills add` does not reach. */
@@ -38,7 +39,7 @@ function detectRunner() {
  * @param {string} [opts.cwd] Working directory for project-scoped installs.
  * @param {string[]} [opts.agents] Optional `--agent` filter; when set, only these ids are wired.
  * @param {string} [opts.homeDir] Home directory override (for tests).
- * @returns {Array<{ agent: string; registered?: boolean; linked?: string[]; path: string; reason?: string }>}
+ * @returns {Array<{ agent: string; registered?: boolean; installedPlugin?: boolean; enabled?: boolean; linked?: string[]; path: string; reason?: string }>}
  */
 export function wireExtraAgents({
   kind,
@@ -54,7 +55,13 @@ export function wireExtraAgents({
   const results = [];
 
   if (kind === "mcp") {
-    if (wants("hermes")) results.push(registerHermesMcp({ name, command, args, homeDir }));
+    if (wants("hermes")) {
+      // The bare MCP entry is the floor (tools work even with user plugins
+      // disabled); the native plugin is the rich surface (slash commands,
+      // status injector, lifecycle hooks, bundled skill, approval buttons).
+      results.push(registerHermesMcp({ name, command, args, homeDir }));
+      results.push(registerHermesPlugin({ homeDir }));
+    }
     if (wants("openclaw")) results.push(registerOpenClawMcp({ name, command, args, homeDir }));
   } else if (kind === "skills") {
     if (wants("pi")) results.push(linkPiSkills({ global, cwd, homeDir }));

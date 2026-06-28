@@ -8,6 +8,7 @@ import { linkPiSkills } from "../src/agent-wiring/linkPiSkills.js";
 import { mcpAddFallbackMessage } from "../src/agent-wiring/mcpAddFallbackMessage.js";
 import { parseAgentWiringArgv } from "../src/agent-wiring/parseAgentWiringArgv.js";
 import { registerHermesMcp } from "../src/agent-wiring/registerHermesMcp.js";
+import { registerHermesPlugin } from "../src/agent-wiring/registerHermesPlugin.js";
 import { registerOpenClawMcp } from "../src/agent-wiring/registerOpenClawMcp.js";
 import { wireExtraAgents } from "../src/agent-wiring/wireExtraAgents.js";
 
@@ -100,6 +101,56 @@ describe("registerHermesMcp", () => {
   });
 });
 
+describe("registerHermesPlugin", () => {
+  test("skips when Hermes is not installed", () => {
+    const home = tempHome();
+    const result = registerHermesPlugin({ homeDir: home });
+    expect(result).toMatchObject({ agent: "Hermes", installedPlugin: false, reason: "not-detected" });
+  });
+
+  test("installs the plugin tree, gateway hook, and enables it", () => {
+    const home = tempHome();
+    mkdirSync(join(home, ".hermes"), { recursive: true });
+    const result = registerHermesPlugin({ homeDir: home });
+    expect(result.installedPlugin).toBe(true);
+    expect(result.enabled).toBe(true);
+    // Plugin files landed.
+    expect(existsSync(join(home, ".hermes", "plugins", "smithers", "plugin.yaml"))).toBe(true);
+    expect(existsSync(join(home, ".hermes", "plugins", "smithers", "__init__.py"))).toBe(true);
+    expect(existsSync(join(home, ".hermes", "plugins", "smithers", "skills", "orchestrate", "SKILL.md"))).toBe(true);
+    // Gateway hook landed.
+    expect(existsSync(join(home, ".hermes", "hooks", "smithers", "HOOK.yaml"))).toBe(true);
+    // Enabled in config.
+    const config = parse(readFileSync(join(home, ".hermes", "config.yaml"), "utf8"));
+    expect(config.plugins.enabled).toContain("smithers");
+  });
+
+  test("preserves existing config and drops a stale disabled entry", () => {
+    const home = tempHome();
+    mkdirSync(join(home, ".hermes"), { recursive: true });
+    writeFileSync(
+      join(home, ".hermes", "config.yaml"),
+      "model: hermes-4\nplugins:\n  enabled: [other]\n  disabled: [smithers]\n",
+    );
+    registerHermesPlugin({ homeDir: home });
+    const config = parse(readFileSync(join(home, ".hermes", "config.yaml"), "utf8"));
+    expect(config.model).toBe("hermes-4");
+    expect(config.plugins.enabled).toEqual(expect.arrayContaining(["other", "smithers"]));
+    expect(config.plugins.disabled).not.toContain("smithers");
+  });
+
+  test("is idempotent and replaces a stale plugin file", () => {
+    const home = tempHome();
+    mkdirSync(join(home, ".hermes", "plugins", "smithers"), { recursive: true });
+    const stale = join(home, ".hermes", "plugins", "smithers", "stale.py");
+    writeFileSync(stale, "# stale\n");
+    registerHermesPlugin({ homeDir: home });
+    registerHermesPlugin({ homeDir: home });
+    expect(existsSync(stale)).toBe(false);
+    expect(existsSync(join(home, ".hermes", "plugins", "smithers", "plugin.yaml"))).toBe(true);
+  });
+});
+
 describe("registerOpenClawMcp", () => {
   test("skips when OpenClaw is not installed", () => {
     const home = tempHome();
@@ -164,7 +215,10 @@ describe("wireExtraAgents", () => {
     mkdirSync(join(home, ".hermes"), { recursive: true });
     mkdirSync(join(home, ".openclaw"), { recursive: true });
     const results = wireExtraAgents({ kind: "mcp", agents: ["hermes"], homeDir: home });
-    expect(results.map((r) => r.agent)).toEqual(["Hermes"]);
+    // Hermes gets both the MCP entry (floor) and the native plugin (ceiling).
+    expect(results.map((r) => r.agent)).toEqual(["Hermes", "Hermes"]);
+    expect(results.some((r) => r.registered)).toBe(true);
+    expect(results.some((r) => r.installedPlugin)).toBe(true);
   });
 
   test("skills kind wires Pi", () => {
