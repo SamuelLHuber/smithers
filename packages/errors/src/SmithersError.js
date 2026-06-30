@@ -35,6 +35,7 @@ export class SmithersError extends Error {
         const docsUrl = getSmithersErrorDocsUrl(code);
         const isOptionsObject = causeOrOptions &&
             typeof causeOrOptions === "object" &&
+            !(causeOrOptions instanceof Error) &&
             (Object.prototype.hasOwnProperty.call(causeOrOptions, "cause") ||
                 Object.prototype.hasOwnProperty.call(causeOrOptions, "includeDocsUrl") ||
                 Object.prototype.hasOwnProperty.call(causeOrOptions, "name"));
