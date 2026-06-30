@@ -18,7 +18,14 @@ function resolveReactPeer(specifier) {
  * @param {Map<string, string>} cache
  */
 export async function bundleGatewayUiEntry(config, cache) {
-    const cached = cache.get(String(config.entry));
+    // Dev mode: SMITHERS_GATEWAY_UI_NO_CACHE rebuilds the UI bundle on every
+    // request so edits to the entry OR any of its imported modules show up on a
+    // plain page reload — no gateway restart needed. Default (unset) keeps the
+    // build-once cache for production serving.
+    const noCache = !!process.env.SMITHERS_GATEWAY_UI_NO_CACHE
+        && process.env.SMITHERS_GATEWAY_UI_NO_CACHE !== "0"
+        && process.env.SMITHERS_GATEWAY_UI_NO_CACHE !== "false";
+    const cached = noCache ? undefined : cache.get(String(config.entry));
     if (cached) {
         return cached;
     }
@@ -55,6 +62,8 @@ export async function bundleGatewayUiEntry(config, cache) {
     }
     const output = result.outputs.find((entry) => entry.path.endsWith(".js")) ?? result.outputs[0];
     const body = await output.text();
-    cache.set(String(config.entry), body);
+    if (!noCache) {
+        cache.set(String(config.entry), body);
+    }
     return body;
 }
