@@ -80,6 +80,9 @@ function histogramBuckets(metricState) {
         return buckets;
     }
     for (const [boundary, count] of metricState.buckets) {
+        // Effect appends a +Inf boundary to every histogram; the explicit +Inf line below emits it.
+        if (!Number.isFinite(boundary))
+            continue;
         buckets.push({ boundary, count });
     }
     return buckets.sort((left, right) => left.boundary - right.boundary);
@@ -100,7 +103,7 @@ function defaultPrometheusMetricLines(definition) {
         ? definition.defaultLabels.map((labels) => Object.entries(labels))
         : [[]];
     if (definition.type === "histogram") {
-        const boundaries = definition.boundaries ?? [];
+        const boundaries = (definition.boundaries ?? []).filter(Number.isFinite);
         return labelSets.flatMap((labelSet) => {
             const baseLabels = labelSet;
             return [
