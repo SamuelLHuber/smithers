@@ -27,7 +27,9 @@ export async function recordUsage(
   const price = modelPrices(options.summary.model);
   const costUsd =
     (options.summary.inputTokens * price.input) / 1_000_000 +
-    (options.summary.outputTokens * price.output) / 1_000_000;
+    (options.summary.outputTokens * price.output) / 1_000_000 +
+    (options.summary.cacheCreationTokens * price.cacheWrite) / 1_000_000 +
+    (options.summary.cacheReadTokens * price.cacheRead) / 1_000_000;
   if (options.sessionHash) {
     // This request was already forwarded to Anthropic and its response streamed
     // to the client — the cost is real money spent. Record it UNCONDITIONALLY.

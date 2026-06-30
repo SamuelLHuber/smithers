@@ -5,4 +5,6 @@ export interface UsageSummary {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
 }

@@ -9,7 +9,6 @@ function escapeLabel(value: string): string {
 interface TokensRow {
   repo: string;
   model: string;
-  kind: string;
   input_tokens: number;
   output_tokens: number;
 }
@@ -47,7 +46,7 @@ export async function handleMetrics(request: Request, env: ReviewWorkerEnv): Pro
 
   const tokensRes = await env.DB
     .prepare(
-      "SELECT repo, model, kind, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens FROM usage_events GROUP BY repo, model, kind",
+      "SELECT repo, model, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens FROM usage_events GROUP BY repo, model",
     )
     .all<TokensRow>();
   const spendRes = await env.DB

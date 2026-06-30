@@ -12,6 +12,8 @@ export function parseUsageFromSse(stream: string): UsageSummary | null {
   let model = "";
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheCreationTokens = 0;
+  let cacheReadTokens = 0;
   let saw = false;
   const frames = stream.split(/\n\n+/);
   for (const frame of frames) {
@@ -33,19 +35,37 @@ export function parseUsageFromSse(stream: string): UsageSummary | null {
       saw = true;
       const message = (payload.message ?? {}) as {
         model?: string;
-        usage?: { input_tokens?: number; output_tokens?: number };
+        usage?: {
+          input_tokens?: number;
+          output_tokens?: number;
+          cache_creation_input_tokens?: number;
+          cache_read_input_tokens?: number;
+        };
       };
       if (typeof message.model === "string") model = message.model;
       const usage = message.usage ?? {};
       if (typeof usage.input_tokens === "number") inputTokens = usage.input_tokens;
       if (typeof usage.output_tokens === "number") outputTokens = usage.output_tokens;
+      if (typeof usage.cache_creation_input_tokens === "number")
+        cacheCreationTokens = usage.cache_creation_input_tokens;
+      if (typeof usage.cache_read_input_tokens === "number")
+        cacheReadTokens = usage.cache_read_input_tokens;
     } else if (eventName === "message_delta") {
       saw = true;
-      const usage = (payload.usage ?? {}) as { input_tokens?: number; output_tokens?: number };
+      const usage = (payload.usage ?? {}) as {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      };
       if (typeof usage.input_tokens === "number") inputTokens = usage.input_tokens;
       if (typeof usage.output_tokens === "number") outputTokens = usage.output_tokens;
+      if (typeof usage.cache_creation_input_tokens === "number")
+        cacheCreationTokens = usage.cache_creation_input_tokens;
+      if (typeof usage.cache_read_input_tokens === "number")
+        cacheReadTokens = usage.cache_read_input_tokens;
     }
   }
   if (!saw) return null;
-  return { model, inputTokens, outputTokens };
+  return { model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens };
 }
