@@ -1121,7 +1121,8 @@ export function createSemanticToolDefinitions(options = {}) {
                     if (run.status !== "running" &&
                         run.status !== "waiting-approval" &&
                         run.status !== "waiting-event" &&
-                        run.status !== "waiting-timer") {
+                        run.status !== "waiting-timer" &&
+                        run.status !== "waiting-quota") {
                         return {
                             runId: input.runId,
                             intervalMs,
