@@ -587,10 +587,15 @@ export class WorkflowDriver {
             // Work is still in flight — consume the next completion instead of
             // suspending the run. Deadline-style waits keep their deadline so a
             // retry backoff or timer elsewhere in the graph still fires on time.
+            const timerGap = reason._tag === "Timer" ? reason.resumeAtMs - Date.now() : 0;
             const deadlineMs = reason._tag === "RetryBackoff"
                 ? Math.max(0, reason.waitMs)
                 : reason._tag === "Timer"
-                    ? Math.max(0, reason.resumeAtMs - Date.now())
+                    ? // An already-elapsed absolute timer would yield a 0ms deadline that
+                      // resolves immediately, busy-spinning until a sibling completes. Block
+                      // purely on the in-flight promises instead so a real completion drives
+                      // the next decision.
+                      timerGap > 0 ? timerGap : null
                     : null;
             return this.nextCompletionDecision(deadlineMs);
         }
