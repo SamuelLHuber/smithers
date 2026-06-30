@@ -120,14 +120,28 @@ async function ensureMcpClient() {
   if (mcpClient) {
     return mcpClient;
   }
-  mcpTransport = new StdioClientTransport({
+  // Assign the module globals only after a successful connect, so a transient
+  // startup failure (bun not on PATH, slow spawn, cli not built) doesn't poison
+  // them with a dead client that every later call would short-circuit to.
+  const transport = new StdioClientTransport({
     command: "bun",
     args: ["run", resolveCliPath(), "--mcp"],
     cwd: process.cwd(),
     stderr: "pipe",
   });
-  mcpClient = new Client({ name: "smithers-pi-extension", version: "1.0.0" });
-  await mcpClient.connect(mcpTransport);
+  const client = new Client({ name: "smithers-pi-extension", version: "1.0.0" });
+  try {
+    await client.connect(transport);
+  } catch (error) {
+    try {
+      await transport.close();
+    } catch {
+      // ignore close failures during cleanup
+    }
+    throw error;
+  }
+  mcpTransport = transport;
+  mcpClient = client;
   return mcpClient;
 }
 
