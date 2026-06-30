@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createSession } from "./createSession";
 import { fetchOidcToken } from "./fetchOidcToken";
@@ -86,8 +87,12 @@ async function main(): Promise<void> {
   });
   if (inference.mode === "codex-subscription") {
     // Materialize the ChatGPT credential into an isolated CODEX_HOME the codex
-    // CLI reads, so the secret never has to be the user's real ~/.codex.
-    const codexHome = process.env.CODEX_HOME?.trim() || join(workspace, ".smithers-codex-home");
+    // CLI reads, so the secret never has to be the user's real ~/.codex. Keep it
+    // outside the workspace so the untrusted PR tree the review agents traverse
+    // can never read auth.json.
+    const codexHome =
+      process.env.CODEX_HOME?.trim() ||
+      join(process.env.RUNNER_TEMP?.trim() || tmpdir(), ".smithers-codex-home");
     mkdirSync(codexHome, { recursive: true });
     writeFileSync(join(codexHome, "auth.json"), process.env.CODEX_AUTH_JSON ?? "", { mode: 0o600 });
     process.env.CODEX_HOME = codexHome;
