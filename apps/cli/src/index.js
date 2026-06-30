@@ -1471,7 +1471,8 @@ const upOptions = z.object({
     superviseMaxConcurrent: z.number().int().min(1).default(3).describe("With --supervise, max runs resumed per poll"),
     port: z.number().int().min(1).default(7331).describe("HTTP server port (with --serve)"),
     host: z.string().default("127.0.0.1").describe("HTTP server bind address (with --serve)"),
-    authToken: z.string().optional().describe("Bearer token for HTTP auth (or set SMITHERS_API_KEY)"),
+    authToken: z.string().optional().describe("Bearer token for HTTP auth (or set SMITHERS_API_KEY); required to bind a non-loopback --host"),
+    insecure: z.boolean().default(false).describe("Allow binding a non-loopback --host with NO auth (exposes unauthenticated approve/deny/cancel control of the run — dangerous)"),
     metrics: z.boolean().default(true).describe("Expose /metrics endpoint (with --serve)"),
     backend: z.enum(["sqlite", "pglite", "postgres"]).optional().describe("Storage backend for workflows using openSmithersBackend"),
 });
@@ -1596,7 +1597,7 @@ const approveArgs = z.object({
 });
 const approveOptions = z.object({
     node: z.string().optional().describe("Node ID (required if multiple pending)"),
-    iteration: z.number().int().min(0).default(0).describe("Loop iteration number"),
+    iteration: z.number().int().min(0).optional().describe("Loop iteration number (defaults to the pending gate's iteration)"),
     note: z.string().optional().describe("Approval/denial note"),
     by: z.string().optional().describe("Name or identifier of the approver"),
 });
@@ -2078,6 +2079,18 @@ async function executeUpCommand(c, workflowPath, options, fail) {
                     });
                 }
             }
+            // The serve app exposes mutating run-control endpoints
+            // (POST /approve, /deny, /cancel) and only enforces auth when a
+            // token is set. Mirror the gateway guard: refuse a non-loopback
+            // bind without a token unless --insecure is passed.
+            const serveAuthToken = options.authToken ?? process.env.SMITHERS_API_KEY;
+            if (!GATEWAY_LOOPBACK_HOSTS.has(options.host) && !serveAuthToken && !options.insecure) {
+                return fail({
+                    code: "SERVE_INSECURE_BIND",
+                    message: `Refusing to bind the run-control HTTP server to non-loopback host "${options.host}" without authentication. This would expose unauthenticated approve/deny/cancel control of the run to the network. Set --auth-token <token> (or SMITHERS_API_KEY), bind to 127.0.0.1, or pass --insecure to override.`,
+                    exitCode: 4,
+                });
+            }
             const { createServeApp } = await import("@smithers-orchestrator/server/serve");
             const effectiveRunId = runId ?? `run-${Date.now()}`;
             const serveApp = createServeApp({
@@ -2085,7 +2098,7 @@ async function executeUpCommand(c, workflowPath, options, fail) {
                 adapter: adapter,
                 runId: effectiveRunId,
                 abort,
-                authToken: options.authToken ?? process.env.SMITHERS_API_KEY,
+                authToken: serveAuthToken,
                 metrics: options.metrics,
             });
             const bunServer = Bun.serve({
@@ -5367,6 +5380,7 @@ const cli = Cli.create({
                     return fail({ code: "NO_PENDING_APPROVALS", message: `No pending approvals for run: ${c.args.runId}`, exitCode: 4 });
                 }
                 let nodeId = c.options.node;
+                let target;
                 if (!nodeId) {
                     if (pending.length > 1) {
                         const nodeList = pending.map((a) => `  ${a.nodeId} (iteration ${a.iteration})`).join("\n");
@@ -5376,9 +5390,16 @@ const cli = Cli.create({
                             exitCode: 4,
                         });
                     }
-                    nodeId = pending[0].nodeId;
+                    target = pending[0];
+                    nodeId = target.nodeId;
                 }
-                await Effect.runPromise(approveNode(adapter, c.args.runId, nodeId, c.options.iteration, c.options.note, c.options.by));
+                else {
+                    target = pending.find((a) => a.nodeId === nodeId);
+                }
+                // Default to the actual iteration of the pending gate so approvals
+                // inside loops (iteration > 0) work without --iteration.
+                const iteration = c.options.iteration ?? target?.iteration ?? 0;
+                await Effect.runPromise(approveNode(adapter, c.args.runId, nodeId, iteration, c.options.note, c.options.by));
                 const runAfterApproval = await adapter.getRun(c.args.runId);
                 const isDetached = !runAfterApproval ||
                     runAfterApproval.status === "waiting-event" ||
@@ -5504,6 +5525,7 @@ const cli = Cli.create({
                     return fail({ code: "NO_PENDING_APPROVALS", message: `No pending approvals for run: ${c.args.runId}`, exitCode: 4 });
                 }
                 let nodeId = c.options.node;
+                let target;
                 if (!nodeId) {
                     if (pending.length > 1) {
                         const nodeList = pending.map((a) => `  ${a.nodeId} (iteration ${a.iteration})`).join("\n");
@@ -5513,9 +5535,16 @@ const cli = Cli.create({
                             exitCode: 4,
                         });
                     }
-                    nodeId = pending[0].nodeId;
+                    target = pending[0];
+                    nodeId = target.nodeId;
                 }
-                await Effect.runPromise(denyNode(adapter, c.args.runId, nodeId, c.options.iteration, c.options.note, c.options.by));
+                else {
+                    target = pending.find((a) => a.nodeId === nodeId);
+                }
+                // Default to the actual iteration of the pending gate so denials
+                // inside loops (iteration > 0) work without --iteration.
+                const iteration = c.options.iteration ?? target?.iteration ?? 0;
+                await Effect.runPromise(denyNode(adapter, c.args.runId, nodeId, iteration, c.options.note, c.options.by));
                 return c.ok({ runId: c.args.runId, nodeId, status: "denied" }, {
                     cta: {
                         commands: [
