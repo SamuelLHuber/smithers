@@ -42,6 +42,7 @@ export * from "./gatewayRoutes/streamDevTools.js";
 export * from "./ServerOptions.js";
 
 const runs = new Map();
+const SERVER_LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost", "::ffff:127.0.0.1"]);
 const DEFAULT_MAX_BODY_BYTES = 1_048_576;
 const DEFAULT_MAX_BODY_JSON_DEPTH = 32;
 const DEFAULT_SSE_HEARTBEAT_MS = 10_000;
@@ -644,8 +645,16 @@ function eventLoopNow() {
  */
 function startServerInternal(opts = {}) {
     const port = opts.port ?? 7331;
+    const host = opts.host ?? "127.0.0.1";
     const serverDb = opts.db ?? null;
     const authToken = opts.authToken ?? process.env.SMITHERS_API_KEY;
+    // The HTTP control plane can launch, resume, cancel, signal, approve, and
+    // deny arbitrary workflow runs (and load arbitrary workflow modules).
+    // Refuse to publish that to the network without authentication: a
+    // non-loopback bind requires a token (or an explicit insecure override).
+    if (!SERVER_LOOPBACK_HOSTS.has(host) && !authToken && !opts.insecure) {
+        throw new SmithersError("SERVER_INSECURE_BIND", `Refusing to bind the smithers server to non-loopback host "${host}" without authentication. This would expose a full-control, unauthenticated control plane to the network. Set authToken (or SMITHERS_API_KEY), bind to 127.0.0.1, or pass insecure: true to override.`, { host });
+    }
     const maxBodyBytes = opts.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
     const rootDir = opts.rootDir ? resolve(opts.rootDir) : undefined;
     const allowNetwork = Boolean(opts.allowNetwork);
@@ -657,6 +666,7 @@ function startServerInternal(opts = {}) {
     const serverAdapter = serverDb ? new SmithersDb(serverDb) : null;
     logInfo("starting smithers server", {
         port,
+        host,
         rootDir: rootDir ?? null,
         allowNetwork,
         hasServerDb: Boolean(serverDb),
@@ -1227,7 +1237,7 @@ function startServerInternal(opts = {}) {
             runs.delete(runId);
         }
     });
-    server.listen(port);
+    server.listen(port, host);
     return server;
 }
 /**
@@ -1236,6 +1246,7 @@ function startServerInternal(opts = {}) {
 export function startServerEffect(opts = {}) {
     return Effect.sync(() => startServerInternal(opts)).pipe(Effect.annotateLogs({
         port: opts.port ?? 7331,
+        host: opts.host ?? "127.0.0.1",
         rootDir: opts.rootDir ?? "",
         allowNetwork: Boolean(opts.allowNetwork),
     }), Effect.withLogSpan("server:start"));
