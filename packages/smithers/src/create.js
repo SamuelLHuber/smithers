@@ -12,7 +12,7 @@ import React from "react";
 import { createSmithersContext, SmithersContext as GlobalSmithersContext } from "@smithers-orchestrator/react-reconciler/context";
 import { Approval as BaseApproval, Workflow as BaseWorkflow, Task as BaseTask, Sequence as BaseSequence, Parallel as BaseParallel, MergeQueue as BaseMergeQueue, Branch as BaseBranch, Loop as BaseLoop, Ralph as BaseRalph, ContinueAsNew as BaseContinueAsNew, continueAsNew as baseContinueAsNew, Worktree as BaseWorktree, Sandbox as BaseSandbox, Signal as BaseSignal, Timer as BaseTimer, } from "@smithers-orchestrator/components";
 import { zodToTable } from "@smithers-orchestrator/db/zodToTable";
-import { zodToCreateTableSQL, syncZodTableSchema } from "@smithers-orchestrator/db/zodToCreateTableSQL";
+import { zodToCreateTableSQL, syncZodTableSchema, syncZodTableSchemaPostgres } from "@smithers-orchestrator/db/zodToCreateTableSQL";
 import { camelToSnake } from "@smithers-orchestrator/db/utils/camelToSnake";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 import { POSTGRES } from "@smithers-orchestrator/db/dialect";
@@ -509,16 +509,23 @@ export async function createSmithersPostgres(schemas, opts) {
         // Postgres-typed DDL derived from the Zod schemas.
         await adapter.internalStorage.ensureSchema();
         if (schemas.input) {
-            await client.query({ text: zodToCreateTableSQL("input", schemas.input, { isInput: true, dialect: POSTGRES }) });
+            await syncZodTableSchemaPostgres(client, "input", schemas.input, { isInput: true, dialect: POSTGRES });
         }
         else {
             await client.query({ text: `CREATE TABLE IF NOT EXISTS "input" (run_id TEXT PRIMARY KEY, payload TEXT)` });
+            const cols = await client.query({
+                text: `SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'input'`,
+            });
+            const names = new Set(cols.rows.map((row) => row.column_name));
+            if (names.size === 1 && names.has("run_id")) {
+                await client.query({ text: `ALTER TABLE "input" ADD COLUMN IF NOT EXISTS payload TEXT` });
+            }
         }
         for (const [name, zodSchema] of Object.entries(schemas)) {
             if (name === "input")
                 continue;
             const tableName = camelToSnake(name);
-            await client.query({ text: zodToCreateTableSQL(tableName, zodSchema, { dialect: POSTGRES }) });
+            await syncZodTableSchemaPostgres(client, tableName, zodSchema, { dialect: POSTGRES });
         }
         // 5. Build the public API around the descriptor + table metadata.
         built = buildSmithersApi({

@@ -123,3 +123,39 @@ export function syncZodTableSchema(sqlite, tableName, schema, opts) {
         }
     }
 }
+/**
+ * Async PostgreSQL/PGlite equivalent of {@link syncZodTableSchema}. It creates
+ * the table when missing and adds newly introduced Zod columns when the table
+ * already exists from an older workflow schema.
+ *
+ * @param {{ query: (config: { text: string; values?: ReadonlyArray<unknown> } | string, values?: ReadonlyArray<unknown>) => Promise<unknown> }} client
+ * @param {string} tableName
+ * @param {any} schema
+ * @param {{ isInput?: boolean; dialect?: import("./dialect.js").Dialect }} [opts]
+ */
+export async function syncZodTableSchemaPostgres(client, tableName, schema, opts) {
+    await client.query({ text: zodToCreateTableSQL(tableName, schema, opts) });
+    if (!opts?.isInput) {
+        try {
+            await client.query({
+                text: `CREATE TABLE IF NOT EXISTS _smithers_output_schema_columns (table_name TEXT NOT NULL, column_name TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (table_name, column_name))`,
+            });
+            for (const { name, kind } of zodSchemaColumns(schema)) {
+                await client.query({
+                    text: `INSERT INTO _smithers_output_schema_columns (table_name, column_name, kind) VALUES ($1, $2, $3) ON CONFLICT(table_name, column_name) DO UPDATE SET kind = excluded.kind`,
+                    values: [tableName, name, kind],
+                });
+            }
+        }
+        catch {
+            // Schema metadata is best-effort; table creation remains the source of truth.
+        }
+    }
+    const quotedTable = quoteIdentifier(tableName);
+    const dialect = opts?.dialect ?? SQLITE;
+    for (const { name, sqliteType } of zodSchemaColumns(schema)) {
+        await client.query({
+            text: `ALTER TABLE ${quotedTable} ADD COLUMN IF NOT EXISTS ${quoteIdentifier(name)} ${columnType(dialect, sqliteType)}`,
+        });
+    }
+}
