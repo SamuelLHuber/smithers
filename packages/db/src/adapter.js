@@ -765,7 +765,7 @@ export class SmithersDb {
     */
     acquireTransactionTurn() {
         return Effect.tryPromise({
-            try: async () => {
+            try: async (signal) => {
                 const state = getSqliteTransactionState(resolveSqliteClientKey(this.db));
                 let release;
                 const gate = new Promise((resolve) => {
@@ -774,6 +774,18 @@ export class SmithersDb {
                 const previous = state.tail.catch(() => undefined);
                 state.tail = previous.then(() => gate);
                 this.transactionTail = state.tail;
+                // The serialization chain is advanced synchronously above, but the
+                // `release` handle is only handed to the caller (which wires the
+                // `Effect.ensuring(releaseTurn)` finalizer) on success. If this fiber
+                // is interrupted while queued behind `previous`, the caller never
+                // receives `release`, so resolve `gate` on abort to keep the turn
+                // from leaking and deadlocking every later DB op on this client.
+                if (signal.aborted) {
+                    release();
+                }
+                else {
+                    signal.addEventListener("abort", () => release(), { once: true });
+                }
                 await previous;
                 return release;
             },
