@@ -136,10 +136,10 @@ function readPackageVersion() {
     }
 }
 /**
- * Read the backend marker from the nearest .smithers/backend.json anchor above
- * `cwd`. Returns the backend string (e.g. "pglite") or undefined if there is no
- * marker or it cannot be parsed. Used by executeUpCommand to redirect workflow.db
- * to the correct store after a `smithers migrate` has moved runs to pglite.
+ * Read the backend marker from the nearest .smithers anchor above `cwd`.
+ * Returns the backend string (e.g. "pglite") or undefined if there is no marker
+ * or it cannot be parsed. Used by executeUpCommand to redirect workflow.db to
+ * the correct store after a `smithers migrate` has moved runs to pglite.
  * @param {string} cwd
  * @returns {string | undefined}
  */
@@ -150,12 +150,14 @@ function readBackendMarkerForCwd(cwd) {
     while (true) {
         // Check this directory before deciding whether to stop. This ensures
         // workspaces in /tmp (outside $HOME) and workspaces AT $HOME both find
-        // their .smithers/backend.json on the first iteration.
-        const markerPath = `${dir}/.smithers/backend.json`;
-        if (existsSync(markerPath)) {
+        // their .smithers markers on the first iteration.
+        const backendMarkerPath = `${dir}/.smithers/backend.json`;
+        const migratedMarkerPath = `${dir}/.smithers/migrated.json`;
+        for (const markerPath of [backendMarkerPath, migratedMarkerPath]) {
+            if (!existsSync(markerPath)) continue;
             try {
                 const parsed = JSON.parse(readFileSync(markerPath, "utf8"));
-                const backend = parsed?.backend;
+                const backend = parsed?.backend ?? parsed?.target?.backend;
                 return typeof backend === "string" && backend.length > 0 ? backend.toLowerCase() : undefined;
             }
             catch {
@@ -1981,7 +1983,7 @@ async function executeUpCommand(c, workflowPath, options, fail) {
         // open the pglite backend and redirect workflow.db to it so new runs
         // land in the correct store instead of the leftover sqlite file.
         let pgliteBackendApi;
-        if (!options.backend) {
+        if (!options.backend && !process.env.SMITHERS_BACKEND) {
             const markerBackend = readBackendMarkerForCwd(process.cwd());
             if (markerBackend === "pglite") {
                 try {
