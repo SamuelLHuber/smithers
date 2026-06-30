@@ -89,6 +89,10 @@ export function runRpcCommandEffect(command, args, options) {
             stdio: ["pipe", "pipe", "pipe"],
         });
         child.unref();
+        // A fast-exiting or early-closing child can make writes to stdin emit an
+        // async EPIPE/ECONNRESET. Without a listener Node escalates it to an
+        // uncaught exception that tears down the whole orchestrator process.
+        child.stdin?.on("error", () => { });
         const rl = createInterface({ input: child.stdout });
         /**
     * @param {string} message
@@ -215,7 +219,7 @@ export function runRpcCommandEffect(command, args, options) {
                 terminateChild();
                 return;
             }
-            child.stdin.write(`${JSON.stringify(normalized)}\n`);
+            child.stdin.write(`${JSON.stringify(normalized)}\n`, () => { });
         };
         /**
     * @param {string} line
@@ -352,7 +356,7 @@ export function runRpcCommandEffect(command, args, options) {
             handleError(makeAgentCliError("Child process stdin is not available; cannot send prompt payload."));
             return;
         }
-        child.stdin.write(`${JSON.stringify(promptPayload)}\n`);
+        child.stdin.write(`${JSON.stringify(promptPayload)}\n`, () => { });
         return Effect.sync(() => {
             try {
                 rl.close();
