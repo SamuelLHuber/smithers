@@ -243,6 +243,22 @@ export function scheduleTasks(plan, states, descriptors, ralphState, retryWait, 
                     failed: catchFailed || finallyStatus.failed,
                 };
             }
+            case "ralph": {
+                const state = ralphState.get(node.id);
+                const done = node.until || state?.done;
+                if (!done)
+                    return { terminal: false, failed: false };
+                for (const child of node.children) {
+                    const result = inspect(child, options);
+                    if (!result.terminal)
+                        return { terminal: false, failed: false };
+                    if (result.failed)
+                        return { terminal: true, failed: true };
+                }
+                return { terminal: true, failed: false };
+            }
+            case "continue-as-new":
+                return { terminal: false, failed: false };
             default:
                 return { terminal: true, failed: false };
         }
@@ -285,6 +301,11 @@ export function scheduleTasks(plan, states, descriptors, ralphState, retryWait, 
                     collectFailureKeys(child, options);
                 }
                 for (const child of node.finallyChildren) {
+                    collectFailureKeys(child, options);
+                }
+                return;
+            case "ralph":
+                for (const child of node.children) {
                     collectFailureKeys(child, options);
                 }
                 return;
