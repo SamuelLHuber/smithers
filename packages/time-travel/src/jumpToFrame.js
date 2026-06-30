@@ -659,6 +659,11 @@ export async function jumpToFrame(input) {
         /** @type {Array<{ cwd: string; targetPointer: string; previousPointer: string | null }>} */
         const revertedSandboxes = [];
         let paused = false;
+        // Set true the instant the durable jump transaction commits. After that
+        // point a failure (resume loop / hook) must NOT roll back sandboxes,
+        // restore the reconciler, or mark the run failed: the rewind already
+        // succeeded and is committed.
+        let committed = false;
 
         try {
           await runStepHook(input.hooks, "before", "pause-event-loop");
@@ -862,6 +867,20 @@ export async function jumpToFrame(input) {
                 }),
               ))();
 
+          // The durable jump is committed. Mark success and build the result up
+          // front so any post-commit failure below cannot discard the rewind.
+          committed = true;
+          auditResult = "success";
+          successResult = {
+            ok: true,
+            newFrameNo: targetFrameNo,
+            revertedSandboxes: sandboxPlan.length,
+            deletedFrames: dbStats.deletedFrames,
+            deletedAttempts: dbStats.deletedAttempts,
+            invalidatedDiffs: dbStats.invalidatedDiffs,
+            durationMs: Math.max(0, nowMs() - startedAtMs),
+          };
+
           // In-memory broadcast is non-fatal: the durable event row is already
           // committed, so subscribers can reconcile from seq on reconnect.
           if (input.emitEvent) {
@@ -888,17 +907,6 @@ export async function jumpToFrame(input) {
           paused = false;
           await runStepHook(input.hooks, "after", "resume-event-loop");
 
-          auditResult = "success";
-          successResult = {
-            ok: true,
-            newFrameNo: targetFrameNo,
-            revertedSandboxes: sandboxPlan.length,
-            deletedFrames: dbStats.deletedFrames,
-            deletedAttempts: dbStats.deletedAttempts,
-            invalidatedDiffs: dbStats.invalidatedDiffs,
-            durationMs: Math.max(0, nowMs() - startedAtMs),
-          };
-
           await emitLog(input.onLog, "info", "jumpToFrame succeeded", {
             runId,
             caller,
@@ -914,6 +922,28 @@ export async function jumpToFrame(input) {
 
           return successResult;
         } catch (error) {
+          if (committed) {
+            // The durable jump already committed. A post-commit failure (resume
+            // loop or hook) must not revert sandboxes, restore the reconciler, or
+            // mark the run failed. Resume best-effort, log, and return success.
+            if (paused) {
+              try {
+                await input.resumeRunLoop?.();
+              } catch (resumeError) {
+                await emitLog(input.onLog, "warn", "jumpToFrame resume after commit failed", {
+                  runId,
+                  caller,
+                  error: formatError(resumeError),
+                });
+              }
+            }
+            await emitLog(input.onLog, "warn", "jumpToFrame post-commit step failed", {
+              runId,
+              caller,
+              error: formatError(error),
+            });
+            return /** @type {JumpResult} */ (successResult);
+          }
           const rollbackSandboxErrors = await rollbackSandboxPointers(
             revertedSandboxes,
             revertToPointerImpl,
