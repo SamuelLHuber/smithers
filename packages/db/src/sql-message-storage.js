@@ -22,6 +22,36 @@ import { camelToSnake } from "./utils/camelToSnake.js";
  */
 
 const ATTR_DB_SYSTEM_NAME = "db.system.name";
+/**
+ * @param {unknown} cause
+ */
+function formatSqlCause(cause) {
+    if (cause instanceof Error && cause.message) {
+        return cause.message;
+    }
+    if (typeof cause === "string") {
+        return cause;
+    }
+    try {
+        return JSON.stringify(cause);
+    }
+    catch {
+        return String(cause);
+    }
+}
+/**
+ * @param {string} dialect
+ * @param {string} operation
+ * @param {string} statement
+ * @param {unknown} cause
+ */
+function formatSqlErrorMessage(dialect, operation, statement, cause) {
+    const compactStatement = statement.replace(/\s+/g, " ").trim();
+    const clippedStatement = compactStatement.length > 500
+        ? `${compactStatement.slice(0, 497)}...`
+        : compactStatement;
+    return `Failed to execute ${dialect} ${operation}: ${formatSqlCause(cause)}; sql=${clippedStatement}`;
+}
 const CREATE_TABLE_STATEMENTS = [
     `CREATE TABLE IF NOT EXISTS _smithers_runs (
     run_id TEXT PRIMARY KEY,
@@ -527,7 +557,10 @@ function createConnection(sqlite) {
             return Effect.succeed(transformRows ? transformRows(rows) : rows);
         }
         catch (cause) {
-            return Effect.fail(new SqlError({ cause, message: "Failed to execute SQLite statement" }));
+            return Effect.fail(new SqlError({
+                cause,
+                message: formatSqlErrorMessage("SQLite", "statement", statement, cause),
+            }));
         }
     });
     return {
@@ -542,7 +575,10 @@ function createConnection(sqlite) {
                 return Effect.succeed((query.values(...params) ?? []));
             }
             catch (cause) {
-                return Effect.fail(new SqlError({ cause, message: "Failed to execute SQLite values statement" }));
+                return Effect.fail(new SqlError({
+                    cause,
+                    message: formatSqlErrorMessage("SQLite", "values statement", statement, cause),
+                }));
             }
         }),
         executeUnprepared: (statement, params, transformRows) => execute(statement, params, transformRows),
@@ -610,7 +646,10 @@ function createPostgresConnection(pgConn) {
             const rows = result.rows ?? [];
             return transformRows ? transformRows(rows) : rows;
         },
-        catch: (cause) => new SqlError({ cause, message: "Failed to execute Postgres statement" }),
+        catch: (cause) => new SqlError({
+            cause,
+            message: formatSqlErrorMessage("Postgres", "statement", statement, cause),
+        }),
     });
     return {
         execute: (statement, params, transformRows) => run(statement, params, transformRows),
@@ -625,7 +664,10 @@ function createPostgresConnection(pgConn) {
                 });
                 return result.rows ?? [];
             },
-            catch: (cause) => new SqlError({ cause, message: "Failed to execute Postgres values statement" }),
+            catch: (cause) => new SqlError({
+                cause,
+                message: formatSqlErrorMessage("Postgres", "values statement", statement, cause),
+            }),
         }),
         executeUnprepared: (statement, params, transformRows) => run(statement, params, transformRows),
         executeStream: (statement, params, transformRows) => Stream.fromIterableEffect(run(statement, params, transformRows)),
