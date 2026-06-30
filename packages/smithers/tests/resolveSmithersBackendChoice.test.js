@@ -336,6 +336,26 @@ describe("resolveSmithersBackendChoice", () => {
     });
   });
 
+  test("explicit sqlite override can recover a migrated workspace with a missing target", async () => {
+    const cwd = makeWorkspace("resolver-migrated-marker-explicit-sqlite");
+    seedSqliteRuns(cwd);
+    writeFileSync(join(cwd, ".smithers", "migrated.json"), JSON.stringify({ migratedAt: 1, target: { backend: "pglite" } }));
+
+    await expect(resolveSmithersBackendChoice({ cwd, env: { SMITHERS_BACKEND: "sqlite" } })).resolves.toMatchObject({
+      backend: "sqlite",
+      source: "env",
+      sqlite: { runCount: 1 },
+      migratedMarker: true,
+    });
+
+    await expect(resolveSmithersBackendChoice({ cwd, backend: "sqlite", env: {} })).resolves.toMatchObject({
+      backend: "sqlite",
+      source: "options",
+      sqlite: { runCount: 1 },
+      migratedMarker: true,
+    });
+  });
+
   test("backend.json selects backend but does not suppress migration or conflict guards", async () => {
     const sqliteOnly = makeWorkspace("resolver-marker-sqlite-blocks");
     writeFileSync(join(sqliteOnly, ".smithers", "backend.json"), JSON.stringify({ backend: "pglite" }));

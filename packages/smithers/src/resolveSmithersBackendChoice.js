@@ -409,7 +409,8 @@ export async function resolveSmithersBackendChoice(opts = {}) {
     const migratedTargetBackend = marker && (migratedMarker.backend ?? markerBackend) !== "sqlite"
         ? /** @type {"pglite" | "postgres" | undefined} */ (migratedMarker.backend ?? markerBackend)
         : undefined;
-    if (migratedTargetBackend) {
+    const explicitSqliteOverride = backend === "sqlite" && (explicitBackend === "sqlite" || envBackend === "sqlite");
+    if (migratedTargetBackend && !explicitSqliteOverride) {
         const unexpectedPopulated = populated.filter((store) => store.backend !== migratedTargetBackend && store.backend !== "sqlite");
         if (unexpectedPopulated.length > 0) {
             throw backendConflictError({ populated });

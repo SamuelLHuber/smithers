@@ -320,6 +320,61 @@ test("post-migration smithers workflow run writes new runs to pglite without SMI
   expect(JSON.stringify(psSqlite.json)).not.toContain("post-migrate-up-run");
 }, 300_000); // 5 min: pglite migration (~30s) + pglite workflow run (~30s) + ps reads
 
+test("post-migration smithers up honors SMITHERS_BACKEND=sqlite instead of marker pglite", () => {
+  const repo = createTempRepo();
+  const env = { HOME: repo.dir };
+  seedLegacyStore(repo);
+
+  repo.write(".smithers/workflows/up-env-sqlite.tsx", [
+    "/** @jsxImportSource smithers-orchestrator */",
+    'import { createSmithers } from "smithers-orchestrator";',
+    'import { z } from "zod";',
+    "",
+    "const { Workflow, Task, smithers, outputs } = createSmithers({",
+    "  output: z.object({ result: z.string() }),",
+    "});",
+    "",
+    "export default smithers(() => (",
+    '  <Workflow name="up-env-sqlite">',
+    '    <Task id="result" output={outputs.output}>',
+    "      {() => ({ result: \"env-sqlite-write-path-ok\" })}",
+    "    </Task>",
+    "  </Workflow>",
+    "));",
+    "",
+  ].join("\n"));
+
+  const migrate = runSmithers(["migrate", "--to", "pglite"], {
+    cwd: repo.dir,
+    env,
+    format: "json",
+    timeoutMs: 120_000,
+  });
+  expect(migrate.exitCode).toBe(0);
+  expect(repo.exists(".smithers/backend.json")).toBe(true);
+
+  const run = runSmithers(
+    ["up", ".smithers/workflows/up-env-sqlite.tsx", "--run-id", "env-sqlite-up-run"],
+    {
+      cwd: repo.dir,
+      env: { ...env, SMITHERS_BACKEND: "sqlite" },
+      format: "json",
+      timeoutMs: 120_000,
+    },
+  );
+  expect(run.exitCode).toBe(0);
+  expect(`${run.stdout}\n${run.stderr}`).not.toContain("BACKEND_OPEN_FAILED");
+
+  const psSqlite = runSmithers(["ps", "--all"], {
+    cwd: repo.dir,
+    env: { ...env, SMITHERS_BACKEND: "sqlite" },
+    format: "json",
+    timeoutMs: 30_000,
+  });
+  expect(psSqlite.exitCode).toBe(0);
+  expect(JSON.stringify(psSqlite.json)).toContain("env-sqlite-up-run");
+}, 240_000);
+
 test("authoritative pglite open failure stops workflow run instead of writing stale sqlite", () => {
   const repo = createTempRepo();
   const env = { HOME: repo.dir };
