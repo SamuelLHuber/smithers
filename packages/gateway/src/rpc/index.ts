@@ -107,6 +107,10 @@ export type LaunchRunRequest = {
   options?: {
     runId?: string;
     idempotencyKey?: string;
+    maxConcurrency?: number;
+    allowNetwork?: boolean;
+    maxOutputBytes?: number;
+    toolTimeoutMs?: number;
   };
 };
 
@@ -601,11 +605,15 @@ export const GATEWAY_RPC_DEFINITIONS: readonly GatewayRpcDefinition[] = [
       options: objectSchema({
         runId: stringSchema("Optional caller-supplied run id."),
         idempotencyKey: stringSchema("Optional caller idempotency key."),
+        maxConcurrency: integerSchema("Maximum parallel workflow tasks.", 1),
+        allowNetwork: booleanSchema("Allow network access for workflow tools."),
+        maxOutputBytes: integerSchema("Maximum captured output bytes per tool/process.", 1),
+        toolTimeoutMs: integerSchema("Maximum wall-clock time per tool call in milliseconds.", 1),
       }, [], "Launch options."),
     }, ["workflow"]),
     responseSchema: objectSchema({ runId, workflow }, ["runId", "workflow"]),
     errors: ["InvalidRequest", "InvalidInput", "Unauthorized", "Forbidden", "Internal"],
-    exampleRequest: { workflow: "deploy", input: { sha: "abc123" }, options: { runId: "deploy-abc123" } },
+    exampleRequest: { workflow: "deploy", input: { sha: "abc123" }, options: { runId: "deploy-abc123", allowNetwork: true } },
     exampleResponse: { runId: "deploy-abc123", workflow: "deploy" },
   },
   {

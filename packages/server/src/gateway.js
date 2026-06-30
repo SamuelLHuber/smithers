@@ -2950,7 +2950,7 @@ export class Gateway {
    * @param {Record<string, unknown>} input
    * @param {RunStartAuthContext} auth
    * @param {string} [runId]
-   * @param {{ resume?: boolean }} [options]
+   * @param {{ resume?: boolean; maxConcurrency?: number; allowNetwork?: boolean; maxOutputBytes?: number; toolTimeoutMs?: number }} [options]
    */
     async startRun(workflowKey, input, auth, runId = crypto.randomUUID(), options) {
         const entry = this.workflows.get(workflowKey);
@@ -2994,6 +2994,10 @@ export class Gateway {
             runId,
             input,
             resume: options?.resume,
+            maxConcurrency: options?.maxConcurrency,
+            allowNetwork: options?.allowNetwork,
+            maxOutputBytes: options?.maxOutputBytes,
+            toolTimeoutMs: options?.toolTimeoutMs,
             signal: abort.signal,
             onProgress: (event) => this.handleSmithersEvent(event),
             cliAgentToolsDefault: this.defaults?.cliAgentTools,
@@ -4588,13 +4592,20 @@ export class Gateway {
                     throw error;
                 }
                 const options = asObject(params.options) ?? {};
+                const runOptions = {
+                    resume: false,
+                    maxConcurrency: asNumber(options.maxConcurrency),
+                    allowNetwork: asBoolean(options.allowNetwork),
+                    maxOutputBytes: asNumber(options.maxOutputBytes),
+                    toolTimeoutMs: asNumber(options.toolTimeoutMs),
+                };
                 return responseOk(frame.id, await this.startRun(workflowKey, input, {
                     triggeredBy: connection.userId ?? "gateway",
                     scopes: [...connection.scopes],
                     role: connection.role ?? "operator",
                     tokenId: connection.tokenId ?? null,
                     subscribeConnection: connection,
-                }, asString(params.runId) ?? asString(options.runId) ?? crypto.randomUUID(), { resume: false }));
+                }, asString(params.runId) ?? asString(options.runId) ?? crypto.randomUUID(), runOptions));
             }
             case "resumeRun": {
                 const runId = asString(params.runId);
