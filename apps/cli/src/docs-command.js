@@ -22,7 +22,7 @@ export function normalizeDocsVersion(version) {
  */
 export function versionedDocsUrl(file, version) {
     const normalizedVersion = normalizeDocsVersion(version);
-    const stem = file === "llms-full.txt" ? "llms-full" : file === "llms.txt" ? "llms" : file.replace(/\.txt$/, "");
+    const stem = file.replace(/\.txt$/, "");
     return `${LATEST_DOCS_BASE_URL}/${stem}-v${normalizedVersion}.txt`;
 }
 
