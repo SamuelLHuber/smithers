@@ -403,7 +403,12 @@
               "rpc/cron-delete",
               "rpc/cron-run"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "tab": "Changelog",
+        "groups": [
           {
             "group": "Changelog",
             "pages": [
