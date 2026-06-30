@@ -171,9 +171,7 @@ function stepLabel(step: string) {
 }
 
 function collectStreamEvents(events: Array<Record<string, unknown>>) {
-  return events
-    .map((frame) => (isRecord(frame.payload) ? frame.payload : frame))
-    .filter((frame): frame is Record<string, unknown> => isRecord(frame));
+  return events.filter((frame): frame is Record<string, unknown> => isRecord(frame));
 }
 
 function deriveTickets(discovered: TicketSummary[], events: Array<Record<string, unknown>>): TicketView[] {
@@ -244,7 +242,7 @@ function App() {
   const ticketsOutput = useGatewayNodeOutput({ runId: activeRunId, nodeId: "tickets", iteration: 0 });
   const streamEvents = useMemo(() => {
     return collectStreamEvents(stream.events as Array<Record<string, unknown>>)
-      .filter((event) => !activeRunId || asString(event.runId) === activeRunId);
+      .filter((frame) => !activeRunId || asString((isRecord(frame.payload) ? frame.payload : {}).runId) === activeRunId);
   }, [activeRunId, stream.events]);
   const discoveredTickets = useMemo(() => extractDiscoveredTickets(ticketsOutput.data), [ticketsOutput.data]);
   const tickets = useMemo(() => deriveTickets(discoveredTickets, streamEvents), [discoveredTickets, streamEvents]);
