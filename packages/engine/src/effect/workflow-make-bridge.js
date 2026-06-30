@@ -1,6 +1,6 @@
 import * as Workflow from "@effect/workflow/Workflow";
 import * as WorkflowEngine from "@effect/workflow/WorkflowEngine";
-import { Effect, Exit, Layer, Schema, Scope } from "effect";
+import { Cause, Effect, Exit, Layer, Schema, Scope } from "effect";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { SmithersDb } from "@smithers-orchestrator/db/adapter";
 /**
@@ -209,7 +209,7 @@ export async function runWorkflowWithMakeBridge(workflow, opts, executeBody) {
             if (Exit.isSuccess(result.exit)) {
                 return result.exit.value;
             }
-            throw result.exit;
+            throw Cause.squash(result.exit.cause);
         }
         const run = await Effect.runPromise(adapter.getRun(lastRunIdRef.current));
         const status = run?.status === "waiting-approval" ||
