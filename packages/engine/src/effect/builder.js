@@ -326,7 +326,14 @@ function encodeSchema(schema, value) {
  */
 function resolveHandleIteration(handle, ctx) {
     if (handle.loopId) {
-        return ctx.iterations?.[handle.loopId] ?? 0;
+        const scoped = ctx.iterations?.[handle.loopId];
+        if (typeof scoped === "number") {
+            return scoped;
+        }
+        // Unnamed loops get an engine-synthesized id (e.g. "ralph-...") that the
+        // builder cannot predict, so it stamps "__loop__" and the per-loop key is
+        // absent. Fall back to the engine's current loop iteration.
+        return typeof ctx.iteration === "number" ? ctx.iteration : 0;
     }
     return 0;
 }
